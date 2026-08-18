@@ -1,0 +1,6 @@
+# The image is toolchain-only: it contains no project files at all.
+# Everything reaches the container via the bind mount at run time, so the build
+# context should be effectively empty. Without this, docker ships the 5.4 GB DEM
+# archive and the entire FastEddy source tree to the daemon on every build.
+*
+!Dockerfile

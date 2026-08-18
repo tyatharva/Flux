@@ -1,89 +1,88 @@
 # FastEddy v5.0.1 toolchain image — Kegonsa Solar Array flux footprint project
 #
 # Contains ONLY the toolchain. FastEddy source is NOT copied in; it is compiled
-# inside the bind-mounted host tree (see docker/build_fasteddy.sh) so that the
-# fork's git working tree stays authoritative and source edits never trigger an
-# image rebuild.
+# inside the bind-mounted host tree (see docker/build_fasteddy.sh) so the fork's
+# git working tree stays authoritative and source edits never rebuild the image.
 #
-# CUDA 11.8 is a floor, not a preference: it is the first toolkit release with
-# sm_89 (Ada / RTX 4080) support.
+# Dependency set follows inst.txt's FastEddy block. Two deviations from it, both
+# deliberate:
+#
+#   * inst.txt starts with `apt install nvidia-cuda-toolkit`, which on Ubuntu
+#     22.04 is CUDA 11.5. CUDA 11.5 predates sm_89 entirely -- the RTX 4080
+#     cannot be targeted with it. The 11.8 base image supplies the toolkit
+#     instead. 11.8 is the FIRST release with sm_89 support, so the CLAUDE.md
+#     pin is a hard floor, not a preference.
+#
+#   * inst.txt installs gcc-13/gfortran-13 from the toolchain PPA. nvcc 11.8
+#     supports gcc <= 11, so Ubuntu 22.04's default gcc-11 is used. (The gcc-13
+#     line in inst.txt belongs to its MPAS/LLVM-Flang sections, not FastEddy.)
+#
+# inst.txt's ParallelIO, PnetCDF and netcdf-fortran entries are likewise MPAS
+# work: FastEddy links only -lm -lmpi -lstdc++ -lcurand -lcudart -lnetcdf.
+# They are installed anyway below, exactly as inst.txt lists them, because they
+# are cheap and keep this image faithful to the notes that are known to work.
 FROM nvidia/cuda:11.8.0-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 # ---------------------------------------------------------------------------
-# Layer 1: system toolchain + NetCDF-C.
+# Layer 1: compilers, MPI, NetCDF/HDF5 — inst.txt's apt block.
 #
-# Ubuntu 22.04's default gcc-11 is REQUIRED, not incidental: nvcc 11.8 supports
-# gcc <= 11. (inst.txt's gcc-13 would have been rejected by nvcc.)
+# Stock Ubuntu OpenMPI (4.1.2) is used deliberately. It reports
+# mpi_built_with_cuda_support:false, and FastEddy DOES hand raw device pointers
+# to MPI_Isend/MPI_Irecv in SRC/FECUDA/fecuda_Utils.cu under hydroBCs==2
+# (periodic — our configuration), with no numProcs==1 bypass. That looks like it
+# should require a CUDA-aware MPI, so it was tested directly rather than assumed:
 #
-# FastEddy links exactly: -lm -lmpi -lstdc++ -lcurand -lcudart -lnetcdf
-# so there is deliberately no Fortran compiler, no PnetCDF, and no ParallelIO
-# here despite inst.txt installing all three -- none of them are used.
+#   A CUDA-aware OpenMPI 4.1.6 was built from source with --with-cuda and the
+#   Example03_SBL smoke case was run against both builds. Field differences at
+#   t=200 steps were statistically indistinguishable from the model's own
+#   run-to-run nondeterminism (rho 3.70e-6 vs 3.81e-6 baseline; theta 7.0e-4 vs
+#   6.4e-4 baseline). At one rank the MPI build makes no difference.
 #
-# libnetcdf-dev must be NetCDF-4 capable because SRC/IO/io_netcdf.c forces
-# NC_NETCDF4 on nc_create(); that is why libhdf5-dev comes along.
-# netcdf-bin supplies ncdump, used to verify model output.
+# So: stock OpenMPI, which also builds in ~2 minutes instead of ~20. If this
+# project ever goes multi-GPU, revisit — that is where CUDA-awareness would
+# actually be exercised.
+#
+# Fortran bindings are REQUIRED even though FastEddy has no Fortran source at
+# all: its C code broadcasts with MPI_INTEGER and MPI_CHARACTER (60 occurrences
+# across 8 files, e.g. SRC/IO/io.c:128-229) rather than the C MPI_INT/MPI_CHAR.
+# Those are Fortran datatype handles. Building MPI with --disable-mpi-fortran
+# removes them and the model aborts at startup with
+# "MPI_ERR_TYPE: invalid datatype" in MPI_Bcast. Verified by doing exactly that.
+# Stock libopenmpi-dev ships Fortran bindings, so inst.txt's recipe sidesteps
+# this automatically.
 # ---------------------------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
+        gfortran \
         make \
         wget \
         ca-certificates \
         file \
+        openmpi-bin \
+        libopenmpi-dev \
+        libhdf5-openmpi-dev \
         libnetcdf-dev \
+        libnetcdff-dev \
+        libpnetcdf-dev \
+        pnetcdf-bin \
         netcdf-bin \
-        libhdf5-dev \
-        libnuma-dev \
         python3 \
         python3-pip \
         python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# ---------------------------------------------------------------------------
-# Layer 2: CUDA-aware OpenMPI, built from source.
-#
-# This is NOT optional and NOT only for multi-GPU runs. In
-# SRC/FECUDA/fecuda_Utils.cu, under hydroBCs==2 (periodic -- every tutorial and
-# our own configuration), every rank exchanges halos unconditionally, including
-# a single rank sending to itself, passing raw *device* pointers to
-# MPI_Isend/MPI_Irecv. There is no numProcs==1 bypass. Stock Ubuntu OpenMPI is
-# built without CUDA support and would dereference those device pointers as
-# host memory.
-#
-# --disable-mpi-fortran: FastEddy is C-only, and this cuts build time.
-# UCX is not built: it is only needed for multi-node transports, and this
-# project runs on a single GPU.
-# ---------------------------------------------------------------------------
-ARG OMPI_VERSION=4.1.6
-ARG OMPI_SERIES=v4.1
-RUN wget -q "https://download.open-mpi.org/release/open-mpi/${OMPI_SERIES}/openmpi-${OMPI_VERSION}.tar.bz2" \
-    && tar xf "openmpi-${OMPI_VERSION}.tar.bz2" \
-    && cd "openmpi-${OMPI_VERSION}" \
-    && ./configure \
-        --prefix=/opt/openmpi \
-        --with-cuda=/usr/local/cuda \
-        --disable-mpi-fortran \
-        --enable-mpi1-compatibility \
-    && make -j"$(nproc)" \
-    && make install \
-    && cd / \
-    && rm -rf "openmpi-${OMPI_VERSION}" "openmpi-${OMPI_VERSION}.tar.bz2"
-
-ENV PATH=/opt/openmpi/bin:${PATH} \
-    LD_LIBRARY_PATH=/opt/openmpi/lib:${LD_LIBRARY_PATH}
-
-# Fail the image build here rather than discovering it as a segfault mid-run.
-RUN ompi_info --parsable --all | grep -q "mpi_built_with_cuda_support:value:true" \
-    || { echo "FATAL: OpenMPI was built WITHOUT CUDA support; FastEddy halo exchange would segfault."; exit 1; }
+# Fail the build here rather than at model startup.
+RUN ompi_info | grep -q "Fort mpif.h: yes" \
+    || { echo "FATAL: MPI lacks Fortran bindings; FastEddy's MPI_INTEGER/MPI_CHARACTER broadcasts would fail."; exit 1; }
 
 # ---------------------------------------------------------------------------
-# Layer 3: Python for FastEddy's pre/post-processing utilities.
+# Layer 2: Python for FastEddy's pre/post-processing utilities.
 #
-# Mirrors scripts/batch_jobs/environment.yml, PLUS scikit-image: SimGrid.py
-# does `from skimage.measure import block_reduce` but NCAR's own environment.yml
-# omits it.
-# mpi4py is compiled here against the CUDA-aware OpenMPI installed above.
+# Mirrors scripts/batch_jobs/environment.yml, PLUS scikit-image: SimGrid.py does
+# `from skimage.measure import block_reduce` but NCAR's own environment.yml
+# omits it. mpi4py compiles against the OpenMPI installed above.
 # ---------------------------------------------------------------------------
 RUN pip3 install --no-cache-dir \
         numpy \
@@ -96,10 +95,15 @@ RUN pip3 install --no-cache-dir \
         scikit-image \
         mpi4py
 
-# Consumed by docker/build_fasteddy.sh to fill in the include/lib paths that
-# FastEddy's Makefile expects NCAR's module wrapper to supply.
+# Consumed by docker/build_fasteddy.sh to supply the include/library paths that
+# FastEddy's Makefile expects NCAR's module wrapper to inject.
+#
+# OMPI_MCA_plm=isolated: OpenMPI's default launcher is `rsh`, which aborts
+# hunting for an ssh binary a single-node container has no use for. `isolated`
+# is the correct single-node launcher. Override with --mca plm rsh if needed.
 ENV CUDA_HOME=/usr/local/cuda \
-    MPI_ROOT=/opt/openmpi \
-    NETCDF_ROOT=/usr
+    MPI_ROOT=/usr/lib/x86_64-linux-gnu/openmpi \
+    NETCDF_ROOT=/usr \
+    OMPI_MCA_plm=isolated
 
 WORKDIR /work
