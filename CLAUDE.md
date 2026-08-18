@@ -18,7 +18,7 @@ zero transfer to other sites, and that is an accepted, stated limitation. Do not
 - Single NVIDIA RTX 4080 (16 GB), Ada, `sm_89`
 - CUDA **11.8** (do not "upgrade" — other versions have failed to build)
 - FastEddy **v5.0.1**
-- FastEddy runs in **fp32**. Confirm before trusting numerics; see Conventions.
+- FastEddy runs in **fp32**. **Confirmed (Stage 0b, 2026-08-17)** — see Conventions.
 
 ## Repository layout
 
@@ -136,8 +136,17 @@ alignment, diurnal tilt, ~20% shortwave leaving as electricity.
 
 Backward LPDM, run offline on saved FastEddy output.
 
-- Save 3 velocity components, **z < 400 m only**, ~5 s cadence (2 s if validation demands)
-- ~93 MB/snapshot full column; ~11-33 GB per run for the subset
+- Save 3 velocity components + SGS TKE, ~5 s cadence (2 s if validation demands)
+- **Measured (Stage 0a): FastEddy writes 19 3-D fields = 76 B/cell, and exposes NO way to
+  select output fields or a vertical subset.** Only 5 IO parameters exist (`ioOutputMode`,
+  `inFile`, `outFileBase`, `frqOutput`, `towerIOSelector`); binary mode walks the same
+  variable list as NetCDF, so it is the same data in a different container.
+- Real numbers for the production grid (7.73 M cells): **0.59 GB per dump**, so a 30-min
+  window at 5 s cadence is **213 GB** — not the 11-33 GB originally budgeted, which assumed
+  a `z < 400 m` subset that does not exist.
+- The LPDM needs only u, v, w, SGS TKE = 16 B/cell. Getting there is a Stage 3 problem:
+  field selection + fp16 on write targets <30 GB per window. Note 12 of the 76 B/cell are
+  `xPos`/`yPos`/`zPos`, rewritten identically every dump.
 - Pipeline per run: LES -> scratch -> LPDM -> 2-D footprint (~1 MB) -> **delete fields**
 - Peak storage is one run. Never accumulate.
 - SGS component is a Langevin model driven by FastEddy's output SGS TKE (Weil et al. 2004)
@@ -163,8 +172,16 @@ Backward LPDM, run offline on saved FastEddy output.
 
 - **Particle state in fp64** even though velocity fields are fp32. Trajectory integration
   accumulates roundoff over thousands of steps.
-- Verify FastEddy precision with:
-  `grep -rn "typedef.*\(float\|double\)" Source/ | head` and `ncdump -h <out>.nc | head -30`
+- **Precision — Stage 0b PASSED, 2026-08-17.** FastEddy is hardwired fp32 with no build
+  switch and no typedef to change: bare `float` on every prognostic field, `MPI_FLOAT` in
+  the halo exchange (`SRC/FECUDA/fecuda_Utils.cu`), `NC_FLOAT` in the writer
+  (`SRC/IO/io_netcdf.c:697,927`). Confirmed in output — all 29 variables of a tutorial dump
+  are `float`. Nothing to change; this is recorded so it is never re-litigated.
+- **FastEddy is NOT bitwise reproducible.** Identical binary, identical container, two runs
+  of the same case differ by ~1e-4 relative in velocity and ~7e-4 K in theta after only 200
+  steps. Consequences: never diff two runs expecting equality; a corpus run can be
+  reproduced statistically but not exactly; and any "did my change matter?" test must
+  compare against this nondeterminism floor, not against zero.
 - Any grid change re-checks the `(N + 6) % tB == 0` rule before running.
 - Commit at every verification gate in PLAN.md. Do not proceed past a failed gate.
 
@@ -190,8 +207,29 @@ These were evaluated and rejected. Re-proposing them wastes time.
 
 ## Status
 
-Infrastructure stage. FastEddy compiles. NBL tutorial previously failed during hydro-core
-execution with `too many resources requested for launch`; the new grid is ~3x smaller, so
-`4 x 4 x 16` may now succeed. **That is the first gate and it blocks everything.**
+**Stage 0a PASSED (2026-08-17)** — see `STAGE0A_RESULTS.md` for full evidence.
+Container builds; Example03_SBL and Example01_NBL both run to completion on `sm_89` with
+no `too many resources requested for launch`. The NBL failure that previously blocked
+everything is resolved. Initial states reproduce the published GABLS1 and NBL specs.
+
+**Stage 0b PASSED** — precision documented in Conventions above.
+
+Measured, and load-bearing for everything downstream:
+
+- **Compute cost is 9.37 ns/cell/step**, with two cases 12x apart in size agreeing to 1.7%.
+  The production grid (434 x 146 x 122 = 7.73 M cells) therefore costs **0.0725 s/step**.
+- **Memory is not a constraint.** NBL at 23.5 M cells peaked at 6.4 GiB of 16 GiB; the
+  production grid is 3x smaller.
+- **`dt` is acoustically limited, not inherited.** FastEddy is fully compressible with RK3
+  (Wicker-Skamarock 2002) and no acoustic sub-stepping, and contains **no CFL machinery at
+  all** — `dt` is a mandatory user constant bounded only by `FLT_MIN..FLT_MAX`, never
+  computed or checked. Sound speed sets the limit, so `dt` scales with grid spacing and
+  cannot be raised by fiat.
+- **CUDA-aware MPI is NOT required** (tested, not assumed). **MPI Fortran bindings ARE**,
+  despite FastEddy having no Fortran source — its C code broadcasts with `MPI_INTEGER` /
+  `MPI_CHARACTER` in 60 places. Stock Ubuntu `libopenmpi-dev` satisfies both.
+- **Thread blocks:** every shipped tutorial uses 256 threads/block (`1x4x64` or `1x8x32`).
+  `4x4x16` is also 256 and equally valid. The divisibility rule is enforced on **per-rank,
+  halo-inclusive** extents (`SRC/GRID/grid.c:222-240`); Nz is never decomposed.
 
 See @PLAN.md for the staged path.
