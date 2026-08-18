@@ -17,6 +17,23 @@ Ruled out by controlled single-variable tests: vertical stretching, thread-block
 shape (4x4x16 vs 1x4x64), roughness length (0.03 vs 0.10), spanwise domain width
 (1.46 vs 2.90 km). The k0/k1 ratio came out at 8.94 in every one.
 
+Ruled out by source inspection:
+  * Discrete impermeability IS correctly enforced. cuda_advectionDevice.cu:106-109
+    explicitly zeroes the ground face velocity ("Ensure ground and ceiling face
+    vertical velocity component is set to 0"), so there is no spurious advective
+    mass flux through the surface.
+  * Explicit filtering is IDENTICAL to the NBL tutorial (filterSelector = 1,
+    filter_6thdiff_vert = 1, filter_6thdiff_vert_coeff = 0.03), inherited from it.
+
+Still notable in the bottom BC (cuda_BCsDevice.cu:284-291): below-ground halo
+cells are set to w = 0 for the vertical momentum component, whereas u and v get
+a zero-gradient copy of the first interior cell. So the cell-centred w at the
+first interior level is unconstrained while the face flux is pinned to zero, and
+in a compressible solver there is no elliptic projection to remove grid-scale
+divergent noise -- only acoustic propagation and the explicit filter. That is
+consistent with the observed signature but is NOT yet demonstrated to be the
+cause, since the same code path serves the NCAR tutorials.
+
 usage: diag_near_surface.py <dump.nc> [<dump.nc> ...]
 """
 import sys
