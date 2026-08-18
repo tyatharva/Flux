@@ -68,6 +68,10 @@ def main():
         print(f"  LES scalars at z={st['z_recept']:.2f} m: U={st['u_mean']:.2f} m/s "
               f"dir={st['wdir']:.1f} deg  u*={st['ustar']:.3f}  sigma_v={st['sigma_v']:.3f}"
               f"  sigma_w={st['sigma_w']:.3f}  h={st['h']:.0f} m  1/L={1/st['L']:.2e}")
+        tc = r["grid"].tail_concentration()
+        print(f"  touchdowns {tc['n_touchdown']:,};  largest single weight "
+              f"{tc['max_weight']:.1f};  top 0.1% carry {tc['top0p1pct_share']*100:.1f}% "
+              f"of the total |weight|")
         print(f"  integral of f_flux over grid = {r['grid'].integral():.3f} "
               f"(all touchdowns {r['grid'].integral_all():.3f}; shortfall = influence "
               f"truncated by t_back={a.tback:.0f} s)")
@@ -130,6 +134,11 @@ def main():
                             dcentroid=m_les["centroid_x"] - mb["centroid_x"],
                             l1_rel=float(num / den))
 
+    np.savez_compressed(
+        os.path.join(a.outdir, f"{a.tag}.npz"),
+        xc=g0.xc, yc=g0.yc, xe=g0.xe, ye=g0.ye,
+        les=g0.normalised("flux"), conc=g0.normalised("conc"), kljun=kl,
+        **({"les2": runs[1][2]["grid"].normalised("flux")} if len(runs) > 1 else {}))
     plot(a, runs, kl, out)
     with open(os.path.join(a.outdir, f"{a.tag}.json"), "w") as f:
         json.dump(out, f, indent=2, default=float)

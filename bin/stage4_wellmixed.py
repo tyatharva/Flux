@@ -21,8 +21,12 @@ def main():
     ap.add_argument("outdir")
     ap.add_argument("--dt", type=float, default=0.0625)
     ap.add_argument("--n", type=int, default=40000)
-    ap.add_argument("--tlimit", type=float, default=600.0)
-    ap.add_argument("--zlid", type=float, default=500.0)
+    ap.add_argument("--tlimit", type=float, default=900.0)
+    # Keep the reflecting lid INSIDE the turbulent layer: the spun-up boundary layer is
+    # ~500 m deep and FastEddy's SGS TKE is already below 1e-4 by 508 m, where the
+    # Lagrangian timescale diverges and the test would be measuring the damping layer
+    # rather than the closure.
+    ap.add_argument("--zlid", type=float, default=400.0)
     ap.add_argument("--c0", type=float, default=3.0)
     ap.add_argument("--ztouch", type=float, default=2.0)
     a = ap.parse_args()

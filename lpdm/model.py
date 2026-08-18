@@ -85,8 +85,13 @@ class LPDM:
             eps[below] *= self.z_ref / zagl[below]
             ds2z[below] = 0.0
 
-        sig2 = np.maximum((2.0 / 3.0) * e, 1e-8)
-        eps = np.maximum(eps, 1e-9)
+        # Floors, for numerics not physics. Above the boundary layer FastEddy's SGS TKE
+        # goes to zero; the Langevin timescale 2 sigma^2/(C0 eps) then becomes 0/0 and the
+        # adaptive step collapses to dt_min, burning iterations on particles that are not
+        # moving. The floors are far below any turbulent value, so they change nothing
+        # where there is turbulence.
+        sig2 = np.maximum((2.0 / 3.0) * e, 1e-6)
+        eps = np.maximum(eps, 1e-8)
         return u, v, w, sig2, eps, ds2z, ustar
 
     # ------------------------------------------------------------------ integrator

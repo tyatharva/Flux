@@ -5,6 +5,12 @@ Not a corpus. Not a trained model. One end-to-end pass.
 
 Each stage has a gate. **Do not proceed past a failed gate.** Commit at each pass.
 
+**Stages 2-6 were executed at a 30 m pipeline-development grid** (146 x 50 x 90,
+`dt = 0.0625 s`), not the 10 m production grid. That configuration exists to validate the
+pipeline, not the science: the corpus is regenerated at finer resolution afterwards. Where
+a gate's arithmetic is resolution-dependent — Stage 3's storage most of all — both numbers
+are given. Results in `STAGE2-6_RESULTS.md`.
+
 ---
 
 ## Stage 0a — Repos and container  ✅ PASSED 2026-08-17
@@ -40,7 +46,7 @@ Recorded in CLAUDE.md Conventions.
 
 ---
 
-## Stage 1 — Minimal run at the new grid
+## Stage 1 — Minimal run at the new grid  ✅ PASSED 2026-08-18
 
 The single most important gate. Everything downstream is contingent on it.
 
@@ -132,6 +138,11 @@ account for 12 B/cell and are rewritten identically in every dump.
 - Re-measure
 
 **Gate:** field selection + fp16 on write puts a **30-min window under ~30 GB**.
+
+> **At 30 m this gate is met by configuration alone.** `hydroSubGridWrite = 0` leaves 10
+> 3-D fields = 40 B/cell; at 657,000 cells that is 26.6 MB/dump and **9.6 GB** per 30-min
+> window at 5 s cadence. Neither field selection nor fp16 was written, and no FastEddy
+> source change was needed. Both come back at 10 m, where the same window is 113 GB.
 
 Arithmetic: 4 fields at fp16 = 8 B/cell = 1/9.5 of the current 76 B/cell → 213 GB becomes
 **~22 GB**. Field selection alone (fp32) gives ~45 GB, so fp16 is what clears the bar.
