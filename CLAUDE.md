@@ -233,3 +233,72 @@ Measured, and load-bearing for everything downstream:
   halo-inclusive** extents (`SRC/GRID/grid.c:222-240`); Nz is never decomposed.
 
 See @PLAN.md for the staged path.
+
+## Settled by measurement — do not re-derive
+
+**Stage 1 PASSED 2026-08-18** (`STAGE1_RESULTS.md`). These are measured facts, not estimates.
+
+- **`dt = 0.0275 s` at 434 x 146 x 122 @ 10 m.** The limit is the **3-D acoustic CFL**,
+  `dt * c * sqrt(1/dx^2 + 1/dy^2 + 1/dz^2) < sqrt(3) = 1.732` (the RK3 imaginary-axis limit).
+  FastEddy has **no CFL machinery at all** — `dt` is a user constant, never computed or
+  checked — so this was bisected empirically on the real grid: 0.0290 s stable
+  (CFL_3d 1.744), 0.0300 s unstable (CFL_3d 1.804). 0.0275 s carries a 5% margin because
+  `c` rises with temperature. The 1-D min-spacing theory predicted 0.050 s and is wrong.
+  Tutorial `dt` values are hand-picked and mutually inconsistent — never copy them.
+
+- **`hydroSubGridWrite = 0`** drops the 9 SGS stress fields: 19 -> 10 3-D fields,
+  76.3 -> 40.3 B/cell, **212 GB -> 112 GB** per 30-min window at 5 s cadence. Free, via
+  config. Reaching Stage 3's ~30 GB gate needs the 4 LPDM fields only, which is *not*
+  config-reachable.
+
+- **TRAP: FastEddy prints `****CORRUPTED***` on NaN/Inf but still exits 0.** A fully NaN
+  field returns exit status 0. **Every run script must grep output for `CORRUPTED`/NaN and
+  must never trust the exit code alone.** Use `docker/check_run.sh`.
+
+- **TRAP: `Nt` is an ABSOLUTE target timestep, not a number of steps to run.** A restart
+  from step 500 with `Nt = 500` performs **zero** timesteps, writes one dump, and exits 0
+  looking like a successful run. To advance 500 steps from step 500, set `Nt = 1000`.
+  `simTime_it` resumes from the restart file, and output files are named by absolute step.
+
+- **Restart is a true bit-for-bit state resume** (verified 2026-08-18). Restarting from a
+  dump and re-dumping reproduces that dump **byte-for-byte**; every prognostic field differs
+  by exactly 0. It is not a silent reinitialization. A restarted trajectory then tracks a
+  continuous one to within the ~1e-4 nondeterminism floor. This is what makes the
+  spinup-once / adjust-per-direction corpus structure valid. Restart requires netCDF —
+  `ioOutputMode = 1` binary output is **not** restartable.
+
+- **Vertical stretching is not a speed lever.** With `dx = dy = 10 m` fixed, even an
+  infinitely coarse vertical only relaxes the 3-D CFL by `sqrt(3/2)` — **at most ~22% more
+  `dt`**. Stretch for domain depth, never for speed.
+
+### Stage 2 vertical grid (settled)
+
+`zDeform` (`SRC/GRID/grid.c:1117`) is a cubic map with **`dz_surface = verticalDeformFactor
+* d_zeta`** and `zCeiling = d_zeta*(Nz - 0.5)`. Verified: NBL's `0.75 * 20` predicts its
+measured 15.005 m.
+
+Settled values — `Nz = 122`, `d_zeta = 20.576`, `verticalDeformFactor = 0.4860`,
+`verticalDeformQuadCoeff = 0.0`, giving 10.0 m at the surface, 14.4 m at 500 m, 41.5 m at
+top, domain 2500 m, **37 levels below 400 m**, 3 below 30 m. Cell count and cost are
+**identical to Stage 1** (0.0735 s/step) — the depth doubles for free.
+
+Nz = 154 was evaluated and rejected: 26% more cost for **one** extra level below 400 m.
+Stretching redistributes resolution, it does not add it where the footprint lives.
+
+## Corpus structure (settled)
+
+One spun-up **flat-terrain** state per `(stability, wind speed)` bin, **shared across all
+wind directions in that bin**. Turbulence over a homogeneous surface has no preferred
+horizontal direction, so the expensive part is paid once per bin rather than once per
+direction — and direction is the axis needing the most samples.
+
+```
+  once per bin:        flat-terrain spinup to stationarity        ~5 h wall
+  once per direction:  restart -> real rotated surface
+                       -> ~20 min adjustment + 30 min sampling    ~2.11 h wall
+```
+
+At 2.53 s wall per simulated second, a monolithic 3 h run would be 7.58 h — above the ~4 h
+threshold. The split puts each production run at **2.11 h**, under it.
+
+
