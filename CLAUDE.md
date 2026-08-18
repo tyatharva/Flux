@@ -238,13 +238,32 @@ See @PLAN.md for the staged path.
 
 **Stage 1 PASSED 2026-08-18** (`STAGE1_RESULTS.md`). These are measured facts, not estimates.
 
-- **`dt = 0.0275 s` at 434 x 146 x 122 @ 10 m.** The limit is the **3-D acoustic CFL**,
-  `dt * c * sqrt(1/dx^2 + 1/dy^2 + 1/dz^2) < sqrt(3) = 1.732` (the RK3 imaginary-axis limit).
-  FastEddy has **no CFL machinery at all** — `dt` is a user constant, never computed or
-  checked — so this was bisected empirically on the real grid: 0.0290 s stable
-  (CFL_3d 1.744), 0.0300 s unstable (CFL_3d 1.804). 0.0275 s carries a 5% margin because
-  `c` rises with temperature. The 1-D min-spacing theory predicted 0.050 s and is wrong.
-  Tutorial `dt` values are hand-picked and mutually inconsistent — never copy them.
+- **`dt = 0.0250 s` at 434 x 146 x 122 @ 10 m.** (Supersedes an earlier 0.0275 s, which was
+  wrong — see below.) The limit is the **3-D acoustic CFL**,
+  `CFL = dt * c * sqrt(1/dx^2 + 1/dy^2 + 1/dz^2)`, with `c = 347.2 m/s` at 300 K.
+  FastEddy has **no CFL machinery at all**, so both thresholds below were bisected
+  empirically on the real grid. Tutorial `dt` values are hand-picked and mutually
+  inconsistent — never copy them.
+
+- **STABILITY AND ACCURACY ARE DIFFERENT LIMITS, and the accuracy one is lower.**
+
+  | | CFL_3d | dt @ 10 m | behaviour |
+  |---|---|---|---|
+  | stability limit | ~1.79 | 0.0300 | above this: NaN, `CORRUPTED` |
+  | **accuracy limit** | **~1.64** | **0.0273** | above this: silent grid-scale noise |
+  | production | 1.503 | **0.0250** | 8% margin below the accuracy limit |
+
+  Between the two the model runs to completion, exits 0, prints no warning, and
+  produces **resolved `w` at the lowest ~3 levels that is grid-scale acoustic noise
+  rather than turbulence** — `sigma_w^2` at the first level inflated ~9x, i.e. 33,000x
+  in absolute terms. The transition is sharp: `dt = 0.0272` is clean, `0.0275` is not.
+  Everything else (u, v, theta, u*, and the profile above ~45 m) looks perfectly fine,
+  which is exactly what makes it dangerous.
+
+  **Never set `dt` from the stability boundary. Use the accuracy boundary with margin,
+  and re-derive it whenever the grid changes.** Verify with `docker/diag_near_surface.py`:
+  the first-level `w` variance ratio `k0/k1` must be **< 1** (~0.27 when correct, matching
+  NCAR's NBL at 0.25). A value near 9 means dt is too large.
 
 - **`hydroSubGridWrite = 0`** drops the 9 SGS stress fields: 19 -> 10 3-D fields,
   76.3 -> 40.3 B/cell, **212 GB -> 112 GB** per 30-min window at 5 s cadence. Free, via
@@ -298,7 +317,8 @@ direction — and direction is the axis needing the most samples.
                        -> ~20 min adjustment + 30 min sampling    ~2.11 h wall
 ```
 
-At 2.53 s wall per simulated second, a monolithic 3 h run would be 7.58 h — above the ~4 h
-threshold. The split puts each production run at **2.11 h**, under it.
+At `dt = 0.0250 s` the cost is **2.94 s wall per simulated second**. A monolithic 3 h run
+would be 8.82 h — above the ~4 h threshold. The split puts each production run at
+**2.45 h**, under it.
 
 
