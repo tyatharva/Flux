@@ -62,7 +62,9 @@ def diagnose(path):
         print(f"  {k:>3} {z[k]:7.1f} " + "".join(f"{var[v][k]:12.5g}" for v in FIELDS))
     print("  k0/k1 ratio: " + "  ".join(
         f"{v}={var[v][0] / max(var[v][1], 1e-30):.2f}" for v in FIELDS)
-        + "   <- w is the outlier; others ~1")
+        + "\n  (healthy: w ratio < 1, others ~1. A w ratio near 9 means dt exceeds the\n"
+        "   ACCURACY CFL limit ~1.64 -- see PROJECT_BRIEF.md. Not a stability failure: the run\n"
+        "   will still exit 0 with no CORRUPTED report.)")
 
     print(f"\n  lag-1 spatial autocorrelation of w"
           f"  (+1 = resolved turbulence, 0 = grid noise, <0 = checkerboard)")
