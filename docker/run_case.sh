@@ -7,9 +7,18 @@ set -uo pipefail
 # One GPU, one run. Two FastEddy containers writing the same output/ silently
 # interleave their dumps and corrupt both -- and it looks like a mysteriously stalled
 # run, not an error. Refuse rather than race.
-if [ -n "$(docker ps -q --filter ancestor=flux-fasteddy:cuda118)" ]; then
-  echo "  REFUSED: a FastEddy container is already running:" >&2
-  docker ps --filter ancestor=flux-fasteddy:cuda118 --format '    {{.Names}} {{.Status}} {{.Command}}' >&2
+#
+# Match on the FastEddy BINARY, not on the image: analysis scripts share the image and
+# only use the CPU, so an image-level filter blocks the very runs it is meant to protect.
+busy=""
+for c in $(docker ps -q --filter ancestor=flux-fasteddy:cuda118); do
+  if docker inspect -f '{{json .Config.Cmd}}' "$c" 2>/dev/null | grep -q 'FEMAIN/FastEddy'; then
+    busy="$busy $c"
+  fi
+done
+if [ -n "$busy" ]; then
+  echo "  REFUSED: a FastEddy run is already in progress:" >&2
+  docker ps --format '    {{.Names}} {{.Status}} {{.Command}}' --filter "id=${busy## }" >&2
   exit 2
 fi
 CASE_DIR="$1"; CASE_FILE="$2"

@@ -58,16 +58,29 @@ def main(paths):
         hist.append((st, col, d))
         print(f"  {st:>8} {st*DT/60:8.2f} {col:10.5f} {d['ustar']:8.4f}")
 
-    if len(hist) >= 4:
-        v = np.array([h[1] for h in hist[-4:]])
-        # Per-dump growth rate is far less window-sensitive than an endpoint drift:
-        # a 4-dump endpoint difference swings wildly as the window slides over noise.
-        rate = (v[-1] / max(v[0], 1e-30)) ** (1.0 / (len(v) - 1)) - 1.0
-        drift = (v[-1] - v[0]) / max(abs(v.mean()), 1e-30)
-        print(f"\n  TKE last 4 dumps: {np.array2string(v, precision=5)}")
-        print(f"  growth per dump: {rate*100:+.2f}%   endpoint drift: {drift*100:+.2f}%")
-        print(f"  PLATEAU: {'YES' if abs(rate) < 0.01 else 'NO'} "
-              f"(criterion |growth per dump| < 1%)")
+    if len(hist) >= 5:
+        # Stationarity is a TREND test, not a difference of two dumps. Domain TKE in a
+        # converged neutral boundary layer still wanders by several percent between dumps;
+        # a growth-per-dump or endpoint-drift criterion measures that scatter, not drift,
+        # and flips sign as the window slides. Fit a line over the tail and compare its
+        # slope with its own standard error.
+        nw = min(6, len(hist))
+        tt = np.array([h[0] for h in hist[-nw:]], dtype=float) * DT / 60.0
+        print(f"\n  --- stationarity over the last {nw} dumps "
+              f"(t = {tt[0]:.0f}-{tt[-1]:.0f} min) ---")
+        ok = True
+        for key, lab in ((1, "domain TKE"), (None, "u*")):
+            y = np.array([h[1] if key else h[2]["ustar"] for h in hist[-nw:]])
+            A = np.vstack([tt - tt.mean(), np.ones_like(tt)]).T
+            c, *_ = np.linalg.lstsq(A, y, rcond=None)
+            r = y - A @ c
+            se = np.sqrt((r ** 2).sum() / (nw - 2) / ((tt - tt.mean()) ** 2).sum())
+            sig = c[0] / se if se > 0 else 0.0
+            ok &= abs(sig) < 2.0
+            print(f"  {lab:<11} mean {y.mean():9.5f}  scatter {y.std(ddof=1)/abs(y.mean())*100:5.1f}%"
+                  f"   trend {c[0]/y.mean()*6000:+7.2f} +/- {se/abs(y.mean())*6000:5.2f} %/h"
+                  f"   ({sig:+.2f} sigma)")
+        print(f"  STATIONARY: {'YES' if ok else 'NO'}  (both trends within 2 sigma of zero)")
 
     d = hist[-1][2]
     z, ww, us = d["z"], d["ww"], d["ustar"]

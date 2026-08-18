@@ -260,6 +260,12 @@ See @PLAN.md for the staged path.
   Everything else (u, v, theta, u*, and the profile above ~45 m) looks perfectly fine,
   which is exactly what makes it dangerous.
 
+  **The accuracy boundary is a property of CFL_3d, not of the spacing** (confirmed
+  2026-08-18 at 30 m: `dx` 3x coarser and `dz_sfc` 2x coarser left the threshold between
+  CFL_3d 1.60 and 1.70 — clean at 1.599, `k0/k1 = 7.44` at 1.701). The *stability*
+  boundary does move with the grid: at 30 m, CFL_3d = 1.80 produces garbage but still
+  completes without NaN, so the silent window is **wider** at coarser resolution.
+
   **Never set `dt` from the stability boundary. Use the accuracy boundary with margin,
   and re-derive it whenever the grid changes.** Verify with `docker/diag_near_surface.py`:
   the first-level `w` variance ratio `k0/k1` must be **< 1** (~0.27 when correct, matching
