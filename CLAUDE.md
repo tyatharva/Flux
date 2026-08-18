@@ -279,7 +279,10 @@ See @PLAN.md for the staged path.
   looking like a successful run. To advance 500 steps from step 500, set `Nt = 1000`.
   `simTime_it` resumes from the restart file, and output files are named by absolute step.
 
-- **Restart is a true bit-for-bit state resume** (verified 2026-08-18). Restarting from a
+- **Restart is a true bit-for-bit state resume** (verified 2026-08-18 at 10 m,
+  **re-verified 2026-08-18 at the 30 m grid** — `cmp` reports the two 25.4 MB dumps
+  byte-identical; a restarted trajectory then diverges from a continuous one at the
+  expected ~1e-4 floor after 500 steps). Restarting from a
   dump and re-dumping reproduces that dump **byte-for-byte**; every prognostic field differs
   by exactly 0. It is not a silent reinitialization. A restarted trajectory then tracks a
   continuous one to within the ~1e-4 nondeterminism floor. This is what makes the
@@ -289,6 +292,32 @@ See @PLAN.md for the staged path.
 - **Vertical stretching is not a speed lever.** With `dx = dy = 10 m` fixed, even an
   infinitely coarse vertical only relaxes the 3-D CFL by `sqrt(3/2)` — **at most ~22% more
   `dt`**. Stretch for domain depth, never for speed.
+
+### 30 m pipeline-development grid (settled 2026-08-18)
+
+The 10 m grid above remains the production target. Everything from Stage 2 onward was
+**developed and validated at 30 m**, deliberately: this configuration validates the
+pipeline, not the science, and the corpus is regenerated at finer resolution later.
+
+| | value | note |
+|---|---|---|
+| `Nx x Ny x Nz` | 146 x 50 x 90 | padded 152/56/96, all divisible by 4/4/16 |
+| `dx = dy` | 30.0 m | domain 4380 x 1500 m, same physical extent as the 10 m grid |
+| `d_zeta` | 30.167598 | `zCeiling = d_zeta*(Nz-0.5) = 2700 m` |
+| `verticalDeformFactor` | 0.662868 | `dz_sfc = 19.997 m` |
+| **`dt`** | **0.0625 s** | `CFL_3d = 1.491`, 9% below the 1.64 accuracy limit |
+| `dampingLayerDepth` | 540.0 | 20% of 2700 m |
+| cells | 657,000 | |
+| **measured cost** | **0.0066 s/step** | vs 0.00616 predicted from 9.37 ns/cell/step |
+
+**The receptor lands on a cell centre at exactly 30.000 m.** `verticalDeformFactor` was
+solved for that, not rounded to it: with `dz_sfc = 20 m` the k=1 centre is at half a
+spacing above the k=0 centre, i.e. 1.5 x 20 = 30 m, and the cubic term's 4 mm was absorbed
+by tuning the factor. There are 20 levels below 400 m and 1 below 30 m.
+
+The measured 0.0066 s/step is 7% ABOVE the 9.37 ns/cell/step model — launch overhead at
+657 k cells, which is 3x smaller than the smallest case the model was fitted to. Use the
+measured value, not the model, for projections at this size.
 
 ### Stage 2 vertical grid (settled)
 
@@ -303,6 +332,26 @@ top, domain 2500 m, **37 levels below 400 m**, 3 below 30 m. Cell count and cost
 
 Nz = 154 was evaluated and rejected: 26% more cost for **one** extra level below 400 m.
 Stretching redistributes resolution, it does not add it where the footprint lives.
+
+## Restart overwrites grid and surface fields — the Stage 6 trap
+
+`hydro_coreInit()` runs at `FEMAIN/FastEddy.c:157`; the restart read
+`ioReadNetCDFinFileSingleTime()` runs at line 221, i.e. **after**, and walks the entire
+registered variable list. That list includes **`xPos`, `yPos`, `zPos`, `topoPos` and
+`z0m`**. Consequences, both load-bearing:
+
+- **Trap.** Restarting a FLAT spin-up with a `topoFile` set leaves the solver with correct
+  terrain-following metrics (`J31/J33/D_Jac`, built in `gridInit` before the read) but
+  silently overwrites the *diagnostic* `zPos`/`topoPos` in every later dump with the flat
+  values from the spin-up file. The LES is right and the output coordinates are wrong — so
+  the LPDM places every particle at the wrong height with nothing to indicate it.
+- **Lever.** The same mechanism is the ONLY way to give FastEddy v5.0.1 a spatially varying
+  roughness. `z0m` is a 2-D field but is initialised uniformly from the scalar
+  `surflayer_z0` (`hydro_core.c:1379`) and no input path exists for it. Writing `z0m` into
+  the restart file works, and **no source change is needed** for the solar-array bulk patch.
+
+`bin/prep_stage6.py` writes terrain, terrain-following `zPos`, and the roughness map into
+the restart file so the read becomes a no-op and grid, output and LPDM stay consistent.
 
 ## Corpus structure (settled)
 

@@ -21,6 +21,15 @@ enough provenance that the pipeline is reproducible without them.
 | **Source URL** | **TODO — fill in** |
 | **Download date** | **TODO — fill in** |
 
+### Derived product
+
+`data/dem/kegonsa_30m_wtm.tif` — 267 x 267 cells at 30 m, EPSG:3071, produced by
+`docker/prep_dem30.sh`. Resampled with `gdalwarp -r average`, not nearest: this is a 65.6x
+linear reduction (0.4572 -> 30 m), and nearest neighbour would alias individual LiDAR posts
+into LES surface elevations. The tile is +/-4 km about the tower, which covers the
+4380 x 1500 m LES domain at **any** rotation about it (farthest corner 3.37 km).
+Both this file and the extracted full-resolution `.tif` are gitignored.
+
 ### Extent
 
 WTM (EPSG:3071) bounding box, from the raster metadata:
@@ -67,8 +76,30 @@ smoothed — relevant when it is downsampled to the 10 m LES grid in Stage 6.
 
 ### Notes for use
 
-- The site of interest (UW-Madison Kegonsa Solar Array, ~43.0 N, ~-89.25 E) falls well
-  inside this extent.
+- **Tower coordinate — SURROGATE, not surveyed.** The surveyed position of the EC tower is
+  not in this repository and could not be established from public sources: the published
+  descriptions give "3725 Schneider Dr, Stoughton WI", "160-acre Kegonsa campus", "~17 acres
+  of panels, 5424 modules", "flux tower ~100 ft", and "west of Lake Kegonsa", but no
+  coordinates.
+
+  The first estimate, `-89.2450 / 42.9686`, is **wrong**: the DEM reads 256.64 m there and
+  the nearest water cell is 6 m away — that is Lake Kegonsa's surface. 25% of the original
+  +/-4 km tile is flat at 256.6 +/- 0.6 m, and its centroid (-89.2504, 42.9652) matches the
+  published lake position, which is what identifies it.
+
+  What is used instead, and recorded in `bin/prep_stage6.py`, is
+  **`-89.2539 / 42.9419`** — chosen by an explicit rule rather than a guess: the nearest
+  land position whose 4380 x 1500 m westerly LES domain contains no water at all. It sits
+  810 m from the shore, at 281 m elevation, with 38 m of relief across the domain, which
+  matches CLAUDE.md's "~30 m of elevation change across the area".
+
+  **This must be replaced with the surveyed coordinate before any Stage 6 result is treated
+  as site-specific.** It is a single constant, `TOWER_LON/TOWER_LAT` in
+  `bin/prep_stage6.py`, and `docker/prep_dem30.sh` imports it from there.
+
+- The solar array polygon is likewise an assumption (100 m along-wind x 400 m crosswind,
+  centred 200 m upwind of the tower), from CLAUDE.md's "~100 m x 400 m" and "array at
+  270 deg". Also a single constant block in `bin/prep_stage6.py`.
 - The county-wide elevation range (237 m) is much larger than the ~30 m of relief across
   the tower's source area; do not use the county statistics as a site-scale expectation.
 - Stage 6 resamples this into a **wind-aligned** frame and supplies rotated `lat(y,x)` /

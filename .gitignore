@@ -33,3 +33,7 @@ __pycache__/
 
 # --- Local CodeGraph index ---
 .codegraph/
+
+# --- Stage 6 preprocessing products: regenerable from the DEM ---
+*.bin
+*.npy

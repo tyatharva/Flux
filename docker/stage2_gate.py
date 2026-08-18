@@ -23,8 +23,8 @@ import sys
 import numpy as np
 from netCDF4 import Dataset
 
-DT = 0.0275
-NOISY_LEVELS = 5          # w-only artifact: strong at z<=25 m, residual to ~45 m
+DT = float(__import__("os").environ.get("FE_DT", "0.0625"))  # override with FE_DT
+NOISY_LEVELS = 0          # dt fix removed the near-surface w artifact; no exclusion needed
 REF_PEAK_OVER_USTAR2 = 0.73
 REF_PEAK_Z = 130.0
 
