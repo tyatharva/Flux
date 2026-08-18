@@ -60,9 +60,14 @@ def main(paths):
 
     if len(hist) >= 4:
         v = np.array([h[1] for h in hist[-4:]])
+        # Per-dump growth rate is far less window-sensitive than an endpoint drift:
+        # a 4-dump endpoint difference swings wildly as the window slides over noise.
+        rate = (v[-1] / max(v[0], 1e-30)) ** (1.0 / (len(v) - 1)) - 1.0
         drift = (v[-1] - v[0]) / max(abs(v.mean()), 1e-30)
-        print(f"\n  drift over last 4 dumps: {drift*100:+.2f}%   "
-              f"PLATEAU: {'YES' if abs(drift) < 0.05 else 'NO'} (criterion |drift| < 5%)")
+        print(f"\n  TKE last 4 dumps: {np.array2string(v, precision=5)}")
+        print(f"  growth per dump: {rate*100:+.2f}%   endpoint drift: {drift*100:+.2f}%")
+        print(f"  PLATEAU: {'YES' if abs(rate) < 0.01 else 'NO'} "
+              f"(criterion |growth per dump| < 1%)")
 
     d = hist[-1][2]
     z, ww, us = d["z"], d["ww"], d["ustar"]
