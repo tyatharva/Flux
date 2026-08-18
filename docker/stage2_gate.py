@@ -12,9 +12,9 @@ Reference values read off the published NBL tutorial figures
   phi(z)    : veers ~25 deg (245 -> 270) between surface and free stream
   theta(z)  : 300 K constant to ~490 m, inversion to ~312 K by ~680 m
 
-The lowest 3 levels of resolved w are excluded from the peak search: they carry a
-known grid-scale noise artifact (see docker/diag_near_surface.py). Every other
-field is clean there, so mean profiles use all levels.
+NOISY_LEVELS excludes the lowest levels of resolved w from the peak search. It is 0:
+the dt correction removed the near-surface w artifact (docker/diag_near_surface.py),
+and the standing k0/k1 check in docker/check_run.sh now catches it if it returns.
 
 usage: stage2_gate.py <dump.nc> [<dump.nc> ...]
 """
@@ -83,7 +83,7 @@ def main(paths):
     hi = np.where(ww > 0.05 * ww[k])[0]
     print(f"  {'sigma_w^2 -> 0 by (m)':<34} {z[hi[-1]] if len(hi) else np.nan:12.0f} {650:12.0f}")
 
-    print(f"\n  --- sigma_w^2 / u*^2 profile (levels 0-2 are the known w artifact) ---")
+    print(f"\n  --- sigma_w^2 / u*^2 profile ---")
     n = ww / max(us**2, 1e-30)
     for j in list(range(0, 40, 2)) + [44, 50, 56, 62]:
         if j >= len(z):
