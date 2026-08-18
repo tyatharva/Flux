@@ -72,9 +72,15 @@ decisively wrong — 0.050 s is fully corrupted.
 Stage 0a working value of 0.0267 s was already within 8 % of the true limit. Adopting
 dt = 0.029 s buys 8 %, nothing more.
 
-Recommended production value: **dt = 0.0275 s** (5 % margin below the measured boundary),
-since the boundary was measured in a neutral case at 300 K and warmer or more energetic
-states raise `c`. Use 0.029 s only with per-run corruption checking.
+~~Recommended production value: dt = 0.0275 s (5 % margin below the measured boundary).~~
+
+**SUPERSEDED 2026-08-18 — this recommendation was wrong. Use `dt = 0.0250 s`.**
+
+The boundary bisected above is the **stability** boundary (NaN / `CORRUPTED`). There is a
+**lower accuracy boundary at CFL_3d ~ 1.64, i.e. dt ~ 0.0273 s**, above which the run
+completes normally and exits 0 while resolved `w` in the lowest ~3 levels degenerates into
+grid-scale acoustic noise. `dt = 0.0275` sat inside that window, which is what produced the
+Stage 2 near-surface artifact. See `STAGE2_RESULTS.md` and PROJECT_BRIEF.md.
 
 ---
 
