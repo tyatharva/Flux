@@ -1,0 +1,35 @@
+# --- FastEddy model source: separate repository (fork of NCAR/FastEddy-model) ---
+# Pinned by FASTEDDY_VERSION.txt. Never vendored into this repo.
+FastEddy-model-5.0.1/
+
+# --- Large binary input data: never committed. Provenance in data/README.md ---
+*.zip
+*.tif
+*.tif.ovr
+data/dem/
+data/conus404/
+
+# --- LES output: regenerable, and far too large. Peak storage is one run. ---
+runs/**/output/
+runs/**/output_binary/
+runs/**/initial/
+runs/**/ICBC/
+*.nc
+!scripts/**/*.json
+
+# --- Build artifacts (FastEddy builds in-tree; belt and braces) ---
+*.o
+FastEddy
+FastEddy_devlink.o
+
+# --- Python ---
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# --- Editors / OS ---
+.DS_Store
+*.swp
+
+# --- Local CodeGraph index ---
+.codegraph/

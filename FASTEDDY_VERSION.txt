@@ -1,0 +1,30 @@
+# FastEddy model version pin
+#
+# This file is the reproducibility link between the two repositories of this
+# project. The FastEddy source tree at FastEddy-model-5.0.1/ is gitignored here
+# because it is its own repository; this file records exactly which commit of it
+# produced any result in this repo.
+#
+# UPDATE THIS FILE whenever the fork's kegonsa branch moves.
+
+fork_url        = git@github.com:tyatharva/FastEddy-model.git
+fork_url_https  = https://github.com/tyatharva/FastEddy-model
+branch          = kegonsa
+pinned_sha      = e0cd2f3efcdff8ea543668228a983a95953478ca
+
+upstream_url    = https://github.com/NCAR/FastEddy-model
+upstream_tag    = v5.0.1
+upstream_sha    = e0cd2f3efcdff8ea543668228a983a95953478ca
+
+# Divergence from upstream v5.0.1: NONE as of 2026-08-17.
+#
+# The kegonsa branch is currently byte-identical to upstream v5.0.1. All build
+# customization for this project (sm_89, include/library paths) is applied via
+# make command-line overrides in docker/build_fasteddy.sh, NOT by editing the
+# FastEddy Makefile. This keeps the fork's diff against upstream empty so that
+# pulling NCAR bugfixes stays conflict-free, and so that the first real commit
+# on kegonsa is a genuine physical or numerical change.
+#
+# Known change already anticipated for kegonsa (see PLAN.md Stage 3): FastEddy
+# has no vertical-subset output option, so saving only z < 400 m will require a
+# k-range limit in SRC/IO/io_binary.c.

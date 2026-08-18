@@ -1,0 +1,173 @@
+sudo apt install nvidia-cuda-toolkit
+
+sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+sudo apt update
+sudo apt install gfortran-13 gcc-13 g++-13 gcc-13-offload-nvptx
+sudo apt install openmpi-bin libopenmpi-dev
+sudo apt install libhdf5-openmpi-dev libnetcdf-dev libnetcdff-dev libpnetcdf-dev pnetcdf-bin
+
+
+
+# Clone the ParallelIO repository
+git clone https://github.com/NCAR/ParallelIO
+cd ParallelIO && mkdir build && cd build
+
+cmake .. \
+  -DCMAKE_C_COMPILER=mpicc \
+  -DCMAKE_Fortran_COMPILER=mpifort \
+  -DCMAKE_INSTALL_PREFIX=/usr/local \
+  -DCMAKE_Fortran_FLAGS=-ef \
+  -DNetCDF_C_INCLUDE_DIR=/usr/include \
+  -DNetCDF_C_LIBRARY=/usr/lib/x86_64-linux-gnu/libnetcdf.so \
+  -DNetCDF_Fortran_INCLUDE_DIR=/usr/include \
+  -DNetCDF_Fortran_LIBRARY=/usr/lib/x86_64-linux-gnu/libnetcdff.so \
+  -DPnetCDF_INCLUDE_DIR=/usr/include \
+  -DPnetCDF_LIBRARY=/usr/lib/x86_64-linux-gnu/libpnetcdf.so
+
+sudo make -j16 install
+
+
+
+
+
+cmake -G Ninja -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=$installLLVMFlangPath -DLLVM_TARGETS_TO_BUILD="X86;NVPTX" -DCUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda-13.0 -DLLVM_ENABLE_PROJECTS="clang;flang;mlir;openmp" ../llvm
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+sudo apt install nvidia-cuda-toolkit
+sudo apt install libelf-dev libnuma-dev
+
+wget https://github.com/ROCm/aomp/releases/download/rel_21.0-1/aomp_Ubuntu2204_21.0-1_amd64.deb
+sudo dpkg -i aomp_Ubuntu2204_21.0-1_amd64.deb
+Add to bashrc: export PATH=/usr/lib/aomp/bin:$PATH
+
+
+
+
+cmake -G Ninja ../llvm \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DLLVM_ENABLE_PROJECTS="openmp" \
+    -DCMAKE_C_COMPILER=gcc \
+    -DCMAKE_CXX_COMPILER=g++ \
+    -DLIBOMPTARGET_NVPTX_ENABLE=ON \
+    -DLIBOMPTARGET_NVPTX_BC_OUTPUT_DIR=$PWD/nvptx-bc
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# UCX install
+
+git clone https://github.com/openucx/ucx.git
+cd ucx
+./autogen.sh
+./configure --prefix=/opt/ucx-rocm --with-rocm=/opt/rocm --without-knem --without-cuda
+make -j$(nproc)
+make install
+
+
+# OpenMPI install
+
+git clone --recursive -b v5.0.x https://github.com/open-mpi/ompi.git
+cd ompi
+./autogen.pl
+./configure \
+  CC=amdclang \
+  CXX=amdclang++ \
+  FC=amdflang \
+  --prefix=/opt/openmpi-rocm \
+  --with-rocm=/opt/rocm \
+  --with-ucx=/opt/ucx-rocm
+make -j$(nproc)
+make install
+
+
+# HDF5 install
+
+git clone https://github.com/HDFGroup/hdf5.git
+cd hdf5
+git checkout hdf5_1.14.6
+mkdir build-hdf5-mpi && cd build-hdf5-mpi
+CC=mpicc FC=mpifort \
+cmake .. \
+  -DCMAKE_INSTALL_PREFIX=/opt/hdf5-mpi \
+  -DHDF5_ENABLE_PARALLEL=ON \
+  -DHDF5_BUILD_FORTRAN=ON \
+  -DHDF5_BUILD_EXAMPLES=OFF \
+  -DCMAKE_BUILD_TYPE=Release
+make -j$(nproc)
+make install
+
+
+
+
+
+
+
+
+
+
+
+
+
+git clone https://github.com/tyatharva/MPAS-Model.git
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
