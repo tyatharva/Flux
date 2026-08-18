@@ -116,12 +116,94 @@ Full provenance in `data/README.md`; it is one constant in `bin/prep_stage6.py`.
 
 ---
 
+## SETUP-3b — The accuracy limit is a property of CFL_3d, not of resolution
+
+The 10 m bisection left one question open: is ~1.64 a threshold in CFL_3d, or an artifact of
+that particular spacing? Three 300 s runs restarted from the spun-up state answer it.
+
+| grid | `dt` (s) | CFL_3d | k0/k1 | `<w'w'>` level 0 | verdict |
+|---|---|---|---|---|---|
+| 10 m | 0.0272 | 1.636 | 0.27 | 6e-5 | clean |
+| 10 m | 0.0275 | 1.654 | **8.94** | **1.97** | silent corruption |
+| **30 m** | 0.0625 | 1.491 | 0.16 | 7e-4 | clean (production) |
+| **30 m** | 0.0670 | 1.599 | 0.17 | 9e-4 | clean |
+| **30 m** | 0.0713 | 1.701 | **7.44** | **577** | silent corruption |
+| **30 m** | 0.0755 | 1.802 | **5.97** | — | silent corruption, still exits 0 |
+
+`dx` changed by 3x and `dz_sfc` by 2x, and **the threshold stayed between CFL_3d 1.60 and
+1.70**. It is the 3-D acoustic Courant number that matters, not the spacing — which is why
+a user cannot escape this by choosing a "safe-looking" grid, and why `dt` has to be
+re-derived from CFL_3d whenever the grid changes.
+
+Note the last row: at 30 m, CFL_3d = 1.80 produces garbage but does **not** go NaN. The
+*stability* boundary moves with the grid; the *accuracy* boundary does not. The gap between
+them — the silent window — is therefore wider at coarser resolution, not narrower.
+
+---
+
 ## SETUP-6 — Upstream issue ✅ FILED
 
 [NCAR/FastEddy-model#134](https://github.com/NCAR/FastEddy-model/issues/134) — "dt has an
 accuracy limit BELOW its stability limit; between them near-surface resolved w is silently
 replaced by grid-scale noise", with the 10 m bisection table, the `Example01_NBL` margin
-(CFL_3d 1.603 against an onset near 1.64), and a suggested startup diagnostic plus warning.
+(CFL_3d 1.603 against an onset near 1.64), the 30 m confirmation table above, and a
+suggested startup diagnostic plus warning. Offered a PR for the diagnostic.
+
+---
+
+## Stage 2 — Vertical stretching and spin-up ✅ PASS
+
+Flat, uniform, neutral, doubly periodic, stretched vertical with a 540 m Rayleigh damping
+layer. Run to **6 h of simulated time** in two restart-chained segments (90 min, then
+90 min -> 6 h) so that no single run exceeded the 45-minute wall-clock limit: **9.6 min** and
+**28.5 min**, against projections of 9.6 and 29.0 from the measured 0.0066 s/step.
+
+### Gate 1 — statistical stationarity ✅
+
+The transition overshoots: domain TKE climbs to 0.100 at 2 h, falls back, and settles near
+0.045 from about 3.5 h onward.
+
+```
+  --- stationarity over the last 6 dumps (t = 210-360 min) ---
+  domain TKE  mean   0.04551  scatter   7.4%   trend  +2.12 +/- 3.80 %/h   (+0.56 sigma)
+  u*          mean   0.33260  scatter   1.6%   trend  +0.71 +/- 0.77 %/h   (+0.92 sigma)
+  STATIONARY: YES  (both trends within 2 sigma of zero)
+```
+
+The criterion is a **trend test, not a difference of two dumps**. The original
+growth-per-dump rule returned "NO" on this same converged series, because domain TKE in a
+converged neutral boundary layer wanders by ~7% between dumps and a two-point rule measures
+that scatter rather than drift — it also flips sign as the window slides. Fitting a line
+over the tail and comparing its slope with its own standard error separates the two.
+`docker/stage2_gate.py` was changed accordingly.
+
+### Gate 2 — profile shape against NCAR's NBL validation case ✅ (with one expected offset)
+
+| quantity | ours | NBL reference |
+|---|---|---|
+| `sigma_w^2` peak / `u*^2` | **0.526** | 0.730 |
+| height of `sigma_w^2` peak (m) | 171 | 130 |
+| `u*` (m/s) | 0.338 | 0.410 |
+| wind speed, first level (m/s) | 4.90 | 4.30 |
+| wind veering, surface -> free (deg) | **-20.2** | -25.0 |
+| `sigma_w^2` -> 0 by (m) | **693** | 650 |
+
+The **shape is right**: zero at the surface, a single peak at ~0.25 of the boundary-layer
+depth, monotone decay to zero at the top. Veering and boundary-layer depth match closely.
+
+The peak `sigma_w^2/u*^2` is **28% below** the reference, and this is expected rather than a
+failure: it is the *resolved* variance, and at `dx = 30 m` with `dz_sfc = 20 m` a larger
+fraction of the near-surface variance lives in the sub-grid than on NCAR's finer NBL grid.
+It is the resolution being traded away, and it is one of the things that must be re-checked
+at 10 m before any corpus is generated. It does not affect the LPDM, which is driven by
+resolved **plus** modelled sub-grid motion, with the sub-grid part taken from FastEddy's own
+`TKE_0`.
+
+### Gate 3 — the restart is real ✅
+
+Covered above under SETUP-1: byte-identical re-dump, then divergence at the nondeterminism
+floor. The spin-up itself is the demonstration — it is two chained restarts, and its TKE
+series is continuous across both joins with no transient.
 
 ---
 
@@ -243,4 +325,43 @@ FE_DT=0.0625 ./docker/pyrun.sh docker/stage2_gate.py $(ls -v runs/s30_spinup/out
 Every FastEddy invocation goes through `run_case.sh`, which scores the log for
 `CORRUPTED`/NaN/errors/completion **and** the newest dump for k0/k1, and refuses to start
 beside another running FastEddy container.
+
+---
+
+## Stage 6 method — how the real surface gets in
+
+Two products, both from `bin/prep_stage6.py`, and one non-obvious mechanism.
+
+**Rotation is entirely in preprocessing.** The DEM is resampled bilinearly onto a frame
+whose `+x` is the direction the wind blows *toward*, so the LES x axis is the mean-wind axis
+by construction and FastEddy needs no code change. Terrain has its domain mean removed
+(elevations here are ~277 m ASL, which would otherwise consume 10% of the domain depth) and
+is tapered to that mean plane over 12 cells in x and 8 in y with a raised cosine — without
+the taper the periodic wrap is a cliff.
+
+**The restart file carries the surface, not just the state.** `hydro_coreInit()` runs at
+`FEMAIN/FastEddy.c:157` and the restart read at line 221 — *after* — and the read walks the
+entire registered variable list, which includes `xPos`, `yPos`, `zPos`, `topoPos` and
+`z0m`. That has one trap and one lever:
+
+- **Trap.** Restarting a flat spin-up with a `topoFile` set leaves the solver with correct
+  terrain-following metrics (built in `gridInit`, before the read) but silently overwrites
+  the diagnostic `zPos`/`topoPos` in every later dump with the *flat* values from the
+  spin-up file. The LES is right and its output coordinates are wrong — and the LPDM reads
+  `zPos`, so it would place every particle at the wrong height with nothing to show for it.
+- **Lever.** The same path is the only way to give FastEddy v5.0.1 a spatially varying
+  roughness: `z0m` is a 2-D field but is initialised uniformly from the scalar
+  `surflayer_z0` (`hydro_core.c:1379`) and has no input of its own. Writing it into the
+  restart file works.
+
+So the preprocessing writes terrain, terrain-following `zPos`, and the roughness map into
+the restart file, making the read a no-op and keeping grid metrics, output coordinates and
+the LPDM consistent. **No FastEddy source change was needed for any of Stages 2-6**, and the
+`kegonsa` fork branch still has an empty diff against upstream v5.0.1.
+
+**Solar array**, per PROJECT_BRIEF.md's bulk-patch specification: `z0` 0.03 -> 0.20 m over a
+100 m (along-wind) x 400 m (crosswind) rectangle centred 200 m upwind of the tower.
+FastEddy has no displacement-height input, so `d = 1.2 m` is represented the only way the
+model can feel it — by raising the effective surface over the patch. No explicit panel
+geometry, per PROJECT_BRIEF.md: row spacing is ~5-7 m and a 30 m grid cannot resolve it.
 
