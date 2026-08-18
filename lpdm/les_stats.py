@@ -21,7 +21,7 @@ G = 9.81
 def window_stats(paths, k_recept):
     """Ensemble statistics over a series of dumps, at the receptor level."""
     U = V = 0.0
-    uu = vv = ww = 0.0
+    uu = vv = ww = uv = 0.0
     tke_prof = None
     ust = hfx = th0 = 0.0
     n = 0
@@ -37,12 +37,13 @@ def window_stats(paths, k_recept):
         U += Uk; V += Vk
         uu += ((u[k_recept] - Uk) ** 2).mean()
         vv += ((v[k_recept] - Vk) ** 2).mean()
+        uv += ((u[k_recept] - Uk) * (v[k_recept] - Vk)).mean()
         ww += ((w[k_recept] - w[k_recept].mean()) ** 2).mean()
         pr = lambda a: a - a.mean(axis=(-2, -1), keepdims=True)
         t = 0.5 * ((pr(u) ** 2) + (pr(v) ** 2) + (pr(w) ** 2)).mean(axis=(-2, -1))
         tke_prof = t if tke_prof is None else tke_prof + t
         n += 1
-    U /= n; V /= n; uu /= n; vv /= n; ww /= n
+    U /= n; V /= n; uu /= n; vv /= n; ww /= n; uv /= n
     ust /= n; hfx /= n; th0 /= n
     tke_prof /= n
 
@@ -51,7 +52,10 @@ def window_stats(paths, k_recept):
     # rotate the (co)variances into the mean-wind frame: sigma_v is the CROSSWIND one
     ang = np.arctan2(V, U)
     ca, sa = np.cos(ang), np.sin(ang)
-    sig_v = float(np.sqrt(max(sa * sa * uu - 2 * sa * ca * 0.0 + ca * ca * vv, 0.0)))
+    # Kljun's sigma_v is the CROSSWIND fluctuation, so the full rotation is needed --
+    # dropping the u'v' cross term biases it whenever the stress tensor is not aligned
+    # with the grid, which in an Ekman layer it never quite is.
+    sig_v = float(np.sqrt(max(sa * sa * uu - 2.0 * sa * ca * uv + ca * ca * vv, 0.0)))
     # boundary-layer height: highest level with resolved TKE above 5% of its maximum
     kmax = int(np.argmax(tke_prof))
     above = np.where(tke_prof[kmax:] < 0.05 * tke_prof[kmax])[0]

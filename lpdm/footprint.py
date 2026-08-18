@@ -47,6 +47,7 @@ class FootprintGrid:
         self.sum_flux_all = 0.0     # includes touchdowns outside the grid
         self.sum_conc_all = 0.0
         self.n_td = 0
+        self.top_w = []          # largest per-touchdown |flux| weights seen
 
     def add(self, res, x_recept, y_recept):
         """Accumulate one LPDM ensemble, in receptor-relative coordinates."""
@@ -65,6 +66,24 @@ class FootprintGrid:
             h, _, _ = np.histogram2d(dy, dx, bins=(self.ye, self.xe), weights=wt)
             arr += h
         self.n_particles += res["n"]
+        # The 2/|w_td| weight has a heavy tail: a particle that barely crosses the
+        # touchdown level contributes 2/|w| with |w| near zero. If a handful of
+        # touchdowns carried most of the footprint the estimate would be meaningless,
+        # so the largest weights are kept and reported rather than assumed harmless.
+        k = min(len(wt_f), 2000)
+        self.top_w = sorted(self.top_w + list(np.abs(np.partition(wt_f, -k)[-k:])),
+                            reverse=True)[:2000]
+
+    def tail_concentration(self):
+        """Fraction of the total |flux| weight carried by the largest touchdowns."""
+        if not self.n_td:
+            return {}
+        tw = np.array(self.top_w)
+        tot = np.abs(self.flux).sum() or 1.0
+        n01 = max(1, int(0.001 * self.n_td))
+        return dict(max_weight=float(tw[0]),
+                    top0p1pct_share=float(tw[:n01].sum() / tot),
+                    n_touchdown=self.n_td)
 
     # ------------------------------------------------------------------ results
     def normalised(self, which="flux"):
