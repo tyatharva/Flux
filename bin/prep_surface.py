@@ -200,18 +200,26 @@ def main():
     w2d = np.outer(taper_weights(a.ny, a.pad), taper_weights(a.nx, a.pad))
     edge = np.concatenate([z[0], z[-1], z[:, 0], z[:, -1]])
     base = float(np.median(edge))
-    topo = base + (z - base) * w2d
+    # TERRAIN IS A PERTURBATION ABOUT ZERO, not absolute elevation. FastEddy's
+    # terrain-following map is z(k) = zeta_k * (zC - h_g)/zC + h_g, so a ground at 269 m
+    # ASL would compress every level by 9% and put the 30 m receptor at 27.3 m AGL. It
+    # would also be inconsistent with the base state, which is hydrostatically built for a
+    # ground at z = 0 and which the flat spin-up already carries.
+    topo = (z - base) * w2d
     if a.smooth:
         raw_topo = topo.copy()
         topo = smooth121(topo, a.smooth)
         print(f"  terrain smoothing: {a.smooth} x (1-2-1), rms change "
               f"{np.sqrt(((topo-raw_topo)**2).mean()):.3f} m, "
               f"max {np.abs(topo-raw_topo).max():.2f} m")
-    print(f"  taper: {a.pad} cells ({a.pad*a.dx:.0f} m) to a constant {base:.2f} m; "
+    print(f"  taper: {a.pad} cells ({a.pad*a.dx:.0f} m) to zero; datum {base:.2f} m ASL; "
           f"real geography to ~{(min(it, a.nx-it, jt, a.ny-jt) - a.pad)*a.dx:.0f} m "
           f"from the tower")
-    print(f"    terrain after taper {topo.min():.2f} .. {topo.max():.2f} m, "
-          f"at tower {topo[jt, it]:.2f} m")
+    print(f"    terrain after taper {topo.min():.2f} .. {topo.max():.2f} m (about 0), "
+          f"at tower {topo[jt, it]:+.2f} m")
+    zC = 24.691358 * (122 - 0.5)
+    print(f"    receptor at k=3 will sit at {30.0 * (zC - topo[jt, it]) / zC:.3f}"
+          f" m AGL over the tower cell (terrain-following compression)")
 
     # ---- slope statistics: these set the terrain dt (CLAUDE.md CFL amplification) ----
     gy, gx = np.gradient(topo, a.dx)
