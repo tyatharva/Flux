@@ -1,0 +1,74 @@
+
+=== runs/s30_w1/output: 361 dumps ===
+  cache 5.85 GB, window 21600-23400 s (cadence 5.0 s), loaded in 9 s
+  receptor  (i,j,k)=(110,25,1)  x=3315 y=765  z=30.000 m ASL = 30.000 m AGL (ground 0.00 m)
+  releases  226 times over 22500-23400 s, 700 each = 158,200 particles; t_back=900 s
+    batch 1/19  8,210 touchdowns  4 s
+    batch 2/19  16,751 touchdowns  8 s
+    batch 3/19  28,941 touchdowns  12 s
+    batch 4/19  43,263 touchdowns  17 s
+    batch 5/19  56,365 touchdowns  21 s
+    batch 6/19  69,039 touchdowns  25 s
+    batch 7/19  81,059 touchdowns  29 s
+    batch 8/19  93,063 touchdowns  34 s
+    batch 9/19  103,777 touchdowns  38 s
+    batch 10/19  115,053 touchdowns  42 s
+    batch 11/19  127,676 touchdowns  47 s
+    batch 12/19  146,468 touchdowns  51 s
+    batch 13/19  161,189 touchdowns  55 s
+    batch 14/19  174,307 touchdowns  60 s
+    batch 15/19  187,489 touchdowns  64 s
+    batch 16/19  200,492 touchdowns  68 s
+    batch 17/19  213,342 touchdowns  72 s
+    batch 18/19  226,648 touchdowns  77 s
+    batch 19/19  237,905 touchdowns  80 s
+  LES scalars at z=30.00 m: U=6.15 m/s dir=249.3 deg  u*=0.341  sigma_v=0.258  sigma_w=0.074  h=623 m  1/L=0.00e+00
+  touchdowns 237,905;  largest single weight 874.5;  top 0.1% carry 10.5% of the total |weight|
+  integral of f_flux over grid = 0.771 (all touchdowns 0.754; shortfall = influence truncated by t_back=900 s)
+
+=== runs/s30_w2/output: 361 dumps ===
+  cache 5.85 GB, window 24600-26400 s (cadence 5.0 s), loaded in 9 s
+  receptor  (i,j,k)=(110,25,1)  x=3315 y=765  z=30.000 m ASL = 30.000 m AGL (ground 0.00 m)
+  releases  226 times over 25500-26400 s, 700 each = 158,200 particles; t_back=900 s
+    batch 1/19  12,701 touchdowns  4 s
+    batch 2/19  26,580 touchdowns  8 s
+    batch 3/19  40,306 touchdowns  13 s
+    batch 4/19  51,790 touchdowns  17 s
+    batch 5/19  63,076 touchdowns  21 s
+    batch 6/19  76,006 touchdowns  26 s
+    batch 7/19  90,703 touchdowns  30 s
+    batch 8/19  110,041 touchdowns  34 s
+    batch 9/19  126,915 touchdowns  38 s
+    batch 10/19  142,804 touchdowns  43 s
+    batch 11/19  160,361 touchdowns  47 s
+    batch 12/19  179,022 touchdowns  52 s
+    batch 13/19  197,247 touchdowns  56 s
+    batch 14/19  213,428 touchdowns  61 s
+    batch 15/19  228,998 touchdowns  65 s
+    batch 16/19  244,129 touchdowns  69 s
+    batch 17/19  259,051 touchdowns  74 s
+    batch 18/19  274,185 touchdowns  78 s
+    batch 19/19  286,912 touchdowns  82 s
+  LES scalars at z=30.00 m: U=6.27 m/s dir=248.0 deg  u*=0.349  sigma_v=0.243  sigma_w=0.082  h=599 m  1/L=0.00e+00
+  touchdowns 286,912;  largest single weight 1716.8;  top 0.1% carry 11.1% of the total |weight|
+  integral of f_flux over grid = 0.874 (all touchdowns 0.871; shortfall = influence truncated by t_back=900 s)
+
+=== GATE 1: LES+LPDM vs Kljun et al. (2015) ===
+  LES+LPDM                   peak_x=  310.0 m  centroid=( 1062.8,   4.7) m  80% area=  17.24 ha  x80=[110,4210] m
+  Kljun FFP                  peak_x=  190.0 m  centroid=(  787.8,   0.0) m  80% area=  13.64 ha  x80=[90,1470] m
+  Kljun x_max (analytic)       198.2 m
+  Kljun integral over grid   0.928
+
+  peak-location difference    +120.0 m (+63%)
+  centroid difference         +275.0 m (+35%)
+  80% source-area overlap      35.3%
+
+=== GATE 2: irreducible error floor ===
+  window half 1              peak_x=  310.0 m  centroid=( 1045.5,  -5.1) m  80% area=  14.64 ha  x80=[130,4350] m
+  window half 2              peak_x=  310.0 m  centroid=( 1081.0,  15.0) m  80% area=  12.44 ha  x80=[110,4370] m
+  half-vs-half  80% overlap   29.4%   peak difference +0.0 m   centroid difference -35.6 m
+  second realisation         peak_x=  330.0 m  centroid=( 1082.8, -15.3) m  80% area=  15.52 ha  x80=[110,4490] m
+  realisation-vs-realisation  80% overlap   32.4%   peak difference -20.0 m   centroid difference -20.1 m
+  normalised L1 difference 96.1%
+
+  wrote results/stage5.json and results/stage5.png
