@@ -5,13 +5,15 @@
 # rotating (U_g, V_g) with it -- a square, doubly periodic, flat, uniform spin-up with
 # dx = dy is exactly equivariant under that rotation, so four directions cost one spin-up.
 #
-# Per direction: rotate + inject the surface -> 20 min of adjustment -> two 20-min
-# sampling segments at 5 s cadence -> footprint -> DELETE THE FIELDS. Peak storage is one
-# window, never the sum (PROJECT_BRIEF.md).
+# Per direction: rotate + inject the surface -> 20 min of adjustment -> a 30-min
+# sampling window at 5 s cadence -> footprint -> DELETE THE FIELDS. Peak storage is one
+# window, never the sum (PROJECT_BRIEF.md). t_back = 900 s eats the first half of the window, so
+# it yields 15 min of releases -- enough for the peak (converges at 12.5 min) and short of
+# what the centroid wants (>22.5 min); that limitation is reported, not hidden.
 #
 # Every run is projected before launch and every one is under the 45-minute cap:
 #   adjustment      36,480-44,160 steps @ 0.0359 s = 21.8-26.4 min
-#   sampling seg    36,480-44,160 steps @ 0.0359 s = 21.8-26.4 min   (x2)
+#   sampling        54,720-66,240 steps @ 0.0359 s = 32.7-39.6 min
 set -uo pipefail
 cd /home/atyagi/Flux
 L=/tmp/flux-logs
@@ -23,8 +25,12 @@ DT_TERR=0.0271739          # 5/184 s,  CFL_3d 1.2347 -> 1.4977 at the steepest c
 # integer number of those, so frqOutput divides the absolute step at every restart. That
 # last part is the trap in PROJECT_BRIEF.md: the output test is `it % frqOutput == 0` on the
 # ABSOLUTE step, and a mismatch silently yields exactly one dump.
-FRQ_FLAT=152; ADJ_FLAT=36480; SEG_FLAT=36480      # 1200 s each at 5/152 s
-FRQ_TERR=184; ADJ_TERR=44160; SEG_TERR=44160      # 1200 s each at 5/184 s
+# ONE sampling segment, not two. ioLPDMmode output is deliberately NOT restartable (rho
+# and pressure are absent by construction), so a second segment could not resume from the
+# first. A single 1800 s window at 5 s is 360 dumps, 39.6 min of wall time -- inside the
+# 45-minute cap -- and 18.4 GB of float16 analysis cache.
+FRQ_FLAT=152; ADJ_FLAT=36480; SEG_FLAT=54720      # adjust 1200 s, sample 1800 s @ 5/152 s
+FRQ_TERR=184; ADJ_TERR=44160; SEG_TERR=66240      # adjust 1200 s, sample 1800 s @ 5/184 s
 KEEP="${KEEP_FIELDS:-0}"   # 1 = keep the window fields after the footprint
 
 die(){ echo "FATAL: $*" >&2; exit 1; }
@@ -83,10 +89,9 @@ print('%.6f %.6f'%(u,v))")
   # ---- 3. sampling, two segments, 5 s cadence, lean 16-bit output -----------------
   mkdir -p $D/window && rm -f $D/window/*
   PREV=$(basename "$ADJ"); PSTEP=${PREV##*.}
-  for seg in 1 2; do
-    NT=$((PSTEP + SEG*seg))
-    IN=$([ $seg -eq 1 ] && echo "$PREV" || echo "FE_WIN.$((PSTEP+SEG))")
-    IPATH=$([ $seg -eq 1 ] && echo "./output/" || echo "./window/")
+  for seg in 1; do
+    NT=$((PSTEP + SEG))
+    IN="$PREV"; IPATH="./output/"
     sed -e "s|^dt = .*|dt = $DT|" -e "s|^Nt = .*|Nt = $NT|" \
         -e "s|^NtBatch = .*|NtBatch = $FRQ|" -e "s|^frqOutput = .*|frqOutput = $FRQ|" \
         -e "s|^inPath = .*|inPath = $IPATH|" -e "s|^inFile = .*|inFile = $IN|" \
@@ -99,7 +104,7 @@ print('%.6f %.6f'%(u,v))")
     # ioLPDMmode is appended rather than substituted: it is a NEW parameter on the fork
     # and the stock base.in has no line for it.
     if [ "${USE_LPDM_MODE:-1}" = "1" ]; then echo "ioLPDMmode = 1" >> $D/win$seg.in; fi
-    echo "--- window seg $seg: -> step $NT, frq=$FRQ (5 s)  [proj 26.4 min]"
+    echo "--- window: -> step $NT, frq=$FRQ (5 s), 360 dumps  [proj 39.6 min]"
     ./docker/run_case.sh $D win$seg.in "$L/g24_${NAME}_win$seg.log" \
         || die "$NAME: window segment $seg failed"
   done
