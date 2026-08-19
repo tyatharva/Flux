@@ -422,6 +422,125 @@ and 10-15 min stable; neutral sits between, and it does.
 
 ---
 
+## Stage 5 — First footprint, flat and neutral ❌ GATE 1 NOT MET at 30 m
+
+The pipeline runs end to end and produces a footprint. It does not reproduce Kljun.
+
+158,200 backward particles from the 30 m receptor, released at 226 times across the last
+900 s of an 1800 s window at 5 s field cadence, giving 237,905 touchdowns.
+
+### Gate 1 — agreement with Kljun ❌
+
+| | LES + LPDM | Kljun FFP |
+|---|---|---|
+| peak upwind distance | **310 m** | 190 m (analytic 198 m) |
+| centroid, upwind | 1063 m | 788 m |
+| 80% source area | 17.2 ha | 13.6 ha |
+| 80% area reaches | 4210 m | 1470 m |
+| integral over the grid | 0.77 | 0.93 |
+| 80% source-area overlap | **35.3%** | |
+
+The crosswind-integrated profiles say what is actually wrong, and it is not the overall
+shape — **the LES footprint is missing its near field**:
+
+```
+     x (m)    LES f_y  Kljun f_y   LES cum  Kljun cum
+        90  3.590e-06  3.331e-04     0.000      0.008
+       190  5.920e-04  1.606e-03     0.043      0.148
+       290  9.194e-04  1.364e-03     0.154      0.310
+       490  7.817e-04  7.645e-04     0.374      0.526
+       790  4.210e-04  3.741e-04     0.555      0.696
+      1990  9.989e-05  7.408e-05     0.843      0.908
+```
+
+Inside 190 m the LES has 4.3% of its influence against Kljun's 14.8%; the two cross near
+490 m and beyond that the LES tail is consistently heavier. Too little influence close in,
+compensated far out.
+
+### What it is not
+
+Two attempts at resolving it, each a controlled sweep from one field-cache load:
+
+| case | peak_x | centroid_x | int f | top 0.1% of weight |
+|---|---|---|---|---|
+| baseline, C0 = 3 | 330 m | 947 m | 0.752 | 14.1% |
+| **C0 = 6** (halves T_L) | 330 m | 1281 m | 0.638 | 17.5% |
+| **C0 = 1.5** (doubles T_L) | 270 m | 829 m | 0.839 | 10.6% |
+| **\|w_td\| floor 0.05** | 270 m | 953 m | 0.722 | 6.9% |
+| different random seed | 330 m | 983 m | 0.772 | 12.6% |
+
+- **Not the Langevin constant.** A **4x** change in `C0`, and therefore in the Lagrangian
+  timescale, moves the peak by one 60 m grid cell. If the sub-grid closure's timescale were
+  setting the disagreement, this sweep would have found it.
+- **Not the estimator.** `bin/test_estimator.py` verifies the constant analytically against
+  a lid-dependent target, with no LES involved.
+- **Not the well-mixed condition.** Stage 4 passes below the counting noise.
+- **Not Monte-Carlo noise.** A seed change moves the peak by zero cells.
+- **Partly the touchdown-weight tail.** Flooring `|w_td|` at 0.05 m/s cuts the largest
+  0.1% of weights from 14% of the total to 7% and moves the peak 330 -> 270 m. Worth about
+  a fifth of the gap, and worth carrying as a reported diagnostic.
+
+### What it is
+
+At 30 m spacing the LES does not resolve the eddies that make the near-field footprint:
+
+```
+    z (m)   resolved   sub-grid  resolved %
+     10.0    0.00090    0.14275        0.6%
+     30.0    0.00558    0.14805        3.6%   <-- the receptor
+     50.0    0.01556    0.09066       14.6%
+     70.0    0.02893    0.05621       34.0%
+    110.2    0.05536    0.02653       67.6%
+    170.8    0.06761    0.01529       81.6%
+```
+
+**96.4% of the vertical velocity variance at the receptor is sub-grid.** The near-field
+footprint is therefore almost entirely a product of the Langevin model rather than of the
+LES — precisely the regime where a hybrid LES/sub-grid dispersion model has least to say,
+and exactly what the `C0` sweep shows cannot be tuned away. A particle released at 30 m
+must descend 28 m within ~30 s to land inside 190 m; with `sigma_w = 0.39 m/s` and
+`T_L ~ 27 s` its typical vertical excursion in that time is ~16 m, so only a few percent
+manage it. That is the 4.3%.
+
+This is a resolution limit, not a pipeline defect, and it is the one gate that genuinely
+requires the finer grid. At `dz_sfc = 10 m` the receptor sits at the third level rather than
+the second and the resolved fraction there is far higher.
+
+### Gate 2 — the irreducible error floor ✅ MEASURED (and it is large)
+
+Two realisations of the same configuration, separated by 1200 s of decorrelation:
+
+| metric | half vs half | realisation vs realisation | LES vs Kljun |
+|---|---|---|---|
+| peak difference | 0 m | **-20 m** | +120 m |
+| centroid difference | -36 m | **-20 m** | +275 m |
+| 80% source-area overlap | 29.4% | **32.4%** | 35.3% |
+| normalised L1 difference | | **96.1%** | |
+
+This is the gate's whole point, and it pays off immediately: **the 80% source-area overlap
+metric is at its noise floor.** Two realisations of one configuration overlap 32%, while
+LES-vs-Kljun overlap 35% — the metric cannot tell the two apart. Per-cell footprint values
+differ by 96% in L1 between realisations.
+
+Peak and centroid, by contrast, ARE resolved above the floor: 20 m of realisation-to-
+realisation scatter against 120 and 275 m of difference from Kljun.
+
+**Consequences for the corpus and for scoring the emulator, both load-bearing:**
+
+1. **Do not score the emulator on per-cell footprint error or on 80% source-area overlap**
+   at this sampling. Those metrics are noise. Score on peak location, centroid, and
+   crosswind-integrated shape, which are stable.
+2. **A single 30-min window does not converge a per-cell footprint.** The two 15-min halves
+   of one window overlap each other no better than two independent realisations do, so the
+   window is already long enough that lengthening it is not the fix — the fix is averaging
+   over realisations, or accepting a smoothed footprint.
+
+PLAN.md asked for this measurement **before** committing to a corpus size. It changes the
+answer: the corpus must be sized by the number of *runs* needed to average the footprint
+down, not by the number of samples.
+
+---
+
 ## Stage 6 method — how the real surface gets in
 
 Two products, both from `bin/prep_stage6.py`, and one non-obvious mechanism.

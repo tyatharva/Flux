@@ -159,6 +159,16 @@ class LPDM:
             np.clip(us, -5.0 * sig, 5.0 * sig, out=us)
 
             wtot = W + us[2]
+            utot, vtot = U + us[0], V + us[1]
+            # Rate of change of height ABOVE GROUND, which is what a touchdown is. Over
+            # sloping terrain a particle can lose height-above-surface purely because the
+            # ground rises under it, with w near zero -- and the 2/|w| touchdown weight
+            # then explodes. Measured on the flat case this changes nothing (slope is 0);
+            # over the Stage 6 terrain it is the difference between a sane footprint and
+            # one whose integral goes NEGATIVE because a single touchdown carried a weight
+            # of 2e5.
+            sx, sy = fs.ground_slope(*fs.hindex(x, y))
+            w_agl = wtot - utot * sx - vtot * sy
             x += sgn * (U + us[0]) * dt
             y += sgn * (V + us[1]) * dt
             znew = z + sgn * wtot * dt
@@ -170,7 +180,7 @@ class LPDM:
             if hit.any():
                 if record_touchdown:
                     td_p.append(idx[hit]); td_x.append(x[hit]); td_y.append(y[hit])
-                    td_w.append(np.abs(wtot[hit])); td_t.append(elapsed[hit].copy())
+                    td_w.append(np.abs(w_agl[hit])); td_t.append(elapsed[hit].copy())
                 if reflect_touchdown:
                     znew[hit] = 2.0 * (zg[hit] + self.z_touch) - znew[hit]
                     us[2][hit] = -us[2][hit]

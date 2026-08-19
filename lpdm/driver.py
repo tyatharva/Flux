@@ -27,7 +27,7 @@ def make_releases(fs, n_per_release, t_first, t_last, dt_release, xr, yr, zr):
 def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.0,
                       t_back=900.0, c0=3.0, z_touch=2.0, grid_res=20.0,
                       grid_x=(-600.0, 4500.0), grid_y=(-1500.0, 1500.0),
-                      seed=0, split_halves=True, batch_releases=12, w_floor=1e-6,
+                      seed=0, split_halves=True, batch_releases=12, w_floor=0.02,
                       verbose=True):
     """Release, integrate backward, rotate into the wind frame, accumulate.
 

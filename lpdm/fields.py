@@ -76,6 +76,10 @@ class FieldSet:
         self.Ly = self.ny * self.dy
         self.zg = np.ascontiguousarray(topo if topo.ndim == 2 else np.zeros((ny, nx)))
         self.zpos = zpos
+        # Terrain slope, for the surface-normal approach rate at touchdown. Periodic in
+        # both horizontal directions, so the gradient wraps.
+        self.zg_dx = np.gradient(np.pad(self.zg, 1, mode="wrap"), self.dx, axis=1)[1:-1, 1:-1]
+        self.zg_dy = np.gradient(np.pad(self.zg, 1, mode="wrap"), self.dy, axis=0)[1:-1, 1:-1]
 
         # --- invert the terrain-following map: recover the flat-column shape F_k ---
         # z = F_k*(zC - zg)/zC + zg  =>  F_k = (z - zg) * zC/(zC - zg).  Taken from a
@@ -175,6 +179,15 @@ class FieldSet:
             return np.zeros_like(np.asarray(fi, dtype=np.float64))
         return map_coordinates(self.zg, [np.mod(fj, self.ny), np.mod(fi, self.nx)],
                                order=1, mode="grid-wrap")
+
+    def ground_slope(self, fi, fj):
+        """(d zg/dx, d zg/dy) at the particle, bilinearly interpolated."""
+        if not self.zg.any():
+            z = np.zeros_like(np.asarray(fi, dtype=np.float64))
+            return z, z.copy()
+        c = [np.mod(fj, self.ny), np.mod(fi, self.nx)]
+        return (map_coordinates(self.zg_dx, c, order=1, mode="grid-wrap"),
+                map_coordinates(self.zg_dy, c, order=1, mode="grid-wrap"))
 
     def tindex(self, t):
         return np.clip((t - self.t[0]) / max(self.dt_dump, 1e-12), 0.0, len(self.t) - 1.0)
