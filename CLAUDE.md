@@ -85,19 +85,46 @@ invalidates every result produced after it.
   This is the single source of truth; it lives in `TOWER_LON/TOWER_LAT` in
   `bin/prep_stage6.py` and `docker/prep_dem30.py` imports it from there. Any result produced
   before 2026-08-19 at a surrogate coordinate is void.
-- Solar array footprint ~100 m x 400 m, **a geographic object**: bearing 270 deg, 200 m from
-  the tower. It must NOT be specified as an "upwind distance" — that silently rotates the
-  array with the wind and makes it upwind in every case by construction, which destroys the
-  only test that proves the rotation works.
+- **Solar array — THE TOWER IS INSIDE IT.** Corrected 2026-08-19. It extends **60 m east
+  and west, 250 m north, 100 m south** of the tower: 120 x 350 m, 4.20 ha (4.32 ha once
+  discretised at 24 m). It is a rectangle in EPSG:3071 and nothing about it depends on the
+  wind. Earlier specifications as a patch at bearing 270 deg / 200 m, or worse as an
+  "upwind distance", are void — the latter silently rotated the array with the wind and
+  made it upwind in every case by construction.
+
+  Because the tower is inside it, the array's UPWIND REACH is a strong function of
+  direction — 250 m for a northerly, 100 m for a southerly, 60 m for an easterly or
+  westerly — and the fraction of the crosswind-integrated footprint inside that reach swings
+  by ~300x:
+
+  | stability | E/W (60 m) | S (100 m) | **N (250 m)** |
+  |---|---|---|---|
+  | very unstable | 0.1% | 4.2% | **34.1%** |
+  | neutral | 0.0% | 1.2% | **24.2%** |
+  | stable | 0.0% | 0.1% | **13.6%** |
+
+  Site consequence, not just a test: **this tower measures the array on northerlies and
+  measures the neighbours on easterlies and westerlies.**
 - ~30 m of elevation change across the area
 - EC tower measurement height: **30 m AGL**
-- **Open water (Lake Kegonsa) lies east, from 840 m out.** It is a land-cover class, not an
-  exclusion and not tapered: `z0 = 1e-4 m`. It is inside the footprint for easterly cases
-  and carries 35% of it. Detection is a measurement — `docker/prep_dem30.py` emits the
-  standard deviation of the 0.4572 m source elevations *within* each 30 m cell, which
-  collapses to millimetres over specular bare-earth water and stays at centimetres over
-  land; the histogram is bimodal and the threshold sits in the gap. Classifying on "flat at
-  30 m" instead would sweep in ploughed fields and road corridors.
+- **Land cover comes from ESA WorldCover v200 (2021), 10 m.** Replaces the LiDAR-flatness
+  water mask 2026-08-19, and with it the Dane County bare-earth DEM (withdrawn) and
+  `docker/prep_dem30.*` (deleted). Terrain now comes from a **USGS 3DEP 1/3-arcsecond**
+  raster. Both live in `data/raw/` and are gitignored; `bin/prep_surface.py` builds the
+  model grid from them.
+
+  On the 186 x 186 @ 24 m box: 37.4% cropland, 28.5% tree cover, **16.1% permanent water**,
+  15.7% grassland, 2.2% built. Roughness is assigned per class (water 1e-4, grass 0.03,
+  cropland 0.10, built 0.5, tree 1.0), then the array rectangle overrides it — WorldCover
+  labels the array as cropland, because it does not see photovoltaics.
+
+  **The water is strongly directional, which is the point.** Within 4 km, by octant:
+  N 0%, NE 58%, **E 72%**, SE 2%, S 0.4%, SW 0%, W 0%, NW 0%. Nothing inside 1 km.
+
+  *The old LiDAR mask was not actually wrong* — it agrees with WorldCover to ~1 point per
+  annulus. What made the lake look wrong was the rotated 4380 x 1500 m strip slicing a
+  ribbon through it. The static domain fixes that; WorldCover is adopted because it is
+  authoritative and carries every roughness class, not because the old mask failed.
 - **Terrain is tapered at the wrap seams; land cover is NOT.** Terrain height enters the
   coordinate transform and its metric tensor, so a seam step is a numerical cliff. Roughness
   and surface heat flux are local boundary conditions, where a seam is just a coastline —
@@ -278,9 +305,30 @@ Measured, and load-bearing for everything downstream:
 - **CUDA-aware MPI is NOT required** (tested, not assumed). **MPI Fortran bindings ARE**,
   despite FastEddy having no Fortran source — its C code broadcasts with `MPI_INTEGER` /
   `MPI_CHARACTER` in 60 places. Stock Ubuntu `libopenmpi-dev` satisfies both.
-- **Thread blocks:** every shipped tutorial uses 256 threads/block (`1x4x64` or `1x8x32`).
-  `4x4x16` is also 256 and equally valid. The divisibility rule is enforced on **per-rank,
-  halo-inclusive** extents (`SRC/GRID/grid.c:222-240`); Nz is never decomposed.
+- **Thread blocks — `tBx` MUST BE 1, and `4x4x16` was costing 17%.** Corrected by
+  measurement 2026-08-19. `i <- threadIdx.x` (`cuda_hydroCoreDevice.cu:648`) while
+  `kStride = 1` and `iStride = (Ny+6)(Nz+6)` (`grid.c:621-623`). CUDA linearises a warp
+  with `threadIdx.x` fastest, so any `tBx > 1` makes adjacent threads in a warp read
+  addresses `iStride` floats apart — one 128-byte transaction becomes four 32-byte ones.
+  Every shipped tutorial uses `tBx = 1` (`1x4x64`, `1x8x32`) for exactly this reason.
+
+  Swept nine legal shapes over 200 steps at `186x186x122`:
+
+  | block | threads | s/step |
+  |---|---|---|
+  | **1x2x64** | 128 | **0.0359** |
+  | 1x6x32 | 192 | 0.0364 |
+  | 1x3x64 | 192 | 0.0367 |
+  | 1x8x32 | 256 | 0.0380 |
+  | 2x4x32 / 2x2x64 / 1x1x64 / 1x4x64 | 256/256/64/256 | 0.0383-0.0386 |
+  | `4x4x16` (the old default) | 256 | **0.0421** |
+
+  **`tBz = 128` is rejected by the device** — CUDA caps `blockDim.z` at 64, and FastEddy
+  reports it as `tBz = 128 > max allowed on device = 64`. The divisibility rule is enforced
+  on **per-rank, halo-inclusive** extents (`SRC/GRID/grid.c:222-240`); Nz is never decomposed.
+
+- **Cost is 8.51 ns/cell/step with `1x2x64`**, not the 9.37 measured with `4x4x16`. Use the
+  new figure for projections; the old one is 10% pessimistic.
 
 See @PLAN.md for the staged path.
 

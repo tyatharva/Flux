@@ -9,7 +9,11 @@
   isotropic (2/3)e   [baseline, WSM04]       390 m      +86%    1263 m   45.4 ha    36.9%     0.805
   surface-layer ANISOTROPIC split           1170 m     +457%    2003 m   71.3 ha    18.5%     0.595
   isotropic, variance x1.349 (scalar)        270 m      +29%    1021 m   36.4 ha    47.6%     0.812
-  MOST-anchored floor (height-dependent)     see results/fv_most.txt
+  MOST floor, no height restriction          270 m      +29%    1158 m   40.3 ha    40.4%     ~0.81
+  MOST floor, surface layer only [ADOPTED]   270 m      +29%    1159 m   39.2 ha    40.0%     ~0.81
+
+  half-vs-half error floor for the adopted variant: 63.0% overlap, 120 m peak, 85 m centroid.
+  So 40.0% against a 63.0% floor -- the metric still separates signal from noise.
 
   WHAT THIS SETTLES
 
@@ -38,6 +42,24 @@
   in the dispersion model without buying more grid. That reframes the sub-grid gate: the
   gate was measuring resolution correctly, but the consequence of poor resolution turns
   out to be a specific, diagnosable, fixable quantity rather than a diffuse loss.
+
+  WHERE THE TWO CORRECTIONS DIVERGE, AND WHAT THAT MEANS
+
+  Both fix the PEAK identically: 390 -> 270 m, +86% -> +29%. They differ on the tail. The
+  tuned scalar reaches 47.6% overlap, the principled surface-layer floor 40.0%, against a
+  63.0% floor. The scalar's advantage comes entirely from adding variance ABOVE the surface
+  layer, which the MOST floor deliberately will not do.
+
+  Read straight, that says the sigma_w deficit is NOT confined to the surface layer -- the
+  LES under-produces vertical variance through much of the boundary layer at this
+  resolution. The surface-layer relation can only repair the bottom of it. So:
+
+      the PEAK error is a surface-layer deficit, and is fixable at the closure level;
+      the residual TAIL error is boundary-layer-wide, and IS a resolution limitation.
+
+  The scalar is not adopted despite scoring better. It is a constant fitted to one case at
+  one height with no rule for transferring it, and adopting it would bake a tuned number
+  into the corpus targets.
 
   HONESTY CONDITIONS. This is a calibration against Monin-Obukhov similarity and is valid
   only where MOST is: flat, uniform, surface layer. It is implemented as a height-dependent
