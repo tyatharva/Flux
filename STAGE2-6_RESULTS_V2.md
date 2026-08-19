@@ -74,10 +74,15 @@ climbing to 1.64:
 | 900 | 1.354 | 1.241 | 0.0% |
 | 1500 | 1.191 | 1.333 | 0.0% |
 
-The residual is `w_bar` times the concentration integral, both now converged. At a receptor
-sitting in 1.5 sigma of mean subsidence the turbulent flux genuinely is not the surface
-flux — the advection non-closure of eddy covariance in complex terrain. It is now a
+The residual is `w_bar` times the concentration integral, both now converged. It is a
 measured number rather than a runaway.
+
+> **Re-measured on the new grid in the Stage 6 section below, and the interpretation
+> sharpened there.** Both tables above are first-pass-grid numbers; the conclusion that the
+> cap is the fix survives unchanged, but the *residual* splits into two distinct effects
+> once there are three windows to compare instead of one — advective non-closure where the
+> receptor sits in mean ascent, and cap truncation where the footprint is wider than the
+> domain. The flat control on the new grid saturates at 0.82, not 0.96.
 
 ---
 
