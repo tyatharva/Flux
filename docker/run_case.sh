@@ -21,7 +21,21 @@ if [ -n "$busy" ]; then
   docker ps --format '    {{.Names}} {{.Status}} {{.Command}}' --filter "id=${busy## }" >&2
   exit 2
 fi
+# A MISSING RESTART FILE DOES NOT ABORT FastEddy. It prints "Error: No such file or
+# directory", carries on with x,y,z dimensions of 0, and produces a run in which every
+# cell of every field is NaN -- while still exiting 0. That cost a 30-minute segment once.
+# Check the file exists before spending GPU time on it.
 CASE_DIR="$1"; CASE_FILE="$2"
+_cf="/home/atyagi/Flux/${CASE_DIR}/${CASE_FILE}"
+if [ -f "$_cf" ]; then
+  _ip=$(grep -oP '^inPath\s*=\s*\K[^#[:space:]]*' "$_cf" || true)
+  _if=$(grep -oP '^inFile\s*=\s*\K[^#[:space:]]*' "$_cf" || true)
+  if [ -n "${_if:-}" ] && [ ! -f "/home/atyagi/Flux/${CASE_DIR}/${_ip}${_if}" ]; then
+    echo "  REFUSED: restart file ${_ip}${_if} not found relative to ${CASE_DIR}" >&2
+    echo "           (FastEddy would run to completion and write only NaN)" >&2
+    exit 3
+  fi
+fi
 LOG="${3:-/tmp/claude-1000/$(basename "$CASE_FILE" .in).log}"
 mkdir -p "$(dirname "$LOG")"
 docker run --gpus all --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \

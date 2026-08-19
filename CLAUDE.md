@@ -280,6 +280,12 @@ See @PLAN.md for the staged path.
   field returns exit status 0. **Every run script must grep output for `CORRUPTED`/NaN and
   must never trust the exit code alone.** Use `docker/check_run.sh`.
 
+- **TRAP: a MISSING RESTART FILE does not abort.** FastEddy prints
+  `Error: No such file or directory`, then carries on with x,y,z dimensions of 0 and
+  produces a run in which **every cell of every field is NaN** — while still exiting 0.
+  It cost a 30-minute spin-up segment before `check_run.sh` caught it at the end.
+  `docker/run_case.sh` now verifies `inPath`+`inFile` exists before spending GPU time.
+
 - **TRAP: `frqOutput` finer than `NtBatch` is SILENTLY IGNORED.** FastEddy's time loop is
   `for(it = simTime_it; it < Nt; it += NtBatch)` with the output test `if(it % frqOutput == 0)`
   *inside* it (`SRC/FEMAIN/FastEddy.c:400,423`) — a batch is a GPU-resident launch and the
