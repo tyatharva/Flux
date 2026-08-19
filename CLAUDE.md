@@ -266,8 +266,34 @@ See @PLAN.md for the staged path.
   boundary does move with the grid: at 30 m, CFL_3d = 1.80 produces garbage but still
   completes without NaN, so the silent window is **wider** at coarser resolution.
 
+  **TERRAIN AMPLIFIES THE EFFECTIVE CFL, and the amplification scales with GRID
+  ANISOTROPY.** In a terrain-following coordinate the horizontal derivative picks up
+  `J31 d/dzeta`, so the effective acoustic Courant number is roughly
+
+      CFL_eff  ~  CFL_3d * sqrt(1 + (slope * dx/dz)^2)
+
+  Measured on the Kegonsa terrain at `dx = 30 m`, `dz_sfc = 8.56 m` (`dx/dz = 3.50`):
+
+  | slope | amplification | CFL_eff at the flat-run `dt` |
+  |---|---|---|
+  | p50 0.039 | 1.009 | 1.502 |
+  | p90 0.099 | 1.058 | 1.575 |
+  | p99 0.182 | 1.187 | **1.766** |
+  | max 0.259 | 1.350 | **2.009** |
+
+  The flat run at the same `dt` is clean (`k0/k1 = 0.128`); the terrain run trips the
+  accuracy limit at the steep cells (`k0/k1 = 3.85`). Confirmed to be grid noise and not
+  flow-following motion: subtracting the terrain-following component `u.grad(zg)` leaves
+  the ratio unchanged (3.845 -> 3.915) and the two correlate at only +0.16.
+
+  **The earlier `dz_sfc = 20 m` grid did not show this** because `dx/dz` was 1.50 rather
+  than 3.50 — the same terrain cost 2.3x less amplification. So refining `dz` alone makes
+  a grid MORE sensitive to terrain, not less. Terrain runs here need `dt = 5/199 s`
+  against the flat runs' `5/147 s`.
+
   **Never set `dt` from the stability boundary. Use the accuracy boundary with margin,
-  and re-derive it whenever the grid changes.** Verify with `docker/diag_near_surface.py`:
+  re-derive it whenever the grid changes, and multiply the margin by the terrain
+  amplification before any run with topography.** Verify with `docker/diag_near_surface.py`:
   the first-level `w` variance ratio `k0/k1` must be **< 1** (~0.27 when correct, matching
   NCAR's NBL at 0.25). A value near 9 means dt is too large.
 
