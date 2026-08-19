@@ -81,9 +81,27 @@ invalidates every result produced after it.
 ## Site
 
 - UW-Madison Kegonsa Solar Array, southern Wisconsin
-- Solar array footprint ~100 m x 400 m
+- **Tower coordinate, SURVEYED: `42.957160, -89.292362`** (EPSG:3071 577719.1, 276299.5).
+  This is the single source of truth; it lives in `TOWER_LON/TOWER_LAT` in
+  `bin/prep_stage6.py` and `docker/prep_dem30.py` imports it from there. Any result produced
+  before 2026-08-19 at a surrogate coordinate is void.
+- Solar array footprint ~100 m x 400 m, **a geographic object**: bearing 270 deg, 200 m from
+  the tower. It must NOT be specified as an "upwind distance" — that silently rotates the
+  array with the wind and makes it upwind in every case by construction, which destroys the
+  only test that proves the rotation works.
 - ~30 m of elevation change across the area
 - EC tower measurement height: **30 m AGL**
+- **Open water (Lake Kegonsa) lies east, from 840 m out.** It is a land-cover class, not an
+  exclusion and not tapered: `z0 = 1e-4 m`. It is inside the footprint for easterly cases
+  and carries 35% of it. Detection is a measurement — `docker/prep_dem30.py` emits the
+  standard deviation of the 0.4572 m source elevations *within* each 30 m cell, which
+  collapses to millimetres over specular bare-earth water and stays at centimetres over
+  land; the histogram is bimodal and the threshold sits in the gap. Classifying on "flat at
+  30 m" instead would sweep in ploughed fields and road corridors.
+- **Terrain is tapered at the wrap seams; land cover is NOT.** Terrain height enters the
+  coordinate transform and its metric tensor, so a seam step is a numerical cliff. Roughness
+  and surface heat flux are local boundary conditions, where a seam is just a coastline —
+  and tapering them would erase the water from exactly the easterly cases meant to sample it.
 
 ## Domain configuration (settled)
 
@@ -131,6 +149,19 @@ explicit geometry would look resolved while being meaningless.
 
 Known omissions, accepted: elevated heat source, directional roughness anisotropy from row
 alignment, diurnal tilt, ~20% shortwave leaving as electricity.
+
+**Albedo has no pathway, and that is not an omission.** FastEddy in this configuration has
+no radiation scheme at all — `surflayerSelector = 1` prescribes the kinematic surface heat
+flux directly — so what albedo would have controlled is subsumed by `htFlux`, which IS
+per-cell (`cuda_surfaceLayerDevice.cu:191` reuses the array when `surflayer_idealsine = 0`).
+`htFlux`, `z0m`, `z0t` and `tskin` are all IO-registered, so they survive the restart read
+and `bin/prep_stage6.py` writes them there. The built-in `surflayer_offshore` wave-roughness
+parameterisations are a **global** switch and cannot be applied to water cells only, so
+per-cell `z0` is used for the water instead.
+
+**Measured 2026-08-19 (Stage 6, 30 m grid):** the array takes **10.3x its area share** of
+the footprint when upwind (7.32% of the footprint from 0.71% of the domain) and **0.06x**
+when downwind. Same patch, same tower, same spun-up state, rotated 180 deg.
 
 ## Footprint computation
 
@@ -213,6 +244,25 @@ no `too many resources requested for launch`. The NBL failure that previously bl
 everything is resolved. Initial states reproduce the published GABLS1 and NBL specs.
 
 **Stage 0b PASSED** — precision documented in Conventions above.
+
+**Stages 2-6, second pass, 2026-08-19** — see `STAGE2-6_RESULTS_V2.md`. At the 30 m
+pipeline-development grid with `dz_sfc = 8.56 m`:
+
+| stage | gate | result |
+|---|---|---|
+| 2 | bitwise restart | ✅ PASS — byte-identical dumps at the new grid |
+| 2 | TKE stationarity | ❌ NO — `u*` still drifting -2.25 +/- 0.27 %/h (-8.4 sigma) at 6.4 h |
+| 3 | 30-min window under 30 GB | ✅ PASS by configuration — 13.0 GB, IO ~3% of compute |
+| 4 | well-mixed | ✅ PASS — backward rms 4.91% vs a 4.48% counting-noise floor |
+| 4 | plausible transit time | ✅ PASS — median 287 s |
+| 5 Gate 1 (revised) | sub-grid fraction of `sigma_w^2` < 40% | ❌ **FAIL twice**, 96.4% -> 88.3%; **unreachable at `dx = 30 m`** |
+| 5 Gate 2 | error floor | ✅ MEASURED — floor separated from signal (59.2% vs 36.9%) |
+| 6 | explicable difference | ✅ PASS — array 10.3x its area share upwind, 0.06x downwind |
+
+**The one blocking result is Stage 5 Gate 1.** The sub-grid fraction collapses onto
+`z/Delta`; the 40% gate needs `Delta <~ 8.6 m`, which is a statement about `dx`, not `dz`.
+The grids that pass cost **20-23 GPU-hours for the spin-up alone**. That is a project-level
+decision about corpus cost, not a configuration change, and nothing at `dx = 30 m` reaches it.
 
 Measured, and load-bearing for everything downstream:
 
@@ -355,16 +405,30 @@ The 10 m grid above remains the production target. Everything from Stage 2 onwar
 **developed and validated at 30 m**, deliberately: this configuration validates the
 pipeline, not the science, and the corpus is regenerated at finer resolution later.
 
+**Superseded 2026-08-19 by the second-pass grid below.** The first-pass grid was
+`146 x 50 x 90`, `d_zeta = 30.167598`, `verticalDeformFactor = 0.662868`
+(`dz_sfc = 19.997 m`), `dt = 0.0625 s`, 657,000 cells, measured 0.0066 s/step. It is kept
+here because Items 1 and 2 of the second pass (reference frame, wrap-around) were measured
+on it. The receptor sat at `k=1` with **one** cell below the tower.
+
+**SECOND-PASS GRID (current):**
+
 | | value | note |
 |---|---|---|
-| `Nx x Ny x Nz` | 146 x 50 x 90 | padded 152/56/96, all divisible by 4/4/16 |
+| `Nx x Ny x Nz` | 146 x 50 x **122** | padded 152/56/**128**, all divisible by 4/4/16 |
 | `dx = dy` | 30.0 m | domain 4380 x 1500 m, same physical extent as the 10 m grid |
-| `d_zeta` | 30.167598 | `zCeiling = d_zeta*(Nz-0.5) = 2700 m` |
-| `verticalDeformFactor` | 0.662868 | `dz_sfc = 19.997 m` |
-| **`dt`** | **0.0625 s** | `CFL_3d = 1.491`, 9% below the 1.64 accuracy limit |
+| `d_zeta` | **22.222222** | `zCeiling = d_zeta*(Nz-0.5) = 2700 m` |
+| `verticalDeformFactor` | **0.385204** | **`dz_sfc = 8.5601 m`**, receptor `k=3` at exactly 30.000000000 m |
+| **`dt`, flat** | **5/147 = 0.0340136 s** | `CFL_3d = 1.488`, 9% below the 1.64 accuracy limit |
+| **`dt`, terrain** | **5/200 = 0.0250 s** | slope-amplified `CFL_eff = 1.48` at the steepest cell |
 | `dampingLayerDepth` | 540.0 | 20% of 2700 m |
-| cells | 657,000 | |
-| **measured cost** | **0.0066 s/step** | vs 0.00616 predicted from 9.37 ns/cell/step |
+| cells | 890,600 | |
+| levels below 400 m / below 30 m | **40 / 3** | was 20 / 1 |
+
+**Two `dt` values, and they are not interchangeable.** The flat value trips the accuracy
+limit over terrain — see the slope-amplification section above. `dt = 0.025` was also
+chosen so `5 s / dt = 200` divides the restart step 418200; `5/199` does not, and
+`frqOutput` is tested against the ABSOLUTE step (see the trap below).
 
 **`dz_sfc` and a 30 m receptor are not independent.** The near-surface cubic correction in
 `zDeform` is under 0.05 m, so cell centres sit at `(k+0.5)*dz_sfc` and a centre at exactly
@@ -372,14 +436,18 @@ pipeline, not the science, and the corpus is regenerated at finer resolution lat
 (k=4). A request for "dz_sfc = 10 m with a cell centre at 30.000 m" cannot be honoured; the
 bracketing choices are 12 m and 8.571 m.
 
-**The receptor lands on a cell centre at exactly 30.000 m.** `verticalDeformFactor` was
-solved for that, not rounded to it: with `dz_sfc = 20 m` the k=1 centre is at half a
-spacing above the k=0 centre, i.e. 1.5 x 20 = 30 m, and the cubic term's 4 mm was absorbed
-by tuning the factor. There are 20 levels below 400 m and 1 below 30 m.
+**The receptor lands on a cell centre at exactly 30.000 m.** `verticalDeformFactor` is
+solved for that, not rounded to it: `dz_sfc = 8.5601 m` puts the `k=3` centre at
+30.000000000 m once the cubic term's few mm are absorbed by tuning the factor.
 
-The measured 0.0066 s/step is 7% ABOVE the 9.37 ns/cell/step model — launch overhead at
-657 k cells, which is 3x smaller than the smallest case the model was fitted to. Use the
-measured value, not the model, for projections at this size.
+**Refining `dz` from 20 m to 8.56 m bought 8 points of sub-grid fraction and cost a `dt`
+recalibration plus a terrain-CFL surprise.** It moved the sub-grid fraction of `sigma_w^2`
+at the receptor from 96.4% to 88.3% — real, in the right direction, and nowhere near the
+40% gate. See the `z/Delta` collapse section: that gate is a statement about `dx`.
+
+The measured 0.0066 s/step at 657 k cells was 7% ABOVE the 9.37 ns/cell/step model — launch
+overhead at a size 3x smaller than the smallest case the model was fitted to. Use measured
+values, not the model, below ~1 M cells.
 
 ### Backward-LPDM traps, settled by measurement (2026-08-18)
 
@@ -396,7 +464,21 @@ measured value, not the model, for projections at this size.
   | 1500 | 31.8% | **1.064** | **0.961** |
 
   **Always cap trajectory displacement at one streamwise domain length.** Capped, the flat
-  integral converges to 1 from below, which is what a flux footprint must do.
+  integral converges from below rather than sailing past 1.
+
+- **THE CAP MAKES DOMAIN LENGTH A CORRECTNESS CONSTRAINT, not just a fetch one.** The cap
+  retires a trajectory once it has travelled one streamwise domain length, so the estimator
+  recovers only the influence inside that distance. Re-measured 2026-08-19 on the finer
+  grid, where the footprint is broader: the flat 80% source area reaches **3810 m** in a
+  4380 m domain, and the capped integral saturates at **0.821**, ~18% short. Ruled out as
+  causes: the weight floor (a 4x reduction, `w_floor` 0.02 -> 0.005, moves it only
+  0.781 -> 0.815) and `t_back` truncation (flat by 900 s).
+
+  **The streamwise domain must be long enough to contain the footprint.** Uncapped
+  double-counts, capped truncates; there is no setting that rescues a domain shorter than
+  the footprint. This is partly self-limiting — the footprint is artificially broad at 88%
+  sub-grid (Kljun's 80% area ends at 1410 m against the LES's 3810 m) — but it must be
+  re-checked at whatever grid the corpus finally uses.
 
 - **The flux weight is frame-dependent, but the frame is a ~2% effect.** A real EC tower is
   double-rotated (Wilczak et al. 2001) so the mean vertical velocity vanishes. Rotating the
@@ -495,5 +577,33 @@ direction — and direction is the axis needing the most samples.
 At `dt = 0.0250 s` the cost is **2.94 s wall per simulated second**. A monolithic 3 h run
 would be 8.82 h — above the ~4 h threshold. The split puts each production run at
 **2.45 h**, under it.
+
+**A sampling window is `t_back` + sampling time, not sampling time.** Measured 2026-08-19:
+the first `t_back` seconds of a window produce no releases, because a backward trajectory
+needs that much history behind it. With `t_back = 900 s` and the 22.5 min the centroid needs
+to converge (below), a production window is **37.5 min**, not 30 — and a 30-min window
+yields only 21 min of releases.
+
+### Ensemble convergence — measured, and it is the corpus design parameter
+
+From 18 sub-windows of 150 s within one integration (not from separate runs). The
+sub-windows are **independent**: lag-1 autocorrelation +0.19 (peak) and -0.10 (centroid),
+both below `2/sqrt(18) = 0.47`. So ensembles are bought with sampling *time inside one run*,
+not with extra runs.
+
+| n sub-windows | sampling time | peak p90 | centroid p90 |
+|---|---|---|---|
+| 3 | 7.5 min | **60 m (1 cell)** | 893 m |
+| 5 | 12.5 min | 60 m | 452 m |
+| 9 | 22.5 min | 60 m | **120 m** |
+
+**Peak converges at 7.5 min; the centroid needs > 22.5 min and is still improving there.**
+The centroid is tail-dominated and is the expensive metric. The residual 60 m peak offset
+between window halves is *systematic* — it tracks the residual spin-up drift — so more
+averaging will not remove it; only a stationary spin-up will.
+
+This curve also predicts terrain-run scatter to within 1.5%: the Stage 6 windows leave 900 s
+of releases, i.e. ~3 sub-windows per half, for which the table gives a centroid p90 of
+893 m; the measured half-vs-half centroid difference was 906 m.
 
 

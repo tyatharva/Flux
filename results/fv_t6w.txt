@@ -1,10 +1,33 @@
-Traceback (most recent call last):
-  File "/work/bin/stage5_footprint.py", line 203, in <module>
-    sys.exit(main())
-  File "/work/bin/stage5_footprint.py", line 63, in main
-    fs = FieldSet(paths, a.dt, verbose=False)
-  File "/work/lpdm/fields.py", line 64, in __init__
-    with Dataset(self.paths[0]) as ds:
-IndexError: list index out of range
 
-=== runs/fv_t6w/output: 0 dumps ===
+=== runs/fv_t6w/output: 361 dumps ===
+  receptor  (i,j,k)=(110,25,3)  x=3315 y=765  z=20.194 m ASL = 30.110 m AGL (ground -9.92 m)
+  releases  226 times over 11355-12255 s, 700 each = 158,200 particles; t_back=900 s
+  receptor means over the averaging period: U=+5.5156 V=+1.1676 W=+0.0640 m/s
+  double rotation: yaw +11.95 deg, pitch +0.650 deg (sin=+0.01134)
+  wrap-around cap: retiring trajectories past 4380 m of displacement (domain 4380 x 1500 m)
+  mean streamline-frame w over all releases: +0.00114 m/s (model-frame mean was +0.06396); rotation removed 98.2% of it
+  footprint-weighted land-cover share (from touchdowns, unblurred):
+    water          0.03%   (domain area share  0.64%)
+    solar array    7.32%   (domain area share  0.71%)
+    grass         92.65%   (domain area share 98.64%)
+  LES scalars at z=30.00 m: U=6.24 m/s dir=257.7 deg  u*=0.346  h=1094 m  1/L=0.00e+00
+    sigma_v 0.510 (resolved 0.360 + sub-grid, e_sgs=0.1959);  sigma_w 0.400 (resolved 0.171);  sigma_w/u* = 1.16 (surface-layer expectation ~1.25)
+  touchdowns 363,211;  largest single weight 152.5;  top 0.1% carry 10.8% of the total |weight|
+  integral of f_flux over grid = 1.452 (all touchdowns 1.452; shortfall = influence truncated by t_back=900 s)
+
+=== GATE 1: LES+LPDM vs Kljun et al. (2015) ===
+  LES+LPDM                   peak_x=  510.0 m  centroid=(  969.4, -17.9) m  80% area=  23.40 ha  x80=[150,2370] m
+  Kljun FFP                  peak_x=  210.0 m  centroid=(  778.4,  -0.0) m  80% area=  27.36 ha  x80=[90,1410] m
+  Kljun x_max (analytic)       194.5 m
+  Kljun integral over grid   0.929
+
+  peak-location difference    +300.0 m (+143%)
+  centroid difference         +191.1 m (+25%)
+  80% source-area overlap      50.0%
+
+=== GATE 2: irreducible error floor ===
+  window half 1              peak_x=  330.0 m  centroid=(  284.9,-149.8) m  80% area=   7.56 ha  x80=[150,2010] m
+  window half 2              peak_x=  690.0 m  centroid=( 1190.5,  24.6) m  80% area=  34.20 ha  x80=[150,2730] m
+  half-vs-half  80% overlap   30.6%   peak difference -360.0 m   centroid difference -905.6 m
+
+  wrote results/fv_t6w.json and results/fv_t6w.png
