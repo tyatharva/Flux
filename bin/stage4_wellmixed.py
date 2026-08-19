@@ -22,11 +22,10 @@ def main():
     ap.add_argument("--dt", type=float, default=0.0625)
     ap.add_argument("--n", type=int, default=40000)
     ap.add_argument("--tlimit", type=float, default=900.0)
-    # Keep the reflecting lid INSIDE the turbulent layer: the spun-up boundary layer is
-    # ~500 m deep and FastEddy's SGS TKE is already below 1e-4 by 508 m, where the
-    # Lagrangian timescale diverges and the test would be measuring the damping layer
-    # rather than the closure.
-    ap.add_argument("--zlid", type=float, default=400.0)
+    # Score the footprint-relevant layer; release well above it so no artificial
+    # boundary sits near the scored region (see lpdm/wellmixed.py).
+    ap.add_argument("--zscore", type=float, default=400.0)
+    ap.add_argument("--zrelease", type=float, default=1200.0)
     ap.add_argument("--c0", type=float, default=3.0)
     ap.add_argument("--ztouch", type=float, default=2.0)
     a = ap.parse_args()
@@ -44,7 +43,8 @@ def main():
     for direction, label in ((-1, "BACKWARD (the mode footprints use)"),
                              (+1, "FORWARD (control)")):
         t0 = time.time()
-        out = wellmixed.run_test(lp, fs, n=a.n, z_lid=a.zlid, t_limit=a.tlimit,
+        out = wellmixed.run_test(lp, fs, n=a.n, z_score_top=a.zscore,
+                                 z_release_top=a.zrelease, t_limit=a.tlimit,
                                  direction=direction)
         ok &= wellmixed.report(out, label)
         print(f"  ({out['iters']} integrator steps, {time.time()-t0:.0f} s)")
