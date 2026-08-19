@@ -32,6 +32,9 @@ def window_stats(paths, k_recept):
     uu = vv = ww = uv = 0.0
     esgs = 0.0
     tke_prof = None
+    ww_prof = None          # resolved sigma_w^2(z), horizontal variance per level
+    esgs_prof = None        # mean sub-grid TKE(z)
+    zlev = None
     ust = hfx = th0 = 0.0
     n = 0
     for p in paths:
@@ -53,11 +56,18 @@ def window_stats(paths, k_recept):
         pr = lambda a: a - a.mean(axis=(-2, -1), keepdims=True)
         t = 0.5 * ((pr(u) ** 2) + (pr(v) ** 2) + (pr(w) ** 2)).mean(axis=(-2, -1))
         tke_prof = t if tke_prof is None else tke_prof + t
+        wp = (pr(w) ** 2).mean(axis=(-2, -1))
+        ep = e.mean(axis=(-2, -1))
+        ww_prof = wp if ww_prof is None else ww_prof + wp
+        esgs_prof = ep if esgs_prof is None else esgs_prof + ep
+        zlev = z
         n += 1
     U /= n; V /= n; uu /= n; vv /= n; ww /= n; uv /= n; esgs /= n
     sgs = (2.0 / 3.0) * esgs        # isotropic sub-grid variance per component
     ust /= n; hfx /= n; th0 /= n
     tke_prof /= n
+    ww_prof /= n
+    esgs_prof /= n
 
     wdir = (270.0 - np.degrees(np.arctan2(V, U))) % 360.0     # meteorological
     spd = float(np.hypot(U, V))
@@ -81,4 +91,5 @@ def window_stats(paths, k_recept):
                 sigma_w_resolved=float(np.sqrt(ww)), e_sgs=float(esgs),
                 ustar=float(ust), htFlux=float(hfx), theta0=float(th0),
                 L=float(L), h=h, tke_prof=tke_prof, n_dumps=n,
+                ww_prof=ww_prof, esgs_prof=esgs_prof, zlev=zlev,
                 U=float(U), V=float(V))

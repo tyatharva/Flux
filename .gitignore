@@ -4,9 +4,11 @@ FastEddy-model-5.0.1/
 
 # --- Large binary input data: never committed. Provenance in data/README.md ---
 *.zip
+*.tar.gz
 *.tif
 *.tif.ovr
-data/dem/
+data/raw/
+data/grid/
 data/conus404/
 
 # --- LES output: regenerable, and far too large. Peak storage is one run. ---

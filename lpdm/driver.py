@@ -28,7 +28,8 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
                       t_back=900.0, c0=3.0, z_touch=2.0, grid_res=20.0,
                       grid_x=(-600.0, 4500.0), grid_y=(-1500.0, 1500.0),
                       seed=0, split_halves=True, batch_releases=12, w_floor=0.02,
-                      max_disp=None, cover=None, verbose=True):
+                      max_disp=None, cover=None, aniso=None, sgs_scale=1.0, sgs_most=False,
+                      verbose=True):
     """Release, integrate backward, rotate into the wind frame, accumulate.
 
     Releases are processed in batches of `batch_releases` release times rather than as one
@@ -121,7 +122,43 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
         print(f"  wrap-around cap: retiring trajectories past {max_disp:.0f} m of "
               f"displacement (domain {fs.Lx:.0f} x {fs.Ly:.0f} m)")
 
-    lp = LPDM(fs, c0=c0, z_touch=z_touch, seed=seed)
+    if sgs_most:
+        # ---- MOST-anchored sub-grid variance floor -------------------------------------
+        # Measured on this pipeline: the LES delivers sigma_w/u* = 1.09 at the 30 m
+        # receptor against the neutral surface-layer value of ~1.25, because at
+        # z/Delta ~ 1.5 the eddies that carry w are at or below the filter scale. A low
+        # sigma_w makes backward particles descend too slowly, so they travel too far
+        # before touching down -- which is exactly the observed error (peak 390 m against
+        # Kljun's 210 m). Verified by direct test: scaling the sub-grid variance so
+        # sigma_w matches similarity moves the peak to 270 m and lifts the 80% source-area
+        # overlap from 36.9% to 47.6%.
+        #
+        # This is a FLOOR, not a replacement. Where the LES already resolves enough, the
+        # factor is 1 and nothing happens; the correction only supplies what similarity
+        # says is missing, and it switches itself off above the surface layer because
+        # (1 - z/h)^(3/4) decays and the resolved fraction grows.
+        #
+        # It is a calibration against Monin-Obukhov similarity, valid where MOST is:
+        # flat, uniform, surface layer. Calibrate there and apply the RULE -- never the
+        # number -- everywhere else.
+        zl = np.asarray(st["zlev"], dtype=np.float64)
+        wwp = np.asarray(st["ww_prof"], dtype=np.float64)
+        esp = np.asarray(st["esgs_prof"], dtype=np.float64)
+        h = float(st["h"])
+        tgt2 = (1.25 * float(st["ustar"]) * np.maximum(1.0 - zl / max(h, 1.0), 0.0) ** 0.75) ** 2
+        need = np.maximum(tgt2 - wwp, 0.0)
+        have = np.maximum((2.0 / 3.0) * esp, 1e-9)
+        fac = np.maximum(need / have, 1.0)
+        sgs_scale = (zl, fac)
+        if verbose:
+            kk = int(np.argmin(np.abs(zl - z_target)))
+            print(f"  SGS MOST floor: factor {fac[kk]:.3f} at the receptor "
+                  f"({fac.min():.2f}-{fac.max():.2f} over the column); "
+                  f"sigma_w/u* {np.sqrt(wwp[kk] + (2/3)*esp[kk])/st['ustar']:.2f} -> "
+                  f"{np.sqrt(wwp[kk] + fac[kk]*(2/3)*esp[kk])/st['ustar']:.2f} "
+                  f"(surface-layer target 1.25)")
+    lp = LPDM(fs, c0=c0, z_touch=z_touch, seed=seed, aniso=aniso,
+              sgs_scale=sgs_scale)
     t_start = time.time()
     n_td = 0
     wsf_bar, wsf_n = [], 0

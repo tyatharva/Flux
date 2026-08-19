@@ -54,7 +54,11 @@ def dump_series(outdir: str, base: str = None) -> list[str]:
 class FieldSet:
     """A window of FastEddy dumps held in RAM, with 4-D (t,z,y,x) linear interpolation."""
 
-    def __init__(self, paths, dt_model, verbose=True):
+    def __init__(self, paths, dt_model, verbose=True, store_dtype=None):
+        # store_dtype emulates FastEddy writing the LPDM's four fields at reduced
+        # precision (PLAN.md Stage 3: fp16 on write takes a 37.5-min window from 82 GB to
+        # 16 GB). None = full fp32, as written today.
+        self.store_dtype = store_dtype
         self.paths = list(paths)
         steps = np.array([_step_of(p) for p in self.paths], dtype=np.float64)
         self.t = steps * dt_model                     # seconds of model time
@@ -115,6 +119,14 @@ class FieldSet:
                 ee = np.maximum(g("TKE_0"), 0.0)
                 th = g("theta").astype(np.float64)
                 us, z0, iL = g("fricVel"), g("z0m"), g("invOblen")
+            if self.store_dtype is not None:
+                # Emulate a reduced-precision WRITE. This must happen HERE, before eps and
+                # dsig2dz are derived, because FastEddy would store TKE_0 at the reduced
+                # precision and the LPDM would derive them from the stored value -- not
+                # from a full-precision one. Quantising afterwards would flatter the test.
+                q = lambda arr: arr.astype(self.store_dtype).astype(arr.dtype)
+                uu, vv, ww, ee = q(uu), q(vv), q(ww), q(ee)
+                th = q(th)
             # SGS length scale and dissipation, exactly as cuda_sgstkeDevice.cu does it
             dthdz = np.gradient(th, self.zk, axis=0)
             n2 = (G / th) * dthdz
