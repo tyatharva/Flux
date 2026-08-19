@@ -27,7 +27,8 @@ def make_releases(fs, n_per_release, t_first, t_last, dt_release, xr, yr, zr):
 def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.0,
                       t_back=900.0, c0=3.0, z_touch=2.0, grid_res=20.0,
                       grid_x=(-600.0, 4500.0), grid_y=(-1500.0, 1500.0),
-                      seed=0, split_halves=True, batch_releases=12, verbose=True):
+                      seed=0, split_halves=True, batch_releases=12, w_floor=1e-6,
+                      verbose=True):
     """Release, integrate backward, rotate into the wind frame, accumulate.
 
     Releases are processed in batches of `batch_releases` release times rather than as one
@@ -82,7 +83,7 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
         X = -(dx * ca + dy * sa)          # upwind-positive
         Y = -dx * sa + dy * ca
         r = dict(res); r["td_x"] = X; r["td_y"] = Y
-        full.add(r, 0.0, 0.0)
+        full.add(r, 0.0, 0.0, w_floor=w_floor)
         n_td += len(X)
         if split_halves:
             rel = t[res["td_particle"]]
@@ -93,7 +94,7 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
                 rr["td_w"] = res["td_w"][m]
                 rr["td_x"] = X[m]; rr["td_y"] = Y[m]
                 rr["n"] = nn
-                g.add(rr, 0.0, 0.0)
+                g.add(rr, 0.0, 0.0, w_floor=w_floor)
         if verbose:
             print(f"    batch {b0//batch_releases+1}/"
                   f"{-(-len(times)//batch_releases)}  {n_td:,} touchdowns  "

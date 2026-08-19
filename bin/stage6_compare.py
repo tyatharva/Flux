@@ -44,9 +44,12 @@ def main():
     ap.add_argument("--outdir", default="results"); ap.add_argument("--tag", default="stage6")
     ap.add_argument("--topo", default="runs/s30_stage6/topo.npy")
     ap.add_argument("--z0", default="runs/s30_stage6/z0m.npy")
-    ap.add_argument("--array-centre", type=float, default=200.0)
-    ap.add_argument("--array-x", type=float, default=100.0)
-    ap.add_argument("--array-y", type=float, default=400.0)
+    # ACTUAL array window relative to the receptor, not the nominal one. prep_stage6.py
+    # was run with --itower 109 while the LPDM places the receptor at i = round(0.75*nx)
+    # = 110, so the patch occupies cells i = 101..104, i.e. 180-270 m upwind.
+    ap.add_argument("--array-centre", type=float, default=225.0)
+    ap.add_argument("--array-x", type=float, default=120.0)
+    ap.add_argument("--array-y", type=float, default=390.0)  # cells j=19..31, -180..180 m
     a = ap.parse_args()
     A, B = np.load(a.flat), np.load(a.terrain)
     xc, yc, xe, ye = A["xc"], A["yc"], A["xe"], A["ye"]

@@ -118,7 +118,11 @@ def main():
     ap.add_argument("--nx", type=int, default=146)
     ap.add_argument("--ny", type=int, default=50)
     ap.add_argument("--dx", type=float, default=30.0)
-    ap.add_argument("--itower", type=int, default=109)
+    # Must match lpdm.driver.receptor_indices, which uses round(0.75*nx) = 110 for nx=146.
+    # The Stage 6 run in this repository was generated with 109; that puts the array
+    # 180-270 m upwind of the receptor instead of 150-250 m, and shifts the terrain one
+    # cell. bin/stage6_compare.py is told the actual window rather than the nominal one.
+    ap.add_argument("--itower", type=int, default=110)
     ap.add_argument("--jtower", type=int, default=25)
     ap.add_argument("--taper-x", type=int, default=12, help="cells (12 x 30 m = 360 m)")
     ap.add_argument("--taper-y", type=int, default=8)

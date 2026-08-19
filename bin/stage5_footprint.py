@@ -66,8 +66,12 @@ def main():
                               seed=len(runs))
         st = r["stats"]
         print(f"  LES scalars at z={st['z_recept']:.2f} m: U={st['u_mean']:.2f} m/s "
-              f"dir={st['wdir']:.1f} deg  u*={st['ustar']:.3f}  sigma_v={st['sigma_v']:.3f}"
-              f"  sigma_w={st['sigma_w']:.3f}  h={st['h']:.0f} m  1/L={1/st['L']:.2e}")
+              f"dir={st['wdir']:.1f} deg  u*={st['ustar']:.3f}  h={st['h']:.0f} m  "
+              f"1/L={1/st['L']:.2e}")
+        print(f"    sigma_v {st['sigma_v']:.3f} (resolved {st['sigma_v_resolved']:.3f} "
+              f"+ sub-grid, e_sgs={st['e_sgs']:.4f});  sigma_w {st['sigma_w']:.3f} "
+              f"(resolved {st['sigma_w_resolved']:.3f});  sigma_w/u* = "
+              f"{st['sigma_w']/st['ustar']:.2f} (surface-layer expectation ~1.25)")
         tc = r["grid"].tail_concentration()
         print(f"  touchdowns {tc['n_touchdown']:,};  largest single weight "
               f"{tc['max_weight']:.1f};  top 0.1% carry {tc['top0p1pct_share']*100:.1f}% "

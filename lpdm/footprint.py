@@ -49,13 +49,19 @@ class FootprintGrid:
         self.n_td = 0
         self.top_w = []          # largest per-touchdown |flux| weights seen
 
-    def add(self, res, x_recept, y_recept):
-        """Accumulate one LPDM ensemble, in receptor-relative coordinates."""
+    def add(self, res, x_recept, y_recept, w_floor=1e-6):
+        """Accumulate one LPDM ensemble, in receptor-relative coordinates.
+
+        `w_floor` bounds the 2/|w_td| weight. The physical estimator has no floor, but the
+        weight's tail is heavy: a particle that barely crosses the touchdown level gets an
+        arbitrarily large weight. Raising the floor is how that tail's influence on the
+        result is measured rather than assumed away.
+        """
         w_rel = res["w_release"]
         if len(res["td_x"]) == 0:
             self.n_particles += res["n"]
             return
-        wt_c = 2.0 / np.maximum(res["td_w"], 1e-6)
+        wt_c = 2.0 / np.maximum(res["td_w"], w_floor)
         wt_f = w_rel[res["td_particle"]] * wt_c
         dx = res["td_x"] - x_recept
         dy = res["td_y"] - y_recept
