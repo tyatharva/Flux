@@ -39,7 +39,13 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
     i_r, j_r, k_r = receptor_indices(fs, z_target)
     xr = fs.x0 + i_r * fs.dx
     yr = fs.y0 + j_r * fs.dy
-    zr = float(fs.zk[k_r])
+    # ABSOLUTE height of that cell centre. Over terrain this is NOT fs.zk[k_r]: the
+    # vertical coordinate is terrain-following, so the level sits at zg + ~z_target above
+    # the local ground. Releasing at the flat-column height would put the receptor 20 m
+    # underground on the hill.
+    zr = float(fs.height(np.array([float(k_r)]), np.array([float(i_r)]),
+                         np.array([float(j_r)]))[0])
+    zg_r = float(fs.ground(np.array([float(i_r)]), np.array([float(j_r)]))[0])
     st = window_stats(paths, k_r)
 
     t_first = float(fs.t[0]) + t_back
@@ -50,7 +56,8 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
     times = np.arange(t_first, t_last + 1e-9, dt_release)
     tmid = 0.5 * (times[0] + times[-1])
     if verbose:
-        print(f"  receptor  (i,j,k)=({i_r},{j_r},{k_r})  x={xr:.0f} y={yr:.0f} z={zr:.3f} m")
+        print(f"  receptor  (i,j,k)=({i_r},{j_r},{k_r})  x={xr:.0f} y={yr:.0f}  "
+              f"z={zr:.3f} m ASL = {zr-zg_r:.3f} m AGL (ground {zg_r:.2f} m)")
         print(f"  releases  {len(times)} times over {t_first:.0f}-{t_last:.0f} s, "
               f"{n_per_release} each = {len(times)*n_per_release:,} particles; "
               f"t_back={t_back:.0f} s")
@@ -92,7 +99,7 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
                   f"{-(-len(times)//batch_releases)}  {n_td:,} touchdowns  "
                   f"{time.time()-t_start:.0f} s", flush=True)
 
-    out = dict(stats=st, grid=full, receptor=(xr, yr, zr), k_recept=k_r,
+    out = dict(stats=st, grid=full, receptor=(xr, yr, zr), z_agl=zr - zg_r, k_recept=k_r,
                n_particles=full.n_particles, n_touchdown=n_td,
                wind_angle=float(np.degrees(ang)))
     if split_halves:

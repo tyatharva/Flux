@@ -261,8 +261,35 @@ the flux footprint — so the estimator must NOT use `|w_release|`.
 
 `bin/test_estimator.py` checks the constant independently of any LES, by replacing the
 fields with homogeneous turbulence (constant `U`, `sigma_s^2`, `eps`, zero gradients) where
-the answer is known: every bit of surface flux crosses the measurement height, so
-`int f_flux dA -> 1`.
+the answer is known.
+
+The **half-space** form of the test converges to 1 only slowly, because a finite backward
+time truncates the far-field tail and biases the result low:
+
+```
+   t_back (s)   touchdowns  int f_flux   peak_x (m)
+          300       23,598       0.713          150
+          600       37,715       0.791          190
+          900       48,477       0.718          170
+         1800       72,781       0.917          150
+  8 independent seeds at 1800 s:  0.914 +/- 0.035
+```
+
+The **closed-slab** form is the decisive one. Cap the slab with a reflecting lid and the
+answer is no longer 1: with a surface source and no flux through the lid, the whole slab
+accumulates uniformly, so the flux surviving to height `z` is `Q(1 - (z-z_td)/H)` — a
+straight line from `Q` at the floor to zero at the lid. That is a **lid-dependent target**,
+so a wrong constant cannot hide behind slow convergence.
+
+```
+   lid (m)  mix time (s)  predicted   measured    s.e.   sigmas
+        60           313      0.600      0.530   0.068    -1.03
+       100          1013      0.778      0.753   0.050    -0.49
+```
+
+Both agree, and the residual low bias tracks the mixing time (the 100 m slab is not fully
+mixed within `t_back`). **The estimator constant is right**, verified without the LES,
+without Kljun, and against a target that moves when the geometry moves.
 
 ---
 
@@ -358,6 +385,21 @@ So the preprocessing writes terrain, terrain-following `zPos`, and the roughness
 the restart file, making the read a no-op and keeping grid metrics, output coordinates and
 the LPDM consistent. **No FastEddy source change was needed for any of Stages 2-6**, and the
 `kegonsa` fork branch still has an empty diff against upstream v5.0.1.
+
+Verified in the output rather than assumed. In the adjustment run's dumps:
+
+```
+  topoPos   -11.83 .. 20.79 m        (vs prep's array, max |diff| 9.3e-07 m)
+  z0m         0.030 .. 0.200         (vs prep's array, max |diff| 3.0e-09 m)
+  zPos[0]    -1.79 .. 30.71 m ASL    (terrain-following, top flat at 2700.0 m)
+  receptor cell (109,25): ground 5.81 m, level k=1 at 35.746 m ASL = 29.935 m AGL
+```
+
+That last line is why the LPDM had to be corrected to release at
+`fs.height(k, i, j)` rather than at the flat-column height: over this terrain the
+receptor level is at **35.7 m ASL**, and releasing at 30 m ASL would have put it 6 m too low
+— and 20 m underground at the top of the hill. Kljun's `z_m` is likewise the height **above
+ground**, 29.935 m, not 30.
 
 **Solar array**, per PROJECT_BRIEF.md's bulk-patch specification: `z0` 0.03 -> 0.20 m over a
 100 m (along-wind) x 400 m (crosswind) rectangle centred 200 m upwind of the tower.

@@ -30,7 +30,7 @@ verticalDeformQuadCoeff = 0.0 # pure cubic
 timeMethod = 0 # Selector for time integration method. [0=RK3-WS2002 (default)]
 Nt = 393600 # ABSOLUTE target timestep
 dt = 0.0625 # CFL_3d = 1.491, below the 1.64 accuracy limit (PROJECT_BRIEF.md)
-NtBatch = 28800
+NtBatch = 80 # MUST equal frqOutput: FastEddy only writes at batch boundaries (FastEddy.c:400,423)
 #--HYDRO_CORE
 ##------------: HYDRO_CORE Submodule Selectors ---
 #----------: Boundary Conditions Set ---

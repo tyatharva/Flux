@@ -280,6 +280,16 @@ See @PLAN.md for the staged path.
   field returns exit status 0. **Every run script must grep output for `CORRUPTED`/NaN and
   must never trust the exit code alone.** Use `docker/check_run.sh`.
 
+- **TRAP: `frqOutput` finer than `NtBatch` is SILENTLY IGNORED.** FastEddy's time loop is
+  `for(it = simTime_it; it < Nt; it += NtBatch)` with the output test `if(it % frqOutput == 0)`
+  *inside* it (`SRC/FEMAIN/FastEddy.c:400,423`) — a batch is a GPU-resident launch and the
+  host cannot write partway through one. So `NtBatch = 28800, frqOutput = 80` does not give
+  5 s output; it gives **two dumps**, at the start and the end, with no warning and a normal
+  exit. **For a sampling window, set `NtBatch = frqOutput`.** FastEddy's own parameter help
+  says so in passing ("should be an even multiple of NtBatch") and it is easy to read past.
+  Cost of the fine batching is small: a 1800 s window in 360 batches of 80 steps runs in
+  about the same time as one batch of 28800, plus ~0.05 s of IO per dump.
+
 - **TRAP: `Nt` is an ABSOLUTE target timestep, not a number of steps to run.** A restart
   from step 500 with `Nt = 500` performs **zero** timesteps, writes one dump, and exits 0
   looking like a successful run. To advance 500 steps from step 500, set `Nt = 1000`.
