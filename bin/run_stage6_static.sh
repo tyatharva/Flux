@@ -114,7 +114,7 @@ print('%.6f %.6f'%(u,v))")
   COVER=$([ "$NAME" = "flat" ] && echo "" || echo "--cover-dir data/grid")
   # --sgs-most is the adopted closure (results/fv_sgs_experiments.txt): a height-dependent
   # MOST-anchored floor on the sub-grid variance, which repairs the measured sigma_w
-  # deficit without tuning. --fp16-cache is what makes a 480-dump window fit in RAM.
+  # deficit without tuning. --fp16-cache is what makes a 360-dump window fit in RAM (18 GB).
   ./docker/pyrun.sh bin/stage5_footprint.py $D/window --dt $DT --res 60 \
       --sgs-most --fp16-cache $COVER --tag g24_$NAME 2>&1 \
       | grep -vE 'batch [0-9]+/|loaded ' | tee results/g24_$NAME.txt

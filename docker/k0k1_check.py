@@ -15,6 +15,7 @@ usage: k0k1_check.py <dump.nc> [<dump.nc> ...]
 """
 import sys
 
+import os
 import numpy as np
 from netCDF4 import Dataset
 
@@ -22,10 +23,32 @@ from netCDF4 import Dataset
 WW_FLOOR = 1.0e-5   # m2/s2 at k=1
 LIMIT = 1.0
 
+def _zpos(path):
+    """Level heights, falling back to the first dump of the same run if this one is lean.
+
+    ioLPDMmode (the kegonsa fork) writes the static coordinate geometry into the FIRST
+    file a run produces and omits it from every later one, because xPos/yPos/zPos are
+    rewritten byte-identically each dump and cost more than the packed prognostic fields
+    they accompany. So a mid-window dump legitimately has no zPos, and this check must not
+    abort a run over it.
+    """
+    import glob
+    with Dataset(path) as ds:
+        if "zPos" in ds.variables:
+            return np.squeeze(np.asarray(ds["zPos"][:], dtype=np.float64))[:, 0, 0]
+    sibs = sorted(glob.glob(os.path.join(os.path.dirname(path) or ".", "*.[0-9]*")),
+                  key=lambda q: int(q.split(".")[-1]))
+    for q in sibs:
+        with Dataset(q) as ds:
+            if "zPos" in ds.variables:
+                return np.squeeze(np.asarray(ds["zPos"][:], dtype=np.float64))[:, 0, 0]
+    raise KeyError("no zPos in this dump or any sibling of the same run")
+
+
 def check(path):
     with Dataset(path) as ds:
         w = np.squeeze(np.asarray(ds["w"][:], dtype=np.float64))
-        z = np.squeeze(np.asarray(ds["zPos"][:], dtype=np.float64))[:, 0, 0]
+    z = _zpos(path)
     wp = w - w.mean(axis=(-2, -1), keepdims=True)
     ww = (wp ** 2).mean(axis=(-2, -1))
     ratio = ww[0] / max(ww[1], 1e-30)
