@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "/work/bin/stage5_footprint.py", line 203, in <module>
+    sys.exit(main())
+  File "/work/bin/stage5_footprint.py", line 63, in main
+    fs = FieldSet(paths, a.dt, verbose=False)
+  File "/work/lpdm/fields.py", line 64, in __init__
+    with Dataset(self.paths[0]) as ds:
+IndexError: list index out of range
+
+=== runs/fv_t6w/output: 0 dumps ===

@@ -1,0 +1,27 @@
+  721 dumps, window 12600-16200 s, cache 15.83 GB
+  receptor k=3 z=30.000 m;  release period 13500-16200 s = 2700 s split into 18 sub-windows of 150 s
+
+  --- per sub-window (150 s each) ---
+  peak_x   mean   347.6  sd   70.6 m
+  centroid mean   142.0  sd 3206.1 m
+
+  --- are sub-windows independent? lag autocorrelation of the metrics ---
+   peak      lag1=+0.19  lag2=-0.07  lag3=-0.28  lag4=-0.27
+   centroid  lag1=-0.10  lag2=-0.12  lag3=-0.16  lag4=+0.23
+   (|r| below ~2/sqrt(M) = 0.47 is consistent with independence)
+
+  --- convergence against a held-out reference (9 sub-windows, peak 330 m, centroid 1307 m) ---
+    n  |d peak| med     p90  |d centroid| med     p90  80% overlap
+    1           nan     nan               nan     nan        33.5%
+    2           nan     nan               nan     nan        39.8%
+    3          60.0    60.0             134.1   893.4        43.5%
+    4          60.0    60.0             115.4   625.7        46.5%
+    5          60.0    60.0             122.7   452.5        48.3%
+    6          60.0    60.0             145.7   386.4        50.4%
+    7          60.0    60.0             126.4   291.9        52.0%
+    8          60.0    60.0             106.6   250.7        53.3%
+    9          60.0    60.0             120.2   120.2        54.7%
+
+  CORPUS PARAMETER
+    peak location stable to one grid cell (60 m) at the 90th percentile:  n = 3 sub-windows (7.5 min of sampling)
+    centroid stable to 100 m at the 90th percentile:                 n = >9 sub-windows (22.5 min)

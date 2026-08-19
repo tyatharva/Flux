@@ -1,0 +1,10 @@
+
+=== runs/fv_t6e/output: 1 dumps ===
+Traceback (most recent call last):
+  File "/work/bin/stage5_footprint.py", line 203, in <module>
+    sys.exit(main())
+  File "/work/bin/stage5_footprint.py", line 72, in main
+    r = compute_footprint(fs, paths, n_per_release=a.nrel, dt_release=a.dtrel,
+  File "/work/lpdm/driver.py", line 55, in compute_footprint
+    raise ValueError(f"window too short: need > {t_back:.0f} s of history before the "
+ValueError: window too short: need > 900 s of history before the first release (have 0 s)
