@@ -326,6 +326,12 @@ pipeline, not the science, and the corpus is regenerated at finer resolution lat
 | cells | 657,000 | |
 | **measured cost** | **0.0066 s/step** | vs 0.00616 predicted from 9.37 ns/cell/step |
 
+**`dz_sfc` and a 30 m receptor are not independent.** The near-surface cubic correction in
+`zDeform` is under 0.05 m, so cell centres sit at `(k+0.5)*dz_sfc` and a centre at exactly
+30 m requires `dz_sfc = 30/(k+0.5)`: 20 m (k=1), **12 m (k=2)**, **8.571 m (k=3)**, 6.67 m
+(k=4). A request for "dz_sfc = 10 m with a cell centre at 30.000 m" cannot be honoured; the
+bracketing choices are 12 m and 8.571 m.
+
 **The receptor lands on a cell centre at exactly 30.000 m.** `verticalDeformFactor` was
 solved for that, not rounded to it: with `dz_sfc = 20 m` the k=1 centre is at half a
 spacing above the k=0 centre, i.e. 1.5 x 20 = 30 m, and the cubic term's 4 mm was absorbed
@@ -334,6 +340,50 @@ by tuning the factor. There are 20 levels below 400 m and 1 below 30 m.
 The measured 0.0066 s/step is 7% ABOVE the 9.37 ns/cell/step model — launch overhead at
 657 k cells, which is 3x smaller than the smallest case the model was fitted to. Use the
 measured value, not the model, for projections at this size.
+
+### Backward-LPDM traps, settled by measurement (2026-08-18)
+
+- **Periodic wrap-around double-counts the footprint.** A backward trajectory that travels
+  more than one domain length re-enters the turbulence it already sampled; its later
+  touchdowns are the same eddies counted again. Left uncapped, the flux-footprint integral
+  climbs past 1 exactly as wrapping sets in. On the flat 30 m window:
+
+  | t_back (s) | wrapped | integral, uncapped | integral, capped at one domain length |
+  |---|---|---|---|
+  | 300 | 0.0% | 0.643 | 0.643 |
+  | 600 | 0.0% | 0.800 | 0.800 |
+  | 900 | 8.2% | 0.791 | 0.896 |
+  | 1500 | 31.8% | **1.064** | **0.961** |
+
+  **Always cap trajectory displacement at one streamwise domain length.** Capped, the flat
+  integral converges to 1 from below, which is what a flux footprint must do.
+
+- **The flux weight is frame-dependent, but the frame is a ~2% effect.** A real EC tower is
+  double-rotated (Wilczak et al. 2001) so the mean vertical velocity vanishes. Rotating the
+  LPDM release velocities into that streamline frame agrees with simply removing the mean to
+  within 2% at every `t_back`. The rotation is used because it is the frame the instrument
+  reports in and it makes the mean vanish by construction — not because it changes answers.
+
+- **Over a slope the footprint integral is not 1, and that is physical.** With wrap-around
+  capped, the terrain case saturates at 1.19-1.35 while the flat case converges to 1. The
+  residual is `w_bar` times the concentration integral, both converged. At a receptor
+  sitting in 1.5 sigma of mean subsidence the turbulent flux genuinely is not the surface
+  flux — the advection non-closure that makes eddy covariance hard in complex terrain.
+
+- **The touchdown weight uses the surface-normal approach rate**, `|d(z-z_ground)/dt|`, not
+  `|w|`. Over sloping ground a particle loses height-above-surface because the ground rises
+  under it, with `w` near zero, and the `2/|w|` weight explodes — one touchdown reached a
+  weight of 208,220 and drove the integral negative. Flat ground hides this completely.
+
+### Sub-grid fraction: what actually sets near-field footprint fidelity
+
+The resolved fraction of `sigma_w^2` collapses onto **`z / Delta`**, with
+`Delta = (dx dy dz)^(1/3)`. Measured on the 30 m grid, the sub-grid fraction crosses 40% at
+**`z/Delta ~ 3.7`**. For a 30 m receptor that demands `Delta <~ 8 m`.
+
+Since `Delta = (dx dy dz)^(1/3)`, **refining only `dz` cannot get there**: with
+`dx = dy = 30 m`, `Delta <= 8 m` would require `dz <= 0.57 m`. Near-field footprint fidelity
+at a 30 m tower is set by the HORIZONTAL spacing, and needs `dx ~ 8-10 m`.
 
 ### Stage 2 vertical grid (settled)
 

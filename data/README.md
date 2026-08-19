@@ -76,30 +76,62 @@ smoothed — relevant when it is downsampled to the 10 m LES grid in Stage 6.
 
 ### Notes for use
 
-- **Tower coordinate — SURROGATE, not surveyed.** The surveyed position of the EC tower is
-  not in this repository and could not be established from public sources: the published
-  descriptions give "3725 Schneider Dr, Stoughton WI", "160-acre Kegonsa campus", "~17 acres
-  of panels, 5424 modules", "flux tower ~100 ft", and "west of Lake Kegonsa", but no
-  coordinates.
+- **Tower coordinate — SURVEYED.** `42.957160, -89.292362`
+  (EPSG:3071: 577719.1, 276299.5). This replaces an earlier surrogate that was chosen by a
+  water-avoidance rule; every Stage 6 result produced with that surrogate is void and has
+  been regenerated. The coordinate lives in one place, `TOWER_LON/TOWER_LAT` in
+  `bin/prep_stage6.py`, and `docker/prep_dem30.py` imports it from there.
 
-  The first estimate, `-89.2450 / 42.9686`, is **wrong**: the DEM reads 256.64 m there and
-  the nearest water cell is 6 m away — that is Lake Kegonsa's surface. 25% of the original
-  +/-4 km tile is flat at 256.6 +/- 0.6 m, and its centroid (-89.2504, 42.9652) matches the
-  published lake position, which is what identifies it.
+  Sanity checks at the surveyed position: bare-earth elevation **268.61 m**, sub-cell
+  elevation spread **0.287 m** (i.e. classified as land, not water), nearest open-water cell
+  **346 m** away, 60 m of relief across the +/-4 km tile.
 
-  What is used instead, and recorded in `bin/prep_stage6.py`, is
-  **`-89.2539 / 42.9419`** — chosen by an explicit rule rather than a guess: the nearest
-  land position whose 4380 x 1500 m westerly LES domain contains no water at all. It sits
-  810 m from the shore, at 281 m elevation, with 38 m of relief across the domain, which
-  matches CLAUDE.md's "~30 m of elevation change across the area".
+- **Open water is a land-cover class, not an exclusion.** Lake Kegonsa lies east of the
+  tower and is inside the footprint for easterly cases, so it is represented rather than
+  masked or tapered away.
 
-  **This must be replaced with the surveyed coordinate before any Stage 6 result is treated
-  as site-specific.** It is a single constant, `TOWER_LON/TOWER_LAT` in
-  `bin/prep_stage6.py`, and `docker/prep_dem30.sh` imports it from there.
+  *Detection is a measurement, not a flatness guess.* `docker/prep_dem30.py` aggregates the
+  0.4572 m source DEM to 30 m and emits, alongside the mean, the **standard deviation of the
+  source elevations within each 30 m cell**. A LiDAR bare-earth surface over open water is
+  specular — returns are sparse and interpolated to a level plane — so that spread collapses
+  to millimetres, while land keeps centimetres to metres. The histogram is strongly bimodal:
 
-- The solar array polygon is likewise an assumption (100 m along-wind x 400 m crosswind,
-  centred 200 m upwind of the tower), from CLAUDE.md's "~100 m x 400 m" and "array at
-  270 deg". Also a single constant block in `bin/prep_stage6.py`.
+  ```
+    sub-cell std (m)    cells
+    0.000 - 0.010      12214     <- open water
+    0.010 - 0.020        351     <- the gap
+    0.020 - 0.050       1252
+    0.050 - 0.100       2780
+    0.100 - 0.200      11539     <- land
+    0.200 - 0.500      23360
+  ```
+
+  The threshold sits **in the gap** (`WATER_STD_MAX = 0.02 m`), not at a tuned value, and is
+  combined with a +/-1 m band about the modal water elevation (256.64 m). Classifying on
+  "flat at 30 m" alone would sweep in ploughed fields and road corridors; classifying on
+  sub-cell spread separates them. Water gets `z0 = 1e-4 m`; grass `0.03`; the array `0.20`.
+
+  **Albedo has no pathway and this is not an omission.** FastEddy in this configuration has
+  no radiation scheme at all — `surflayerSelector = 1` prescribes the kinematic surface heat
+  flux directly — so what albedo would have controlled is subsumed by `htFlux`, which IS
+  per-cell (`cuda_surfaceLayerDevice.cu:191` reuses the array when `surflayer_idealsine = 0`,
+  and `htFlux` is IO-registered so it survives the restart read). The built-in
+  `surflayer_offshore` wave-roughness parameterisations are a **global** switch and cannot be
+  applied to water cells only, so per-cell `z0` is used instead.
+
+  Rotation check, same tower, same maps:
+
+  | wind from | water | solar array |
+  |---|---|---|
+  | 270 deg (westerly) | 840-1050 m **downwind** | 150-240 m **upwind** |
+  | 90 deg (easterly) | 840-3300 m **upwind**, 62% of the upwind half | **downwind** |
+
+- The solar array polygon is an assumption (100 m east-west x 400 m north-south, centred
+  200 m from the tower at bearing 270 deg), from CLAUDE.md's "~100 m x 400 m" and "array at
+  270 deg". It is defined as a **geographic** object and rotates with the domain. It was
+  previously specified as an "upwind distance", which silently moved the array whenever the
+  wind direction changed — wrong for a multi-direction corpus, where the array must be
+  upwind for a westerly and downwind for an easterly.
 - The county-wide elevation range (237 m) is much larger than the ~30 m of relief across
   the tower's source area; do not use the county statistics as a site-scale expectation.
 - Stage 6 resamples this into a **wind-aligned** frame and supplies rotated `lat(y,x)` /
