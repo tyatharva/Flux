@@ -39,24 +39,34 @@ import numpy as np
 import rasterio
 from rasterio.transform import rowcol
 
-# ---------------------------------------------------------------- site assumptions
-# SURROGATE SITE COORDINATE -- see data/README.md.
-# The surveyed tower position is not in this repository and could not be established from
-# public sources (the published descriptions give "3725 Schneider Dr, Stoughton WI" and
-# "west of Lake Kegonsa" but no coordinates). The first estimate, -89.2450/42.9686, lands
-# 6 m from open water: the DEM there reads 256.64 m, which is Lake Kegonsa's surface.
-# What is used instead is the nearest tower position whose 4380 x 1500 m westerly domain
-# contains no water at all -- an explicit, reproducible rule, not a guess dressed up as a
-# location. It sits 810 m from the shore with 38 m of relief across the domain, matching
-# CLAUDE.md's "~30 m of elevation change across the area".
-# REPLACE THIS with the surveyed coordinate before any result is treated as site-specific.
-TOWER_LON, TOWER_LAT = -89.2539, 42.9419
-ARRAY_ALONG_WIND = 100.0     # m, extent along the wind axis
-ARRAY_CROSS_WIND = 400.0     # m, extent across the wind axis
-ARRAY_OFFSET_UPWIND = 200.0  # m, centre distance upwind of the tower
-Z0_GRASS = 0.03
-Z0_ARRAY = 0.20              # bulk patch: panels raise z0 by roughly an order of magnitude
-D_ARRAY = 1.2                # displacement height (m); folded into the terrain, see below
+# ---------------------------------------------------------------- site definition
+# Surveyed tower coordinate.
+TOWER_LON, TOWER_LAT = -89.292362, 42.957160
+
+# The solar array is a GEOGRAPHIC object, so it is defined by an offset from the tower in
+# map coordinates and rotated with everything else. Defining it relative to the wind (as an
+# "upwind distance") silently moves the array when the wind direction changes, which is
+# exactly wrong for a multi-direction corpus: for a westerly the array is upwind, for an
+# easterly it must be downwind and out of the footprint.
+# CLAUDE.md: array footprint ~100 m x 400 m, at 270 deg from the tower.
+ARRAY_BEARING = 270.0        # deg, direction from the tower to the array centre
+ARRAY_DISTANCE = 200.0       # m
+ARRAY_EW = 100.0             # m, east-west extent
+ARRAY_NS = 400.0             # m, north-south extent
+
+# Land-cover classes. z0 in metres.
+Z0_WATER = 1.0e-4            # open water, aerodynamically smooth
+Z0_GRASS = 0.03              # site grass
+Z0_ARRAY = 0.20              # bulk solar-array patch
+D_ARRAY = 1.2                # displacement height (m) for the array
+WTH_WATER = 0.0              # kinematic sensible heat flux over water (neutral case)
+WTH_LAND = 0.0               # ... and over land; both zero is what "neutral" means
+
+# Water classification, from the sub-cell elevation spread measured by docker/prep_dem30.py.
+# The histogram of that spread is strongly bimodal -- 12,214 cells below 0.01 m, a gap, then
+# land from 0.02 m upward -- so this threshold sits in the gap rather than being tuned.
+WATER_STD_MAX = 0.02         # m
+WATER_LEVEL_TOL = 1.0        # m about the modal water elevation
 
 
 def taper_weights(n, pad):
@@ -70,35 +80,31 @@ def taper_weights(n, pad):
     return w
 
 
-def sample_rotated(dem_path, tower_lon, tower_lat, wind_from_deg, nx, ny, dx, dy,
-                   i_tower, j_tower):
-    """Bilinear DEM sample on the wind-aligned LES grid."""
+def rotated_map_coords(tower_lon, tower_lat, crs, wind_from_deg, nx, ny, dx, dy,
+                       i_tower, j_tower):
+    """Map coordinates (EPSG of `crs`) of every LES cell centre, wind-aligned."""
     from pyproj import Transformer
-    with rasterio.open(dem_path) as src:
-        tr = Transformer.from_crs("EPSG:4326", src.crs, always_xy=True)
-        tx, ty = tr.transform(tower_lon, tower_lat)
-        band = src.read(1).astype(np.float64)
-        inv = ~src.transform
+    tr = Transformer.from_crs("EPSG:4326", crs, always_xy=True)
+    tx, ty = tr.transform(tower_lon, tower_lat)
+    bearing = np.radians((wind_from_deg + 180.0) % 360.0)   # LES +x = where wind blows TO
+    ex = np.array([np.sin(bearing), np.cos(bearing)])
+    ey = np.array([-ex[1], ex[0]])
+    s = (np.arange(nx) - i_tower) * dx
+    c = (np.arange(ny) - j_tower) * dy
+    S, C = np.meshgrid(s, c)
+    X = tx + S * ex[0] + C * ey[0]
+    Y = ty + S * ex[1] + C * ey[1]
+    return X, Y, (tx, ty), (ex, ey)
 
-        # +x of the LES is the direction the wind blows TOWARD
-        bearing = np.radians((wind_from_deg + 180.0) % 360.0)
-        ex = np.array([np.sin(bearing), np.cos(bearing)])   # east, north components
-        ey = np.array([-ex[1], ex[0]])                      # right-handed with z up
 
-        i = np.arange(nx); j = np.arange(ny)
-        s = (i - i_tower) * dx
-        c = (j - j_tower) * dy
-        S, Cc = np.meshgrid(s, c)                            # (ny, nx)
-        X = tx + S * ex[0] + Cc * ey[0]
-        Y = ty + S * ex[1] + Cc * ey[1]
-
-        col, row = inv * (X, Y)
-        r0 = np.floor(row).astype(int); c0 = np.floor(col).astype(int)
-        fr = row - r0; fc = col - c0
-        r0 = np.clip(r0, 0, band.shape[0] - 2); c0 = np.clip(c0, 0, band.shape[1] - 2)
-        z = ((1 - fr) * (1 - fc) * band[r0, c0] + (1 - fr) * fc * band[r0, c0 + 1]
-             + fr * (1 - fc) * band[r0 + 1, c0] + fr * fc * band[r0 + 1, c0 + 1])
-        return z, (tx, ty), (ex, ey)
+def bilinear(src_ds, band, X, Y):
+    inv = ~src_ds.transform
+    col, row = inv * (X, Y)
+    r0 = np.clip(np.floor(row).astype(int), 0, band.shape[0] - 2)
+    c0 = np.clip(np.floor(col).astype(int), 0, band.shape[1] - 2)
+    fr, fc = row - r0, col - c0
+    return ((1 - fr) * (1 - fc) * band[r0, c0] + (1 - fr) * fc * band[r0, c0 + 1]
+            + fr * (1 - fc) * band[r0 + 1, c0] + fr * fc * band[r0 + 1, c0 + 1])
 
 
 def write_topofile(path, topo):
@@ -110,88 +116,127 @@ def write_topofile(path, topo):
 
 
 def main():
+    import rasterio
     ap = argparse.ArgumentParser()
     ap.add_argument("--dem", default="data/dem/kegonsa_30m_wtm.tif")
+    ap.add_argument("--std", default="data/dem/kegonsa_30m_std.tif")
     ap.add_argument("--restart-in", required=True, help="flat spin-up dump to base on")
     ap.add_argument("--outdir", required=True)
     ap.add_argument("--wind-from", type=float, default=270.0)
     ap.add_argument("--nx", type=int, default=146)
     ap.add_argument("--ny", type=int, default=50)
     ap.add_argument("--dx", type=float, default=30.0)
-    # Must match lpdm.driver.receptor_indices, which uses round(0.75*nx) = 110 for nx=146.
-    # The Stage 6 run in this repository was generated with 109; that puts the array
-    # 180-270 m upwind of the receptor instead of 150-250 m, and shifts the terrain one
-    # cell. bin/stage6_compare.py is told the actual window rather than the nominal one.
     ap.add_argument("--itower", type=int, default=110)
     ap.add_argument("--jtower", type=int, default=25)
     ap.add_argument("--taper-x", type=int, default=12, help="cells (12 x 30 m = 360 m)")
     ap.add_argument("--taper-y", type=int, default=8)
     ap.add_argument("--no-array", action="store_true")
-    ap.add_argument("--flat", action="store_true", help="roughness patch only, no terrain")
+    ap.add_argument("--flat", action="store_true", help="land cover only, no terrain")
     a = ap.parse_args()
     os.makedirs(a.outdir, exist_ok=True)
 
-    z, (tx, ty), (ex, ey) = sample_rotated(a.dem, TOWER_LON, TOWER_LAT, a.wind_from,
-                                           a.nx, a.ny, a.dx, a.dx, a.itower, a.jtower)
-    print(f"  tower EPSG:3071 ({tx:.1f}, {ty:.1f});  wind from {a.wind_from:.0f} deg "
-          f"-> LES +x bearing {(a.wind_from+180)%360:.0f} deg")
-    print(f"  raw DEM on grid: min {z.min():.1f}  max {z.max():.1f}  "
-          f"range {z.max()-z.min():.1f} m  mean {z.mean():.1f} m")
+    with rasterio.open(a.dem) as dm, rasterio.open(a.std) as ds_:
+        X, Y, (tx, ty), (ex, ey) = rotated_map_coords(
+            TOWER_LON, TOWER_LAT, dm.crs, a.wind_from, a.nx, a.ny, a.dx, a.dx,
+            a.itower, a.jtower)
+        z = bilinear(dm, dm.read(1).astype(np.float64), X, Y)
+        sd = bilinear(ds_, ds_.read(1).astype(np.float64), X, Y)
+        allz = dm.read(1).astype(np.float64); allsd = ds_.read(1).astype(np.float64)
 
+    # ---- land cover: water first, from the measured sub-cell spread -----------------
+    wlev = float(np.median(allz[np.isfinite(allsd) & (allsd < WATER_STD_MAX)]))
+    water = (sd < WATER_STD_MAX) & (np.abs(z - wlev) < WATER_LEVEL_TOL)
+    print(f"  tower {TOWER_LON:.6f}, {TOWER_LAT:.6f} -> EPSG:3071 ({tx:.1f}, {ty:.1f})")
+    print(f"  wind from {a.wind_from:.0f} deg -> LES +x points to bearing "
+          f"{(a.wind_from+180)%360:.0f} deg (upwind is -x)")
+    print(f"  water level {wlev:.2f} m; WATER cells in domain: {water.sum()} "
+          f"({100*water.mean():.1f}%, {water.sum()*a.dx**2/1e6:.2f} km2)")
+    xg = (np.arange(a.nx) - a.itower) * a.dx      # +x downwind, so upwind distance is -xg
+    yg = (np.arange(a.ny) - a.jtower) * a.dx
+    if water.any():
+        wi = np.where(water.any(axis=0))[0]
+        print(f"    water spans along-wind {-xg[wi.max()]:.0f} .. {-xg[wi.min()]:.0f} m "
+              f"upwind of the tower")
+        up = water[:, xg < 0]
+        print(f"    fraction of the UPWIND half of the domain that is water: "
+              f"{100*up.mean():.1f}%")
+
+    # ---- terrain --------------------------------------------------------------------
     topo = z - z.mean()
     if a.flat:
         topo[:] = 0.0
-    # Taper to the domain-mean plane at both periodic seams, else the wrap is a cliff.
-    wx = taper_weights(a.nx, a.taper_x)
-    wy = taper_weights(a.ny, a.taper_y)
-    topo = topo * (wx[None, :] * wy[:, None])
-    print(f"  after mean removal + seam taper: min {topo.min():.2f}  max {topo.max():.2f}"
-          f"  range {np.ptp(topo):.2f} m")
-    print(f"  seam discontinuity  x: {np.abs(topo[:,0]-topo[:,-1]).max():.3e} m"
-          f"   y: {np.abs(topo[0,:]-topo[-1,:]).max():.3e} m")
+    wx = taper_weights(a.nx, a.taper_x); wy = taper_weights(a.ny, a.taper_y)
+    W2 = wx[None, :] * wy[:, None]
+    topo = topo * W2
+    print(f"  terrain: raw {z.min():.1f}..{z.max():.1f} m (range {np.ptp(z):.1f}); after "
+          f"mean removal + seam taper {topo.min():.2f}..{topo.max():.2f} m")
+    print(f"    seam discontinuity x {np.abs(topo[:,0]-topo[:,-1]).max():.3f} m, "
+          f"y {np.abs(topo[0,:]-topo[-1,:]).max():.3f} m")
+    tw = water & (W2 < 0.999)
+    print(f"    water cells whose TERRAIN is seam-tapered: {tw.sum()} of {water.sum()} "
+          f"(their z0 and heat flux are untouched -- see below)")
 
-    # --- roughness map -------------------------------------------------------------
-    xg = (np.arange(a.nx) - a.itower) * a.dx
-    yg = (np.arange(a.ny) - a.jtower) * a.dx
+    # ---- roughness and surface heat flux --------------------------------------------
     z0 = np.full((a.ny, a.nx), Z0_GRASS)
+    z0[water] = Z0_WATER
+    wth = np.full((a.ny, a.nx), WTH_LAND)
+    wth[water] = WTH_WATER
     if not a.no_array:
-        inx = np.abs(xg + ARRAY_OFFSET_UPWIND) <= 0.5 * ARRAY_ALONG_WIND
-        iny = np.abs(yg) <= 0.5 * ARRAY_CROSS_WIND
-        patch = iny[:, None] & inx[None, :]
+        # array centre in map coordinates, then in LES coordinates
+        b = np.radians(ARRAY_BEARING)
+        ax_, ay_ = tx + ARRAY_DISTANCE * np.sin(b), ty + ARRAY_DISTANCE * np.cos(b)
+        dxm, dym = X - ax_, Y - ay_
+        # the array's own extents are east-west / north-south, i.e. MAP aligned
+        patch = (np.abs(dxm) <= ARRAY_EW / 2) & (np.abs(dym) <= ARRAY_NS / 2)
+        patch &= ~water
         z0[patch] = Z0_ARRAY
-        # The displacement height is not a FastEddy input. Represent it the only way the
-        # model can feel it: raise the effective surface by d over the array. This is a
-        # deliberate approximation and is the reason the array shows up in `topoPos`.
         topo[patch] += D_ARRAY
-        print(f"  solar array patch: {patch.sum()} cells "
-              f"({patch.sum()*a.dx**2/1e4:.2f} ha), z0 {Z0_GRASS} -> {Z0_ARRAY} m, "
-              f"d = {D_ARRAY} m, centred {ARRAY_OFFSET_UPWIND:.0f} m upwind")
-    z0 = z0 * (wx[None, :] * wy[:, None]) + Z0_GRASS * (1 - wx[None, :] * wy[:, None])
+        if patch.any():
+            pi_ = np.where(patch.any(axis=0))[0]
+            print(f"  solar array: {patch.sum()} cells ({patch.sum()*a.dx**2/1e4:.2f} ha), "
+                  f"z0 {Z0_GRASS} -> {Z0_ARRAY} m, d = {D_ARRAY} m")
+            print(f"    along-wind position: {-xg[pi_.max()]:.0f} .. {-xg[pi_.min()]:.0f} m "
+                  f"upwind of the tower "
+                  f"({'UPWIND' if -xg[pi_.min()] > 0 else 'DOWNWIND'})")
+        else:
+            print("  solar array: NOT in the domain for this rotation")
+    # The LAND COVER is deliberately NOT tapered, unlike the terrain. Terrain height enters
+    # the coordinate transform and its metric tensor, so a step at the periodic seam is a
+    # numerical cliff. Roughness and surface heat flux are local boundary conditions: a step
+    # at the seam is a coastline, which is a thing that exists. Tapering them would erase
+    # the water from the upwind edge of exactly the easterly cases that are supposed to
+    # sample it.
 
     write_topofile(os.path.join(a.outdir, "topo.bin"), topo)
-    np.save(os.path.join(a.outdir, "topo.npy"), topo)
-    np.save(os.path.join(a.outdir, "z0m.npy"), z0)
-    print(f"  wrote {a.outdir}/topo.bin  ({a.nx}x{a.ny} float32 + 2 int32 header)")
+    for nm, arr in (("topo", topo), ("z0m", z0), ("water", water.astype(np.float32)),
+                    ("htFlux", wth)):
+        np.save(os.path.join(a.outdir, nm + ".npy"), arr)
+    print(f"  wrote {a.outdir}/topo.bin ({a.nx}x{a.ny} float32 + 2 int32 header)")
 
-    # --- restart file with terrain, terrain-following zPos, and the roughness map ----
+    # ---- restart file ----------------------------------------------------------------
     from netCDF4 import Dataset
     dst = os.path.join(a.outdir, os.path.basename(a.restart_in))
     shutil.copy2(a.restart_in, dst)
     with Dataset(dst, "a") as ds:
-        zp = np.asarray(ds["zPos"][:])
-        shp = zp.shape                      # (t, z, y, x) or (z, y, x)
+        zp = np.asarray(ds["zPos"][:]); shp = zp.shape
         zcol = np.squeeze(zp)[:, 0, 0].astype(np.float64)
-        zC = float(zcol[-1])                # flat spin-up: zCeiling
-        Fk = zcol
-        new = (Fk[:, None, None] * (zC - topo[None, :, :]) / zC + topo[None, :, :])
+        zC = float(zcol[-1]); Fk = zcol
+        new = Fk[:, None, None] * (zC - topo[None, :, :]) / zC + topo[None, :, :]
         ds["zPos"][:] = new.reshape(shp).astype(np.float32)
-        tp = np.asarray(ds["topoPos"][:])
-        ds["topoPos"][:] = topo.reshape(tp.shape).astype(np.float32)
-        ds["z0m"][:] = z0.reshape(tp.shape).astype(np.float32)
-    print(f"  wrote {dst}: zPos made terrain-following, topoPos and z0m replaced")
-    print("  NOTE lat/lon are left at the flat spin-up's uniform values -- they drive "
-          "Coriolis only, and\n       the rotation is already baked into the resampling, "
-          "so a single-direction run\n       needs no rotated lat(y,x).")
+        t2 = np.asarray(ds["topoPos"][:])
+        ds["topoPos"][:] = topo.reshape(t2.shape).astype(np.float32)
+        ds["z0m"][:] = z0.reshape(t2.shape).astype(np.float32)
+        if "z0t" in ds.variables:
+            ds["z0t"][:] = np.minimum(z0, 0.01).reshape(t2.shape).astype(np.float32)
+        if "htFlux" in ds.variables:
+            ds["htFlux"][:] = wth.reshape(t2.shape).astype(np.float32)
+    print(f"  wrote {dst}: zPos terrain-following; topoPos, z0m, z0t, htFlux replaced")
+    print("  NOTE albedo has no pathway: FastEddy in this configuration has NO radiation")
+    print("       scheme (surflayerSelector=1 prescribes the kinematic heat flux directly),")
+    print("       so what albedo would have controlled is subsumed by htFlux, which IS")
+    print("       per-cell -- cuda_surfaceLayerDevice.cu:191 reuses the array when")
+    print("       surflayer_idealsine=0. The built-in surflayer_offshore wave-roughness")
+    print("       path is a GLOBAL switch and cannot be applied to water cells only.")
     return 0
 
 

@@ -96,7 +96,8 @@ class LPDM:
 
     # ------------------------------------------------------------------ integrator
     def run(self, x, y, z, t, direction=-1, t_limit=600.0, max_iter=200_000,
-            reflect_touchdown=True, record_touchdown=True, z_ceil=None, progress=None):
+            reflect_touchdown=True, record_touchdown=True, z_ceil=None,
+            max_disp=None, progress=None):
         """Integrate an ensemble. direction=-1 backward (footprints), +1 forward.
 
         Returns a dict of arrays. Touchdowns are recorded as (particle, x, y, |w|)
@@ -113,6 +114,12 @@ class LPDM:
         idx = np.arange(n)
         elapsed = np.zeros(n, dtype=np.float64)
         z_ceil = self.z_top if z_ceil is None else float(z_ceil)
+        # Horizontal domains are periodic, so a backward trajectory that travels more than
+        # one domain length re-enters the SAME turbulence it already sampled. max_disp
+        # retires a particle once its unwrapped displacement from the release point exceeds
+        # a limit, which is how wrap-around double counting is tested for and, if present,
+        # removed.
+        x0r, y0r = x.copy(), y.copy()
         # Final state of EVERY particle, not just the survivors. Particles retire at
         # different iterations (each carries its own adaptive step), so the working
         # arrays are compacted as they go and finished states are written back here.
@@ -124,7 +131,7 @@ class LPDM:
         us = self.rng.normal(0.0, 1.0, (3, n)) * np.sqrt(sig2)
 
         td_p, td_x, td_y, td_w, td_t = [], [], [], [], []
-        w_release = None
+        rel_uvw = None
         sgn = float(direction)
 
         for it in range(max_iter):
@@ -136,8 +143,12 @@ class LPDM:
             dt = np.clip(self.dt_frac * TL, self.dt_min, self.dt_max)
             dt = np.minimum(dt, np.maximum(t_limit - elapsed, 0.0))
 
-            if it == 0 and w_release is None:
-                w_release = (W + us[2]).copy()
+            if it == 0 and rel_uvw is None:
+                # All THREE components at release. The flux weight is frame-dependent:
+                # a real EC tower double-rotates into the streamline frame, and over a
+                # slope the vertical there is a mix of model-frame w and horizontal wind.
+                rel_uvw = np.vstack([(U + us[0]).copy(), (V + us[1]).copy(),
+                                     (W + us[2]).copy()])
 
             # exact Ornstein-Uhlenbeck update of the linear (damping + noise) part
             a = np.exp(-dt / TL)
@@ -192,7 +203,10 @@ class LPDM:
                 us[2][top] = -us[2][top]
             z = znew
 
+            disp = np.hypot(x - x0r[idx], y - y0r[idx])
             done = elapsed >= t_limit
+            if max_disp is not None:
+                done |= disp > max_disp
             if not reflect_touchdown:
                 done |= hit
             if done.any():
@@ -209,7 +223,8 @@ class LPDM:
         if len(idx):                      # hit max_iter before retiring
             fx[idx] = x; fy_[idx] = y; fz[idx] = z; ft_[idx] = t; fe[idx] = elapsed
         cat = lambda L: np.concatenate(L) if L else np.zeros(0)
-        return dict(n=n, w_release=w_release,
+        return dict(n=n, rel_u=rel_uvw[0], rel_v=rel_uvw[1], rel_w=rel_uvw[2],
+                    w_release=rel_uvw[2],
                     td_particle=cat(td_p).astype(np.int64), td_x=cat(td_x),
                     td_y=cat(td_y), td_w=cat(td_w), td_t=cat(td_t),
                     x=fx, y=fy_, z=fz, t=ft_, elapsed=fe,
