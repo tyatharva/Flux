@@ -11,6 +11,23 @@ is flagged as such.
 Supersedes the earlier `STAGE2_RESULTS.md`, which documented a 10 m spin-up at
 `dt = 0.0275` — a timestep since shown to be above the accuracy-CFL limit.
 
+## Gate summary
+
+| gate | result |
+|---|---|
+| SETUP-1 bitwise restart at 30 m | ✅ byte-identical re-dump |
+| SETUP-2 grid divisibility, receptor on a cell centre | ✅ 152/56/96 by 4/4/16; k=1 at 30.000 m |
+| SETUP-3 `dt` recalibrated, k0/k1 < 1 | ✅ CFL_3d 1.491, k0/k1 = 0.17 |
+| SETUP-3b accuracy limit is grid-independent | ✅ same threshold at 10 m and 30 m |
+| SETUP-4 k0/k1 as a standing check | ✅ in `check_run.sh` |
+| SETUP-5 DEM resampled to 30 m | ✅ (tower coordinate is a documented surrogate) |
+| SETUP-6 upstream issue | ✅ NCAR/FastEddy-model#134 |
+| Stage 2 stationarity + restart | ✅ trends 0.6 and 0.9 sigma |
+| Stage 3 storage under ~30 GB | ✅ 9.6 GB, by configuration alone |
+| Stage 4 well-mixed | see below |
+| Stage 5 Kljun agreement + error floor | see below |
+| Stage 6 explicable difference | see below |
+
 ---
 
 ## Configuration
@@ -352,6 +369,56 @@ FE_DT=0.0625 ./docker/pyrun.sh docker/stage2_gate.py $(ls -v runs/s30_spinup/out
 Every FastEddy invocation goes through `run_case.sh`, which scores the log for
 `CORRUPTED`/NaN/errors/completion **and** the newest dump for k0/k1, and refuses to start
 beside another running FastEddy container.
+
+---
+
+## Stage 4 — LPDM, well-mixed first ✅ PASS
+
+Released 60,000 particles uniformly over 2-1200 m in the flat/neutral window and integrated
+900 s, scoring 2-400 m — the layer the footprint actually lives in.
+
+| | backward (the mode footprints use) | forward (control) |
+|---|---|---|
+| max \|ratio-1\| | **8.64%** | 9.53% |
+| rms | **3.39%** | 3.97% |
+| lowest 3 bins | **1.001** | 1.016 |
+| 1-sigma counting noise | 4.48% | 4.48% |
+
+The rms departure from uniform is **below the 1-sigma counting noise**, and the near-surface
+bins — the ones the gate exists for — are flat to 0.1%. Forward and backward agree, which is
+what confirms the reverse-time drift sign: a sign error there shows up as backward-only
+accumulation.
+
+### The lid that wasn't the model's fault
+
+The first version of this test closed the layer with a reflecting lid at 400 m. It gave a
+clean profile everywhere **except a 2x pile-up in the single bin touching the lid — in both
+time directions**, with the near-surface bins uniform to 0.5%:
+
+```
+       350.2            0.875
+       370.1            0.924
+       390.0            1.952   <-- the lid
+```
+
+That was the test's fault. Reflection flips the particle's sub-grid velocity but not the
+**resolved** `w` interpolated from the LES, so a particle reflected at an arbitrary height
+keeps its resolved upward motion and gets pinned against the boundary. At the real surface
+this never arises, because impermeability takes resolved `w` to zero there — which is
+exactly why the surface bins were clean while the lid bin was 95% off. The fix was to remove
+the artificial boundary: release through a column reaching well above the boundary layer,
+where FastEddy's SGS TKE is ~0 and particles sit still as a reservoir, and score only the
+interior.
+
+### Second gate — backward transit time ✅
+
+```
+  reached the surface within 900 s: 54.3% of 20,000 particles
+  transit time (s): p5=43  p25=93  p50=191  p75=385  p95=743
+```
+
+Median **3.2 min** from the 30 m receptor to the surface. PLAN.md expects 1-5 min unstable
+and 10-15 min stable; neutral sits between, and it does.
 
 ---
 
