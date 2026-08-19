@@ -192,6 +192,13 @@ plausible transit time (~1-5 min unstable, ~10-15 min stable).
 - Touchdown weighting per Thomson/Flesch
 - Produce a 2-D footprint
 
+> **Result at 30 m: NOT MET.** Peak at 310 m against Kljun's 198 m. Ruled out as causes:
+> the estimator constant (verified analytically), the well-mixed condition (passes), the
+> Langevin constant (a 4x sweep in `C0` moves the peak one grid cell), and Monte-Carlo noise
+> (a seed change moves it none). The cause is that **96.4% of the vertical velocity variance
+> at the 30 m receptor is sub-grid** — the near-field footprint is manufactured by the
+> closure, not resolved by the LES. This gate needs `dz_sfc = 10 m`. See STAGE2-6_RESULTS.md.
+
 **Gate 1 — agreement with Kljun.** Over flat uniform terrain in neutral conditions the
 result should be **close to Kljun**. That is the whole point of this stage — a homogeneous
 surface is where the analytical model is valid, so agreement validates the pipeline.
@@ -199,6 +206,14 @@ surface is where the analytical model is valid, so agreement validates the pipel
 Disagreement here is a pipeline bug, not a scientific finding. Do not proceed until the
 flat/neutral case reproduces Kljun to within a sensible tolerance on peak location and
 upwind extent.
+
+> **Result at 30 m: MEASURED, and it changes the corpus arithmetic.** Two realisations of
+> one configuration overlap 32% by 80% source area, against 39% for LES-vs-Kljun — that
+> metric is at its noise floor and **must not be used to score the emulator**. Per-cell
+> footprint values differ by 92% in L1 between realisations. Peak and centroid ARE resolved
+> (40 m and ~50 m of scatter). Two 15-min halves of one window disagree as much as two
+> independent realisations, so a longer window is not the fix — averaging over realisations
+> is, and the corpus must be sized by number of RUNS, not samples.
 
 **Gate 2 — the irreducible error floor.** Run the *same case twice* and compare the two
 footprints.
@@ -230,6 +245,14 @@ realizations (raising run count). Either way the corpus arithmetic changes, so m
 - Taper terrain and land cover at both wrap seams
 - Add the solar array as a bulk patch (albedo, z0, displacement height)
 - One CONUS404-derived sounding, one wind direction
+
+> **Result at 30 m: difference explicable, absolute normalisation not trusted.** The solar
+> array patch takes 1.52x the footprint share it does over flat ground (9.7% -> 14.8%) —
+> right sign, right place. But the terrain footprint integrates to 1.64, which a flux
+> footprint cannot. Terrain exposed a real estimator issue flat ground hid entirely: the
+> receptor sits in mean subsidence of 1.5 standard deviations, so the flux weight must use
+> `w' = w - <w>`. That fixes sign and shape but leaves the normalisation open. See
+> STAGE2-6_RESULTS.md for the two candidate explanations and the test that separates them.
 
 **Gate:** A footprint that **differs from Kljun in an explicable direction.** You should be
 able to point at the array or the terrain and say why the footprint distorted the way it
