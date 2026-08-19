@@ -8,7 +8,7 @@ tBy = 2 # 1x2x64 = 128 threads, fastest of 9 legal shapes swept on this grid
 tBz = 64 # CUDA caps blockDim.z at 64; 128 is rejected by the device
 #--IO
 inPath = ./output/
-inFile = FE_G24.68400
+inFile = FE_G24.205200
 outPath = ./output/ # Path where output files are to be written
 outFileBase = FE_G24 # Base name of the output file series as in (outFileBase).element-in-series
 frqOutput = 22800
@@ -28,7 +28,7 @@ verticalDeformFactor = 0.346601 # dz_sfc = 8.5580 m; cell centre k=3 at EXACTLY 
 verticalDeformQuadCoeff = 0.0 # pure cubic
 #--TIME_INTEGRATION
 timeMethod = 0 # Selector for time integration method. [0=RK3-WS2002 (default)]
-Nt = 136800
+Nt = 273600
 dt = 0.0328947 # = 5/152 s, so 5 s output is an integer step count; CFL_3d = 1.4946
 NtBatch = 22800
 #--HYDRO_CORE
