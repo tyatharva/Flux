@@ -242,9 +242,11 @@ about the pipeline. Gate on the quantity that actually controls near-field fidel
 > **Ensemble convergence (measured on 18 sub-windows of 150 s from one integration).**
 > The sub-windows are independent (lag-1 autocorrelation +0.19 peak / -0.10 centroid, below
 > `2/sqrt(18) = 0.47`), so ensembles come from sampling *time within one run*, not from
-> extra runs. **Peak stabilises to one cell at n = 3 sub-windows = 7.5 min; the centroid
-> needs n > 9 = 22.5 min** and is still improving there. A 30-min window is comfortable for
-> the peak and marginal for the centroid. The residual 60 m peak offset between halves is
+> extra runs. Using a randomised held-out reference (400 draws; a fixed reference has only
+> one subset at n = 9 and its "p90" there is a single draw): **the peak stabilises to one
+> cell at n = 5 = 12.5 min; the centroid is still 336 m at p90 at n = 9 = 22.5 min** and
+> never reaches 100 m in the measurable range. A 30-min window is comfortable for the peak
+> and NOT sufficient for the centroid. The residual 60 m peak offset between halves is
 > systematic (residual spin-up drift), not sampling noise — more averaging will not remove
 > it. **This is the corpus design parameter.**
 
