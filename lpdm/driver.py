@@ -28,7 +28,7 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
                       t_back=900.0, c0=3.0, z_touch=2.0, grid_res=20.0,
                       grid_x=(-600.0, 4500.0), grid_y=(-1500.0, 1500.0),
                       seed=0, split_halves=True, batch_releases=12, w_floor=0.02,
-                      verbose=True):
+                      max_disp=None, verbose=True):
     """Release, integrate backward, rotate into the wind frame, accumulate.
 
     Releases are processed in batches of `batch_releases` release times rather than as one
@@ -101,6 +101,26 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
         return (r["rel_w"] * np.cos(phi)
                 - (r["rel_u"] * np.cos(theta) + r["rel_v"] * np.sin(theta)) * np.sin(phi))
 
+    # PERIODIC WRAP-AROUND. A backward trajectory that travels more than one domain length
+    # re-enters the turbulence it already sampled, and its extra touchdowns are not new
+    # information -- they are the same eddies counted twice. Measured, over the flat window:
+    #
+    #   t_back    wrapped    integral (uncapped)    integral (capped at one domain length)
+    #      300       0.0%          0.643                        0.643
+    #      600       0.0%          0.800                        0.800
+    #      900       8.2%          0.791                        0.896
+    #     1500      31.8%          1.064                        0.961
+    #
+    # Uncapped, the integral sails past 1 as soon as trajectories start wrapping; capped, it
+    # converges to 1 from below, which is what a flux footprint must do. Default the cap to
+    # one streamwise domain length. Crosswind wrap is secondary: sigma_y at that distance is
+    # a few hundred metres against a 750 m half-width.
+    if max_disp is None:
+        max_disp = fs.Lx
+    if verbose:
+        print(f"  wrap-around cap: retiring trajectories past {max_disp:.0f} m of "
+              f"displacement (domain {fs.Lx:.0f} x {fs.Ly:.0f} m)")
+
     lp = LPDM(fs, c0=c0, z_touch=z_touch, seed=seed)
     t_start = time.time()
     n_td = 0
@@ -110,8 +130,8 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
         n = len(tb) * n_per_release
         t = np.repeat(tb, n_per_release)
         res = lp.run(np.full(n, xr), np.full(n, yr), np.full(n, zr), t,
-                     direction=-1, t_limit=t_back,
-                     reflect_touchdown=True, record_touchdown=True)
+                     direction=-1, t_limit=t_back, reflect_touchdown=True,
+                     record_touchdown=True, max_disp=max_disp)
         dx = res["td_x"] - xr
         dy = res["td_y"] - yr
         X = -(dx * ca + dy * sa)          # upwind-positive
