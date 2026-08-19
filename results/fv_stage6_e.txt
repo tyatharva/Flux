@@ -1,8 +1,15 @@
-Traceback (most recent call last):
-  File "/work/bin/stage6_compare.py", line 127, in <module>
-    sys.exit(main())
-  File "/work/bin/stage6_compare.py", line 54, in main
-    A, B = np.load(a.flat), np.load(a.terrain)
-  File "/usr/local/lib/python3.10/dist-packages/numpy/lib/_npyio_impl.py", line 451, in load
-    fid = stack.enter_context(open(os.fspath(file), "rb"))
-FileNotFoundError: [Errno 2] No such file or directory: 'results/fv_t6e.npz'
+  quantity                     flat      terrain        Kljun
+  peak upwind distance (m)       390.00       210.00       210.00
+  centroid, upwind (m)          1263.12      1084.28       787.65
+  centroid, crosswind (m)        -43.25        15.65         0.00
+  80% source area (ha)            45.36        31.68        26.64
+  integral over grid               0.80         0.86         0.93
+
+  80% source-area overlap   terrain vs flat   46.7%
+                            terrain vs Kljun  34.3%
+                            flat    vs Kljun  36.9%
+
+  --- contribution of the solar-array footprint (x in [-255,-135], y in [-195,195]) ---
+  flat  0.00%   terrain  0.00%   Kljun  0.00%   terrain/flat = 0.00x
+
+  wrote results/fv_stage6_e.png

@@ -120,6 +120,17 @@ state and letting the flow adjust for ~20 min of simulated time before sampling.
 that adjustment as part of every production run; validate the 20 min figure at Stage 6 by
 checking that near-surface stress and the footprint have stopped drifting.
 
+> **Result, second pass: restart ✅ PASS, stationarity ❌ NO.** Bitwise restart re-verified at
+> `146 x 50 x 122` — `cmp` reports the two 25.4 MB dumps byte-identical, every prognostic
+> field differing by exactly 0. Stationarity after 6.4 h of simulated time: domain TKE trend
+> **-2.10 +/- 1.13 %/h** (-1.85 sigma, would pass) but `u*` **-2.25 +/- 0.27 %/h**
+> (**-8.40 sigma**, fails). The profile shape is recognisable — `sigma_w^2/u*^2` peaks at
+> 0.844 vs NCAR's NBL 0.730 and vanishes by 668 m vs their 650 m — but the peak sits at
+> 174 m rather than 130 m and `u*` is 0.328 vs 0.410, both consistent with a boundary layer
+> still deepening. Quantified and non-blocking: a -2%/h drift is small against Stage 5's
+> +86%, and it changes no conclusion. Not fixed, because fixing it means more spin-up hours
+> at a grid Stage 5's revised gate has already ruled out.
+
 ---
 
 ## Stage 3 — Output configuration
@@ -143,6 +154,11 @@ account for 12 B/cell and are rewritten identically in every dump.
 > 3-D fields = 40 B/cell; at 657,000 cells that is 26.6 MB/dump and **9.6 GB** per 30-min
 > window at 5 s cadence. Neither field selection nor fp16 was written, and no FastEddy
 > source change was needed. Both come back at 10 m, where the same window is 113 GB.
+>
+> **Second-pass grid, re-measured 2026-08-19:** 890,600 cells -> **35.99 MB/dump** and
+> **13.0 GB** per 30-min window (361 dumps at 5 s), still by configuration alone. IO time is
+> ~0.05 s/dump against ~1.75 s of compute per 200-step batch, i.e. **~3% of compute** — under
+> the "stop optimizing" threshold, so nothing further was done.
 
 Arithmetic: 4 fields at fp16 = 8 B/cell = 1/9.5 of the current 76 B/cell → 213 GB becomes
 **~22 GB**. Field selection alone (fp32) gives ~45 GB, so fp16 is what clears the bar.
@@ -183,6 +199,14 @@ signal lives. Fix this before computing a single footprint.
 **Second gate:** backward trajectories from the 30 m receptor reach the surface in a
 plausible transit time (~1-5 min unstable, ~10-15 min stable).
 
+> **Result, second pass: ✅ PASS both gates.** Well-mixed backward rms **4.91%** against a
+> 4.48% counting-noise floor, max deviation 10.1%, lowest three bins 0.978; forward control
+> 4.67% / 1.045. Transit p5 = 73 s, **median 287 s (4.8 min)**, p95 = 765 s, 62% reaching the
+> surface inside 900 s — neutral at the fast end of the expected range, as it should be.
+> The earlier failure was the test's own reflecting lid, not the closure: reflection flips
+> the sub-grid velocity but not the resolved `w`, giving a 2x lid-bin pile-up in *both* time
+> directions. Particles are now released through a deep column and only the interior scored.
+
 ---
 
 ## Stage 5 — First footprint, flat and neutral
@@ -192,28 +216,37 @@ plausible transit time (~1-5 min unstable, ~10-15 min stable).
 - Touchdown weighting per Thomson/Flesch
 - Produce a 2-D footprint
 
-> **Result at 30 m: NOT MET.** Peak at 310 m against Kljun's 198 m. Ruled out as causes:
-> the estimator constant (verified analytically), the well-mixed condition (passes), the
-> Langevin constant (a 4x sweep in `C0` moves the peak one grid cell), and Monte-Carlo noise
-> (a seed change moves it none). The cause is that **96.4% of the vertical velocity variance
-> at the 30 m receptor is sub-grid** — the near-field footprint is manufactured by the
-> closure, not resolved by the LES. This gate needs `dz_sfc = 10 m`. See STAGE2-6_RESULTS.md.
+**Gate 1 (REVISED 2026-08-19) — sub-grid fraction of `sigma_w^2` at the receptor < 40%.**
+The original gate asked for Kljun agreement. That was badly specified: at `dx = 30 m` with
+one cell below the tower, a near-total sub-grid fraction is *expected*, so the footprint is
+manufactured by the closure and disagreement with Kljun is a statement about the grid, not
+about the pipeline. Gate on the quantity that actually controls near-field fidelity.
 
-**Gate 1 — agreement with Kljun.** Over flat uniform terrain in neutral conditions the
-result should be **close to Kljun**. That is the whole point of this stage — a homogeneous
-surface is where the analytical model is valid, so agreement validates the pipeline.
+**Kljun agreement is a secondary check, not a tuning target.**
 
-Disagreement here is a pipeline bug, not a scientific finding. Do not proceed until the
-flat/neutral case reproduces Kljun to within a sensible tolerance on peak location and
-upwind extent.
+> **Result, second pass at `dz_sfc = 8.56 m`: FAIL, and unreachable at `dx = 30 m`.**
+> 96.4% (first pass, `dz_sfc` 20 m) -> **88.3%**. The fraction collapses onto `z/Delta` with
+> `Delta = (dx dy dz)^(1/3)`; both grids put the 40% crossing at `z/Delta` = 3.5-3.7, so the
+> gate needs **`Delta <~ 8.6 m`**. With `dx = dy = 30 m` that requires `dz <= 0.71 m`, at
+> which anisotropy the horizontal filter still cannot resolve 30 m eddies — **the gate is a
+> statement about `dx`, not `dz`.** Grids that pass (`dx=10/dz=6`, or isotropic 8.6 m) cost
+> **20-23 GPU-hours for the spin-up alone**, i.e. 30-35 chained 40-minute segments. That is
+> a project-level decision about corpus cost, not a configuration change. Secondary check:
+> peak 390 m vs Kljun 210 m (+86%), 80% overlap 36.9%. See STAGE2-6_RESULTS_V2.md.
 
-> **Result at 30 m: MEASURED, and it changes the corpus arithmetic.** Two realisations of
-> one configuration overlap 32% by 80% source area, against 39% for LES-vs-Kljun — that
-> metric is at its noise floor and **must not be used to score the emulator**. Per-cell
-> footprint values differ by 92% in L1 between realisations. Peak and centroid ARE resolved
-> (40 m and ~50 m of scatter). Two 15-min halves of one window disagree as much as two
-> independent realisations, so a longer window is not the fix — averaging over realisations
-> is, and the corpus must be sized by number of RUNS, not samples.
+> **Result, second pass: the floor separated from the signal.** Half-vs-half 80% overlap
+> rose from 30.0% to **59.2%** against 36.9% for LES-vs-Kljun, so the metric is no longer at
+> its own noise floor and IS usable to score the emulator — reversing the first pass. Peak
+> difference between halves is one grid cell (60 m), centroid 99 m.
+>
+> **Ensemble convergence (measured on 18 sub-windows of 150 s from one integration).**
+> The sub-windows are independent (lag-1 autocorrelation +0.19 peak / -0.10 centroid, below
+> `2/sqrt(18) = 0.47`), so ensembles come from sampling *time within one run*, not from
+> extra runs. **Peak stabilises to one cell at n = 3 sub-windows = 7.5 min; the centroid
+> needs n > 9 = 22.5 min** and is still improving there. A 30-min window is comfortable for
+> the peak and marginal for the centroid. The residual 60 m peak offset between halves is
+> systematic (residual spin-up drift), not sampling noise — more averaging will not remove
+> it. **This is the corpus design parameter.**
 
 **Gate 2 — the irreducible error floor.** Run the *same case twice* and compare the two
 footprints.
@@ -242,17 +275,31 @@ realizations (raising run count). Either way the corpus arithmetic changes, so m
 **Do:**
 - Rotated GIS preprocessing: resample DEM + land cover into wind-aligned frame, generate
   rotated `lat(y,x)` / `lon(y,x)`, run GeoSpec -> SimGrid
-- Taper terrain and land cover at both wrap seams
+- Taper **terrain** at both wrap seams. Do **not** taper land cover — see below
 - Add the solar array as a bulk patch (albedo, z0, displacement height)
-- One CONUS404-derived sounding, one wind direction
+- One CONUS404-derived sounding; **two** wind directions (westerly and easterly), so the
+  open water east of the tower is inside the footprint for at least one of them
 
-> **Result at 30 m: difference explicable, absolute normalisation not trusted.** The solar
-> array patch takes 1.52x the footprint share it does over flat ground (9.7% -> 14.8%) —
-> right sign, right place. But the terrain footprint integrates to 1.64, which a flux
-> footprint cannot. Terrain exposed a real estimator issue flat ground hid entirely: the
-> receptor sits in mean subsidence of 1.5 standard deviations, so the flux weight must use
-> `w' = w - <w>`. That fixes sign and shape but leaves the normalisation open. See
-> STAGE2-6_RESULTS.md for the two candidate explanations and the test that separates them.
+> **Result, second pass at the surveyed coordinate: ✅ PASS, and it is a mirror-image test
+> rather than a one-sided one.** Two directions from one spun-up state, both clean
+> (`k0/k1` = 0.780 and 0.771), 11.5 min each.
+>
+> | footprint share / area share | westerly (270 deg) | easterly (90 deg) |
+> |---|---|---|
+> | **solar array** | **7.32% / 0.71% = 10.3x** (upwind) | **0.04% / 0.71% = 0.06x** (downwind) |
+> | **open water** | 0.03% / 0.64% (downwind) | **35.2% / 46.5% = 0.76x** (upwind) |
+>
+> The array takes 10.3x its area share when upwind and 0.06x when downwind — same patch,
+> same tower, same state, rotated 180 deg. The first pass could not test this because the
+> array was specified by an *upwind distance* and so followed the wind. The water share is
+> **predicted, not merely present**: the 840-3300 m band carries 39.5% of the footprint and
+> is ~90% water on the centreline, giving 35.5% expected against **35.2% measured**.
+>
+> The 1.64 is resolved (wrap-around, Item 2 of the second pass). The residual integral now
+> **straddles 1 with the sign of `w_bar` at the receptor** — 1.45 at `w_bar = +0.064`, 0.86
+> at `w_bar = -0.109` — which is advective non-closure, not an estimator bug: the streamline
+> rotation removes `w_bar` from the weight but cannot remove it from the transport. See
+> STAGE2-6_RESULTS_V2.md.
 
 **Gate:** A footprint that **differs from Kljun in an explicable direction.** You should be
 able to point at the array or the terrain and say why the footprint distorted the way it

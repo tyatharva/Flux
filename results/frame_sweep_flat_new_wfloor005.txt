@@ -1,0 +1,8 @@
+  721 dumps, window 12600-16200 s, cache 15.83 GB
+  receptor k=3  z=30.000 m ASL = 30.000 m AGL   domain 4380 x 1500 m
+
+   t_back  releases  model raw  model -mean  STREAMLINE  conc int   w_bar*C  wrapped
+      900       540      0.508        0.829       0.815      8.48     0.321     0.0%
+
+  (w_bar*C is the mean-subtraction term: it is what separates 'model raw' from
+   'model -mean'. It grows with the concentration integral, which is unbounded.)
