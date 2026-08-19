@@ -1,0 +1,29 @@
+
+=== runs/fv_wlong/output: 721 dumps ===
+  receptor  (i,j,k)=(110,25,3)  x=3315 y=765  z=30.000 m ASL = 30.000 m AGL (ground 0.00 m)
+  releases  675 times over 13500-16200 s, 700 each = 472,500 particles; t_back=900 s
+  receptor means over the averaging period: U=+5.8751 V=+1.7026 W=-0.0379 m/s
+  double rotation: yaw +16.16 deg, pitch -0.355 deg (sin=-0.00620)
+  wrap-around cap: retiring trajectories past 4380 m of displacement (domain 4380 x 1500 m)
+  mean streamline-frame w over all releases: +0.00046 m/s (model-frame mean was -0.03790); rotation removed 98.8% of it
+  LES scalars at z=30.00 m: U=5.90 m/s dir=255.0 deg  u*=0.327  h=616 m  1/L=0.00e+00
+    sigma_v 0.464 (resolved 0.317 + sub-grid, e_sgs=0.1720);  sigma_w 0.357 (resolved 0.112);  sigma_w/u* = 1.09 (surface-layer expectation ~1.25)
+  touchdowns 625,022;  largest single weight 149.7;  top 0.1% carry 7.7% of the total |weight|
+  integral of f_flux over grid = 0.805 (all touchdowns 0.805; shortfall = influence truncated by t_back=900 s)
+
+=== GATE 1: LES+LPDM vs Kljun et al. (2015) ===
+  LES+LPDM                   peak_x=  390.0 m  centroid=( 1263.1, -43.2) m  80% area=  45.36 ha  x80=[150,3810] m
+  Kljun FFP                  peak_x=  210.0 m  centroid=(  787.7,   0.0) m  80% area=  26.64 ha  x80=[90,1410] m
+  Kljun x_max (analytic)       198.1 m
+  Kljun integral over grid   0.927
+
+  peak-location difference    +180.0 m (+86%)
+  centroid difference         +475.5 m (+60%)
+  80% source-area overlap      36.9%
+
+=== GATE 2: irreducible error floor ===
+  window half 1              peak_x=  330.0 m  centroid=( 1206.2, -20.9) m  80% area=  40.32 ha  x80=[150,3810] m
+  window half 2              peak_x=  390.0 m  centroid=( 1305.1, -59.8) m  80% area=  44.64 ha  x80=[150,3390] m
+  half-vs-half  80% overlap   59.2%   peak difference -60.0 m   centroid difference -98.9 m
+
+  wrote results/fv_stage5.json and results/fv_stage5.png
