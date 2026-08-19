@@ -28,7 +28,7 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
                       t_back=900.0, c0=3.0, z_touch=2.0, grid_res=20.0,
                       grid_x=(-600.0, 4500.0), grid_y=(-1500.0, 1500.0),
                       seed=0, split_halves=True, batch_releases=12, w_floor=0.02,
-                      max_disp=None, verbose=True):
+                      max_disp=None, cover=None, verbose=True):
     """Release, integrate backward, rotate into the wind frame, accumulate.
 
     Releases are processed in batches of `batch_releases` release times rather than as one
@@ -125,6 +125,12 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
     t_start = time.time()
     n_td = 0
     wsf_bar, wsf_n = [], 0
+    # Footprint-weighted share of each land-cover class. Accumulated from the touchdown
+    # positions in LES INDEX space rather than by overlaying a mask on the rotated
+    # footprint grid: the rotation and the 60 m footprint cells would both blur a 30 m
+    # patch, and the water/array shares are exactly the numbers that must not be blurred.
+    cover_w = {k: 0.0 for k in (cover or {})}
+    cover_tot = 0.0
     for b0 in range(0, len(times), batch_releases):
         tb = times[b0:b0 + batch_releases]
         n = len(tb) * n_per_release
@@ -141,6 +147,14 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
         r = dict(res); r["td_x"] = X; r["td_y"] = Y
         r["w_release"] = wsf
         full.add(r, 0.0, 0.0, w_floor=w_floor)
+        if cover:
+            fi_t, fj_t = fs.hindex(res["td_x"], res["td_y"])
+            ii = np.clip(np.round(fi_t).astype(int) % fs.nx, 0, fs.nx - 1)
+            jj = np.clip(np.round(fj_t).astype(int) % fs.ny, 0, fs.ny - 1)
+            wt = wsf[res["td_particle"]] * 2.0 / np.maximum(res["td_w"], w_floor)
+            cover_tot += wt.sum()
+            for nm, msk in cover.items():
+                cover_w[nm] += wt[msk[jj, ii]].sum()
         n_td += len(X)
         if split_halves:
             rel = t[res["td_particle"]]
@@ -165,6 +179,8 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
               f"{100*(1-abs(w_sf_mean)/max(abs(Wb),1e-12)):.1f}% of it")
     out = dict(stats=st, grid=full, receptor=(xr, yr, zr), z_agl=zr - zg_r, k_recept=k_r,
                w_bar=Wb, w_sf_mean=w_sf_mean, yaw=float(theta), pitch=float(phi),
+               cover_share={k: (v / cover_tot if cover_tot else np.nan)
+                            for k, v in cover_w.items()},
                n_particles=full.n_particles, n_touchdown=n_td,
                wind_angle=float(np.degrees(ang)))
     if split_halves:

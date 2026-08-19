@@ -50,6 +50,8 @@ def main():
     ap.add_argument("--res", type=float, default=20.0)
     ap.add_argument("--tag", default="stage5")
     ap.add_argument("--outdir", default="results")
+    ap.add_argument("--cover-dir", default=None,
+                    help="prep_stage6.py output dir; adds land-cover attribution")
     a = ap.parse_args()
     os.makedirs(a.outdir, exist_ok=True)
 
@@ -61,9 +63,20 @@ def main():
         fs = FieldSet(paths, a.dt, verbose=False)
         print(f"  cache {fs.mem_gb:.2f} GB, window {fs.t[0]:.0f}-{fs.t[-1]:.0f} s "
               f"(cadence {fs.dt_dump:.1f} s), loaded in {time.time()-t0:.0f} s")
+        cover = None
+        if a.cover_dir:
+            z0 = np.load(os.path.join(a.cover_dir, "z0m.npy"))
+            wm = np.load(os.path.join(a.cover_dir, "water.npy")) > 0.5
+            cover = {"water": wm, "solar array": z0 > 0.1,
+                     "grass": (~wm) & (z0 <= 0.1)}
         r = compute_footprint(fs, paths, n_per_release=a.nrel, dt_release=a.dtrel,
                               t_back=a.tback, c0=a.c0, grid_res=a.res,
-                              seed=len(runs))
+                              seed=len(runs), cover=cover)
+        if cover:
+            print("  footprint-weighted land-cover share (from touchdowns, unblurred):")
+            for nm, v in r["cover_share"].items():
+                print(f"    {nm:<12} {v*100:6.2f}%   "
+                      f"(domain area share {cover[nm].mean()*100:5.2f}%)")
         st = r["stats"]
         print(f"  LES scalars at z={st['z_recept']:.2f} m: U={st['u_mean']:.2f} m/s "
               f"dir={st['wdir']:.1f} deg  u*={st['ustar']:.3f}  h={st['h']:.0f} m  "
