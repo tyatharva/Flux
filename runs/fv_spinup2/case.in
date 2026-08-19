@@ -7,7 +7,7 @@ tBx = 4 # Number of threads in x-dimension
 tBy = 4 # Number of threads in y-dimension
 tBz = 16 # Number of threads in z-dimension
 #--IO
-inPath = ./output/
+inPath = ../fv_spinup/output/ # NOT ./output/ -- the restart lives in segment 1
 inFile = FE_FV.158760
 outPath = ./output/ # Path where output files are to be written
 outFileBase = FE_FV
