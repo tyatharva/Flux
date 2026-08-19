@@ -68,23 +68,43 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
     mkgrid = lambda: FootprintGrid(grid_x[0], grid_x[1], grid_y[0], grid_y[1], grid_res)
     full, h1, h2 = mkgrid(), mkgrid(), mkgrid()
 
-    # REYNOLDS DECOMPOSITION AT THE RECEPTOR. The flux an eddy-covariance tower reports is
-    # <w' c'>, with w' the departure from the mean over the averaging period -- not <w c>.
-    # Over flat homogeneous terrain the distinction is invisible: the mean vertical velocity
-    # at the receptor is -0.004 m/s, 0.07 of its own standard deviation. Over the Stage 6
-    # terrain the receptor sits in persistent subsidence over a slope and the mean is
-    # -0.082 m/s, **1.5 standard deviations**. Weighting by raw w there mixes the mean
-    # advective flux into the turbulent one; the positive and negative halves of the
-    # estimator then very nearly cancel and the footprint integral collapses towards zero
-    # (measured: +3.48 and -3.51 summing to -0.02 instead of ~1).
-    w_bar = float(fs.w[:, k_r, j_r, i_r].mean())
+    # ---------------------------------------------------------------- reference frame
+    # A real eddy-covariance system over a slope is DOUBLE ROTATED (Wilczak et al. 2001;
+    # Kaimal & Finnigan 1994): first about z so the mean crosswind vanishes, then about the
+    # new y so the mean vertical vanishes. The reported flux is w' c' in that streamline
+    # frame, not in the model's frame. Weighting by the model-frame w is a different
+    # quantity whenever the terrain tilts the mean flow.
+    #
+    #   theta = atan2(V, U)                        (yaw)
+    #   phi   = atan2(W, sqrt(U^2 + V^2))          (pitch)
+    #   w_sf  = w cos(phi) - (u cos(theta) + v sin(theta)) sin(phi)
+    #
+    # The pitch term matters more than its size suggests: sin(phi) is only ~0.014 here, but
+    # it multiplies the HORIZONTAL fluctuation, whose flux <u'c'> is far larger than <w'c'>.
+    # Rotating also makes the mean vanish BY CONSTRUCTION, so the estimator needs no
+    # separate mean subtraction -- and subtracting a mean is exactly what was numerically
+    # dangerous, because it adds w_bar times the unbounded concentration integral.
+    sel = (fs.t >= t_first - 1e-6) & (fs.t <= t_last + 1e-6)
+    Ub = float(fs.u[sel, k_r, j_r, i_r].mean())
+    Vb = float(fs.v[sel, k_r, j_r, i_r].mean())
+    Wb = float(fs.w[sel, k_r, j_r, i_r].mean())
+    theta = np.arctan2(Vb, Ub)
+    phi = np.arctan2(Wb, np.hypot(Ub, Vb))
     if verbose:
-        print(f"  mean w at the receptor over the window: {w_bar:+.4f} m/s "
-              f"(subtracted; Reynolds decomposition)")
+        print(f"  receptor means over the averaging period: U={Ub:+.4f} V={Vb:+.4f} "
+              f"W={Wb:+.4f} m/s")
+        print(f"  double rotation: yaw {np.degrees(theta):+.2f} deg, "
+              f"pitch {np.degrees(phi):+.3f} deg (sin={np.sin(phi):+.5f})")
+
+    def streamline_w(r):
+        """Streamline-frame vertical velocity of each released particle."""
+        return (r["rel_w"] * np.cos(phi)
+                - (r["rel_u"] * np.cos(theta) + r["rel_v"] * np.sin(theta)) * np.sin(phi))
 
     lp = LPDM(fs, c0=c0, z_touch=z_touch, seed=seed)
     t_start = time.time()
     n_td = 0
+    wsf_bar, wsf_n = [], 0
     for b0 in range(0, len(times), batch_releases):
         tb = times[b0:b0 + batch_releases]
         n = len(tb) * n_per_release
@@ -96,8 +116,10 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
         dy = res["td_y"] - yr
         X = -(dx * ca + dy * sa)          # upwind-positive
         Y = -dx * sa + dy * ca
+        wsf = streamline_w(res)
+        wsf_bar.append(wsf.mean() * len(wsf)); wsf_n += len(wsf)
         r = dict(res); r["td_x"] = X; r["td_y"] = Y
-        r["w_release"] = res["w_release"] - w_bar
+        r["w_release"] = wsf
         full.add(r, 0.0, 0.0, w_floor=w_floor)
         n_td += len(X)
         if split_halves:
@@ -105,7 +127,7 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
             n_h1 = int((tb <= tmid).sum()) * n_per_release
             for g, m, nn in ((h1, rel <= tmid, n_h1), (h2, rel > tmid, n - n_h1)):
                 rr = dict(res)
-                rr["w_release"] = res["w_release"] - w_bar
+                rr["w_release"] = wsf
                 rr["td_particle"] = res["td_particle"][m]
                 rr["td_w"] = res["td_w"][m]
                 rr["td_x"] = X[m]; rr["td_y"] = Y[m]
@@ -116,8 +138,13 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
                   f"{-(-len(times)//batch_releases)}  {n_td:,} touchdowns  "
                   f"{time.time()-t_start:.0f} s", flush=True)
 
+    w_sf_mean = float(sum(wsf_bar) / max(wsf_n, 1))
+    if verbose:
+        print(f"  mean streamline-frame w over all releases: {w_sf_mean:+.5f} m/s "
+              f"(model-frame mean was {Wb:+.5f}); rotation removed "
+              f"{100*(1-abs(w_sf_mean)/max(abs(Wb),1e-12)):.1f}% of it")
     out = dict(stats=st, grid=full, receptor=(xr, yr, zr), z_agl=zr - zg_r, k_recept=k_r,
-               w_bar=w_bar,
+               w_bar=Wb, w_sf_mean=w_sf_mean, yaw=float(theta), pitch=float(phi),
                n_particles=full.n_particles, n_touchdown=n_td,
                wind_angle=float(np.degrees(ang)))
     if split_halves:
