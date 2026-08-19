@@ -24,9 +24,10 @@ Supersedes the earlier `STAGE2_RESULTS.md`, which documented a 10 m spin-up at
 | SETUP-6 upstream issue | ✅ NCAR/FastEddy-model#134 |
 | Stage 2 stationarity + restart | ✅ trends 0.6 and 0.9 sigma |
 | Stage 3 storage under ~30 GB | ✅ 9.6 GB, by configuration alone |
-| Stage 4 well-mixed | see below |
-| Stage 5 Kljun agreement + error floor | see below |
-| Stage 6 explicable difference | see below |
+| Stage 4 well-mixed + transit time | ✅ rms 3.4% vs 4.5% counting noise; median 3.2 min |
+| Stage 5 Gate 1, Kljun agreement | ❌ **peak 310 m vs 198 m**; diagnosed as resolution |
+| Stage 5 Gate 2, error floor | ✅ measured, and large enough to change the corpus plan |
+| Stage 6 explicable difference | ⚠️ array share 9.7% -> 14.8%, but integral 1.64 |
 
 ---
 
@@ -434,11 +435,14 @@ The pipeline runs end to end and produces a footprint. It does not reproduce Klj
 | | LES + LPDM | Kljun FFP |
 |---|---|---|
 | peak upwind distance | **310 m** | 190 m (analytic 198 m) |
-| centroid, upwind | 1063 m | 788 m |
-| 80% source area | 17.2 ha | 13.6 ha |
-| 80% area reaches | 4210 m | 1470 m |
-| integral over the grid | 0.77 | 0.93 |
-| 80% source-area overlap | **35.3%** | |
+| centroid, upwind | 1053 m | 788 m |
+| 80% source area | 18.6 ha | 24.1 ha |
+| 80% area reaches | 4210 m | 1510 m |
+| integral over the grid | 0.76 | 0.93 |
+| 80% source-area overlap | **39.0%** | |
+
+LES scalars driving both: `U = 6.15 m/s`, `u* = 0.341`, `h = 623 m`, `sigma_w = 0.392`
+(= 1.15 u*), `sigma_v = 0.463`, neutral.
 
 The crosswind-integrated profiles say what is actually wrong, and it is not the overall
 shape — **the LES footprint is missing its near field**:
@@ -512,18 +516,18 @@ Two realisations of the same configuration, separated by 1200 s of decorrelation
 
 | metric | half vs half | realisation vs realisation | LES vs Kljun |
 |---|---|---|---|
-| peak difference | 0 m | **-20 m** | +120 m |
-| centroid difference | -36 m | **-20 m** | +275 m |
-| 80% source-area overlap | 29.4% | **32.4%** | 35.3% |
-| normalised L1 difference | | **96.1%** | |
+| peak difference | 40 m | **40 m** | +120 m |
+| centroid difference | -4 m | **+53 m** | +265 m |
+| 80% source-area overlap | 30.0% | **32.4%** | 39.0% |
+| normalised L1 difference | | **91.9%** | |
 
 This is the gate's whole point, and it pays off immediately: **the 80% source-area overlap
-metric is at its noise floor.** Two realisations of one configuration overlap 32%, while
-LES-vs-Kljun overlap 35% — the metric cannot tell the two apart. Per-cell footprint values
-differ by 96% in L1 between realisations.
+metric is close to its noise floor.** Two realisations of one configuration overlap 32%,
+while LES-vs-Kljun overlap 39% — barely distinguishable. Per-cell footprint values differ
+by 92% in L1 between two realisations of the SAME configuration.
 
-Peak and centroid, by contrast, ARE resolved above the floor: 20 m of realisation-to-
-realisation scatter against 120 and 275 m of difference from Kljun.
+Peak and centroid, by contrast, ARE resolved above the floor: 40 m and ~50 m of
+realisation-to-realisation scatter against 120 and 265 m of difference from Kljun.
 
 **Consequences for the corpus and for scoring the emulator, both load-bearing:**
 
@@ -593,3 +597,99 @@ FastEddy has no displacement-height input, so `d = 1.2 m` is represented the onl
 model can feel it — by raising the effective surface over the patch. No explicit panel
 geometry, per PROJECT_BRIEF.md: row spacing is ~5-7 m and a 30 m grid cannot resolve it.
 
+---
+
+## Stage 6 — Real surface ⚠️ DIFFERENCE EXPLICABLE, ABSOLUTE NORMALISATION NOT TRUSTED
+
+Spun-up flat state restarted onto the wind-aligned terrain and roughness map, 1200 s of
+adjustment, then an 1800 s sampling window at 5 s cadence. Wind from 270 deg. All runs
+clean: no `CORRUPTED`, no NaN, `k0/k1 < 1` throughout.
+
+The mechanism is verified in the model's own output, not assumed — terrain, terrain-
+following `zPos` and the roughness patch all survive the restart read and round-trip to the
+preprocessing arrays to float32 precision (numbers in the method section above).
+
+### The gate — is the difference explicable?
+
+| quantity | flat | real surface | Kljun |
+|---|---|---|---|
+| peak upwind distance (m) | 310 | **550** | 190 |
+| centroid, upwind (m) | 1053 | **1457** | 788 |
+| centroid, crosswind (m) | +3.8 | **-39.4** | 0 |
+| 80% source area (ha) | 18.6 | 18.2 | 24.1 |
+| **integral over the grid** | 0.76 | **1.64** | 0.93 |
+| **solar array's share of the footprint** | **9.7%** | **14.8%** | 18.2% |
+
+**Yes, and it points at what was put in.** The array patch — `z0` 0.03 -> 0.20 m plus a
+1.2 m displacement, 180-270 m upwind — takes **1.52x** the share of the footprint it does
+over flat uniform ground (9.7% -> 14.8%). That is the right sign and the right place:
+rougher surface, more surface exchange per unit area, larger footprint weight, localised
+exactly where the patch is. The crosswind centroid also shifts -39 m, consistent with the
+terrain being asymmetric about the tower line.
+
+The peak moves 310 -> 550 m upwind. That is a larger shift than roughness alone explains,
+and the terrain is the rest of it: the receptor sits at 5.1 m of local elevation in a domain
+with 32 m of relief, with the ground falling away upwind.
+
+### Why the absolute footprint is not trusted, and it is not a subtlety
+
+The terrain footprint integrates to **1.64**, and a flux footprint cannot exceed 1.
+
+This is the residue of a real problem that terrain exposed and flat terrain hid completely.
+An eddy-covariance tower measures `<w' c'>`, the departure from the mean — and over this
+terrain the receptor sits in persistent subsidence:
+
+```
+  mean w at the receptor over the sampling window
+    flat      -0.0038 m/s   =  0.07 of its own standard deviation   (negligible)
+    terrain   -0.0963 m/s   =  1.5  standard deviations              (dominant)
+```
+
+Weighting by raw `w` there mixed the mean advective flux into the turbulent one, and the
+estimator's two halves cancelled: `+3.484` and `-3.506`, netting `-0.022` instead of ~1, with
+a footprint whose centroid came out at **-5412 m**. Subtracting the window mean (Reynolds
+decomposition, which is what the instrument does) fixes the sign and the shape — centroid
+-5412 -> +1457 m, 80% area 0.64 -> 18.2 ha — but leaves the normalisation at 1.64.
+
+That is not yet a settled question, and both candidate explanations are live:
+
+1. **Physical.** Over sloping terrain the turbulent flux at the measurement height genuinely
+   is not the surface flux; advective flux divergence is the well-known non-closure problem
+   of eddy covariance in complex terrain. An integral away from 1 may be the correct answer.
+2. **Estimator.** Subtracting `w_bar` adds a term `-w_bar` times the CONCENTRATION integral,
+   and the concentration integral is not bounded — it grows with backward integration time.
+   That makes the correction's magnitude depend on `t_back`, which a physical answer must not.
+
+Test 2 first: it is decisive and cheap. Recompute with `t_back` at 600 and 1200 s. If the
+integral moves with it, the correction is the artifact.
+
+Until that is settled, **the Stage 6 footprint is usable as a difference against the flat
+case and not as an absolute footprint.** The array's 1.52x enrichment is a ratio of two
+quantities computed identically, so it survives a common normalisation error; the 1.64 does
+not.
+
+---
+
+## Where this leaves the plan
+
+**Stages 2, 3 and 4 pass.** The spin-up is stationary and NBL-shaped, the storage gate is met
+by configuration alone, and the LPDM is well mixed to below counting noise in both time
+directions with a physically plausible transit time.
+
+**Stage 5 Gate 1 does not pass at 30 m, and the reason is the grid.** 96.4% of the vertical
+velocity variance at the receptor is sub-grid, so the near-field footprint is manufactured
+by the Langevin closure rather than resolved by the LES — and a 4x sweep in `C0` moves the
+peak by one grid cell, which is what rules out tuning as a fix. PLAN.md is right that this
+gate must pass before Stage 6 means anything; it needs `dz_sfc = 10 m`, where the receptor
+sits at the third level instead of the second.
+
+**Stage 5 Gate 2 pays for itself immediately** and changes the corpus arithmetic:
+
+- Per-cell footprint error and 80% source-area overlap are **at the noise floor** and must
+  not be used to score the emulator. Peak location and centroid are resolved and must be.
+- Two 15-min halves of one window disagree as much as two independent realisations, so
+  lengthening the window is not the fix — averaging over realisations is.
+
+**Stage 6's machinery is complete and verified**, including the two things that were not
+obvious: that a spatially varying `z0` is reachable through the restart file with no source
+change, and that the restart read silently overwrites `zPos`/`topoPos` if you do not.
