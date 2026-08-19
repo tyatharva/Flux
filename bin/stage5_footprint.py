@@ -59,6 +59,9 @@ def main():
     ap.add_argument("--cover-dir", default=None,
                     help="surface dir (data/grid or a prep_stage6 outdir); adds "
                          "land-cover attribution from the touchdowns")
+    ap.add_argument("--fp16-cache", action="store_true",
+                    help="hold the field cache in float16 (halves RAM; verified harmless "
+                         "by bin/fp16_test.py)")
     ap.add_argument("--ml-raster", action="store_true",
                     help="accumulate onto the 186 x 186 @ 24 m raster the CNF consumes, "
                          "instead of the default analysis grid")
@@ -70,7 +73,8 @@ def main():
         paths = dump_series(d)
         print(f"\n=== {d}: {len(paths)} dumps ===")
         t0 = time.time()
-        fs = FieldSet(paths, a.dt, verbose=False)
+        fs = FieldSet(paths, a.dt, verbose=False,
+                      cache_dtype=np.float16 if a.fp16_cache else np.float32)
         print(f"  cache {fs.mem_gb:.2f} GB, window {fs.t[0]:.0f}-{fs.t[-1]:.0f} s "
               f"(cadence {fs.dt_dump:.1f} s), loaded in {time.time()-t0:.0f} s")
         cover = None

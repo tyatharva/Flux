@@ -1,5 +1,13 @@
 # Staged Plan — First Working Footprint
 
+> **THIRD PASS, 2026-08-19 — `THIRD_PASS_RESULTS.md`.** Configuration changed: a **static**
+> `186 x 186 x 122` domain at **24 m** (4464 m box), geography built once from a USGS 3DEP
+> DEM and ESA WorldCover, direction set by rotating the geostrophic wind rather than the
+> map. The solar array is corrected — **the tower is inside it** (60 m E/W, 250 m N, 100 m
+> S), which turns Stage 6 into a ~300x directional test. Two results below are superseded:
+> the thread block (`1x2x64`, not `4x4x16`, worth 17%) and Stage 5's diagnosis (the
+> near-field error is a measurable `sigma_w` deficit, not diffuse resolution loss).
+
 Goal of this plan: **one FastEddy run producing one backward-LPDM flux footprint.**
 Not a corpus. Not a trained model. One end-to-end pass.
 
@@ -150,6 +158,12 @@ account for 12 B/cell and are rewritten identically in every dump.
 
 **Gate:** field selection + fp16 on write puts a **30-min window under ~30 GB**.
 
+> **THIRD PASS: met properly, on the fork.** `ioLPDMmode` (one optional parameter,
+> default = upstream) writes only the fields the LPDM reads and CF-packs the 3-D
+> prognostics to 16 bit: **77 GB per window -> ~19 GB** at the 24 m grid. Verified harmless
+> on real fields before adoption — fp16 vs fp32 footprints differ by 0 m in peak and 19 m
+> in centroid, at 75.7% source-area overlap against a 59.2% error floor.
+>
 > **At 30 m this gate is met by configuration alone.** `hydroSubGridWrite = 0` leaves 10
 > 3-D fields = 40 B/cell; at 657,000 cells that is 26.6 MB/dump and **9.6 GB** per 30-min
 > window at 5 s cadence. Neither field selection nor fp16 was written, and no FastEddy
@@ -224,6 +238,16 @@ about the pipeline. Gate on the quantity that actually controls near-field fidel
 
 **Kljun agreement is a secondary check, not a tuning target.**
 
+> **THIRD PASS: the gate was asking the wrong question, and the right one has an answer.**
+> The sub-grid fraction is a proxy for "is the near field trustworthy". Measuring the thing
+> it proxies for gives a sharper result: at the receptor `sigma_w/u* = 1.09` against the
+> surface-layer 1.25, and low `sigma_w` makes backward particles descend too slowly, which
+> is exactly the observed error. Supplying the missing variance moves the peak from +86% to
+> **+29%** of Kljun and lifts the 80% overlap from 36.9% to 47.6%. The physically motivated
+> alternative — an anisotropic sub-grid split — made it **four times worse** (peak +457%),
+> confirming the diagnosis by falsifying its opposite. Adopted: a height-dependent
+> MOST-anchored floor (`--sgs-most`). See `THIRD_PASS_RESULTS.md` section 3.
+>
 > **Result, second pass at `dz_sfc = 8.56 m`: FAIL, and unreachable at `dx = 30 m`.**
 > 96.4% (first pass, `dz_sfc` 20 m) -> **88.3%**. The fraction collapses onto `z/Delta` with
 > `Delta = (dx dy dz)^(1/3)`; both grids put the 40% crossing at `z/Delta` = 3.5-3.7, so the

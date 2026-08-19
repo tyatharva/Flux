@@ -148,7 +148,14 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
         tgt2 = (1.25 * float(st["ustar"]) * np.maximum(1.0 - zl / max(h, 1.0), 0.0) ** 0.75) ** 2
         need = np.maximum(tgt2 - wwp, 0.0)
         have = np.maximum((2.0 / 3.0) * esp, 1e-9)
-        fac = np.maximum(need / have, 1.0)
+        # MOST is a SURFACE-LAYER relation. Applying it through the whole boundary layer
+        # over-corrects: between roughly 0.1h and h the resolved variance is legitimately
+        # below the surface-layer extrapolation and there is nothing to repair. Measured:
+        # the untapered floor reached 3.3x aloft and gave a WORSE 80% overlap (40.4%) than
+        # a plain scalar (47.6%), despite an identical peak. Taper the correction off
+        # across 0.1h - 0.2h so it acts only where the relation it is anchored to holds.
+        taper = np.clip((0.2 * h - zl) / (0.1 * h), 0.0, 1.0)
+        fac = 1.0 + taper * np.maximum(need / have - 1.0, 0.0)
         sgs_scale = (zl, fac)
         if verbose:
             kk = int(np.argmin(np.abs(zl - z_target)))

@@ -54,11 +54,19 @@ def dump_series(outdir: str, base: str = None) -> list[str]:
 class FieldSet:
     """A window of FastEddy dumps held in RAM, with 4-D (t,z,y,x) linear interpolation."""
 
-    def __init__(self, paths, dt_model, verbose=True, store_dtype=None):
+    def __init__(self, paths, dt_model, verbose=True, store_dtype=None,
+                 cache_dtype=np.float32):
         # store_dtype emulates FastEddy writing the LPDM's four fields at reduced
         # precision (PLAN.md Stage 3: fp16 on write takes a 37.5-min window from 82 GB to
         # 16 GB). None = full fp32, as written today.
         self.store_dtype = store_dtype
+        # RAM dtype of the field cache. float16 halves it, which is what makes a 480-dump
+        # window at 186x186x122 fit at all (49 GB -> 24 GB). Justified by measurement, not
+        # convenience: bin/fp16_test.py puts the resulting footprint at 75.7% source-area
+        # overlap with the fp32 one, against a 59.2% overlap between two halves of the same
+        # window -- i.e. far inside the estimator's own Monte-Carlo noise. Arithmetic still
+        # happens in float32+ because numpy upcasts on read.
+        self.cache_dtype = cache_dtype
         self.paths = list(paths)
         steps = np.array([_step_of(p) for p in self.paths], dtype=np.float64)
         self.t = steps * dt_model                     # seconds of model time
@@ -101,7 +109,7 @@ class FieldSet:
         self.zk = self.Fk.copy()          # flat-terrain level heights
 
         shape = (nt, nz, ny + 1, nx + 1)
-        alloc = lambda: np.empty(shape, dtype=np.float32)
+        alloc = lambda: np.empty(shape, dtype=self.cache_dtype)
         self.u, self.v, self.w = alloc(), alloc(), alloc()
         self.e, self.eps, self.dsig2dz = alloc(), alloc(), alloc()
         self.ustar = np.empty((nt, ny + 1, nx + 1), dtype=np.float32)
@@ -135,6 +143,11 @@ class FieldSet:
                 len1 = 0.76 * np.sqrt(np.maximum(ed, 0.0)) / np.sqrt(np.maximum(n2, 1e-12))
             ell = np.where(n2 > 0.0, np.maximum(np.minimum(len1, delta), 1e-2), delta)
             eps = C_E * ed ** 1.5 / np.maximum(ell, 1e-2)
+            if self.cache_dtype == np.float16:
+                # fp16 subnormals bottom out near 6e-8; the model floors eps at 1e-8
+                # anyway, so clip well above the representable limit rather than
+                # letting it flush silently to zero.
+                eps = np.maximum(eps, 1e-6)
             sig2 = (2.0 / 3.0) * ed
             ds2 = np.gradient(sig2, self.zk, axis=0)
             for dst, src in ((self.u, uu), (self.v, vv), (self.w, ww), (self.e, ee),
