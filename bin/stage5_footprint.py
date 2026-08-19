@@ -81,7 +81,8 @@ def main():
     print("\n=== GATE 1: LES+LPDM vs Kljun et al. (2015) ===")
     d0, fs0, r0 = runs[0]
     g0, st = r0["grid"], r0["stats"]
-    zm = st["z_recept"]
+    # Kljun's z_m is the measurement height ABOVE GROUND.
+    zm = r0.get("z_agl", st["z_recept"])
     kl = kljun_on(g0, st, zm)
     kl_int = kl.sum() * g0.area
     les = g0.normalised("flux")
