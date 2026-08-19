@@ -384,12 +384,32 @@ measured value, not the model, for projections at this size.
 ### Sub-grid fraction: what actually sets near-field footprint fidelity
 
 The resolved fraction of `sigma_w^2` collapses onto **`z / Delta`**, with
-`Delta = (dx dy dz)^(1/3)`. Measured on the 30 m grid, the sub-grid fraction crosses 40% at
-**`z/Delta ~ 3.7`**. For a 30 m receptor that demands `Delta <~ 8 m`.
+`Delta = (dx dy dz)^(1/3)`. **Measured on two grids** at `dx = dy = 30 m`:
 
-Since `Delta = (dx dy dz)^(1/3)`, **refining only `dz` cannot get there**: with
-`dx = dy = 30 m`, `Delta <= 8 m` would require `dz <= 0.57 m`. Near-field footprint fidelity
-at a 30 m tower is set by the HORIZONTAL spacing, and needs `dx ~ 8-10 m`.
+| `dz_sfc` | `Delta` | `z/Delta` at 30 m | sub-grid fraction | 40% crossing |
+|---|---|---|---|---|
+| 20.0 m | 26.21 m | 1.14 | **96.4%** | `z/Delta` = 3.74 |
+| 8.56 m | 19.78 m | 1.52 | **88.3%** | `z/Delta` = 3.49 |
+
+The two crossings agree, so the collapse variable is right and the requirement is
+**`Delta <~ 8.6 m`** for a 30 m receptor. Refining `dz` alone moved the fraction 96.4 -> 88.3%
+— real, and nowhere near enough.
+
+**With `dx = dy = 30 m` the 40% target is unreachable at any `dz`**: it would need
+`dz <= 0.71 m`, and at that anisotropy the horizontal filter (`2 dx = 60 m`) still cannot
+resolve the 30 m eddies, so the `Delta` collapse itself stops describing the physics.
+
+What does reach it, and what it costs on this GPU (9.37 ns/cell/step):
+
+| `dx = dy` | `dz_sfc` | `Delta` | sub-grid | GPU h per simulated h | 3.5 h spin-up |
+|---|---|---|---|---|---|
+| 15 m | 8.56 m | 12.44 m | 65% | 1.4 | 5 h |
+| 10 m | 8.56 m | 9.49 m | 47% | 3.9 | 14 h |
+| **10 m** | **6.0 m** | **8.43 m** | **39%** | 6.6 | **23 h** |
+| **8.6 m** | **8.6 m** | **8.60 m** | **40%** | 5.8 | **20 h** |
+
+So the gate is a **20-23 GPU-hour spin-up**, i.e. 30-35 chained 40-minute segments. That is
+a project-level decision, not something a configuration tweak reaches.
 
 ### Stage 2 vertical grid (settled)
 
