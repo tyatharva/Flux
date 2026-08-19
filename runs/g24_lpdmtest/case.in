@@ -7,11 +7,11 @@ tBx = 1 # kStride=1, so a warp must run along z; tBx>1 breaks coalescing (measur
 tBy = 2 # 1x2x64 = 128 threads, fastest of 9 legal shapes swept on this grid
 tBz = 64 # CUDA caps blockDim.z at 64; 128 is rejected by the device
 #--IO
-inPath = ./output/
-inFile = FE_G24.478800
+inPath = ./
+inFile = FE_RST.0
 outPath = ./output/ # Path where output files are to be written
 outFileBase = FE_G24 # Base name of the output file series as in (outFileBase).element-in-series
-frqOutput = 22800
+frqOutput = 200
 ioOutputMode = 0 # 0: N-to-1 gather and write to a netcdf file, 1:N-to-N writes of FastEddy binary files
 #--GRID
 Nx = 186 # 186 x 24 m = 4464 m
@@ -28,9 +28,9 @@ verticalDeformFactor = 0.346601 # dz_sfc = 8.5580 m; cell centre k=3 at EXACTLY 
 verticalDeformQuadCoeff = 0.0 # pure cubic
 #--TIME_INTEGRATION
 timeMethod = 0 # Selector for time integration method. [0=RK3-WS2002 (default)]
-Nt = 547200
+Nt = 400
 dt = 0.0328947 # = 5/152 s, so 5 s output is an integer step count; CFL_3d = 1.4946
-NtBatch = 22800
+NtBatch = 200
 #--HYDRO_CORE
 ##------------: HYDRO_CORE Submodule Selectors ---
 #----------: Boundary Conditions Set ---
@@ -127,3 +127,4 @@ lsf_qv_lev1 = -0.0432 # large-scale forcing qv at height 1
 lsf_qv_lev2 = 0.0 # large-scale forcing qv at height 2
 lsf_qv_zlev1 = 300.0 # large-scale forcing qv height 1
 lsf_qv_zlev2 = 500.0 # large-scale forcing qv height 2
+ioLPDMmode = 1
