@@ -312,6 +312,14 @@ See @PLAN.md for the staged path.
   It cost a 30-minute spin-up segment before `check_run.sh` caught it at the end.
   `docker/run_case.sh` now verifies `inPath`+`inFile` exists before spending GPU time.
 
+- **TRAP: `frqOutput` must divide the ABSOLUTE step number, not merely equal `NtBatch`.**
+  The output test is `it % frqOutput == 0` where `it` is the absolute timestep, which on a
+  restart starts at the restart step. With `frqOutput = NtBatch = 199` and a restart at step
+  418200 (`418200 % 199 = 71`), the test never fires and the run writes exactly ONE dump --
+  the unconditional final one after the loop. It exits 0 and reports `RUN OK`. Choose `dt`
+  so that the sampling interval is an integer number of steps AND the restart step is a
+  multiple of it.
+
 - **TRAP: `frqOutput` finer than `NtBatch` is SILENTLY IGNORED.** FastEddy's time loop is
   `for(it = simTime_it; it < Nt; it += NtBatch)` with the output test `if(it % frqOutput == 0)`
   *inside* it (`SRC/FEMAIN/FastEddy.c:400,423`) — a batch is a GPU-resident launch and the
