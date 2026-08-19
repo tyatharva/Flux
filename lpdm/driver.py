@@ -68,6 +68,20 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
     mkgrid = lambda: FootprintGrid(grid_x[0], grid_x[1], grid_y[0], grid_y[1], grid_res)
     full, h1, h2 = mkgrid(), mkgrid(), mkgrid()
 
+    # REYNOLDS DECOMPOSITION AT THE RECEPTOR. The flux an eddy-covariance tower reports is
+    # <w' c'>, with w' the departure from the mean over the averaging period -- not <w c>.
+    # Over flat homogeneous terrain the distinction is invisible: the mean vertical velocity
+    # at the receptor is -0.004 m/s, 0.07 of its own standard deviation. Over the Stage 6
+    # terrain the receptor sits in persistent subsidence over a slope and the mean is
+    # -0.082 m/s, **1.5 standard deviations**. Weighting by raw w there mixes the mean
+    # advective flux into the turbulent one; the positive and negative halves of the
+    # estimator then very nearly cancel and the footprint integral collapses towards zero
+    # (measured: +3.48 and -3.51 summing to -0.02 instead of ~1).
+    w_bar = float(fs.w[:, k_r, j_r, i_r].mean())
+    if verbose:
+        print(f"  mean w at the receptor over the window: {w_bar:+.4f} m/s "
+              f"(subtracted; Reynolds decomposition)")
+
     lp = LPDM(fs, c0=c0, z_touch=z_touch, seed=seed)
     t_start = time.time()
     n_td = 0
@@ -83,6 +97,7 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
         X = -(dx * ca + dy * sa)          # upwind-positive
         Y = -dx * sa + dy * ca
         r = dict(res); r["td_x"] = X; r["td_y"] = Y
+        r["w_release"] = res["w_release"] - w_bar
         full.add(r, 0.0, 0.0, w_floor=w_floor)
         n_td += len(X)
         if split_halves:
@@ -90,6 +105,7 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
             n_h1 = int((tb <= tmid).sum()) * n_per_release
             for g, m, nn in ((h1, rel <= tmid, n_h1), (h2, rel > tmid, n - n_h1)):
                 rr = dict(res)
+                rr["w_release"] = res["w_release"] - w_bar
                 rr["td_particle"] = res["td_particle"][m]
                 rr["td_w"] = res["td_w"][m]
                 rr["td_x"] = X[m]; rr["td_y"] = Y[m]
@@ -101,6 +117,7 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
                   f"{time.time()-t_start:.0f} s", flush=True)
 
     out = dict(stats=st, grid=full, receptor=(xr, yr, zr), z_agl=zr - zg_r, k_recept=k_r,
+               w_bar=w_bar,
                n_particles=full.n_particles, n_touchdown=n_td,
                wind_angle=float(np.degrees(ang)))
     if split_halves:
