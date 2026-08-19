@@ -27,6 +27,18 @@ The Langevin model here acts on the SUB-GRID velocity only; the resolved velocit
 from interpolated LES fields (Weil, Sullivan & Moeng 2004). sigma_s^2 = (2/3) e_sgs and
 eps are FastEddy's own, recomputed in lpdm/fields.py with FastEddy's own constants.
 
+SUB-GRID ANISOTROPY (optional, default OFF).
+The (2/3) e_sgs split is isotropic, which is the standard WSM04 assumption and is wrong
+near a wall: blocking suppresses w relative to u and v. The neutral surface layer has
+sigma_u : sigma_v : sigma_w ~ 2.5 : 1.9 : 1.25 (times u*), i.e. variance ratios of
+6.25 : 3.61 : 1.5625, so relative to the isotropic (2/3) e the per-component factors are
+
+    r_u = 1.6417,  r_v = 0.9482,  r_w = 0.4102        (sum exactly 3, so e is conserved)
+
+Pass aniso=SURFACE_LAYER_ANISO to switch it on. With CONSTANT ratios the horizontal
+sigma^2-gradient drift is unchanged -- r_i cancels between d(sigma_i^2)/dz and 1/sigma_i^2
+-- and only the vertical term and the per-component OU timescales change.
+
 Particle state is fp64 throughout (CLAUDE.md convention): trajectories integrate for
 thousands of steps and fp32 roundoff accumulates into a spurious drift.
 """
@@ -37,12 +49,34 @@ import numpy as np
 C0_DEFAULT = 3.0        # Weil, Sullivan & Moeng (2004) for the LES sub-grid Langevin term
 KAPPA = 0.4
 
+# Neutral surface-layer variance ratios, normalised so they sum to 3 (isotropic = 1,1,1).
+# From sigma_u:sigma_v:sigma_w = 2.5:1.9:1.25 u* (Panofsky & Dutton 1984).
+SURFACE_LAYER_ANISO = (6.25 / 3.807500, 3.61 / 3.807500, 1.5625 / 3.807500)
+
 
 class LPDM:
     def __init__(self, fs, c0=C0_DEFAULT, z_touch=2.0, dt_frac=0.05,
-                 dt_min=0.01, dt_max=1.0, seed=0):
+                 dt_min=0.01, dt_max=1.0, seed=0, aniso=None, sgs_scale=1.0):
         self.fs = fs
         self.c0 = float(c0)
+        # (3,1) column so it broadcasts against the (3,n) sub-grid velocity block.
+        r = np.ones(3) if aniso is None else np.asarray(aniso, dtype=np.float64)
+        if abs(r.sum() - 3.0) > 1e-6:
+            raise ValueError(f"aniso must sum to 3 (energy conservation), got {r.sum()}")
+        self.aniso = r.reshape(3, 1)
+        # Uniform multiplier on the sub-grid VARIANCE. Not a physical parameter -- a
+        # diagnostic lever, to test whether the near-field footprint error is driven by
+        # the LES under-producing sigma_w at the receptor (measured 1.09 u* against the
+        # surface-layer 1.25) rather than by how the sub-grid energy is partitioned.
+        # Either a scalar or a (z_levels, scale_at_level) pair -- a HEIGHT-DEPENDENT
+        # multiplier, interpolated at the particle's height above ground.
+        if isinstance(sgs_scale, tuple):
+            self.sgs_scale = None
+            self.sgs_scale_z, self.sgs_scale_f = (np.asarray(v, dtype=np.float64)
+                                                  for v in sgs_scale)
+        else:
+            self.sgs_scale = float(sgs_scale)
+            self.sgs_scale_z = self.sgs_scale_f = None
         self.z_touch = float(z_touch)
         self.dt_frac, self.dt_min, self.dt_max = dt_frac, dt_min, dt_max
         self.rng = np.random.default_rng(seed)
@@ -90,7 +124,11 @@ class LPDM:
         # adaptive step collapses to dt_min, burning iterations on particles that are not
         # moving. The floors are far below any turbulent value, so they change nothing
         # where there is turbulence.
-        sig2 = np.maximum((2.0 / 3.0) * e, 1e-6)
+        if self.sgs_scale is None:
+            sc = np.interp(zagl, self.sgs_scale_z, self.sgs_scale_f)
+        else:
+            sc = self.sgs_scale
+        sig2 = np.maximum(sc * (2.0 / 3.0) * e, 1e-6)
         eps = np.maximum(eps, 1e-8)
         return u, v, w, sig2, eps, ds2z, ustar
 
@@ -126,9 +164,9 @@ class LPDM:
         fx = np.full(n, np.nan); fy_ = np.full(n, np.nan); fz = np.full(n, np.nan)
         ft_ = np.full(n, np.nan); fe = np.full(n, np.nan)
 
-        # SGS velocity initialised from the local SGS variance
+        # SGS velocity initialised from the local, per-component SGS variance
         _, _, _, sig2, _, _, _ = self._local(x, y, z, t)
-        us = self.rng.normal(0.0, 1.0, (3, n)) * np.sqrt(sig2)
+        us = self.rng.normal(0.0, 1.0, (3, n)) * np.sqrt(self.aniso * sig2)
 
         td_p, td_x, td_y, td_w, td_t = [], [], [], [], []
         rel_uvw = None
@@ -138,8 +176,14 @@ class LPDM:
             if len(idx) == 0:
                 break
             U, V, W, sig2, eps, ds2z, ustar = self._local(x, y, z, t)
-            sig = np.sqrt(sig2)
-            TL = 2.0 * sig2 / (self.c0 * eps)
+            # Per-component variance and Langevin timescale. With aniso=None these are
+            # three identical rows and the model is bit-identical to the isotropic one.
+            sig2_i = self.aniso * sig2                      # (3, n)
+            sig_i = np.sqrt(sig2_i)
+            TL_i = 2.0 * sig2_i / (self.c0 * eps)
+            sig = sig_i[2]                                  # kept for the touchdown logic
+            # the adaptive step must respect the FASTEST-decorrelating component
+            TL = TL_i.min(axis=0)
             dt = np.clip(self.dt_frac * TL, self.dt_min, self.dt_max)
             dt = np.minimum(dt, np.maximum(t_limit - elapsed, 0.0))
 
@@ -150,24 +194,27 @@ class LPDM:
                 rel_uvw = np.vstack([(U + us[0]).copy(), (V + us[1]).copy(),
                                      (W + us[2]).copy()])
 
-            # exact Ornstein-Uhlenbeck update of the linear (damping + noise) part
-            a = np.exp(-dt / TL)
-            b = sig * np.sqrt(np.maximum(1.0 - a * a, 0.0))
+            # exact Ornstein-Uhlenbeck update of the linear (damping + noise) part,
+            # per component -- each has its own variance and hence its own timescale
+            a_i = np.exp(-dt / TL_i)
+            b_i = sig_i * np.sqrt(np.maximum(1.0 - a_i * a_i, 0.0))
             xi = self.rng.standard_normal((3, len(idx)))
-            us = us * a + b * xi
+            us = us * a_i + b_i * xi
 
             # sigma^2-gradient drift. Sign flips under time reversal; see module docstring.
             # Vertical component only: the flat spin-up is horizontally homogeneous and
             # in the terrain case the vertical gradient still dominates by ~dx/dz.
-            drift_w = 0.5 * ds2z * (1.0 + us[2] * us[2] / sig2)
+            # d(sigma_w^2)/dz carries the aniso factor; the horizontal terms do not,
+            # because r_i cancels between d(sigma_i^2)/dz and 1/sigma_i^2 (see docstring).
+            drift_w = 0.5 * self.aniso[2, 0] * ds2z * (1.0 + us[2] * us[2] / sig2_i[2])
             drift_u = 0.5 * ds2z * (us[0] * us[2] / sig2)
             drift_v = 0.5 * ds2z * (us[1] * us[2] / sig2)
             us[0] += sgn * drift_u * dt
             us[1] += sgn * drift_v * dt
             us[2] += sgn * drift_w * dt
-            # cap at 5 sigma: a rare large-|u|/sigma^2 excursion in the cross term can
+            # cap at 5 sigma_i: a rare large-|u|/sigma^2 excursion in the cross term can
             # otherwise run away between steps without changing the statistics we want.
-            np.clip(us, -5.0 * sig, 5.0 * sig, out=us)
+            np.clip(us, -5.0 * sig_i, 5.0 * sig_i, out=us)
 
             wtot = W + us[2]
             utot, vtot = U + us[0], V + us[1]

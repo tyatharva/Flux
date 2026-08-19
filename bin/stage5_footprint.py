@@ -50,8 +50,18 @@ def main():
     ap.add_argument("--res", type=float, default=20.0)
     ap.add_argument("--tag", default="stage5")
     ap.add_argument("--outdir", default="results")
+    ap.add_argument("--sgs-most", action="store_true",
+                    help="MOST-anchored sub-grid variance floor (see lpdm/driver.py)")
+    ap.add_argument("--sgs-scale", type=float, default=1.0,
+                    help="multiplier on the sub-grid VARIANCE (diagnostic lever)")
+    ap.add_argument("--aniso", action="store_true",
+                    help="surface-layer anisotropic sub-grid split instead of isotropic (2/3)e")
     ap.add_argument("--cover-dir", default=None,
-                    help="prep_stage6.py output dir; adds land-cover attribution")
+                    help="surface dir (data/grid or a prep_stage6 outdir); adds "
+                         "land-cover attribution from the touchdowns")
+    ap.add_argument("--ml-raster", action="store_true",
+                    help="accumulate onto the 186 x 186 @ 24 m raster the CNF consumes, "
+                         "instead of the default analysis grid")
     a = ap.parse_args()
     os.makedirs(a.outdir, exist_ok=True)
 
@@ -67,11 +77,34 @@ def main():
         if a.cover_dir:
             z0 = np.load(os.path.join(a.cover_dir, "z0m.npy"))
             wm = np.load(os.path.join(a.cover_dir, "water.npy")) > 0.5
-            cover = {"water": wm, "solar array": z0 > 0.1,
-                     "grass": (~wm) & (z0 <= 0.1)}
+            ap_ = os.path.join(a.cover_dir, "array.npy")
+            am = (np.load(ap_) > 0.5) if os.path.exists(ap_) else (z0 > 0.1)
+            cover = {"solar array": am, "water": wm}
+            lcp = os.path.join(a.cover_dir, "lcclass.npy")
+            if os.path.exists(lcp):
+                # WorldCover classes, so the attribution is by real land cover rather
+                # than by a roughness threshold that lumps forest in with the array.
+                lc = np.load(lcp)
+                for nm, k in (("tree", 10), ("grassland", 30), ("cropland", 40),
+                              ("built", 50), ("wetland", 90)):
+                    m_ = (lc == k) & (~am)
+                    if m_.any():
+                        cover[nm] = m_
+            else:
+                cover["grass"] = (~wm) & (~am) & (z0 <= 0.1)
+        from lpdm.model import SURFACE_LAYER_ANISO
         r = compute_footprint(fs, paths, n_per_release=a.nrel, dt_release=a.dtrel,
                               t_back=a.tback, c0=a.c0, grid_res=a.res,
-                              seed=len(runs), cover=cover)
+                              seed=len(runs), cover=cover,
+                              **({"grid_x": (-1116.0, 3348.0),
+                                  "grid_y": (-2232.0, 2232.0)} if a.ml_raster else {}),
+                              aniso=SURFACE_LAYER_ANISO if a.aniso else None,
+                              sgs_scale=a.sgs_scale, sgs_most=a.sgs_most)
+        if a.sgs_scale != 1.0:
+            print("  SUB-GRID VARIANCE SCALED by %.3f (diagnostic)" % a.sgs_scale)
+        if a.aniso:
+            print("  SUB-GRID SPLIT: surface-layer anisotropic "
+                  "(r_u, r_v, r_w) = (%.4f, %.4f, %.4f)" % SURFACE_LAYER_ANISO)
         if cover:
             print("  footprint-weighted land-cover share (from touchdowns, unblurred):")
             for nm, v in r["cover_share"].items():
