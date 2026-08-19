@@ -1,0 +1,18 @@
+
+=== runs/s30_stage6_smp/output: 361 dumps ===
+  receptor  (i,j,k)=(110,25,1)  x=3315 y=765  z=35.027 m ASL = 29.944 m AGL (ground 5.08 m)
+  releases  226 times over 23700-24600 s, 700 each = 158,200 particles; t_back=900 s
+  LES scalars at z=30.00 m: U=6.86 m/s dir=240.6 deg  u*=0.386  h=646 m  1/L=0.00e+00
+    sigma_v 0.494 (resolved 0.274 + sub-grid, e_sgs=0.2536);  sigma_w 0.432 (resolved 0.133);  sigma_w/u* = 1.12 (surface-layer expectation ~1.25)
+  touchdowns 369,815;  largest single weight 208219.7;  top 0.1% carry 49.2% of the total |weight|
+  integral of f_flux over grid = -1.952 (all touchdowns -4.165; shortfall = influence truncated by t_back=900 s)
+
+=== GATE 1: LES+LPDM vs Kljun et al. (2015) ===
+Traceback (most recent call last):
+  File "/work/bin/stage5_footprint.py", line 190, in <module>
+    sys.exit(main())
+  File "/work/bin/stage5_footprint.py", line 93, in main
+    m_les = describe("LES+LPDM", g0)
+  File "/work/bin/stage5_footprint.py", line 36, in describe
+    print(f"  {name:<26} peak_x={m['peak_x']:7.1f} m  centroid=({m['centroid_x']:7.1f},"
+KeyError: 'peak_x'

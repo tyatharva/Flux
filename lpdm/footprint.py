@@ -49,13 +49,15 @@ class FootprintGrid:
         self.n_td = 0
         self.top_w = []          # largest per-touchdown |flux| weights seen
 
-    def add(self, res, x_recept, y_recept, w_floor=1e-6):
+    def add(self, res, x_recept, y_recept, w_floor=0.02):
         """Accumulate one LPDM ensemble, in receptor-relative coordinates.
 
         `w_floor` bounds the 2/|w_td| weight. The physical estimator has no floor, but the
         weight's tail is heavy: a particle that barely crosses the touchdown level gets an
-        arbitrarily large weight. Raising the floor is how that tail's influence on the
-        result is measured rather than assumed away.
+        arbitrarily large weight, and the estimator's variance is formally infinite. The
+        default 0.02 m/s is ~5% of sigma_w here, so it leaves essentially every physical
+        touchdown untouched while capping a single one at 100 s/m. `tail_concentration()`
+        reports what the tail is still worth, so the choice is measured rather than assumed.
         """
         w_rel = res["w_release"]
         if len(res["td_x"]) == 0:
@@ -112,8 +114,10 @@ class FootprintGrid:
     def metrics(self, which="flux"):
         f = self.normalised(which)
         tot = f.sum()
-        if tot <= 0:
-            return {}
+        if tot <= 0:                       # pathological (e.g. a runaway weight) -- say so
+            return dict(peak_x=np.nan, centroid_x=np.nan, centroid_y=np.nan,
+                        x80_near=np.nan, x80_far=np.nan, area80_cells=0, thr80=np.nan,
+                        degenerate=True)
         fy = f.sum(axis=0)
         peak = self.xc[int(np.argmax(fy))]
         xbar = float((f.sum(axis=0) * self.xc).sum() / tot)
