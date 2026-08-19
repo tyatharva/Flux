@@ -580,9 +580,10 @@ would be 8.82 h — above the ~4 h threshold. The split puts each production run
 
 **A sampling window is `t_back` + sampling time, not sampling time.** Measured 2026-08-19:
 the first `t_back` seconds of a window produce no releases, because a backward trajectory
-needs that much history behind it. With `t_back = 900 s` and the 22.5 min the centroid needs
-to converge (below), a production window is **37.5 min**, not 30 — and a 30-min window
-yields only 21 min of releases.
+needs that much history behind it. With `t_back = 900 s`, a 30-min window yields only 21 min
+of releases. **37.5 min is the floor**, not a converged choice — it buys the peak (12.5 min)
+comfortably and leaves the centroid at ~336 m of p90 scatter. See the convergence table
+below before sizing the corpus.
 
 ### Ensemble convergence — measured, and it is the corpus design parameter
 
@@ -591,19 +592,27 @@ sub-windows are **independent**: lag-1 autocorrelation +0.19 (peak) and -0.10 (c
 both below `2/sqrt(18) = 0.47`. So ensembles are bought with sampling *time inside one run*,
 not with extra runs.
 
+Measured two ways. The **randomised** held-out reference is the one to use: shuffle the 18,
+take a random 9 as reference and `n` of the remaining 9 as the sample, 400 draws, so both
+sides carry uncertainty. A *fixed* reference has only one available subset at `n = 9`, and
+its "p90" there is a single draw — that artefact is why an earlier table read 120 m.
+
 | n sub-windows | sampling time | peak p90 | centroid p90 |
 |---|---|---|---|
-| 3 | 7.5 min | **60 m (1 cell)** | 893 m |
-| 5 | 12.5 min | 60 m | 452 m |
-| 9 | 22.5 min | 60 m | **120 m** |
+| 3 | 7.5 min | 120 m | 615 m |
+| **5** | **12.5 min** | **60 m (1 cell)** | 446 m |
+| 9 | 22.5 min | 60 m | **336 m** |
 
-**Peak converges at 7.5 min; the centroid needs > 22.5 min and is still improving there.**
-The centroid is tail-dominated and is the expensive metric. The residual 60 m peak offset
-between window halves is *systematic* — it tracks the residual spin-up drift — so more
-averaging will not remove it; only a stationary spin-up will.
+**The peak converges at 12.5 min. The centroid never reaches 100 m in the measurable
+range** — 336 m at 22.5 min and still improving. The centroid is tail-dominated and is the
+expensive metric; 22.5 min is a floor, not a sufficient sampling time. The residual 60 m
+peak offset between window halves is *systematic* — it tracks the residual spin-up drift —
+so more averaging will not remove it; only a stationary spin-up will.
 
-This curve also predicts terrain-run scatter to within 1.5%: the Stage 6 windows leave 900 s
-of releases, i.e. ~3 sub-windows per half, for which the table gives a centroid p90 of
-893 m; the measured half-vs-half centroid difference was 906 m.
+The curve also predicts terrain-run scatter: the Stage 6 windows leave 900 s of releases,
+i.e. ~3 sub-windows per half, for which the fixed-reference table gave a centroid p90 of
+893 m against a measured half-vs-half difference of 906 m. Under the randomised estimate
+(615 m at `n = 3`) that single measurement sits between the median and the p90, which is
+where one draw should sit.
 
 

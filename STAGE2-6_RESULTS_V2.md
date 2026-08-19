@@ -335,14 +335,43 @@ Convergence against a held-out 9-sub-window reference (peak 330 m, centroid 1307
 | 7 | 17.5 min | 60 m | 292 m | 52.0% |
 | 9 | 22.5 min | 60 m | 120 m | 54.7% |
 
+**CORRECTION, found while plotting these figures (2026-08-19).** The table above uses a
+*fixed* held-out reference — one particular set of 9 sub-windows — so at `n = 9` there is
+exactly **one** available subset and its "p90" is a single draw, not a percentile. Redoing it
+with the reference randomised (shuffle 18, reference = a random 9, sample = `n` of the
+remaining 9, 400 draws; `results/fv_ensemble_bootstrap.txt`) gives:
+
+| n | sampling | \|d peak\| p90 | \|d centroid\| p90 | fixed-reference p90 (above) |
+|---|---|---|---|---|
+| 3 | 7.5 min | **120 m** | **615 m** | 60 m / 893 m |
+| 5 | 12.5 min | **60 m** | 446 m | 60 m / 452 m |
+| 9 | 22.5 min | 60 m | **336 m** | 60 m / **120 m** |
+
+The two methods agree in the middle (`n = 5`: 446 vs 452 m) and diverge at the endpoints,
+which is the signature of the degenerate-subset artefact rather than of a different
+measurement. The randomised version is the one to use, because it carries the uncertainty of
+the reference as well as of the sample. It also reconciles with the single half-vs-half split
+measured on the full flat window (99 m centroid difference), which sits near the **median**
+(120 m), not near the p90.
+
+**Two documented numbers move, and both move the wrong way for the corpus:**
+
+- **Peak** needs `n = 5` (**12.5 min**), not `n = 3` (7.5 min).
+- **Centroid** at 22.5 min is **336 m** at p90, not 120 m. It is still improving at `n = 9`
+  and does not reach 100 m anywhere in the measurable range. 22.5 min is a floor, not a
+  sufficient sampling time.
+
 **CORPUS DESIGN PARAMETER**
 
 - **Peak location** is stable to one grid cell (60 m) at the 90th percentile with
-  **n = 3 sub-windows = 7.5 min** of sampling. It does not improve past that — the residual
+  **n = 5 sub-windows = 12.5 min** of sampling (corrected above; the fixed-reference table
+  said n = 3). It does not improve past that — the residual
   60 m offset between window halves is *systematic*, tracking the residual spin-up drift,
   not sampling noise. More averaging will not remove it; a stationary spin-up would.
-- **Centroid** needs **n > 9, i.e. > 22.5 min**, to hold 100 m at the 90th percentile, and
-  is still improving at n = 9. The centroid is tail-dominated and is the expensive metric.
+- **Centroid** does **not** reach 100 m at the 90th percentile anywhere in the measurable
+  range: it is still 336 m at `n = 9` (22.5 min) and still improving. The centroid is
+  tail-dominated and is the expensive metric — and it is more expensive than the first
+  estimate suggested.
 
 So a 30-min sampling window is **comfortably sufficient for the peak and marginal for the
 centroid**, and the lever that matters is sampling *time* within one run, not the number of
