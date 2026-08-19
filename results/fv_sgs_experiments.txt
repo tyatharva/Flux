@@ -9,8 +9,8 @@
   isotropic (2/3)e   [baseline, WSM04]       390 m      +86%    1263 m   45.4 ha    36.9%     0.805
   surface-layer ANISOTROPIC split           1170 m     +457%    2003 m   71.3 ha    18.5%     0.595
   isotropic, variance x1.349 (scalar)        270 m      +29%    1021 m   36.4 ha    47.6%     0.812
-  MOST floor, no height restriction          270 m      +29%    1158 m   40.3 ha    40.4%     ~0.81
-  MOST floor, surface layer only [ADOPTED]   270 m      +29%    1159 m   39.2 ha    40.0%     ~0.81
+  MOST floor, no height restriction          270 m      +29%    1158 m   40.3 ha    40.4%     0.888
+  MOST floor, surface layer only [ADOPTED]   270 m      +29%    1159 m   39.2 ha    40.0%     0.882
 
   half-vs-half error floor for the adopted variant: 63.0% overlap, 120 m peak, 85 m centroid.
   So 40.0% against a 63.0% floor -- the metric still separates signal from noise.

@@ -111,7 +111,7 @@ seed and the same releases; only the sub-grid variance differs. Kljun is held fi
 | isotropic `(2/3)e` (baseline, WSM04) | 390 m | +86% | 1263 m | 45.4 ha | 36.9% | 0.805 |
 | **surface-layer anisotropic** | **1170 m** | **+457%** | 2003 m | 71.3 ha | **18.5%** | 0.595 |
 | isotropic, variance x1.349 (scalar) | 270 m | +29% | 1021 m | 36.4 ha | **47.6%** | 0.812 |
-| **MOST floor, surface layer [adopted]** | **270 m** | **+29%** | 1159 m | 39.2 ha | 40.0% | ~0.81 |
+| **MOST floor, surface layer [adopted]** | **270 m** | **+29%** | 1159 m | 39.2 ha | 40.0% | **0.882** |
 
 **The isotropic split was not the error — it was compensating for one.** The thing it
 compensates for is directly measurable at the receptor:
@@ -127,7 +127,7 @@ the predicted direction by roughly the predicted amount. The hypothesis is clean
 **Supplying the missing variance instead recovers most of the gap**: peak error +86% ->
 +29%, 80% overlap 36.9% -> 47.6%, 80% area 45.4 -> 36.4 ha, and the 80% source area pulls in
 from 3810 m to 2730 m — which also relieves the domain-truncation problem from the second
-pass. The integral is unchanged at 0.81, so this is not a rescaling of the answer.
+pass. The integral moves 0.805 -> 0.882 for the adopted variant, i.e. TOWARD 1 rather than away: a broader `sigma_w` puts more of the influence inside the wrap cap, so the correction relieves the truncation as a side effect instead of trading against it.
 
 ### What is adopted, and why not the better-scoring one
 
