@@ -1,4 +1,13 @@
-# Stages 2-6 at 30 m — pipeline validation
+# Stages 2-6 at 30 m — pipeline validation (FIRST PASS)
+
+> **Superseded 2026-08-19 by `STAGE2-6_RESULTS_V2.md`.** Everything site-specific in this
+> document was produced at a *surrogate* tower coordinate and is **void**. The estimator
+> results (well-mixed, Kljun comparison, error floor) were produced at the coarser
+> `dz_sfc = 20 m` grid and are superseded. Kept for the diagnostic trail — in particular the
+> first-pass measurements that motivated the regrid, and Items 1 and 2 of the second pass,
+> which were deliberately measured on this grid because they are questions about the
+> estimator rather than about resolution.
+
 
 **One FastEddy run producing one backward-LPDM flux footprint.** That was PLAN.md's goal;
 this document records whether it happened and what each gate returned.
