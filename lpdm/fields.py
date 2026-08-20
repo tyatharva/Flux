@@ -60,12 +60,15 @@ class FieldSet:
         # precision (PLAN.md Stage 3: fp16 on write takes a 37.5-min window from 82 GB to
         # 16 GB). None = full fp32, as written today.
         self.store_dtype = store_dtype
-        # RAM dtype of the field cache. float16 halves it, which is what makes a 480-dump
-        # window at 186x186x122 fit at all (49 GB -> 24 GB). Justified by measurement, not
-        # convenience: bin/fp16_test.py puts the resulting footprint at 75.7% source-area
-        # overlap with the fp32 one, against a 59.2% overlap between two halves of the same
-        # window -- i.e. far inside the estimator's own Monte-Carlo noise. Arithmetic still
-        # happens in float32+ because numpy upcasts on read.
+        # RAM dtype of the field cache.
+        #
+        # float16 halves it and the QUANTISATION is harmless (bin/fp16_test.py: 75.7%
+        # source-area overlap with the fp32 result, against a 59.2% overlap between two
+        # halves of the same window). But scipy.ndimage.map_coordinates REFUSES float16 --
+        # "RuntimeError: data type not supported" -- and that is the interpolator the entire
+        # trajectory integration runs on. So float16 here needs the interpolator replaced
+        # too; at 361 dumps the fp32 cache is 37 GB and fits, so it is not worth doing.
+        # Kept because the storage argument still holds for the FILES on disk.
         self.cache_dtype = cache_dtype
         self.paths = list(paths)
         steps = np.array([_step_of(p) for p in self.paths], dtype=np.float64)

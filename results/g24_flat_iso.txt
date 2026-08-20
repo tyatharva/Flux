@@ -1,0 +1,22 @@
+  mean streamline-frame w over all releases: +0.00584 m/s (model-frame mean was -0.03735); rotation removed 84.4% of it
+  LES scalars at z=30.00 m: U=5.99 m/s dir=247.5 deg  u*=0.347  h=607 m  1/L=0.00e+00
+    sigma_v 0.480 (resolved 0.348 + sub-grid, e_sgs=0.1630);  sigma_w 0.356 (resolved 0.135);  sigma_w/u* = 1.03 (surface-layer expectation ~1.25)
+  touchdowns 242,515;  largest single weight 115.0;  top 0.1% carry 7.3% of the total |weight|
+  integral of f_flux over grid = 0.955 (all touchdowns 0.955; shortfall = influence truncated by t_back=900 s)
+
+=== GATE 1: LES+LPDM vs Kljun et al. (2015) ===
+  LES+LPDM                   peak_x=  270.0 m  centroid=( 1246.4, -23.2) m  80% area=  35.64 ha  x80=[150,3630] m
+  Kljun FFP                  peak_x=  210.0 m  centroid=(  764.6,  -0.0) m  80% area=  25.56 ha  x80=[90,1350] m
+  Kljun x_max (analytic)       189.3 m
+  Kljun integral over grid   0.931
+
+  peak-location difference     +60.0 m (+29%)
+  centroid difference         +481.8 m (+63%)
+  80% source-area overlap      36.8%
+
+=== GATE 2: irreducible error floor ===
+  window half 1              peak_x=  270.0 m  centroid=( 1392.1, -43.3) m  80% area=  41.40 ha  x80=[150,3450] m
+  window half 2              peak_x=  330.0 m  centroid=( 1028.0,   6.9) m  80% area=  21.24 ha  x80=[150,2370] m
+  half-vs-half  80% overlap   39.0%   peak difference -60.0 m   centroid difference +364.1 m
+
+  wrote results/g24_flat_iso.json and results/g24_flat_iso.png

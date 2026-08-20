@@ -45,7 +45,9 @@ echo "### spun-up state: $SRC"
 # SOURCE direction runs W -> S -> E -> N. The surface wind is backed from the geostrophic
 # one by the Ekman angle (12-19 deg here), so each run reports the direction it actually
 # achieved rather than the nominal one.
-CASES=("flat 0 --flat" "wW 0 " "wS 1 " "wE 2 " "wN 3 ")
+# flat was completed separately (its window predates two analysis-path fixes);
+# CASES here are the four real-surface directions.
+CASES=("wW 0 " "wS 1 " "wE 2 " "wN 3 ")
 
 for spec in "${CASES[@]}"; do
   read -r NAME ROT FLAG <<<"$spec"
@@ -111,20 +113,22 @@ print('%.6f %.6f'%(u,v))")
   echo "--- dumps: $(ls $D/window | wc -l), $(du -sh $D/window | cut -f1)"
 
   # ---- 4. footprint + land-cover attribution --------------------------------------
-  COVER=$([ "$NAME" = "flat" ] && echo "" || echo "--cover-dir data/grid")
+  COVER=$([ "$NAME" = "flat" ] && echo "--receptor-from data/grid" \
+                                  || echo "--cover-dir data/grid --receptor-from data/grid")
   # --sgs-most is the adopted closure (results/fv_sgs_experiments.txt): a height-dependent
   # MOST-anchored floor on the sub-grid variance, which repairs the measured sigma_w
-  # deficit without tuning. --fp16-cache is what makes a 360-dump window fit in RAM (18 GB).
+  # deficit without tuning. The cache stays fp32: scipy's map_coordinates rejects
+  # float16, and 361 dumps is 37 GB, which fits in 52 GB of free RAM.
   ./docker/pyrun.sh bin/stage5_footprint.py $D/window --dt $DT --res 60 \
-      --sgs-most --fp16-cache $COVER --tag g24_$NAME 2>&1 \
+      --sgs-most $COVER --tag g24_$NAME 2>&1 \
       | grep -vE 'batch [0-9]+/|loaded ' | tee results/g24_$NAME.txt
   # baseline closure too, so the correction's effect is on the record for every case
   ./docker/pyrun.sh bin/stage5_footprint.py $D/window --dt $DT --res 60 \
-      --fp16-cache $COVER --tag g24_${NAME}_iso 2>&1 \
+      $COVER --tag g24_${NAME}_iso 2>&1 \
       | grep -vE 'batch [0-9]+/|loaded ' | tail -22 | tee results/g24_${NAME}_iso.txt
   if [ "$NAME" = "flat" ] || [ "$NAME" = "wN" ]; then
     ./docker/pyrun.sh bin/stage5_footprint.py $D/window --dt $DT --res 24 --ml-raster \
-        --sgs-most --fp16-cache $COVER --tag g24_${NAME}_ml 2>&1 | tail -4
+        --sgs-most $COVER --tag g24_${NAME}_ml 2>&1 | tail -4
   fi
 
   # ---- 5. delete the fields. Peak storage is one window, never the sum. -----------
