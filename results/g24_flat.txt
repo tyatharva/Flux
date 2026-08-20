@@ -1,0 +1,30 @@
+
+=== runs/g24_flat/window: 361 dumps ===
+  receptor  (i,j,k)=(140,93,3)  x=3372 y=2244  z=30.000 m ASL = 30.000 m AGL (ground 0.00 m)
+  releases  225 times over 2100-3000 s, 700 each = 157,500 particles; t_back=900 s
+  receptor means over the averaging period: U=+5.3119 V=+2.4083 W=+0.0067 m/s
+  double rotation: yaw +24.39 deg, pitch +0.066 deg (sin=+0.00115)
+  wrap-around cap: retiring trajectories past 4464 m of displacement (domain 4464 x 4464 m)
+  SGS MOST floor: factor 1.441 at the receptor (1.00-2.49 over the column); sigma_w/u* 1.03 -> 1.20 (surface-layer target 1.25)
+  mean streamline-frame w over all releases: +0.00184 m/s (model-frame mean was +0.00670); rotation removed 72.5% of it
+  LES scalars at z=30.00 m: U=5.99 m/s dir=247.5 deg  u*=0.347  h=607 m  1/L=0.00e+00
+    sigma_v 0.480 (resolved 0.348 + sub-grid, e_sgs=0.1630);  sigma_w 0.356 (resolved 0.135);  sigma_w/u* = 1.03 (surface-layer expectation ~1.25)
+  touchdowns 254,085;  largest single weight 142.4;  top 0.1% carry 8.3% of the total |weight|
+  integral of f_flux over grid = 0.984 (all touchdowns 0.984; shortfall = influence truncated by t_back=900 s)
+
+=== GATE 1: LES+LPDM vs Kljun et al. (2015) ===
+  LES+LPDM                   peak_x=  270.0 m  centroid=( 1034.6, -48.8) m  80% area=  25.56 ha  x80=[90,2610] m
+  Kljun FFP                  peak_x=  210.0 m  centroid=(  764.6,  -0.0) m  80% area=  25.56 ha  x80=[90,1350] m
+  Kljun x_max (analytic)       189.3 m
+  Kljun integral over grid   0.931
+
+  peak-location difference     +60.0 m (+29%)
+  centroid difference         +270.0 m (+35%)
+  80% source-area overlap      48.6%
+
+=== GATE 2: irreducible error floor ===
+  window half 1              peak_x=  330.0 m  centroid=( 1010.6, -40.8) m  80% area=  22.32 ha  x80=[150,3210] m
+  window half 2              peak_x=  270.0 m  centroid=( 1059.5, -57.0) m  80% area=  26.28 ha  x80=[150,3330] m
+  half-vs-half  80% overlap   53.6%   peak difference +60.0 m   centroid difference -48.9 m
+
+  wrote results/g24_flat.json and results/g24_flat.png

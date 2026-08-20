@@ -37,14 +37,28 @@ def window_stats(paths, k_recept):
     zlev = None
     ust = hfx = th0 = 0.0
     n = 0
+    # Level heights are STATIC, and the fork's ioLPDMmode writes the coordinate geometry
+    # into the first file of a run only -- so read them once, from the first dump, rather
+    # than from every dump.
+    with Dataset(paths[0]) as ds0:
+        z = np.squeeze(np.asarray(ds0["zPos"][:], dtype=np.float64))[:, 0, 0]
     for p in paths:
         with Dataset(p) as ds:
             g = lambda v: np.squeeze(np.asarray(ds[v][:], dtype=np.float64))
             u, v, w = g("u"), g("v"), g("w")
             e = np.maximum(g("TKE_0"), 0.0)
-            z = g("zPos")[:, 0, 0]
             ust += float(g("fricVel").mean())
-            hfx += float(g("htFlux").mean())
+            # htFlux is not written by the fork's ioLPDMmode (the LPDM never reads it), so
+            # fall back to invOblen, which IS written and is the quantity L is wanted for
+            # anyway. Deriving hfx back out of 1/L keeps the returned dict unchanged for
+            # every caller.
+            if "htFlux" in ds.variables:
+                hfx += float(g("htFlux").mean())
+            else:
+                iLm = float(g("invOblen").mean())
+                us_ = float(g("fricVel").mean())
+                th_ = float(g("theta")[0].mean())
+                hfx += (-(us_ ** 3) * th_ * iLm / (KAPPA * G)) if abs(iLm) > 1e-12 else 0.0
             th0 += float(g("theta")[0].mean())
         Uk, Vk = u[k_recept].mean(), v[k_recept].mean()
         U += Uk; V += Vk

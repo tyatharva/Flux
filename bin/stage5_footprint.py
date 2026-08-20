@@ -50,6 +50,8 @@ def main():
     ap.add_argument("--res", type=float, default=20.0)
     ap.add_argument("--tag", default="stage5")
     ap.add_argument("--outdir", default="results")
+    ap.add_argument("--receptor-from", default=None,
+                    help="surface dir whose meta.npy pins the receptor to the tower cell")
     ap.add_argument("--sgs-most", action="store_true",
                     help="MOST-anchored sub-grid variance floor (see lpdm/driver.py)")
     ap.add_argument("--sgs-scale", type=float, default=1.0,
@@ -96,6 +98,12 @@ def main():
                         cover[nm] = m_
             else:
                 cover["grass"] = (~wm) & (~am) & (z0 <= 0.1)
+        rij = None
+        if a.receptor_from:
+            m_ = np.load(os.path.join(a.receptor_from, 'meta.npy'), allow_pickle=True).item()
+            rij = (m_['itower'], m_['jtower'])
+            print(f"  receptor pinned to the TOWER cell (i,j) = {rij} from "
+                  f"{a.receptor_from}/meta.npy")
         from lpdm.model import SURFACE_LAYER_ANISO
         r = compute_footprint(fs, paths, n_per_release=a.nrel, dt_release=a.dtrel,
                               t_back=a.tback, c0=a.c0, grid_res=a.res,
@@ -103,7 +111,8 @@ def main():
                               **({"grid_x": (-1116.0, 3348.0),
                                   "grid_y": (-2232.0, 2232.0)} if a.ml_raster else {}),
                               aniso=SURFACE_LAYER_ANISO if a.aniso else None,
-                              sgs_scale=a.sgs_scale, sgs_most=a.sgs_most)
+                              sgs_scale=a.sgs_scale, sgs_most=a.sgs_most,
+                              receptor_ij=rij)
         if a.sgs_scale != 1.0:
             print("  SUB-GRID VARIANCE SCALED by %.3f (diagnostic)" % a.sgs_scale)
         if a.aniso:

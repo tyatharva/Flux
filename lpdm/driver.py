@@ -10,8 +10,18 @@ from .les_stats import window_stats
 from .model import LPDM
 
 
-def receptor_indices(fs, z_target=30.0, x_frac=0.75, y_frac=0.5):
+def receptor_indices(fs, z_target=30.0, x_frac=0.75, y_frac=0.5, ij=None):
+    """Receptor cell. `ij` pins it to a specific column and overrides the fractions.
+
+    The fractions date from the wind-ALIGNED elongated domain, where the tower sat 3/4
+    along x to buy upwind fetch. The static domain centres the tower instead, so the
+    fractions would put the receptor 1128 m east of it -- harmless over flat uniform
+    ground, and completely wrong over real geography, where it would sample the wrong
+    surface entirely. Pass the tower cell from data/grid/meta.npy.
+    """
     k = int(np.argmin(np.abs(fs.zk - z_target)))
+    if ij is not None:
+        return int(ij[0]), int(ij[1]), k
     i = int(round(x_frac * fs.nx))
     j = int(round(y_frac * fs.ny))
     return i, j, k
@@ -29,7 +39,7 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
                       grid_x=(-600.0, 4500.0), grid_y=(-1500.0, 1500.0),
                       seed=0, split_halves=True, batch_releases=12, w_floor=0.02,
                       max_disp=None, cover=None, aniso=None, sgs_scale=1.0, sgs_most=False,
-                      verbose=True):
+                      receptor_ij=None, verbose=True):
     """Release, integrate backward, rotate into the wind frame, accumulate.
 
     Releases are processed in batches of `batch_releases` release times rather than as one
@@ -38,7 +48,7 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
     slab of the time axis and stays resident, while one ensemble spanning the whole window
     touches all of it on every step. Same answer, far less memory traffic.
     """
-    i_r, j_r, k_r = receptor_indices(fs, z_target)
+    i_r, j_r, k_r = receptor_indices(fs, z_target, ij=receptor_ij)
     xr = fs.x0 + i_r * fs.dx
     yr = fs.y0 + j_r * fs.dy
     # ABSOLUTE height of that cell centre. Over terrain this is NOT fs.zk[k_r]: the
