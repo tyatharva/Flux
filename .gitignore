@@ -9,6 +9,7 @@ FastEddy-model-5.0.1/
 *.tif.ovr
 data/raw/
 data/grid/
+data/grid_cbl/
 data/conus404/
 
 # --- LES output: regenerable, and far too large. Peak storage is one run. ---
