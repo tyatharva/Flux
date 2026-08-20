@@ -17,7 +17,7 @@
 # usage: regression_flat.sh [--baseline]     (--baseline rewrites the reference)
 set -uo pipefail
 cd /home/atyagi/Flux
-TBACK="${TBACK:-600}"
+TBACK="${TBACK:-900}"
 WIN=$(python3 -c "print(1800+$TBACK)")
 DT=0.0328947
 SRC=runs/g24_flat/output/FE_ADJ.36480
