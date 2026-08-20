@@ -84,7 +84,9 @@ def main():
         les = les / np.nansum(les) / cell
         klj = klj / np.nansum(klj) / cell
 
-        fig, ax = plt.subplots(1, 3, figsize=(17.0, 6.2))
+        fig, axg = plt.subplots(2, 2, figsize=(13.4, 11.4))
+        ax = [axg[0, 0], axg[0, 1], axg[1, 0]]
+        ax1d = axg[1, 1]
         vmax = float(np.nanmax([np.nanmax(les), np.nanmax(klj)]))
         norm = LogNorm(vmin=vmax / 1e4, vmax=vmax)
 
@@ -116,8 +118,7 @@ def main():
             ax[k].set_title(name, fontsize=11)
             if k == 0:
                 ax[k].set_ylabel("north of the tower (m)")
-            fig.colorbar(im, ax=ax[k], fraction=0.046, pad=0.02,
-                         label="$f$ (m$^{-2}$)" if k == 1 else None)
+            fig.colorbar(im, ax=ax[k], fraction=0.046, pad=0.02, label="$f$ (m$^{-2}$)")
 
         d = np.where(np.isfinite(les) & np.isfinite(klj), les - klj, np.nan)
         mm = float(np.nanmax(np.abs(d)))
@@ -128,12 +129,56 @@ def main():
         ax[2].set_title("LES $-$ Kljun  (red: the LES sees more here)", fontsize=11)
         fig.colorbar(im, ax=ax[2], fraction=0.046, pad=0.02, label="$\\Delta f$ (m$^{-2}$)")
 
-        arr = j.get("cover", {})
+        # ---- bottom right: crosswind-integrated footprint, in the WIND frame ----------
+        # Deliberately from the native wind-aligned raster, not from the map-frame
+        # resample above: f_y is an integral across the wind, so it belongs in the frame
+        # the estimator actually built, and resampling would blur the near field it is
+        # meant to resolve.
+        fyl = z["les"].sum(axis=0) * RES
+        fyk = z["kljun"].sum(axis=0) * RES
+        sm = np.convolve(fyl, np.ones(5) / 5.0, mode="same")
+        ax1d.plot(xc, fyl, lw=1.0, color="#1f77b4", alpha=0.40)
+        ax1d.plot(xc, sm, lw=2.3, color="#1f77b4", label="LES + LPDM (thin: raw)")
+        ax1d.plot(xc, fyk, lw=2.3, ls="--", color="#d62728", label="Kljun et al. (2015)")
+        pl = xc[int(np.argmax(fyl))]; pk_ = xc[int(np.argmax(fyk))]
+        ax1d.axvline(pl, color="#1f77b4", lw=0.9, ls=":")
+        ax1d.axvline(pk_, color="#d62728", lw=0.9, ls=":")
+        ax1d.set_xlim(-50, 2600)
+        ax1d.set_ylim(min(0.0, 1.15 * fyl.min()), 1.28 * max(fyl.max(), fyk.max()))
+        ax1d.set_xlabel("upwind distance (m)")
+        ax1d.set_ylabel("$f_y$ (m$^{-1}$)")
+        ax1d.grid(alpha=0.25)
+        ax1d.legend(frameon=False, fontsize=9, loc="upper center")
+        ax1d.set_title("Crosswind-integrated footprint", fontsize=11)
+        il, ik = j["integral_les"], j["integral_kljun"]
+        cov = ""
+        cf = f"results/g24_{tag}.txt"
+        if os.path.exists(cf):
+            on = False
+            for line in open(cf):
+                if "land-cover share" in line:
+                    on = True; continue
+                if on:
+                    if "(domain area share" not in line:
+                        break
+                    nm_ = line.split()[0] if not line.strip().startswith("solar") else "array"
+                    if nm_ in ("array", "water"):
+                        v_ = float(line.split("%")[0].split()[-1])
+                        a_ = float(line.split("area share")[1].split("%")[0])
+                        cov += f"\n{nm_:<6s} {v_:6.2f}% of the footprint ({a_:5.2f}% of area)"
+        ax1d.text(0.985, 0.74,
+                  "INTEGRAL over the grid\n"
+                  f"LES + LPDM   {il:.3f}\n"
+                  f"Kljun        {ik:.3f}\n"
+                  f"\npeak  LES {pl:.0f} m   Kljun {pk_:.0f} m" + cov,
+                  transform=ax1d.transAxes, fontsize=8.5, family="monospace", va="top",
+                  ha="right", bbox=dict(fc="w", ec="0.7", boxstyle="round,pad=0.4"))
+
         sub = (f"{lab}   |   surface wind FROM {st['wdir']:.0f}$\\degree$   |   "
                f"$u_*$={st['ustar']:.3f} m s$^{{-1}}$, $h$={st['h']:.0f} m")
         fig.suptitle("Flux footprint on the real domain, north-up — 186 x 186 @ 24 m, "
                      "tower at the centre\n" + sub, fontsize=12)
-        fig.tight_layout(rect=[0, 0, 1, 0.90])
+        fig.tight_layout(rect=[0, 0, 1, 0.925])
         out = os.path.join(a.outdir, f"g24_map_{tag}.png")
         fig.savefig(out, dpi=140)
         plt.close(fig)
