@@ -30,6 +30,7 @@ REUSE_ADJ=1 bin/run_directions.sh g24 runs/g24_spin/output/FE_G24.547200 \
     data/grid $DT_T "$WIN" "$TB" || exit 1
 python3 bin/fig_static.py --prefix g24 --cases wN,wE,wS,wW,flat || true
 python3 bin/fig_gate6.py --prefix g24 --title neutral || true
+./docker/pyrun.sh bin/stage6_predict.py g24 2>&1 | tee results/g24_stage6_gate.txt || true
 
 # ---- 2. convective flat control. Straight off the spin-up: it is already flat and
 #         uniform, so there is nothing to adjust to.
@@ -52,4 +53,5 @@ BASE=runs/g24_base/base_cbl.in bin/run_directions.sh cbl "$CSPIN" \
     data/grid_cbl $DT_T "$WIN" "$TB" || exit 1
 python3 bin/fig_static.py --prefix cbl --cases wN,wE,wS,wW,flat || true
 python3 bin/fig_gate6.py --prefix cbl --title convective --grid data/grid_cbl || true
+./docker/pyrun.sh bin/stage6_predict.py cbl 2>&1 | tee results/cbl_stage6_gate.txt || true
 say "PHASE 2 COMPLETE"
