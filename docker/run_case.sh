@@ -43,6 +43,11 @@ docker run --gpus all --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
   mpirun -np 1 /work/FastEddy-model-5.0.1/SRC/FEMAIN/FastEddy "./${CASE_FILE}" > "$LOG" 2>&1
 RC=$?
 # Score the log AND the newest dump (accuracy-CFL k0/k1 check) in one place.
-LAST=$(ls -t "/home/atyagi/Flux/${CASE_DIR}/output"/*.[0-9]* 2>/dev/null | head -1)
+# Read outPath from the CASE FILE rather than assuming ./output/. Sampling windows write
+# to ./window/, and assuming ./output/ silently scored the leftover adjustment dump
+# instead -- so the standing accuracy check was passing on a file the run never touched.
+_op=$(grep -oP '^outPath\s*=\s*\K[^#[:space:]]*' "$_cf" 2>/dev/null || true)
+_op="${_op:-./output/}"
+LAST=$(ls -t "/home/atyagi/Flux/${CASE_DIR}/${_op}"/*.[0-9]* 2>/dev/null | head -1)
 LAST_REL="${LAST#/home/atyagi/Flux/}"
 exec "$(dirname "$0")/check_run.sh" "$LOG" "$RC" ${LAST_REL:+"$LAST_REL"}
