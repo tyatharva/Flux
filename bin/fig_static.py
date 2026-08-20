@@ -132,7 +132,7 @@ def main():
         ax1d.set_title("Crosswind-integrated footprint", fontsize=11)
         cov = ""
         for nm in ("solar array", "water"):
-            v = j.get("cover_share", {}).get(nm)
+            v = (j.get("cover_share_nowrap") or j.get("cover_share", {})).get(nm)
             if v is not None and np.isfinite(v):
                 cov += f"\n{nm:<11s} {100*v:6.2f}% of the footprint"
         ax1d.text(0.985, 0.72,

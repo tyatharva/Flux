@@ -248,6 +248,23 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
     # patch, and the water/array shares are exactly the numbers that must not be blurred.
     cover_w = {k: 0.0 for k in (cover or {})}
     cover_tot = 0.0
+    # Land-cover attribution, computed TWICE.
+    #
+    # The raster is periodic and touchdowns fold into it, which is right for the tiled
+    # world the LES actually simulates and right for the emulator's target. It is NOT
+    # right for attributing flux to real geography: a touchdown 3 km upwind folds to
+    # 1.5 km on the far side of the tower, and the land cover there is a different lake
+    # and a different wood. (Terrain is tapered to a constant near the seams; land cover
+    # deliberately is not, because tapering it would erase the water from exactly the
+    # easterly cases meant to sample it -- so the folded cells carry real, specific, wrong
+    # classes.)
+    #
+    # A touchdown is "wrapped" if the fold moved it, which is exact and needs no threshold.
+    # The unwrapped shares are the ones to quote for the site; the difference between them
+    # is the size of the ambiguity.
+    cover_nw = {k: 0.0 for k in (cover or {})}
+    cover_tot_nw = 0.0
+    wrapped_w = 0.0
     for b0 in range(0, len(times), batch_releases):
         tb = times[b0:b0 + batch_releases]
         n = len(tb) * n_per_release
@@ -286,10 +303,16 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
                     cap_w[m] += wt[sel_m].sum()
                     cap_fy[m] += np.histogram(X[sel_m], bins=fy_e,
                                               weights=wt[sel_m])[0]
+        wrap = (np.abs(res["td_x"] - xr) > 0.5 * fs.Lx) | \
+               (np.abs(res["td_y"] - yr) > 0.5 * fs.Ly)
+        wrapped_w += wt[wrap].sum()
         if cover:
             cover_tot += wt.sum()
+            cover_tot_nw += wt[~wrap].sum()
             for nm, msk in cover.items():
-                cover_w[nm] += wt[msk[jj, ii]].sum()
+                sel_c = msk[jj, ii]
+                cover_w[nm] += wt[sel_c].sum()
+                cover_nw[nm] += wt[sel_c & (~wrap)].sum()
         n_td += len(X)
         if split_halves:
             rel = t[res["td_particle"]]
@@ -331,6 +354,9 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
                w_bar=Wb, w_sf_mean=w_sf_mean, yaw=float(theta), pitch=float(phi),
                cover_share={k: (v / cover_tot if cover_tot else np.nan)
                             for k, v in cover_w.items()},
+               cover_share_nowrap={k: (v / cover_tot_nw if cover_tot_nw else np.nan)
+                                   for k, v in cover_nw.items()},
+               wrapped_fraction=float(wrapped_w / max(full.sum_flux_all, 1e-30)),
                n_particles=full.n_particles, n_touchdown=n_td,
                wind_angle=float(np.degrees(ang)))
     if split_halves:

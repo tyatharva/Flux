@@ -84,7 +84,11 @@ def main():
         ax.set_xlabel("east of the tower (m)")
         if c == 0:
             ax.set_ylabel("north of the tower (m)")
-        sh = j.get("cover_share", {})
+        # Quote the UNWRAPPED shares: a touchdown 3 km upwind folds to 1.5 km on the far
+        # side of the tower, where the real land cover is a different lake and a different
+        # wood. The folded shares are right for the tiled world the LES simulates and for
+        # the emulator's target; they are not right for attributing flux to this site.
+        sh = j.get("cover_share_nowrap") or j.get("cover_share", {})
         shares[tag] = sh
         ax.set_title(f"wind {lab}\nachieved {st['wdir']:.0f}$\\degree$   |   "
                      f"array {100*sh.get('solar array', np.nan):.2f}% of the footprint",
@@ -151,7 +155,8 @@ def main():
     fig.suptitle(f"Stage 6 — static 186 x 186 @ 24 m domain, {a.title}: four directions "
                  "from ONE spun-up state (90$\\degree$ re-indexing)\n"
                  "Footprints accumulated on the LES columns; 30 min of releases per case; "
-                 "geography bit-identical across panels", fontsize=12)
+                 "geography bit-identical across panels. Cover shares exclude "
+                 "periodically folded touchdowns.", fontsize=12)
     p = os.path.join(a.outdir, f"{a.prefix}_gate6.png")
     fig.savefig(p, dpi=150); plt.close(fig)
     print(f"  wrote {p}")
