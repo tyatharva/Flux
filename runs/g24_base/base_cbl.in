@@ -1,36 +1,36 @@
-Description = Stage 2 spinup v2 at corrected dt=0.0250: stretched vertical, Rayleigh damping, neutral, flat uniform terrain. Reusable across wind directions.
+Description = 24 m static domain, CONVECTIVE: idealised dry CBL, w'theta' = 0.11 K m/s, z_i0 = 800 m
 #--MPI_AALES
 numProcsX = 1 # Number of cores to be used for horizontal domain decomposition in X
 numProcsY = 1 # Number of cores to be used for horizontal domain decomposition in Y
 #--CUDA_AALES
-tBx = 4 # Number of threads in x-dimension
-tBy = 4 # Number of threads in y-dimension
-tBz = 16 # Number of threads in z-dimension
+tBx = 1 # kStride=1, so a warp must run along z; tBx>1 breaks coalescing (measured: 4x4x16 is 17% slower)
+tBy = 2 # 1x2x64 = 128 threads, fastest of 9 legal shapes swept on this grid
+tBz = 64 # CUDA caps blockDim.z at 64; 128 is rejected by the device
 #--IO
 inPath = # Path where initial/restart file is read in from
 inFile = # name of the input file for coordinate system and initial or restart conditions
 outPath = ./output/ # Path where output files are to be written
-outFileBase = FE_S2 # Base name of the output file series as in (outFileBase).element-in-series
-frqOutput = 48000 # 20 min simulated between dumps -> 18 dumps, ~5.6 GB
+outFileBase = FE_CBL
+frqOutput = 22800 # 750 s between dumps during spin-up
 ioOutputMode = 0 # 0: N-to-1 gather and write to a netcdf file, 1:N-to-N writes of FastEddy binary files
 #--GRID
-Nx = 434 # Number of discretised domain elements in the x (zonal) direction
-Ny = 146 # Number of discretised domain elements in the y (meridional) direction
-Nz = 122 # Number of discretised domain elements in the z (vertical) direction
+Nx = 186 # 186 x 24 m = 4464 m
+Ny = 186 # 186 x 24 m = 4464 m
+Nz = 122 # padded 128 = 2^7, so tBz up to 128
 Nh = 3 # Number of halo cells to be used (dependent on largest stencil extent)
-d_xi = 10.0 # Computational domain fixed resolution in the 'i' direction
-d_eta = 10.0 # Computational domain fixed resolution in the 'j' direction
-d_zeta = 20.576 # Computational domain fixed resolution in the 'k' direction
+d_xi = 24.0 # 24 m
+d_eta = 24.0 # 24 m
+d_zeta = 24.691358 # zCeiling = d_zeta*(Nz-0.5) = 3000 m
 coordHorizHalos = 1 # switch to setup coordiante halos as periodic=1 or gradient-following=0
 topoFile = # A file containing topography (surface elevation in meters ASL)
 verticalDeformSwitch = 1 # switch to use vertical coordinate deformation 0=off, 1=on
-verticalDeformFactor = 0.4860 # gives 10.0 m near-surface dz (dz_sfc = factor * d_zeta)
+verticalDeformFactor = 0.346601 # dz_sfc = 8.5580 m; cell centre k=3 at EXACTLY 30.000000000 m
 verticalDeformQuadCoeff = 0.0 # pure cubic
 #--TIME_INTEGRATION
 timeMethod = 0 # Selector for time integration method. [0=RK3-WS2002 (default)]
-Nt = 864000 # 6.00 h simulated at dt=0.025; multiple of NtBatch (36 batches)
-dt = 0.0250 # 8% margin below the ACCURACY limit (CFL_3d 1.64); NOT the stability limit
-NtBatch = 24000
+Nt = 656640 # 6.00 h simulated at dt = 5/152 s (28.8 batches -> set per segment)
+dt = 0.0328947 # = 5/152 s, so 5 s output is an integer step count; CFL_3d = 1.4946
+NtBatch = 22800
 #--HYDRO_CORE
 ##------------: HYDRO_CORE Submodule Selectors ---
 #----------: Boundary Conditions Set ---
@@ -55,7 +55,7 @@ moistureCondBasePres = 1 #selector to use base pressure for microphysics
 moistureMPcallTscale = 1.0 # time scale for microphysics to be called
 ##------------: CORIOLIS ---
 coriolisSelector = 1  #Coriolis switch: 0 off, 1 on
-coriolisLatitude = 43.0 # Charactersitc latitude in degrees from equator of the LES domain
+coriolisLatitude = 42.957160 # the surveyed tower latitude
 ## ----------: TURBULENCE ---
 turbulenceSelector = 1 # turbulence scheme selector: 0= none, 1= Lilly/Smagorinsky
 TKESelector = 1 # Prognostic TKE selector: 0= none, 1= Prognostic
@@ -72,12 +72,12 @@ filter_6thdiff_vert = 1 # vertical 6th-order filter on w selector: 0=off, 1=on
 filter_6thdiff_vert_coeff = 0.03 # vertical 6th-order filter factor: 0.0=off, 1.0=full
 ##----------: RAYLEIGH DAMPING LAYER ---
 dampingLayerSelector = 1 # Rayleigh damping layer selector: 0= off, 1= on.
-dampingLayerDepth = 500.0 # 20% of the 2500 m domain depth
+dampingLayerDepth = 600.0 # 20% of the 3000 m domain depth
 ##----------: SURFACE LAYER ---
 surflayerSelector = 1 # surfacelayer selector: 0= off, 1= surface kinematic heat flux (surflayer_wth), 2=sking temperature rate (surflayer_tr)
-surflayer_z0 = 0.03 # site grass roughness (uniform for flat spinup)
+surflayer_z0 = 0.05 # geometric-mean z0 of the real WorldCover map (0.0544 m)
 surflayer_z0t = 0.01 # roughness length (temperature) when surflayerSelector > 0
-surflayer_wth = 0.0 # kinematic sensible heat flux at the surface when surflayerSelector = 1
+surflayer_wth = 0.11 # 127 W/m2. CONUS404 at this site, local 10-16 h with w'theta'>0.05: p50 = 0.109 K m/s
 surflayer_tr = -0.0 # temperature rate at the surface when surflayerSelector = 2 (>0 for warming; <0 for cooling)
 surflayer_wq = 0.0 # latent heat flux at the surface (kg/kg m s-1) when surflayerSelector = 1
 surflayer_qr = 0.0 # water vapor rate (kg/kg h-1) when surflayerSelector = 2
@@ -93,14 +93,14 @@ surflayer_offshore = 0 # offshore selector: 0=off, 1=on
 stabilityScheme = 2 # Scheme used to set hydrostatic, stability-dependent Base-State EOS fields
 temp_grnd = 300.0 # Air Temperature (K) at the ground used to set hydrostatic Base-State EOS fields
 pres_grnd = 100000.0 # Pressure (Pa) at the ground used to set hydrostatic Base-State EOS fields
-zStableBottom = 500.0 # Height (m) of the first stable upper-layer when stabilityScheme = 1 or 2
-stableGradient = 0.08 # Vertical gradient (K/m) of the first stable upper-layer when stabilityScheme = 1 or 2
-zStableBottom2 = 650.0 # Height (m) of the second stable upper-layer when stabilityScheme = 2
-stableGradient2 = 0.003 # Vertical gradient (K/m) of the second stable upper-layer when stabilityScheme = 2
-zStableBottom3 = 50000.0 # Height (m) of the third stable upper-layer when stabilityScheme = 2
-stableGradient3 = 0.003 # Vertical gradient (K/m) of the third stable upper-layer when stabilityScheme = 2
+zStableBottom = 800.0 # mixed layer 0-800 m at 300 K (CONUS404 midday z_i p50 = 859 m)
+stableGradient = 0.08 # capping inversion, +8 K across 800-900 m
+zStableBottom2 = 900.0 # top of the capping inversion
+stableGradient2 = 0.004 # free-atmosphere lapse; sets the entrainment growth rate of z_i
+zStableBottom3 = 50000.0 # unused third layer
+stableGradient3 = 0.004
 thetaPerturbationSwitch = 1 # Switch to include initial theta perturbations: 0=off, 1=on
-thetaHeight = 375.0 # Height below which to include initial theta perturbations: (meters)
+thetaHeight = 600.0 # seed perturbations through the mixed layer
 thetaAmplitude = 0.25 # Maximum amplitude for theta perturbations: thetaAmplitude*[-1,+1] K
 U_g = 10.0 # Zonal (West-East) component of the geostrophic wind (m/s)
 V_g = 0.0 # Meridional (South-North) component of the geostrophic wind (m/s)

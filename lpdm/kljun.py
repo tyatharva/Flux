@@ -113,3 +113,38 @@ def peak_distance(zm, h, ustar, umean=None, z0=None, L=None):
 def verify_normalisation():
     """Eq. (15-16): int_d^inf F_y*(X*) dX* = a c^(b+1) Gamma(-b-1) must equal 1."""
     return float(A * C ** (B + 1.0) * _gamma(-B - 1.0))
+
+
+def footprint_on_static(xe, ye, ang, zm, h, ustar, sigmav, umean=None, z0=None, L=None,
+                        nsub=8):
+    """FFP evaluated on a NORTH-UP static raster whose axes are east and north.
+
+    The LES+LPDM footprint is accumulated on the static LES columns, so the reference it
+    is scored against has to live on the same cells. Rotating a wind-frame Kljun raster
+    onto them would interpolate, which is exactly what this pass set out to remove -- and
+    it would do it to the analytic field, where interpolation is gratuitous: FFP is a
+    closed-form function of (upwind distance, crosswind distance) and can simply be
+    evaluated at the cells' own coordinates.
+
+    Each cell is sub-sampled `nsub` x `nsub` and averaged. That is not cosmetic. Near the
+    receptor sigma_y is a few metres against a 24 m cell, so a centre sample would miss
+    most of the near-field mass and push the apparent peak downwind -- the same failure the
+    `y_edges` argument of `footprint_2d` exists to avoid on a rectilinear grid.
+
+    `ang` is the direction the mean wind BLOWS, in radians measured from east
+    (i.e. atan2(V, U)), matching lpdm.driver.
+    """
+    xe = np.asarray(xe, float); ye = np.asarray(ye, float)
+    ca, sa = np.cos(ang), np.sin(ang)
+    dxc, dyc = np.diff(xe), np.diff(ye)
+    off = (np.arange(nsub) + 0.5) / nsub - 0.5
+    xs = (xe[:-1, None] + dxc[:, None] * (off[None, :] + 0.5)).ravel()   # sub-cell easts
+    ys = (ye[:-1, None] + dyc[:, None] * (off[None, :] + 0.5)).ravel()   # sub-cell norths
+    EX, NY = np.meshgrid(xs, ys)
+    X = -(EX * ca + NY * sa)
+    Y = -EX * sa + NY * ca
+    fy, _ = crosswind_integrated(X.ravel(), zm, h, ustar, umean, z0, L)
+    sy = np.maximum(sigma_y(X.ravel(), zm, h, ustar, sigmav, umean, z0, L), 1e-6)
+    f = fy * np.exp(-Y.ravel() ** 2 / (2.0 * sy ** 2)) / (np.sqrt(2 * np.pi) * sy)
+    f = f.reshape(len(ye) - 1, nsub, len(xe) - 1, nsub)
+    return f.mean(axis=(1, 3))

@@ -53,6 +53,18 @@ def check(path):
     ww = (wp ** 2).mean(axis=(-2, -1))
     ratio = ww[0] / max(ww[1], 1e-30)
     tag = f"k0/k1={ratio:6.3f}  ww[0]={ww[0]:.3e} ww[1]={ww[1]:.3e} (z={z[0]:.1f},{z[1]:.1f} m)"
+    # NON-FINITE FIRST. A NaN passes every `>` and `>=` test, so a gate written only as
+    # "fail if ratio >= LIMIT" reports OK on a field that is entirely NaN or inf -- which
+    # is exactly what a rho-skipped ioLPDMmode dump looked like (FASTEDDY_TRAPS.md #1).
+    # inf is not NaN, and FastEddy's own ****CORRUPTED*** banner tests only for NaN, so
+    # this is the only place an inf field is caught at all.
+    nbad = int((~np.isfinite(w)).sum())
+    if nbad or not np.isfinite(ratio):
+        return "FAIL", (f"  FAIL: NON-FINITE w in {path}\n"
+                        f"        {nbad:,} of {w.size:,} cells are NaN or inf; "
+                        f"ratio={ratio}\n"
+                        f"        Note FastEddy exits 0 and prints no CORRUPTED banner for\n"
+                        f"        inf. See FASTEDDY_TRAPS.md #1.")
     if ww[1] < WW_FLOOR:
         return "SKIP", f"  k0/k1 SKIP (turbulence undeveloped, ww[1] < {WW_FLOOR:g}): {tag}"
     if ratio >= LIMIT:

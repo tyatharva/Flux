@@ -39,8 +39,19 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
                       grid_x=(-600.0, 4500.0), grid_y=(-1500.0, 1500.0),
                       seed=0, split_halves=True, batch_releases=12, w_floor=0.02,
                       max_disp=None, cover=None, aniso=None, sgs_scale=1.0, sgs_most=False,
-                      receptor_ij=None, verbose=True):
-    """Release, integrate backward, rotate into the wind frame, accumulate.
+                      receptor_ij=None, tback_marks=(), rel_seconds=None, verbose=True):
+    """Release, integrate backward, accumulate on the STATIC north-up raster.
+
+    THE RASTER IS THE LES GRID. Touchdowns are binned by their LES column index, folded
+    modulo the periodic domain, so raster cell (j,i) is LES column (j,i) and nothing is
+    ever resampled or rotated. That matters twice over: the land-cover masks and the
+    roughness map live on those indices, and this is the raster the emulator consumes, so
+    the target it trains on is the array the estimator actually produced.
+
+    The wind frame has not been abandoned -- it is where Kljun lives and where "upwind
+    distance" means anything -- but it is now a 1-D histogram of the touchdowns' upwind
+    coordinate, accumulated from the touchdowns themselves. That is exact, whereas
+    rotating a finished raster blurs precisely the near field the peak sits in.
 
     Releases are processed in batches of `batch_releases` release times rather than as one
     ensemble. The field cache is several GB and every integrator step does scattered
@@ -60,8 +71,16 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
     zg_r = float(fs.ground(np.array([float(i_r)]), np.array([float(j_r)]))[0])
     st = window_stats(paths, k_r)
 
-    t_first = float(fs.t[0]) + t_back
+    # A window is (averaging period + t_back) long: the first t_back seconds of it produce
+    # no releases at all, because a backward trajectory needs that much history behind it.
+    # `rel_seconds` then holds the RELEASE period to exactly the averaging period an eddy
+    # covariance system reports -- 30 minutes -- rather than letting it grow with whatever
+    # window happened to be run. Without it a 45-minute window would silently produce a
+    # 45-minute footprint and be compared against 30-minute observations.
     t_last = float(fs.t[-1])
+    t_first = float(fs.t[0]) + t_back
+    if rel_seconds is not None:
+        t_first = max(t_first, t_last - float(rel_seconds))
     if t_last <= t_first:
         raise ValueError(f"window too short: need > {t_back:.0f} s of history before the "
                          f"first release (have {fs.t[-1]-fs.t[0]:.0f} s)")
@@ -76,8 +95,24 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
 
     ang = np.arctan2(st["V"], st["U"])
     ca, sa = np.cos(ang), np.sin(ang)
-    mkgrid = lambda: FootprintGrid(grid_x[0], grid_x[1], grid_y[0], grid_y[1], grid_res)
+    # STATIC north-up raster on the LES columns, tower-centred. Cell k spans LES
+    # fractional index [k-0.5, k+0.5), which is exactly one LES column.
+    xe_m = (np.arange(fs.nx + 1) - 0.5 - i_r) * fs.dx
+    ye_m = (np.arange(fs.ny + 1) - 0.5 - j_r) * fs.dy
+    mkgrid = lambda: FootprintGrid.from_edges(xe_m, ye_m)
     full, h1, h2 = mkgrid(), mkgrid(), mkgrid()
+    # 1-D wind-frame crosswind-integrated footprint, at the same 24 m resolution as the
+    # raster. Bins span the full wrap cap in both directions so nothing falls off the end.
+    nfy = int(np.ceil(fs.Lx / fs.dx))
+    fy_e = (np.arange(-nfy, nfy + 1) + 0.5) * fs.dx
+    fy_c = 0.5 * (fy_e[:-1] + fy_e[1:])
+    fy_h = np.zeros(len(fy_c)); fy_h1 = np.zeros(len(fy_c)); fy_h2 = np.zeros(len(fy_c))
+    # Capture-vs-t_back curve: the same estimator truncated at a shorter backward time.
+    # Free -- it is a mask on the touchdown ages already in hand -- and it is what sizes
+    # every production window, since a window must be (averaging period + t_back) long.
+    marks = tuple(sorted(float(m) for m in tback_marks if 0 < float(m) <= t_back))
+    cap_w = {m: 0.0 for m in marks}
+    cap_fy = {m: np.zeros(len(fy_c)) for m in marks}
 
     # ---------------------------------------------------------------- reference frame
     # A real eddy-covariance system over a slope is DOUBLE ROTATED (Wilczak et al. 2001;
@@ -194,18 +229,33 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
                      record_touchdown=True, max_disp=max_disp)
         dx = res["td_x"] - xr
         dy = res["td_y"] - yr
-        X = -(dx * ca + dy * sa)          # upwind-positive
-        Y = -dx * sa + dy * ca
+        X = -(dx * ca + dy * sa)          # upwind-positive, wind frame
         wsf = streamline_w(res)
         wsf_bar.append(wsf.mean() * len(wsf)); wsf_n += len(wsf)
-        r = dict(res); r["td_x"] = X; r["td_y"] = Y
+        # STATIC frame: fold the touchdown into the periodic domain by LES index. A
+        # touchdown one domain length upwind is over the SAME surface as its image, and
+        # the cover attribution below already folds the identical way -- so folding here
+        # is what keeps the raster and the attribution describing one thing.
+        fi_t, fj_t = fs.hindex(res["td_x"], res["td_y"])
+        ii = np.clip(np.round(fi_t).astype(int) % fs.nx, 0, fs.nx - 1)
+        jj = np.clip(np.round(fj_t).astype(int) % fs.ny, 0, fs.ny - 1)
+        Xm = (((fi_t + 0.5) % fs.nx) - 0.5 - i_r) * fs.dx
+        Ym = (((fj_t + 0.5) % fs.ny) - 0.5 - j_r) * fs.dy
+        r = dict(res); r["td_x"] = Xm; r["td_y"] = Ym
         r["w_release"] = wsf
         full.add(r, 0.0, 0.0, w_floor=w_floor)
+        wt_c = 2.0 / np.maximum(res["td_w"], w_floor)
+        wt = wsf[res["td_particle"]] * wt_c
+        fy_h += np.histogram(X, bins=fy_e, weights=wt)[0]
+        if marks:
+            age = res.get("td_t")
+            if age is not None:
+                for m in marks:
+                    sel_m = age <= m
+                    cap_w[m] += wt[sel_m].sum()
+                    cap_fy[m] += np.histogram(X[sel_m], bins=fy_e,
+                                              weights=wt[sel_m])[0]
         if cover:
-            fi_t, fj_t = fs.hindex(res["td_x"], res["td_y"])
-            ii = np.clip(np.round(fi_t).astype(int) % fs.nx, 0, fs.nx - 1)
-            jj = np.clip(np.round(fj_t).astype(int) % fs.ny, 0, fs.ny - 1)
-            wt = wsf[res["td_particle"]] * 2.0 / np.maximum(res["td_w"], w_floor)
             cover_tot += wt.sum()
             for nm, msk in cover.items():
                 cover_w[nm] += wt[msk[jj, ii]].sum()
@@ -213,14 +263,20 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
         if split_halves:
             rel = t[res["td_particle"]]
             n_h1 = int((tb <= tmid).sum()) * n_per_release
-            for g, m, nn in ((h1, rel <= tmid, n_h1), (h2, rel > tmid, n - n_h1)):
+            for g, m, nn, acc in ((h1, rel <= tmid, n_h1, "1"),
+                                  (h2, rel > tmid, n - n_h1, "2")):
                 rr = dict(res)
                 rr["w_release"] = wsf
                 rr["td_particle"] = res["td_particle"][m]
                 rr["td_w"] = res["td_w"][m]
-                rr["td_x"] = X[m]; rr["td_y"] = Y[m]
+                rr["td_x"] = Xm[m]; rr["td_y"] = Ym[m]
                 rr["n"] = nn
                 g.add(rr, 0.0, 0.0, w_floor=w_floor)
+                hh = np.histogram(X[m], bins=fy_e, weights=wt[m])[0]
+                if acc == "1":
+                    fy_h1 += hh
+                else:
+                    fy_h2 += hh
         if verbose:
             print(f"    batch {b0//batch_releases+1}/"
                   f"{-(-len(times)//batch_releases)}  {n_td:,} touchdowns  "
@@ -231,7 +287,13 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
         print(f"  mean streamline-frame w over all releases: {w_sf_mean:+.5f} m/s "
               f"(model-frame mean was {Wb:+.5f}); rotation removed "
               f"{100*(1-abs(w_sf_mean)/max(abs(Wb),1e-12)):.1f}% of it")
+    npart = max(full.n_particles, 1)
     out = dict(stats=st, grid=full, receptor=(xr, yr, zr), z_agl=zr - zg_r, k_recept=k_r,
+               fy=dict(xe=fy_e, xc=fy_c, f=fy_h / npart / fs.dx,
+                       f1=fy_h1 / max(h1.n_particles, 1) / fs.dx,
+                       f2=fy_h2 / max(h2.n_particles, 1) / fs.dx),
+               capture={m: dict(integral=float(cap_w[m] / npart),
+                                fy=cap_fy[m] / npart / fs.dx) for m in marks},
                w_bar=Wb, w_sf_mean=w_sf_mean, yaw=float(theta), pitch=float(phi),
                cover_share={k: (v / cover_tot if cover_tot else np.nan)
                             for k, v in cover_w.items()},
