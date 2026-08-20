@@ -56,6 +56,8 @@ class FootprintGrid:
         g._finish()
         return g
 
+    deposit = "cic"
+
     def _finish(self):
         self.xc = 0.5 * (self.xe[:-1] + self.xe[1:])
         self.yc = 0.5 * (self.ye[:-1] + self.ye[1:])
@@ -89,9 +91,12 @@ class FootprintGrid:
         self.sum_flux_all += wt_f.sum()
         self.sum_conc_all += wt_c.sum()
         self.n_td += len(wt_f)
-        for arr, wt in ((self.flux, wt_f), (self.conc, wt_c)):
-            h, _, _ = np.histogram2d(dy, dx, bins=(self.ye, self.xe), weights=wt)
-            arr += h
+        if self.deposit == "cic":
+            self._cic(dx, dy, wt_f, wt_c)
+        else:
+            for arr, wt in ((self.flux, wt_f), (self.conc, wt_c)):
+                h, _, _ = np.histogram2d(dy, dx, bins=(self.ye, self.xe), weights=wt)
+                arr += h
         self.n_particles += res["n"]
         # The 2/|w_td| weight has a heavy tail: a particle that barely crosses the
         # touchdown level contributes 2/|w| with |w| near zero. If a handful of
@@ -100,6 +105,38 @@ class FootprintGrid:
         k = min(len(wt_f), 2000)
         self.top_w = sorted(self.top_w + list(np.abs(np.partition(wt_f, -k)[-k:])),
                             reverse=True)[:2000]
+
+    def _cic(self, dx, dy, wt_f, wt_c):
+        """Cloud-in-cell deposition: spread each touchdown over its four nearest cells.
+
+        WHY, and why it is not smoothing the answer away. The raster is now 24 m rather
+        than the 60 m it used to be, so each cell collects about six times fewer
+        touchdowns and nearest-grid-point binning leaves the near field visibly speckled.
+        Linear (area-weighted) deposition is the standard particle-in-cell fix: it is
+        exactly conservative, unbiased for a smooth density, and its effective smoothing
+        scale is ONE CELL -- 24 m, which is below the LES's own filter width of about
+        2 Delta = 34 m. So it removes shot noise at scales the LES could not have resolved
+        anyway, and it does not touch the land-cover attribution, which is accumulated
+        separately in LES index space at nearest-grid-point.
+
+        Wrapping is periodic in both directions, matching the domain and matching the fold
+        that put these coordinates here.
+        """
+        ny, nx = self.flux.shape
+        u = (dx - self.xe[0]) / self.res - 0.5
+        v = (dy - self.ye[0]) / self.res - 0.5
+        i0 = np.floor(u).astype(np.intp); fx = u - i0
+        j0 = np.floor(v).astype(np.intp); fy = v - j0
+        for di, wi in ((0, 1.0 - fx), (1, fx)):
+            ii = (i0 + di) % nx
+            for dj, wj in ((0, 1.0 - fy), (1, fy)):
+                jj = (j0 + dj) % ny
+                lin = jj * nx + ii
+                w = wi * wj
+                self.flux += np.bincount(lin, weights=wt_f * w,
+                                         minlength=nx * ny).reshape(ny, nx)
+                self.conc += np.bincount(lin, weights=wt_c * w,
+                                         minlength=nx * ny).reshape(ny, nx)
 
     def tail_concentration(self):
         """Fraction of the total |flux| weight carried by the largest touchdowns."""
