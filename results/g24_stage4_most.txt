@@ -1,0 +1,90 @@
+  541 dumps: FE_WIN.0 .. FE_WIN.82080
+    loaded 1/541  FE_WIN.0
+    loaded 26/541  FE_WIN.3800
+    loaded 51/541  FE_WIN.7600
+    loaded 76/541  FE_WIN.11400
+    loaded 101/541  FE_WIN.15200
+    loaded 126/541  FE_WIN.19000
+    loaded 151/541  FE_WIN.22800
+    loaded 176/541  FE_WIN.26600
+    loaded 201/541  FE_WIN.30400
+    loaded 226/541  FE_WIN.34200
+    loaded 251/541  FE_WIN.38000
+    loaded 276/541  FE_WIN.41800
+    loaded 301/541  FE_WIN.45600
+    loaded 326/541  FE_WIN.49400
+    loaded 351/541  FE_WIN.53200
+    loaded 376/541  FE_WIN.57000
+    loaded 401/541  FE_WIN.60800
+    loaded 426/541  FE_WIN.64600
+    loaded 451/541  FE_WIN.68400
+    loaded 476/541  FE_WIN.72200
+    loaded 501/541  FE_WIN.76000
+    loaded 526/541  FE_WIN.79800
+    loaded 541/541  FE_WIN.82080
+  field cache 27.70 GB, 186x186x122, dt_dump=5.00 s, window 0-2700 s (202 s to load)
+  MOST floor ON: factor 1.00-2.53 over the column
+
+  --- well-mixed test BACKWARD (the mode footprints use) ---
+  released uniformly over 2-1200 m; scored over 2-400 m
+      z (m)   final/initial
+       11.9           0.976   |###################
+       31.8           1.039   |####################
+       51.8           0.961   |###################
+       71.6           1.053   |#####################
+       91.5           0.989   |###################
+      111.4           1.052   |#####################
+      131.3           0.982   |###################
+      151.2           0.995   |###################
+      171.1           0.951   |###################
+      191.1           1.021   |####################
+      210.9           0.942   |##################
+      230.8           0.971   |###################
+      250.8           1.003   |####################
+      270.6           1.053   |#####################
+      290.5           1.049   |####################
+      310.4           0.963   |###################
+      330.3           0.974   |###################
+      350.2           1.026   |####################
+      370.1           0.998   |###################
+      390.0           0.964   |###################
+  ~666 particles per bin initially; 1-sigma counting noise 5.48%
+  max |ratio-1| = 5.83%   rms = 3.61%   lowest 3 bins = 0.992
+  GATE: PASS  (max deviation < max(10%, 4 sigma); lowest 3 bins within max(5%, 3 sigma))
+  (27372 integrator steps, 409 s)
+
+  --- well-mixed test FORWARD (control) ---
+  released uniformly over 2-1200 m; scored over 2-400 m
+      z (m)   final/initial
+       11.9           1.052   |#####################
+       31.8           1.147   |######################
+       51.8           1.179   |#######################
+       71.6           1.118   |######################
+       91.5           0.963   |###################
+      111.4           0.885   |#################
+      131.3           1.009   |####################
+      151.2           1.014   |####################
+      171.1           0.928   |##################
+      191.1           1.083   |#####################
+      210.9           0.855   |#################
+      230.8           0.951   |###################
+      250.8           1.036   |####################
+      270.6           1.029   |####################
+      290.5           1.015   |####################
+      310.4           0.922   |##################
+      330.3           0.983   |###################
+      350.2           0.993   |###################
+      370.1           1.000   |####################
+      390.0           0.955   |###################
+  ~666 particles per bin initially; 1-sigma counting noise 5.48%
+  max |ratio-1| = 17.87%   rms = 8.10%   lowest 3 bins = 1.125
+  GATE: PASS  (max deviation < max(10%, 4 sigma); lowest 3 bins within max(5%, 3 sigma))
+  (27371 integrator steps, 420 s)
+
+  --- backward transit time from the receptor ---
+  receptor z = 30.00 m (level k=3)
+  reached the surface within 900 s: 46.2% of 20000 particles
+  transit time (s): p5=50  p25=100  p50=179  p75=370  p95=748
+  median 3.0 min. PLAN.md expects 1-5 min unstable, 10-15 min stable; neutral sits between.
+
+  STAGE 4 GATE: FAIL

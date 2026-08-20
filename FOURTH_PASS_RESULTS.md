@@ -199,3 +199,102 @@ above it, CBL `sigma_w` scales with `w*`, not `u*`, and a surface-layer relation
 to say there.
 
 ---
+
+## 5. How much backward time a window really needs — and a bug the question exposed
+
+The plan was to measure the capture curve on the flat/neutral control and size every
+production window as (30 min + `t_back`). The measurement is exact rather than five
+separate runs: one release ensemble, truncated at each `t_back` by masking on the
+touchdowns' recorded age, so nothing but the backward integration limit differs.
+
+**The first measurement said something impossible.** The flux-footprint integral over a
+horizontally homogeneous surface must be 1, and it must approach 1 **from below** — a
+finite backward time can only lose influence, never invent it. It did not:
+
+| `t_back` | 300 | 450 | 600 | 750 | 900 |
+|---|---|---|---|---|---|
+| integral, **before the fix** | 0.747 | 0.882 | 0.968 | **1.031** | **1.089** |
+
+It crossed 1 near 670 s and kept climbing. The peak, meanwhile, sat at 264 m for every
+`t_back` from 150 s up — so whatever was growing lived entirely in the far tail.
+
+**Ruled out first: wrap-around.** The integral decomposed by trajectory displacement
+showed nothing at all arriving beyond one domain length (1.089 within 1.00 L, 1.089 within
+2.00 L), and it already exceeded 1 within 0.75 L. The wrap cap was doing exactly its job.
+
+**The cause was the `sigma_w` floor itself.** Thomson's (1987) reverse-time drift contains
+`d(sigma^2)/dz`. `--sgs-most` rescales the sub-grid variance by a **height-dependent**
+factor `sc(z)` running from 2.5 near the surface to 1 above `0.2h` — but the drift kept
+using the unscaled gradient:
+
+        used:      dsig2dz
+        correct:   sc * dsig2dz  +  (2/3) e * dsc/dz
+
+Both terms were missing and `dsc/dz` is the larger, comparable in magnitude to the LES's
+own gradient. A drift that weak cannot balance the extra mixing the factor introduces, so
+backward particles get unopposed vertical motion, touch down too often, and the integral
+inflates **with integration time** — exactly the observed signature.
+
+The third pass never saw it because its wind-frame raster dropped everything beyond
+4500 m upwind and +/-1500 m crosswind; that truncation was cancelling the bias. Folding onto
+the LES columns removed the truncation and left the bias exposed. It also means the third
+pass's reading of the floor moving the integral 0.805 -> 0.882 "toward 1" was reading a bias
+as an improvement.
+
+**This is what the standing flat/neutral control is for**, and it found it on the first run.
+
+### After the fix
+
+| `t_back` | 300 | 450 | 550 | 600 | 700 | 800 | 900 |
+|---|---|---|---|---|---|---|---|
+| integral | 0.671 | 0.759 | 0.791 | 0.808 | 0.836 | 0.867 | **0.888** |
+| peak | 312 | 312 | 312 | 312 | 312 | 312 | 312 m |
+| `x50` | 496 | 566 | 591 | 603 | 622 | 636 | 645 m |
+| shape L1 vs 900 s | 43.4% | 23.3% | 15.7% | 12.0% | 6.4% | 2.5% | — |
+
+Monotone from below, as it must be. And the well-mixed gate, re-run **with the floor
+active** — which it never had been — passes cleanly backward, the direction footprints
+use: max deviation 5.83%, **rms 3.61% against a 5.48% counting-noise floor**.
+
+### The answer, in two parts
+
+**Shape converges by 450-600 s.** The half-vs-half difference of the same window is a
+**29.4%** shape L1, so `t_back = 450 s` is already inside the sampling floor and 600 s is
+comfortably inside it (12.0%). The peak does not move at all across the whole range.
+
+**Magnitude does not converge, and cannot — it is a statement about the domain, not about
+`t_back`.** At 900 s the integral is 0.888 and still gaining ~0.02 per 100 s. But Kljun,
+evaluated on the *identical* 4464 m box, integrates to **0.875**: even an exact analytic
+footprint only puts 87.5% of its mass inside this domain. **LES 0.888 against Kljun 0.875
+is agreement to 1.5%** — so at 900 s the estimator has recovered essentially everything the
+domain can offer, and the shortfall below 1 is the tail that lies outside the box.
+
+That comparison is only available because Kljun is now evaluated on the same cells. It
+replaces "the integral is 12% short" with "the integral is where a correct footprint
+truncated to this domain has to be", which is a different and much more useful statement.
+
+**Decision: `t_back = 900 s`, production windows 45 minutes.** The shape argument alone
+would justify 40 minutes, but the integral is still gaining at 900 s and the difference
+between the two is ~7 minutes of wall clock per case — about one hour across the whole
+campaign, against an integral 9% closer to the domain-limited truth and directly
+comparable to Kljun on the same box. The measurement is reported either way, so shortening
+later needs no re-derivation.
+
+### One residual, reported rather than waved through
+
+The **forward** well-mixed control shows a systematic 12-18% bulge over 30-70 m
+(rms 8.10%, max 17.87%). It passes its own criterion — 4 sigma is 21.9% — but the pattern is
+four consecutive high bins, not scatter. Backward is clean. Footprints use backward, so
+this does not invalidate them, but a genuinely well-mixed model should be well mixed in
+both directions and this is not yet fully explained.
+
+The transit-time check also prints FAIL, on a sub-criterion that is not in PLAN.md: the
+script requires that more than half of the backward particles reach the surface within
+`t_limit`, and 46.2% do. PLAN.md asks for a *plausible transit time* — 1-5 min unstable,
+10-15 min stable, neutral between — and the median is **179 s = 3.0 min**, inside that
+range. The median halving while the >900 s fraction fell is a coherent consequence of the
+floor being surface-layer-only: below 121 m particles get extra mixing both downward (fast
+touchdowns) and upward (escape into the LES's own deficient variance aloft, where they
+linger). Recorded as a threshold that the fix tightened, not as a passing grade.
+
+---
