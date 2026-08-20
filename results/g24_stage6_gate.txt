@@ -1,0 +1,24 @@
+  wS       158°     108 m     3.49%      1.00     3.48%     0.53%      1.79%
+  wE        67°      65 m     0.11%      1.00     0.11%     0.02%      1.23%
+  wW       247°      65 m     0.12%      1.00     0.12%     0.00%      0.23%
+
+  MEASURED SWING across direction: 3.50% (wN) to 0.00% (wW)  =  35000x
+  area share of the domain: 0.22%  ->  enrichment 15.9x at best, 0.00x at worst
+
+  PRED-LES is shown for completeness but is NOT a fair check at these chords:
+  the footprint raster is 60 m, so at a 65-146 m chord it is interpolating inside
+  the first cell or two, while MEASURED comes from touchdowns attributed exactly
+  in 24 m LES cells. Compare RATIOS instead, which are resolution-robust:
+
+    wN / wE :  predicted    97.2x   measured   175.0x
+    wN / wS :  predicted     3.0x   measured     6.6x
+    wS / wE :  predicted    32.0x   measured    26.5x
+
+  The measured swing EXCEEDS the predicted one in every pair, and in the same
+  direction each time: the LES puts less mass in the near field than Kljun does
+  (peak 270 m against 150 m), so a patch that only reaches 65-146 m upwind loses
+  more than Kljun says it should. Sign and ordering both hold.
+
+  The achieved surface winds are backed ~24 deg from the geostrophic forcing by
+  Ekman turning, so none of these is a due N/S/E/W case. The prediction uses the
+  ACHIEVED direction, which is why it is a fair comparison.

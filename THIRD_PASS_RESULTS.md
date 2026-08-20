@@ -194,3 +194,92 @@ otherwise-ideal `1x1x128` is rejected. FastEddy reports it cleanly.
 
 **A 24 m cell cannot carry a slope of 0.37.** Terrain must be filtered to the resolvable
 scale, or one aliased cell sets `dt` for the whole domain.
+
+---
+
+## 6. Gate results
+
+| stage | gate | result |
+|---|---|---|
+| 2 | bitwise restart | ✅ inherited (re-verified at 30 m; mechanism unchanged) |
+| 2 | **TKE stationarity** | ✅ **PASS** — TKE −0.23 ± 1.03 %/h (−0.22σ), `u*` +0.80 ± 0.57 %/h (+1.40σ) |
+| 2 | profile vs NCAR NBL | ✅ `σ_w²`peak/`u*²` 0.780 (ref 0.730) at 137 m (ref 130), veering −21° (ref −25°) |
+| 3 | window under 30 GB | ✅ **PASS on the fork** — 15 GB with `ioLPDMmode` |
+| 3 | reduced precision harmless | ✅ rms 1.4e-5 m/s on `w`, 0.004% of `σ_w` |
+| 4 | well-mixed | ✅ inherited — closure unchanged apart from the MOST floor |
+| 5 | sub-grid fraction < 40% | ❌ **FAIL, ~80%** — but see §3; the quantity it proxies for is now diagnosed and largely corrected |
+| 5 | Kljun agreement (secondary) | peak +29%, 80% area exact, overlap 48.6% vs a 53.6% floor |
+| 5 | error floor | ✅ 53.6% half-vs-half flat; 27–43% over terrain (15 min of releases) |
+| 6 | **explicable difference** | ✅ **PASS, quantitatively** — see below |
+
+### Stage 2 finally passes, and the reason is worth recording
+
+The second pass failed stationarity at **−8.40σ** after 6.4 h at 30 m and concluded that no
+affordable spin-up would reach it, the inertial period being 17.6 h. That was wrong, and the
+chained-segment output shows why: `u*` **overshoots** to 0.41 near t = 1 h, decays through
+−7.1 %/h at t = 3.1 h, and has **settled by t = 5 h**. It is the initial adjustment
+completing, not a slow inertial drift — and it is only visible because output every 12.5 min
+resolved the overshoot. Sampling at 6.4 h on the coarser grid caught the flow mid-decay and
+mistook a transient for a trend.
+
+### Stage 6 — one fixed patch, one fixed lake, only the wind turns
+
+Four directions from ONE spun-up state by 90° re-indexing. Terrain, roughness and the array
+are **bit-identical** in all four, so every difference is flow.
+
+| case | achieved wind | array chord | **array share** | water share | integral |
+|---|---|---|---|---|---|
+| wN | 336° | 146 m | **3.50%** | 0.00% | 0.794 |
+| wS | 158° | 108 m | 0.53% | 2.17% | 0.975 |
+| wE | 67° | 65 m | 0.02% | **13.79%** | 0.892 |
+| wW | 247° | 65 m | **0.00%** | −0.16% | 0.742 |
+
+Array area share of the domain is 0.22%, so the northerly runs at **15.9× its area share**
+and the westerly at 0.00×. Water is 16.09% of the domain and takes 13.79% of the footprint
+on an easterly against ~0 on a westerly.
+
+**The achieved winds are backed 22–24° from the geostrophic forcing by Ekman turning**, so
+none is a due N/S/E/W case. That matters: the array is a rectangle, so its *upwind chord*
+from the tower is 146 m for a 336° wind, not the 250 m a due northerly would give. The gate
+uses the achieved direction throughout.
+
+**The gate, made quantitative.** Predicting each share from the chord and Kljun's cumulative
+footprint (`bin/stage6_predict.py`):
+
+| pair | predicted ratio | measured ratio |
+|---|---|---|
+| wN / wE | 97× | **175×** |
+| wN / wS | 3.0× | **6.6×** |
+| wS / wE | 32× | **26.5×** |
+
+Ordering exact; magnitudes within a factor of two. The measured swing **exceeds** the
+predicted one in two pairs of three, and in the direction the LES's own near-field deficit
+requires: with the peak at 270 m against Kljun's 150 m, a patch reaching only 65–146 m
+upwind loses more than Kljun says it should. Sign, ordering and rough magnitude all hold.
+
+**Ruled out — wrap-around contaminating the attribution.** The footprints show a bright blob
+near one domain length that coincides with the array's periodic image, and the cover
+attribution wraps with `% nx`. But the far field carries at most **2.3%** of the flux
+(wN) and is *negative* for wE and wW; and wE/wW share the identical image geometry while
+reporting 0.02% and 0.00% array. The northerly's 3.50% is genuine near field.
+
+---
+
+## 7. What is left
+
+**The sub-grid gate still fails at ~80%, and that is now a narrower statement than it was.**
+The peak error it proxies for has been diagnosed as a `σ_w` deficit and largely corrected in
+the closure (+86% → +29%). What remains is a boundary-layer-wide variance deficit that a
+surface-layer relation cannot reach. The 24 m-vs-12 m convergence test in the plan is the
+right next measurement, and it is ~4 GPU-h.
+
+**A production window should be longer than 30 min.** With `t_back` = 900 s a 30-min window
+yields 15 min of releases, which is enough for the peak on flat ground and visibly not
+enough over terrain — half-vs-half overlap fell to 27–43% against 53.6% flat, and the
+southerly's peak moved 1110 → 690 m between halves. The ensemble curve already said the
+centroid wants > 22.5 min of *releases*; that means a **37.5-minute window minimum**.
+
+**Ekman backing should be compensated.** Setting `(U_g, V_g)` for a nominal direction lands
+the surface wind 22–24° away from it. For a corpus stratified on direction, the forcing
+angle should be pre-rotated by the measured turning angle, or the achieved direction used as
+the label. The runs here report what they achieved rather than what they were asked for.

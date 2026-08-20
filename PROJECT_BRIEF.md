@@ -272,6 +272,31 @@ everything is resolved. Initial states reproduce the published GABLS1 and NBL sp
 
 **Stage 0b PASSED** — precision documented in Conventions above.
 
+**Stages 2-6, THIRD pass, 2026-08-20** — see `THIRD_PASS_RESULTS.md`. Static
+`186 x 186 x 122` domain at **24 m** (4464 m box), geography built once from USGS 3DEP +
+ESA WorldCover, direction set by rotating the geostrophic wind. Supersedes the second pass.
+
+| stage | gate | result |
+|---|---|---|
+| 2 | TKE stationarity | ✅ **PASS** — TKE -0.22 sigma, `u*` +1.40 sigma at t = 5 h |
+| 3 | 30-min window under 30 GB | ✅ **PASS** — 15 GB via `ioLPDMmode` on the fork |
+| 5 | sub-grid fraction < 40% | ❌ ~80%, but the error it proxies for is now diagnosed |
+| 5 | Kljun (secondary) | peak +29% (was +86%), 80% area exact, integral **0.984** |
+| 6 | explicable difference | ✅ **PASS** — array 15.9x its area share on a northerly, 0.00x on a westerly |
+
+**The near-field error is a `sigma_w` deficit, not diffuse resolution loss.** At the receptor
+the LES gives `sigma_w/u* = 1.09` against the surface-layer 1.25; low `sigma_w` makes backward
+particles descend too slowly and travel too far. The physically motivated fix -- an
+anisotropic sub-grid split -- made it FOUR TIMES worse (peak 390 -> 1170 m), which is what
+confirmed the diagnosis. Supplying the missing variance instead moves the peak to 270 m.
+Adopted as `--sgs-most`, a height-dependent MOST-anchored floor, never as a tuned scalar.
+
+**Stage 2's earlier failure was a sampling artifact.** `u*` overshoots to 0.41 near t = 1 h,
+decays through -7 %/h at 3.1 h, and settles by 5 h. The second pass sampled at 6.4 h on a
+coarser grid, caught the flow mid-decay, and read a transient as an unreachable trend.
+
+---
+
 **Stages 2-6, second pass, 2026-08-19** — see `STAGE2-6_RESULTS_V2.md`. At the 30 m
 pipeline-development grid with `dz_sfc = 8.56 m`:
 

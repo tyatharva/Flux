@@ -1,0 +1,39 @@
+
+=== runs/g24_wS/window: 361 dumps ===
+  receptor pinned to the TOWER cell (i,j) = (93, 93) from data/grid/meta.npy
+  receptor  (i,j,k)=(93,93,3)  x=2244 y=2244  z=21.234 m ASL = 30.089 m AGL (ground -8.85 m)
+  releases  225 times over 2100-3000 s, 700 each = 157,500 particles; t_back=900 s
+  receptor means over the averaging period: U=-2.1285 V=+5.1272 W=+0.1352 m/s
+  double rotation: yaw +112.54 deg, pitch +1.396 deg (sin=+0.02435)
+  wrap-around cap: retiring trajectories past 4464 m of displacement (domain 4464 x 4464 m)
+  SGS MOST floor: factor 1.000 at the receptor (1.00-1.47 over the column); sigma_w/u* 1.24 -> 1.24 (surface-layer target 1.25)
+  mean streamline-frame w over all releases: -0.00079 m/s (model-frame mean was +0.13524); rotation removed 99.4% of it
+  footprint-weighted land-cover share (from touchdowns, unblurred):
+    solar array    0.53%   (domain area share  0.22%)
+    water          2.17%   (domain area share 16.09%)
+    tree          38.56%   (domain area share 28.53%)
+    grassland     26.21%   (domain area share 15.67%)
+    cropland      29.36%   (domain area share 37.21%)
+    built          0.04%   (domain area share  2.20%)
+    wetland        0.00%   (domain area share  0.03%)
+  LES scalars at z=30.00 m: U=5.36 m/s dir=158.3 deg  u*=0.353  h=643 m  1/L=0.00e+00
+    sigma_v 0.577 (resolved 0.418 + sub-grid, e_sgs=0.2371);  sigma_w 0.439 (resolved 0.187);  sigma_w/u* = 1.24 (surface-layer expectation ~1.25)
+  touchdowns 289,616;  largest single weight 114.8;  top 0.1% carry 9.6% of the total |weight|
+  integral of f_flux over grid = 0.975 (all touchdowns 0.975; shortfall = influence truncated by t_back=900 s)
+
+=== GATE 1: LES+LPDM vs Kljun et al. (2015) ===
+  LES+LPDM                   peak_x= 1110.0 m  centroid=(  933.1, -40.9) m  80% area=  31.32 ha  x80=[90,2190] m
+  Kljun FFP                  peak_x=  150.0 m  centroid=(  702.6,   0.0) m  80% area=  26.64 ha  x80=[90,1290] m
+  Kljun x_max (analytic)       166.8 m
+  Kljun integral over grid   0.942
+
+  peak-location difference    +960.0 m (+640%)
+  centroid difference         +230.5 m (+33%)
+  80% source-area overlap      47.1%
+
+=== GATE 2: irreducible error floor ===
+  window half 1              peak_x= 1110.0 m  centroid=(  895.1, -92.9) m  80% area=  22.32 ha  x80=[90,1710] m
+  window half 2              peak_x=  690.0 m  centroid=(  987.9,  34.1) m  80% area=  24.12 ha  x80=[90,3450] m
+  half-vs-half  80% overlap   22.4%   peak difference +420.0 m   centroid difference -92.7 m
+
+  wrote results/g24_wS.json and results/g24_wS.png

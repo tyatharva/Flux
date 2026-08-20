@@ -1,3 +1,30 @@
+  --- TKE stationarity ---
+      step   t(min)    TKE_col       u*
+         0     0.00    0.00000   0.0000
+     22800    23.75    0.00797   0.3893
+     45600    47.50    0.02114   0.3385
+     68400    71.25    0.04681   0.3342
+     91200    95.00    0.09362   0.3783
+    114000   118.75    0.10728   0.4121
+    136800   142.50    0.10866   0.4040
+    159600   166.25    0.11094   0.3936
+    182400   190.00    0.10867   0.3916
+    205200   213.75    0.10093   0.3839
+    228000   237.50    0.09183   0.3723
+    250800   261.25    0.08884   0.3618
+    273600   285.00    0.08734   0.3564
+    296400   308.75    0.08129   0.3525
+    319200   332.50    0.08071   0.3468
+    342000   356.25    0.08265   0.3450
+    364800   380.00    0.08262   0.3430
+    387600   403.75    0.08143   0.3406
+    410400   427.50    0.08095   0.3412
+    433200   451.25    0.07949   0.3388
+    456000   475.00    0.08122   0.3389
+    478800   498.75    0.08039   0.3410
+    501600   522.50    0.07953   0.3373
+    524400   546.25    0.08000   0.3412
+    547200   570.00    0.08014   0.3421
 
   --- stationarity over the last 6 dumps (t = 451-570 min) ---
   domain TKE  mean   0.08013  scatter   0.8%   trend   -0.12 +/-  0.54 %/h   (-0.22 sigma)
@@ -38,3 +65,22 @@
    z=  572.9 m    0.168 |######
    z=  680.6 m    0.036 |#
    z=  801.7 m    0.006 |
+
+  ---------------------------------------------------------------------------------
+  CORRECTION: docker/stage2_gate.py assumes dt = 0.0625 s (its FE_DT default, and the
+  environment variable does not cross into the container). This grid ran at
+  dt = 5/152 = 0.0328947 s, so every TIME on this page is 1.900x too long and every
+  PER-HOUR rate is 1.900x too small. Corrected:
+
+      elapsed          570 min shown  ->  300 min  (5.00 h of simulated time)
+      domain TKE trend  -0.12 %/h     ->  -0.23 +/- 1.03 %/h
+      u* trend          +0.42 %/h     ->  +0.80 +/- 0.57 %/h
+
+  The SIGMA values are unaffected -- both numerator and denominator scale together --
+  so the verdict is unchanged: -0.22 sigma and +1.40 sigma, both inside 2 sigma.
+
+  STAGE 2 STATIONARITY: PASS. The second pass failed this at -8.40 sigma after 6.4 h at
+  30 m. The difference is not more spin-up hours: u* here OVERSHOOTS to 0.41 near t = 1 h,
+  decays through -7 %/h at t = 3.1 h, and has settled by t = 5 h. That is the neutral
+  boundary layer completing its initial adjustment, and it is visible only because the
+  chained-segment output sampled it every 12.5 min.

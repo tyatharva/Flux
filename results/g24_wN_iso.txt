@@ -1,0 +1,22 @@
+    wetland        0.00%   (domain area share  0.03%)
+  LES scalars at z=30.00 m: U=5.46 m/s dir=335.8 deg  u*=0.363  h=643 m  1/L=0.00e+00
+    sigma_v 0.580 (resolved 0.423 + sub-grid, e_sgs=0.2369);  sigma_w 0.441 (resolved 0.192);  sigma_w/u* = 1.21 (surface-layer expectation ~1.25)
+  touchdowns 282,858;  largest single weight 144.6;  top 0.1% carry 10.7% of the total |weight|
+  integral of f_flux over grid = 0.831 (all touchdowns 0.831; shortfall = influence truncated by t_back=900 s)
+
+=== GATE 1: LES+LPDM vs Kljun et al. (2015) ===
+  LES+LPDM                   peak_x=  270.0 m  centroid=(  967.9, -42.9) m  80% area=  27.72 ha  x80=[90,2850] m
+  Kljun FFP                  peak_x=  150.0 m  centroid=(  697.7,   0.0) m  80% area=  25.56 ha  x80=[90,1230] m
+  Kljun x_max (analytic)       165.1 m
+  Kljun integral over grid   0.943
+
+  peak-location difference    +120.0 m (+80%)
+  centroid difference         +270.1 m (+39%)
+  80% source-area overlap      44.2%
+
+=== GATE 2: irreducible error floor ===
+  window half 1              peak_x=  270.0 m  centroid=( 1065.1, -33.3) m  80% area=  28.44 ha  x80=[90,2790] m
+  window half 2              peak_x=  270.0 m  centroid=(  819.4, -57.4) m  80% area=  19.80 ha  x80=[90,3810] m
+  half-vs-half  80% overlap   50.0%   peak difference +0.0 m   centroid difference +245.7 m
+
+  wrote results/g24_wN_iso.json and results/g24_wN_iso.png
