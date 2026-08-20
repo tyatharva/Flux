@@ -28,7 +28,9 @@ die(){ echo "FATAL: $*" >&2; exit 1; }
 CASES=("wW 0" "wS 1" "wE 2" "wN 3")
 for spec in "${CASES[@]}"; do
   read -r NAME ROT <<<"$spec"
-  [ -n "${ONLY:-}" ] && [ "$ONLY" != "$NAME" ] && continue
+  # ONLY is a comma-separated allow-list, so a partially completed campaign can be
+  # resumed from where it stopped without redoing the directions that finished.
+  if [ -n "${ONLY:-}" ] && ! printf '%s' ",$ONLY," | grep -q ",$NAME,"; then continue; fi
   D=runs/${PRE}_$NAME
   mkdir -p "$D/output" "$D/window"
   echo; echo "########## $PRE / $NAME (rot ${ROT}x90) ##########"; date '+%F %H:%M:%S'
