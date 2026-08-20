@@ -8,7 +8,7 @@ tBy = 2 # 1x2x64 = 128 threads, fastest of 9 legal shapes swept on this grid
 tBz = 64 # CUDA caps blockDim.z at 64; 128 is rejected by the device
 #--IO
 inPath = ./
-inFile = FE_RST.0
+inFile = FE_RST.49680
 outPath = ./window/
 outFileBase = FE_WIN
 frqOutput = 184
@@ -28,7 +28,7 @@ verticalDeformFactor = 0.346601 # dz_sfc = 8.5580 m; cell centre k=3 at EXACTLY 
 verticalDeformQuadCoeff = 0.0 # pure cubic
 #--TIME_INTEGRATION
 timeMethod = 0 # Selector for time integration method. [0=RK3-WS2002 (default)]
-Nt = 49680
+Nt = 99360
 dt = 0.0271739
 NtBatch = 184
 #--HYDRO_CORE
@@ -102,8 +102,8 @@ stableGradient3 = 0.003 # Vertical gradient (K/m) of the third stable upper-laye
 thetaPerturbationSwitch = 1 # Switch to include initial theta perturbations: 0=off, 1=on
 thetaHeight = 375.0 # Height below which to include initial theta perturbations: (meters)
 thetaAmplitude = 0.25 # Maximum amplitude for theta perturbations: thetaAmplitude*[-1,+1] K
-U_g = -10.000000
-V_g = -0.000000
+U_g = -0.000000
+V_g = 10.000000
 z_Ug = 10000.0 # Height (m) above ground for linear geostrophic wind gradient (zonal component)
 z_Vg = 10000.0 # Height (m) above ground for linear geostrophic wind gradient (meridional component)
 Ug_grad = 0.0 # U_g gradient above z_Ug (ms-1/m)
