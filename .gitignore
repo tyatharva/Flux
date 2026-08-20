@@ -19,6 +19,9 @@ data/conus404/
 runs/**/output/
 runs/**/window/
 runs/**/FE_RST.*
+# Catch-all: any FastEddy dump anywhere, whatever directory it lands in.
+FE_*.[0-9]
+FE_*.[0-9][0-9]*
 runs/**/output_binary/
 runs/**/initial/
 runs/**/ICBC/
