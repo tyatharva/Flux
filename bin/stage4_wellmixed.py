@@ -28,17 +28,46 @@ def main():
     ap.add_argument("--zrelease", type=float, default=1200.0)
     ap.add_argument("--c0", type=float, default=3.0)
     ap.add_argument("--ztouch", type=float, default=2.0)
+    ap.add_argument("--sgs-most", action="store_true",
+                    help="run the gate WITH the MOST-anchored variance floor in place. "
+                         "The floor rescales sigma^2 by a height-dependent factor, and a "
+                         "rescaling that the Thomson drift does not know about breaks "
+                         "well-mixedness -- so the gate has to be run in the configuration "
+                         "the footprints are actually computed in, not only in the "
+                         "unmodified one.")
+    ap.add_argument("--fp16-cache", action="store_true")
     a = ap.parse_args()
 
     paths = dump_series(a.outdir)
     print(f"  {len(paths)} dumps: {os.path.basename(paths[0])} .. {os.path.basename(paths[-1])}")
     t0 = time.time()
-    fs = FieldSet(paths, a.dt)
+    fs = FieldSet(paths, a.dt,
+                  cache_dtype=np.float16 if a.fp16_cache else np.float32)
     print(f"  field cache {fs.mem_gb:.2f} GB, {fs.nx}x{fs.ny}x{fs.nz}, "
           f"dt_dump={fs.dt_dump:.2f} s, window {fs.t[0]:.0f}-{fs.t[-1]:.0f} s "
           f"({time.time()-t0:.0f} s to load)")
 
-    lp = LPDM(fs, c0=a.c0, z_touch=a.ztouch)
+    sgs = 1.0
+    if a.sgs_most:
+        from lpdm.les_stats import window_stats
+        k_r = int(np.argmin(np.abs(fs.zk - 30.0)))
+        st = window_stats(paths[::max(1, len(paths) // 40)], k_r)
+        zl = np.asarray(st["zlev"], dtype=np.float64)
+        wwp = np.asarray(st["ww_prof"], dtype=np.float64)
+        esp = np.asarray(st["esgs_prof"], dtype=np.float64)
+        h = float(st["h"]); Lv = float(st["L"])
+        zeta = zl / Lv if np.isfinite(Lv) and abs(Lv) > 1e-6 else np.zeros_like(zl)
+        phi = np.where(zeta < 0.0, np.maximum(1.0 - 3.0 * zeta, 1.0) ** (1.0 / 3.0),
+                       1.0 + 0.2 * np.minimum(zeta, 2.0))
+        tgt2 = (1.25 * phi * float(st["ustar"])
+                * np.maximum(1.0 - zl / max(h, 1.0), 0.0) ** 0.75) ** 2
+        need = np.maximum(tgt2 - wwp, 0.0)
+        have = np.maximum((2.0 / 3.0) * esp, 1e-9)
+        taper = np.clip((0.2 * h - zl) / (0.1 * h), 0.0, 1.0)
+        fac = 1.0 + taper * np.maximum(need / have - 1.0, 0.0)
+        sgs = (zl, fac)
+        print(f"  MOST floor ON: factor {fac.min():.2f}-{fac.max():.2f} over the column")
+    lp = LPDM(fs, c0=a.c0, z_touch=a.ztouch, sgs_scale=sgs)
     ok = True
     for direction, label in ((-1, "BACKWARD (the mode footprints use)"),
                              (+1, "FORWARD (control)")):

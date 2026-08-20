@@ -74,6 +74,16 @@ class LPDM:
             self.sgs_scale = None
             self.sgs_scale_z, self.sgs_scale_f = (np.asarray(v, dtype=np.float64)
                                                   for v in sgs_scale)
+            # d(scale)/dz. THE MODEL IS NOT WELL MIXED WITHOUT IT. The Thomson drift
+            # contains d(sigma^2)/dz, and if the variance is rescaled by a HEIGHT-DEPENDENT
+            # factor then the scaled variance's gradient is
+            #     d/dz [ sc(z) (2/3) e ]  =  sc dsig2dz  +  (2/3) e dsc/dz
+            # Using the unscaled dsig2dz leaves the drift too weak to balance the extra
+            # mixing the factor introduces, so backward particles get unopposed vertical
+            # motion, touch down too often, and the flux-footprint integral climbs past 1.
+            # Measured on the flat neutral control: 1.089 at t_back = 900 s, where the
+            # answer for a horizontally homogeneous surface is exactly 1.
+            self.sgs_scale_dfdz = np.gradient(self.sgs_scale_f, self.sgs_scale_z)
         else:
             self.sgs_scale = float(sgs_scale)
             self.sgs_scale_z = self.sgs_scale_f = None
@@ -126,8 +136,17 @@ class LPDM:
         # where there is turbulence.
         if self.sgs_scale is None:
             sc = np.interp(zagl, self.sgs_scale_z, self.sgs_scale_f)
+            dscdz = np.interp(zagl, self.sgs_scale_z, self.sgs_scale_dfdz)
         else:
             sc = self.sgs_scale
+            dscdz = 0.0
+        # Product rule, so that ds2z is the gradient of the variance the model ACTUALLY
+        # uses. With sc = 1 this reduces to the unscaled field exactly.
+        ds2z = sc * ds2z + (2.0 / 3.0) * e * dscdz
+        if below.any():
+            # Same reasoning as above: inside the sub-layer sigma^2 is held at its z_ref
+            # value, so its gradient is zero -- including the rescaling's contribution.
+            ds2z[below] = 0.0
         sig2 = np.maximum(sc * (2.0 / 3.0) * e, 1e-6)
         eps = np.maximum(eps, 1e-8)
         return u, v, w, sig2, eps, ds2z, ustar

@@ -206,6 +206,16 @@ def main():
                          peak_x=m_les["peak_x"], x80=m_les["x80"]))
         out["capture"] = rows
 
+    if r0.get("by_disp"):
+        print("\n=== where the integral comes from, by trajectory displacement ===")
+        print("   the domain repeats every %.0f m, so anything beyond one domain length is"
+              % fs0.Lx)
+        print("   turbulence the trajectory had already sampled once")
+        for d in r0["by_disp"]:
+            print(f"   within {d['frac_of_Lx']:4.2f} L  ({d['max_disp']:5.0f} m)   "
+                  f"integral {d['integral']:.3f}")
+        out["by_disp"] = r0["by_disp"]
+
     print("\n=== error floor: the two halves of this window ===")
     if "halves" in r0:
         h1, h2 = r0["halves"]
