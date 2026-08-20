@@ -126,11 +126,16 @@ def main():
         if a.aniso:
             print("  SUB-GRID SPLIT: surface-layer anisotropic "
                   "(r_u, r_v, r_w) = (%.4f, %.4f, %.4f)" % SURFACE_LAYER_ANISO)
+        print(f"  flux weight from touchdowns the periodic fold MOVED: "
+              f"{100*r.get('wrapped_fraction', np.nan):.1f}%")
         if cover:
             print("  footprint-weighted land-cover share (from touchdowns, unblurred):")
+            print(f"    {'class':<12} {'folded':>8} {'unwrapped':>10} {'area':>8}")
             for nm, v in r["cover_share"].items():
-                print(f"    {nm:<12} {v*100:6.2f}%   "
-                      f"(domain area share {cover[nm].mean()*100:5.2f}%)")
+                vn = r.get("cover_share_nowrap", {}).get(nm, np.nan)
+                print(f"    {nm:<12} {v*100:7.2f}% {vn*100:9.2f}% {cover[nm].mean()*100:7.2f}%")
+            print("    (unwrapped excludes touchdowns whose periodic fold moved them onto "
+                  "different\n     real geography; quote that column for the site)")
         st = r["stats"]
         print(f"  LES scalars at z={st['z_recept']:.2f} m: U={st['u_mean']:.2f} m/s "
               f"dir={st['wdir']:.1f} deg  u*={st['ustar']:.3f}  h={st['h']:.0f} m  "
@@ -185,6 +190,8 @@ def main():
                integral_les=g0.integral(), integral_les_all=g0.integral_all(),
                integral_kljun=float(kl.sum() * g0.area),
                cover_share=r0.get("cover_share", {}),
+               cover_share_nowrap=r0.get("cover_share_nowrap", {}),
+               wrapped_fraction=r0.get("wrapped_fraction", None),
                sgs_most=bool(a.sgs_most), wind_angle=r0["wind_angle"])
 
     # ---- how much backward time the estimator actually needs ------------------------
