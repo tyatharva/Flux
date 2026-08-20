@@ -13,7 +13,12 @@ data/grid_cbl/
 data/conus404/
 
 # --- LES output: regenerable, and far too large. Peak storage is one run. ---
+# The dumps are named FE_<TAG>.<step>, so they have NO extension a pattern can catch --
+# `*.nc` does not match `FE_WIN.49680`. Every directory that can hold them is listed by
+# name. Getting this wrong put 22 GB of fields into git history on 2026-08-20.
 runs/**/output/
+runs/**/window/
+runs/**/FE_RST.*
 runs/**/output_binary/
 runs/**/initial/
 runs/**/ICBC/

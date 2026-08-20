@@ -39,19 +39,18 @@ def chord(theta_from_deg):
     return max(min(ts), 0.0) if ts else 0.0
 
 
-def cover_share(tag):
-    f = f"results/g24_{tag}.txt"
-    out = {}
-    on = False
-    for line in open(f):
-        if "land-cover share" in line:
-            on = True; continue
-        if on:
-            m = re.match(r"\s+(.+?)\s+(-?[\d.]+)%\s+\(domain area share\s+([\d.]+)%\)", line)
-            if not m:
-                break
-            out[m.group(1).strip()] = (float(m.group(2)), float(m.group(3)))
-    return out
+def cover_share(pre, tag):
+    """Footprint-weighted cover shares, EXCLUDING periodically folded touchdowns.
+
+    Read from the JSON rather than scraped from the report text, and from the unwrapped
+    column: a touchdown 3 km upwind folds to 1.5 km on the far side of the tower, where
+    the land cover is a different lake. For the array specifically the difference is
+    small -- the array is 65-250 m upwind and nothing that close can wrap -- but the
+    water shares in the same table would be badly wrong folded.
+    """
+    j = json.load(open(f"results/{pre}_{tag}.json"))
+    src = j.get("cover_share_nowrap") or j.get("cover_share", {})
+    return {k: (100.0 * v, np.nan) for k, v in src.items()}
 
 
 def main():
@@ -64,8 +63,9 @@ def main():
         "", "from", "in array", "to chord", "factor", "share", "share", "share"))
     print("  " + "-" * 72)
     rows = []
+    pre = sys.argv[1] if len(sys.argv) > 1 else "g24"
     for tag in ("wN", "wS", "wE", "wW"):
-        j = json.load(open(f"results/g24_{tag}.json"))
+        j = json.load(open(f"results/{pre}_{tag}.json"))
         st = j["stats"]
         wd = st["wdir"]
         c = chord(wd)
@@ -80,13 +80,13 @@ def main():
                                  st["sigma_v"], umean=st["u_mean"], L=st["L"])[0])
         cf = float(erf(60.0 / max(sy * np.sqrt(2.0), 1e-6)))
         pred = 100.0 * kl * cf
-        meas = cover_share(tag).get("solar array", (np.nan, np.nan))[0]
+        meas = cover_share(pre, tag).get("solar array", (np.nan, np.nan))[0]
         # Same calculation, but using the LES's OWN crosswind-integrated footprint
         # instead of Kljun's. If the array attribution is internally consistent, this
         # should MATCH the measurement -- and any gap against the Kljun column is then
         # purely the LES-vs-Kljun near-field difference, not an attribution error.
-        z = np.load(f"results/g24_{tag}.npz")
-        xc = z["xc"]; fles = z["les"].sum(axis=0)
+        z = np.load(f"results/{pre}_{tag}.npz")
+        xc = z["fy_xc"]; fles = z["fy"]
         cl = np.cumsum(np.maximum(fles, 0.0)); cl /= cl[-1]
         les_cum = float(np.interp(c, xc, cl))
         pred_les = 100.0 * les_cum * cf
@@ -98,13 +98,15 @@ def main():
     print("  MEASURED SWING across direction: %.2f%% (%s) to %.2f%% (%s)  =  %.0fx" % (
         max(m), rows[int(np.argmax(m))][0], max(min(m), 1e-4),
         rows[int(np.argmin(m))][0], max(m) / max(min(m), 1e-4)))
-    print("  area share of the domain: 0.22%%  ->  enrichment %.1fx at best, %.2fx at worst"
-          % (max(m) / 0.22, min(m) / 0.22))
+    aa = 100.0 * float(np.load("data/grid/array.npy").mean())
+    print("  area share of the domain: %.2f%%  ->  enrichment %.1fx at best, %.2fx at worst"
+          % (aa, max(m) / aa, min(m) / aa))
     print()
-    print("  PRED-LES is shown for completeness but is NOT a fair check at these chords:")
-    print("  the footprint raster is 60 m, so at a 65-146 m chord it is interpolating inside")
-    print("  the first cell or two, while MEASURED comes from touchdowns attributed exactly")
-    print("  in 24 m LES cells. Compare RATIOS instead, which are resolution-robust:")
+    print("  PRED-LES uses the LES's OWN crosswind-integrated footprint in place of")
+    print("  Kljun's, so a gap between PRED-Klj and PRED-LES is the near-field difference")
+    print("  between the two footprints, while a gap between PRED-LES and MEASURED would")
+    print("  be an attribution error. Ratios are quoted as well, being the more robust")
+    print("  comparison at chords of a few grid cells:")
     print()
     d = dict((r[0], r) for r in rows)
     for a_, b_ in (("wN", "wE"), ("wN", "wS"), ("wS", "wE")):
