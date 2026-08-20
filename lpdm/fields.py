@@ -227,6 +227,32 @@ class FieldSet:
         i0 = np.clip(np.floor(c).astype(np.intp), 0, max(n - 2, 0))
         return i0, (c - i0)
 
+    def _weights4(self, ft, fk, fj, fi):
+        """Flat corner indices (16, N) and their weights, shared by every 4-D field.
+
+        Built once per call and reused across fields, so each field costs ONE gather
+        instead of sixteen. That matters: the integrator calls this at every step for six
+        fields, and the naive form spends most of its time re-deriving the same indices.
+        """
+        nt_, nz_, ny_, nx_ = self.u.shape
+        t0, wt = self._corner(ft, nt_)
+        k0, wk = self._corner(fk, nz_)
+        j0, wj = self._corner(fj, ny_)
+        i0, wi = self._corner(fi, nx_)
+        t1 = np.minimum(t0 + 1, nt_ - 1); k1 = np.minimum(k0 + 1, nz_ - 1)
+        j1 = np.minimum(j0 + 1, ny_ - 1); i1 = np.minimum(i0 + 1, nx_ - 1)
+        idx = np.empty((16, len(t0)), dtype=np.intp)
+        w = np.empty((16, len(t0)), dtype=np.float64)
+        n = 0
+        for tt, ct in ((t0, 1.0 - wt), (t1, wt)):
+            for kk, ck in ((k0, 1.0 - wk), (k1, wk)):
+                for jj, cj in ((j0, 1.0 - wj), (j1, wj)):
+                    for ii, ci in ((i0, 1.0 - wi), (i1, wi)):
+                        idx[n] = ((tt * nz_ + kk) * ny_ + jj) * nx_ + ii
+                        w[n] = ct * ck * cj * ci
+                        n += 1
+        return idx, w
+
     def sample(self, names, ft, fk, fj, fi):
         """Linear 4-D interpolation of the named fields at (t,k,j,i) fractional indices.
 
@@ -235,46 +261,30 @@ class FieldSet:
         the cache HAS to be float16 for a long window to fit in memory. A 30-minute
         averaging period needs a (30 min + t_back) window -- 541 dumps at 5 s -- which is
         55 GB at fp32 against 28 GB at fp16 on a 62 GB machine. Gathering the 16 corners
-        and promoting them to float32 costs nothing and removes the dtype constraint.
+        and promoting them to float64 costs nothing and removes the dtype constraint.
 
         Identical to order=1, mode='nearest' otherwise: coordinates are clamped to the
         array, not wrapped (x and y are already wrap-padded by one cell at load time).
         """
-        t0, wt = self._corner(ft, self.u.shape[0])
-        k0, wk = self._corner(fk, self.u.shape[1])
-        j0, wj = self._corner(fj, self.u.shape[2])
-        i0, wi = self._corner(fi, self.u.shape[3])
-        t1 = np.minimum(t0 + 1, self.u.shape[0] - 1)
-        k1 = np.minimum(k0 + 1, self.u.shape[1] - 1)
-        j1 = np.minimum(j0 + 1, self.u.shape[2] - 1)
-        i1 = np.minimum(i0 + 1, self.u.shape[3] - 1)
-        out = []
-        for nm in names:
-            A = getattr(self, nm)
-            acc = 0.0
-            for tt, ct in ((t0, 1.0 - wt), (t1, wt)):
-                for kk, ck in ((k0, 1.0 - wk), (k1, wk)):
-                    for jj, cj in ((j0, 1.0 - wj), (j1, wj)):
-                        for ii, ci in ((i0, 1.0 - wi), (i1, wi)):
-                            acc = acc + (A[tt, kk, jj, ii].astype(np.float64)
-                                         * (ct * ck * cj * ci))
-            out.append(acc)
-        return out
+        idx, w = self._weights4(ft, fk, fj, fi)
+        return [(getattr(self, nm).reshape(-1)[idx].astype(np.float64) * w).sum(axis=0)
+                for nm in names]
 
     def sample2d(self, names, ft, fj, fi):
-        t0, wt = self._corner(ft, self.ustar.shape[0])
-        j0, wj = self._corner(fj, self.ustar.shape[1])
-        i0, wi = self._corner(fi, self.ustar.shape[2])
-        t1 = np.minimum(t0 + 1, self.ustar.shape[0] - 1)
-        j1 = np.minimum(j0 + 1, self.ustar.shape[1] - 1)
-        i1 = np.minimum(i0 + 1, self.ustar.shape[2] - 1)
-        out = []
-        for nm in names:
-            A = getattr(self, nm)
-            acc = 0.0
-            for tt, ct in ((t0, 1.0 - wt), (t1, wt)):
-                for jj, cj in ((j0, 1.0 - wj), (j1, wj)):
-                    for ii, ci in ((i0, 1.0 - wi), (i1, wi)):
-                        acc = acc + (A[tt, jj, ii].astype(np.float64) * (ct * cj * ci))
-            out.append(acc)
-        return out
+        nt_, ny_, nx_ = self.ustar.shape
+        t0, wt = self._corner(ft, nt_)
+        j0, wj = self._corner(fj, ny_)
+        i0, wi = self._corner(fi, nx_)
+        t1 = np.minimum(t0 + 1, nt_ - 1); j1 = np.minimum(j0 + 1, ny_ - 1)
+        i1 = np.minimum(i0 + 1, nx_ - 1)
+        idx = np.empty((8, len(t0)), dtype=np.intp)
+        w = np.empty((8, len(t0)), dtype=np.float64)
+        n = 0
+        for tt, ct in ((t0, 1.0 - wt), (t1, wt)):
+            for jj, cj in ((j0, 1.0 - wj), (j1, wj)):
+                for ii, ci in ((i0, 1.0 - wi), (i1, wi)):
+                    idx[n] = (tt * ny_ + jj) * nx_ + ii
+                    w[n] = ct * cj * ci
+                    n += 1
+        return [(getattr(self, nm).reshape(-1)[idx].astype(np.float64) * w).sum(axis=0)
+                for nm in names]

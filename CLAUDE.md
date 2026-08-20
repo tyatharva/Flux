@@ -194,6 +194,26 @@ when downwind. Same patch, same tower, same spun-up state, rotated 180 deg.
 
 Backward LPDM, run offline on saved FastEddy output.
 
+- **THE FOOTPRINT RASTER IS THE LES GRID.** Touchdowns are binned by their LES column
+  index, folded modulo the periodic domain, so a footprint cell IS an LES column — the
+  same indexing the land-cover masks use, and the array the CNF will consume. The 60 m
+  wind-aligned raster and the map-frame resample are **gone**; they interpolated the near
+  field, which is exactly where the peak and the solar array both live. The wind frame
+  survives as a 1-D histogram of the touchdowns' upwind coordinate (exact), and Kljun is
+  evaluated at the static cells' own coordinates rather than rotated onto them
+  (`lpdm.kljun.footprint_on_static`, 8x8 sub-sampling per cell because near the receptor
+  `sigma_y` is smaller than a cell).
+- **A WINDOW IS (30 min + `t_back`), NOT 30 min.** The first `t_back` seconds of any
+  window produce no releases at all, because a backward trajectory needs that much history
+  behind it. The averaging period stays 30 minutes — that is how eddy covariance is
+  defined and it is not ours to change — so the LES window has to be longer.
+  `--rel-seconds 1800` holds the release period to exactly 30 min however long the window
+  is, so a longer window buys convergence rather than silently widening the average.
+- The analysis cache is **float16**; 541 dumps is 55 GB at fp32 and 28 GB at fp16 on a
+  62 GB machine. `scipy.ndimage.map_coordinates` refuses float16, so the 4-D linear
+  interpolation in `lpdm/fields.py` is written out by hand — verified against
+  `map_coordinates` to float32 roundoff, and marginally faster.
+
 - Save 3 velocity components + SGS TKE, ~5 s cadence (2 s if validation demands)
 - **Measured (Stage 0a): FastEddy writes 19 3-D fields = 76 B/cell, and exposes NO way to
   select output fields or a vertical subset.** Only 5 IO parameters exist (`ioOutputMode`,
@@ -420,10 +440,28 @@ See @PLAN.md for the staged path.
   the first-level `w` variance ratio `k0/k1` must be **< 1** (~0.27 when correct, matching
   NCAR's NBL at 0.25). A value near 9 means dt is too large.
 
+- **`ioLPDMfullFrq` (fork) makes a sampling window chainable.** Lean `ioLPDMmode`
+  output is deliberately not restartable — `rho` and `pressure` are absent — so a whole
+  window had to be one FastEddy invocation, and at this grid a (30 min + `t_back`) window
+  is 51-59 min of wall clock, past the 45-minute ceiling. `ioLPDMfullFrq = N` writes any
+  output whose ABSOLUTE step is a multiple of `N` in full upstream form while every other
+  dump stays lean and packed. Verified: the interleaved full dump has the same variable
+  set and dtypes as a mode-0 dump and differs from an independent mode-0 run only at the
+  ~1e-4 nondeterminism floor. `bin/run_window.sh` is the driver.
+
 - **`hydroSubGridWrite = 0`** drops the 9 SGS stress fields: 19 -> 10 3-D fields,
   76.3 -> 40.3 B/cell, **212 GB -> 112 GB** per 30-min window at 5 s cadence. Free, via
   config. Reaching Stage 3's ~30 GB gate needs the 4 LPDM fields only, which is *not*
   config-reachable.
+
+- **TRAP: `inf` is not `CORRUPTED`, and a NaN passes every `>` test.** FastEddy's
+  corruption banner tests for NaN only, and `x/0` with `x != 0` gives `inf`, which
+  propagates through arithmetic without becoming NaN. A gate written as
+  `if value > limit: fail` therefore reports OK on a field that is entirely NaN. Both
+  bit us at once when `ioLPDMmode` skipped `rho`: five prognostic fields came out
+  `±inf`, exit 0, no banner, and `k0k1_check.py` passed the run. Checks now test
+  `np.isfinite(...).all()` FIRST. Full diagnosis in **`FASTEDDY_TRAPS.md`**, which is
+  where every trap of this kind now lives.
 
 - **TRAP: FastEddy prints `****CORRUPTED***` on NaN/Inf but still exits 0.** A fully NaN
   field returns exit status 0. **Every run script must grep output for `CORRUPTED`/NaN and
@@ -633,6 +671,68 @@ registered variable list. That list includes **`xPos`, `yPos`, `zPos`, `topoPos`
 
 `bin/prep_stage6.py` writes terrain, terrain-following `zPos`, and the roughness map into
 the restart file so the read becomes a no-op and grid, output and LPDM stay consistent.
+
+## Site climatology — CONUS404, and what it is for
+
+`bin/conus404_site.py` streams a stratified 45-year hourly sample at the tower cell
+straight off the USGS Open Storage Network pod over plain HTTPS — anonymous, no egress
+charge, no cloud SDK. `bin/conus404_dist.py` summarises it; output in
+`results/conus404_site.txt`.
+
+**It sets sweep ranges and sampling density. It never forces a run.** No per-case
+sounding, no projection matching, no time-varying boundary conditions. Each LES case stays
+one idealised quasi-stationary state; CONUS404 only decides which states are worth the GPU
+time. A 4.5 km doubly-periodic box cannot sustain mesoscale forcing anyway.
+
+Measured at the tower (39,456 hourly records, 1979-2024), quality-controlled at
+`u* >= 0.15 m/s` (65.2% of hours):
+
+| | p5 | p25 | p50 | p75 | p95 |
+|---|---|---|---|---|---|
+| `z_i` | 80 m | 267 m | 493 m | 835 m | 1475 m |
+| `w'theta'` | -0.027 | -0.006 | +0.015 | +0.076 | +0.164 K m/s |
+| `u*` | 0.17 | 0.24 | 0.32 | 0.44 | 0.65 m/s |
+| `U(30 m)` | 2.4 | 3.9 | 5.2 | 6.8 | 10.0 m/s |
+
+**The site is unstable more than half the time**: 27.2% very unstable (`z/L < -0.5`),
+30.3% unstable, 13.3% near-neutral, 20.4% stable, 8.8% very stable. A neutral-only corpus
+misses the modal daytime state.
+
+**`z_i` MUST be swept.** Kljun takes it as an input, so a corpus at one `z_i` leaves that
+input channel untrained and the emulator cannot learn what it does. The measured range is
+80-1475 m — a factor of 18.
+
+**The wind rose and the array signal point in different directions.** The rose is
+S 16.0%, W 14.4%, NW 14.5%, SW 14.3% against N 10.6%, NE 10.2%, E 10.4%, SE 9.8%. But the
+array is upwind only on northerlies, so N/NE/NW is where the site-specific skill lives.
+Direction sampling therefore needs a **floor**, not pure rose weighting.
+
+Convective midday reference (local 10-16 h, `w'theta' > 0.05`, n = 7,461): `z_i` p50
+**859 m**, `w'theta'` p50 **0.109 K m/s**, `u*` p50 0.40, `U(30)` p50 5.4 m/s,
+`z_i/L` p50 **-19.8**. JJA only: `z_i` p50 1127 m, `z_i/L` p50 -36.6. These are the numbers
+`runs/g24_base/base_cbl.in` is built from.
+
+## Convective configuration (settled)
+
+`runs/g24_base/base_cbl.in`: dry CBL, cold start, `surflayer_wth = 0.11 K m/s` (127 W/m2),
+mixed layer to 800 m under a `+8 K` capping inversion (800-900 m at 0.08 K/m), free
+atmosphere 0.004 K/m. `w* = 1.42 m/s`, `T* = z_i/w* = 562 s`, `z_i/L = -18`. Spin-up
+5400 s = 9.6 `T*`, chained in three 33-minute segments.
+
+**`z_i` grows at ~148 m/h by entrainment and that is not drift** — a convective boundary
+layer has no stationary depth. The achieved `z_i` is measured and reported per window.
+
+**Surface heat flux is per-cell, from the land cover** (`prep_surface.py --wth`). Water
+gets 0.12 of the land value, built 1.5, tree/grass 1.1, cropland 1.0. Because the water is
+directional (E/NE), an easterly fetch is over a surface with a tenth of the land's sensible
+heat flux.
+
+**The solar array gets 1.6x, which retires an accepted omission.** PV modules are darker
+than the crop they replaced and do not transpire, so nearly all absorbed shortwave that is
+not exported leaves as sensible heat; field studies of utility-scale arrays report a
+daytime enhancement of order 1.5-2. With no radiation scheme, `htFlux` is the channel
+albedo would have acted through — so in the convective cases the array is a roughness
+patch AND a heat source, where in the neutral cases it is roughness only.
 
 ## Corpus structure (settled)
 
