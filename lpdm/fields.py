@@ -220,13 +220,61 @@ class FieldSet:
     def tindex(self, t):
         return np.clip((t - self.t[0]) / max(self.dt_dump, 1e-12), 0.0, len(self.t) - 1.0)
 
+    @staticmethod
+    def _corner(c, n):
+        """Clamped base index and weight for one axis (matches mode='nearest')."""
+        c = np.clip(c, 0.0, n - 1.0)
+        i0 = np.clip(np.floor(c).astype(np.intp), 0, max(n - 2, 0))
+        return i0, (c - i0)
+
     def sample(self, names, ft, fk, fj, fi):
-        """Linear 4-D interpolation of the named fields at (t,k,j,i) fractional indices."""
-        coords = np.vstack([ft, fk, fj, fi])
-        return [map_coordinates(getattr(self, n), coords, order=1, mode="nearest")
-                for n in names]
+        """Linear 4-D interpolation of the named fields at (t,k,j,i) fractional indices.
+
+        Written out by hand rather than handed to scipy.ndimage.map_coordinates, for one
+        reason: map_coordinates refuses a float16 array ("data type not supported"), and
+        the cache HAS to be float16 for a long window to fit in memory. A 30-minute
+        averaging period needs a (30 min + t_back) window -- 541 dumps at 5 s -- which is
+        55 GB at fp32 against 28 GB at fp16 on a 62 GB machine. Gathering the 16 corners
+        and promoting them to float32 costs nothing and removes the dtype constraint.
+
+        Identical to order=1, mode='nearest' otherwise: coordinates are clamped to the
+        array, not wrapped (x and y are already wrap-padded by one cell at load time).
+        """
+        t0, wt = self._corner(ft, self.u.shape[0])
+        k0, wk = self._corner(fk, self.u.shape[1])
+        j0, wj = self._corner(fj, self.u.shape[2])
+        i0, wi = self._corner(fi, self.u.shape[3])
+        t1 = np.minimum(t0 + 1, self.u.shape[0] - 1)
+        k1 = np.minimum(k0 + 1, self.u.shape[1] - 1)
+        j1 = np.minimum(j0 + 1, self.u.shape[2] - 1)
+        i1 = np.minimum(i0 + 1, self.u.shape[3] - 1)
+        out = []
+        for nm in names:
+            A = getattr(self, nm)
+            acc = 0.0
+            for tt, ct in ((t0, 1.0 - wt), (t1, wt)):
+                for kk, ck in ((k0, 1.0 - wk), (k1, wk)):
+                    for jj, cj in ((j0, 1.0 - wj), (j1, wj)):
+                        for ii, ci in ((i0, 1.0 - wi), (i1, wi)):
+                            acc = acc + (A[tt, kk, jj, ii].astype(np.float64)
+                                         * (ct * ck * cj * ci))
+            out.append(acc)
+        return out
 
     def sample2d(self, names, ft, fj, fi):
-        coords = np.vstack([ft, fj, fi])
-        return [map_coordinates(getattr(self, n), coords, order=1, mode="nearest")
-                for n in names]
+        t0, wt = self._corner(ft, self.ustar.shape[0])
+        j0, wj = self._corner(fj, self.ustar.shape[1])
+        i0, wi = self._corner(fi, self.ustar.shape[2])
+        t1 = np.minimum(t0 + 1, self.ustar.shape[0] - 1)
+        j1 = np.minimum(j0 + 1, self.ustar.shape[1] - 1)
+        i1 = np.minimum(i0 + 1, self.ustar.shape[2] - 1)
+        out = []
+        for nm in names:
+            A = getattr(self, nm)
+            acc = 0.0
+            for tt, ct in ((t0, 1.0 - wt), (t1, wt)):
+                for jj, cj in ((j0, 1.0 - wj), (j1, wj)):
+                    for ii, ci in ((i0, 1.0 - wi), (i1, wi)):
+                        acc = acc + (A[tt, jj, ii].astype(np.float64) * (ct * cj * ci))
+            out.append(acc)
+        return out

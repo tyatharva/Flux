@@ -1,0 +1,54 @@
+CONUS404 at the Kegonsa tower -- climatology for corpus design, not forcing
+==============================================================================
+grid cell (y,x) = (621,855), CONUS404 terrain 277.8 m, land mask 1, LU category 14
+chunk stride 10 -> 6 contiguous days out of every 60; 39,456 hourly records, 1979-10-01 to 2024-08-10
+earth-relative rotation applied: COSALPHA=0.9953 SINALPHA=-0.0967 (-5.55 deg)
+
+--- ALL HOURS --------------------------------------------------------------
+  z_i  (PBLH)                n=39,456  mean=477 m   p5=27  p25=161  p50=356  p75=666  p95=1.35e+03  p99=1.89e+03
+  w'theta'  surface          n=39,456  mean=0.0229 K m/s   p5=-0.0266  p25=-0.0125  p50=-0.00157  p75=0.0425  p95=0.144  p99=0.213
+  H  sensible                n=39,456  mean=27.7 W/m2   p5=-33.2  p25=-15.4  p50=-1.94  p75=51.9  p95=174  p99=260
+  U(10 m)                    n=39,456  mean=3.72 m/s   p5=1.28  p25=2.32  p50=3.25  p75=4.7  p95=7.7  p99=10.2
+  u*  (MOST, z0=0.05)        n=39,456  mean=0.263 m/s   p5=0.0629  p25=0.112  p50=0.229  p75=0.368  p95=0.6  p99=0.779
+  U(30 m)  (MOST)            n=39,456  mean=4.49 m/s   p5=1.5  p25=2.67  p50=3.92  p75=5.87  p95=9.12  p99=12.1
+
+--- QUALITY-CONTROLLED (u* >= 0.15 m/s): 25,736 of 39,456 = 65.2% ------------
+  z_i                        n=25,736  mean=602 m   p5=79.5  p25=267  p50=493  p75=835  p95=1.47e+03  p99=1.96e+03
+  w'theta'                   n=25,736  mean=0.039 K m/s   p5=-0.0271  p25=-0.00569  p50=0.0145  p75=0.0757  p95=0.164  p99=0.229
+  u*                         n=25,736  mean=0.352 m/s   p5=0.168  p25=0.235  p50=0.319  p75=0.436  p95=0.649  p99=0.824
+  U(30 m)                    n=25,736  mean=5.57 m/s   p5=2.44  p25=3.89  p50=5.24  p75=6.76  p95=9.98  p99=12.9
+  z_i / L                    n=25,736  mean=-13.8   p5=-79.4  p25=-11.1  p50=-1.27  p75=1.11  p95=11.8  p99=27.9
+
+--- STABILITY (z/L at 30 m), quality-controlled -----------------------------
+  very unstable   27.2%   z_i p50   688 m   u* p50 0.29   w'th' p50 +0.091 K m/s
+  unstable        30.3%   z_i p50   488 m   u* p50 0.43   w'th' p50 +0.039 K m/s
+  near-neutral    13.3%   z_i p50   387 m   u* p50 0.42   w'th' p50 +0.000 K m/s
+  stable          20.4%   z_i p50   444 m   u* p50 0.28   w'th' p50 -0.010 K m/s
+  very stable      8.8%   z_i p50   411 m   u* p50 0.20   w'th' p50 -0.018 K m/s
+
+--- WIND ROSE x STABILITY, quality-controlled (% of all QC hours) ------------
+                  N     NE      E     SE      S     SW      W     NW     all
+  very unstable   3.86   3.52   3.36   3.23   3.85   3.47   3.08   2.81   27.18
+  unstable     3.58   3.14   2.74   1.94   4.37   4.60   4.37   5.57   30.32
+  near-neutral   1.41   2.01   1.90   1.05   1.51   1.38   1.81   2.28   13.34
+  stable       1.41   1.23   1.88   2.46   4.16   3.02   3.31   2.91   20.38
+  very stable   0.32   0.28   0.47   1.07   2.08   1.79   1.80   0.97    8.78
+  --------------------------------------------------------------------------
+  all         10.58  10.18  10.36   9.76  15.96  14.26  14.37  14.54  100.00
+
+  The array is upwind only on northerlies (CLAUDE.md), so the N/NE/NW columns are
+  the ones where the tower measures the array at all -- and they are where the
+  emulator's site-specific skill has to come from.
+
+--- RECOMMENDED SWEEP -------------------------------------------------------
+  z_i          80 - 1475 m      (p25 267, p50 493, p75 835)
+  w'theta'     -0.027 - +0.164 K m/s   (p50 +0.015)
+  u*           0.17 - 0.65 m/s       (p50 0.32)
+  U(30 m)      2.4 - 10.0 m/s       (p50 5.2)
+  direction    all 8 octants, sampled in proportion to the rose above but with a
+               floor, since N/NE/NW carry the array signal and must not be starved
+
+  Convective midday reference (local 10-16 h, w'theta' > 0.05):
+    n=7,461   z_i p25/p50/p75 = 568/859/1208 m   w'th' p25/p50/p75 = 0.080/0.109/0.145 K m/s
+    u* p50 0.40 m/s   U(30) p50 5.4 m/s   z_i/L p50 -19.8
+    JJA only (n=2,301): z_i p50 1127 m, w'th' p50 0.113 K m/s, z_i/L p50 -36.6

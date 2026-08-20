@@ -38,9 +38,28 @@ class FootprintGrid:
         self.res = float(res)
         self.xe = np.arange(x0, x1 + res, res)
         self.ye = np.arange(y0, y1 + res, res)
+        self._finish()
+
+    @classmethod
+    def from_edges(cls, xe, ye):
+        """Build on explicit cell edges.
+
+        Used for the STATIC raster, whose cells must coincide exactly with the LES
+        columns -- the surface masks, the roughness map and the CNF target all live on
+        that indexing, and an independently constructed grid that is merely close would
+        smear a 24 m array patch across two cells.
+        """
+        g = cls.__new__(cls)
+        g.xe = np.asarray(xe, dtype=float)
+        g.ye = np.asarray(ye, dtype=float)
+        g.res = float(g.xe[1] - g.xe[0])
+        g._finish()
+        return g
+
+    def _finish(self):
         self.xc = 0.5 * (self.xe[:-1] + self.xe[1:])
         self.yc = 0.5 * (self.ye[:-1] + self.ye[1:])
-        self.area = self.res ** 2
+        self.area = float(np.diff(self.xe).mean() * np.diff(self.ye).mean())
         self.flux = np.zeros((len(self.yc), len(self.xc)))
         self.conc = np.zeros((len(self.yc), len(self.xc)))
         self.n_particles = 0
@@ -111,6 +130,35 @@ class FootprintGrid:
     def crosswind_integrated(self, which="flux"):
         return self.normalised(which).sum(axis=0) * self.res
 
+    def metrics_map(self, which="flux"):
+        """Metrics for a NORTH-UP static raster, where "upwind distance" has no meaning.
+
+        The wind-frame quantities (peak upwind distance, crosswind-integrated profile) are
+        accumulated separately as a 1-D histogram of the touchdowns' upwind coordinate --
+        exactly, from the touchdowns themselves, rather than by rotating this raster, which
+        would blur the near field it is meant to resolve.
+        """
+        f = self.normalised(which)
+        tot = f.sum()
+        if tot <= 0:
+            return dict(centroid_e=np.nan, centroid_n=np.nan, centroid_dist=np.nan,
+                        centroid_bearing=np.nan, area80_cells=0, area80_ha=np.nan,
+                        peak_e=np.nan, peak_n=np.nan, degenerate=True)
+        e = float((f.sum(axis=0) * self.xc).sum() / tot)
+        n = float((f.sum(axis=1) * self.yc).sum() / tot)
+        m80 = source_area_mask(f, 0.80)
+        m50 = source_area_mask(f, 0.50)
+        jp, ip = np.unravel_index(int(np.argmax(f)), f.shape)
+        return dict(centroid_e=e, centroid_n=n,
+                    centroid_dist=float(np.hypot(e, n)),
+                    # bearing FROM the tower TO the centroid, degrees clockwise from north
+                    centroid_bearing=float(np.degrees(np.arctan2(e, n)) % 360.0),
+                    area80_cells=int(m80.sum()),
+                    area80_ha=float(m80.sum() * self.area / 1e4),
+                    area50_ha=float(m50.sum() * self.area / 1e4),
+                    peak_e=float(self.xc[ip]), peak_n=float(self.yc[jp]),
+                    peak_value=float(f[jp, ip]))
+
     def metrics(self, which="flux"):
         f = self.normalised(which)
         tot = f.sum()
@@ -132,6 +180,17 @@ class FootprintGrid:
                     x80_near=float(xs.min()) if len(xs) else np.nan,
                     x80_far=float(xs.max()) if len(xs) else np.nan,
                     area80_cells=int(mask.sum()), thr80=float(thr))
+
+
+def source_area_mask(f, frac=0.80):
+    """Boolean mask of the smallest set of cells holding `frac` of the footprint."""
+    tot = f.sum()
+    if tot <= 0:
+        return np.zeros(f.shape, dtype=bool)
+    flat = np.sort(f.ravel())[::-1]
+    cum = np.cumsum(flat) / tot
+    thr = flat[np.searchsorted(cum, frac)] if cum[-1] >= frac else flat[-1]
+    return f >= thr
 
 
 def source_area_overlap(a, b, frac=0.80):

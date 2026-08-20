@@ -10,7 +10,7 @@
 fork_url        = git@github.com:tyatharva/FastEddy-model.git
 fork_url_https  = https://github.com/tyatharva/FastEddy-model
 branch          = kegonsa
-pinned_sha      = 692a3cd8bc4ad3f9ed745ad49564033c75361423
+pinned_sha      = 159c85597eff4b20836b6a24f7f43c8669f61492
 
 upstream_url    = https://github.com/NCAR/FastEddy-model
 upstream_tag    = v5.0.1
@@ -20,6 +20,7 @@ upstream_sha    = e0cd2f3efcdff8ea543668228a983a95953478ca
 #
 #   59f0472  ioLPDMmode: lean 16-bit output for offline Lagrangian dispersion
 #   692a3cd  Fix ioLPDMmode: rho must be processed; packed range must avoid the fill value
+#   159c855  ioLPDMfullFrq: interleave a restartable full dump into lean output
 #
 # One optional parameter, defaulting to 0 = upstream behaviour, so the diff is inert unless
 # asked for. It writes only the fields a backward LPDM reads and CF-packs the 3-D

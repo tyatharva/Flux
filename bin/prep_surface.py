@@ -65,6 +65,42 @@ D_ARRAY = 1.2                # displacement height (m); recorded, not yet used b
 Z0_FALLBACK = 0.05           # any unmapped/no-data class
 WTH_UNIFORM = 0.0            # kinematic sensible heat flux; 0 everywhere == neutral
 
+# Convective cases only (--wth > 0): per-class MULTIPLIER on the reference land value.
+# FastEddy in this configuration has no radiation scheme -- surflayerSelector = 1
+# prescribes the kinematic surface heat flux directly -- so htFlux is the single channel
+# through which surface type reaches the thermodynamics, and it is per-cell
+# (cuda_surfaceLayerDevice.cu: with surflayer_idealsine = 0 the kernel comments
+# "reuse *htFlux array values" and never overwrites what the restart injected).
+#
+# Water is the important one and it is directional: within 4 km the water sits almost
+# entirely in the E and NE octants, so an easterly fetch is over a surface with roughly a
+# tenth of the land's sensible heat flux. A lake in a Wisconsin summer afternoon runs
+# H of order 0-20 W/m2 against 100-200 over the crop, because its heat goes into storage
+# and into latent flux, not into the air.
+WORLDCOVER_WTH = {
+    10: 1.10,    # tree cover -- rough, dry canopy, Bowen ratio above cropland
+    20: 1.10,    # shrubland
+    30: 1.10,    # grassland
+    40: 1.00,    # cropland  -- the REFERENCE
+    50: 1.50,    # built-up  -- little transpiration, most of Rn into H
+    60: 1.40,    # bare
+    70: 0.30,    # snow and ice
+    80: 0.12,    # PERMANENT WATER -- storage and latent, not sensible
+    90: 0.60,    # herbaceous wetland
+    95: 0.60,
+    100: 1.00,
+}
+# The solar array. CLAUDE.md lists the elevated heat source as an accepted omission, and
+# with a per-cell htFlux it no longer has to be one. PV modules are darker than the crop
+# they replaced (albedo ~0.1 against ~0.2) and they do not transpire, so essentially all of
+# the absorbed shortwave that is not exported as electricity leaves as sensible heat. Field
+# studies of utility-scale arrays report a daytime sensible-flux enhancement of order 1.5-2
+# over the adjacent vegetation. 1.6 is that, stated as an assumption and swept if it
+# matters. This is also the pathway CLAUDE.md identifies for albedo: with no radiation
+# scheme, htFlux is what albedo would have controlled.
+WTH_ARRAY = 1.60
+WTH_FALLBACK = 1.00
+
 
 def taper_weights(n, pad):
     """1 in the interior, smoothly 0 at both ends over `pad` cells (raised cosine)."""
@@ -124,6 +160,10 @@ def main():
     ap.add_argument("--dx", type=float, default=24.0)
     ap.add_argument("--pad", type=int, default=20,
                     help="taper ring width in cells (terrain only)")
+    ap.add_argument("--wth", type=float, default=0.0,
+                    help="reference LAND kinematic surface heat flux (K m/s). 0 = neutral. "
+                         "Per-class multipliers in WORLDCOVER_WTH scale it; the array "
+                         "gets WTH_ARRAY.")
     ap.add_argument("--smooth", type=int, default=2,
                     help="1-2-1 smoothing passes on the terrain (see note in source)")
     ap.add_argument("--dem", default="data/raw/output_USGS10m.tif")
@@ -233,6 +273,19 @@ def main():
     print("    -> terrain dt must be the flat dt divided by %.3f" % ampl)
 
     wth = np.full(topo.shape, WTH_UNIFORM)
+    if a.wth > 0.0:
+        f = np.full(cls.shape, WTH_FALLBACK)
+        for k, v in WORLDCOVER_WTH.items():
+            f[cls == k] = v
+        f[array] = WTH_ARRAY
+        wth = a.wth * f
+        print(f"  surface heat flux: reference land value {a.wth:.4f} K m/s "
+              f"({a.wth*1.15*1004.5:.0f} W/m2), per-class multipliers applied")
+        print(f"    range {wth.min():.4f} .. {wth.max():.4f} K m/s; "
+              f"domain mean {wth.mean():.4f}; water {a.wth*WORLDCOVER_WTH[80]:.4f}; "
+              f"array {a.wth*WTH_ARRAY:.4f}")
+        print(f"    NOT tapered at the seams -- it is a local boundary condition, "
+              f"like the roughness")
     write_topofile(os.path.join(a.outdir, "topo.bin"), topo)
     for nm, arr in (("topo", topo), ("z0m", z0), ("water", water.astype(np.float32)),
                     ("array", array.astype(np.float32)), ("htFlux", wth),
@@ -242,7 +295,7 @@ def main():
                 tower_x=tx, tower_y=ty, pad=a.pad, base=base,
                 slope_p50=float(q[0][0]), slope_p90=float(q[0][1]),
                 slope_p99=float(q[0][2]), slope_max=float(q[1]),
-                cfl_amplification=ampl, smooth=a.smooth)
+                cfl_amplification=ampl, smooth=a.smooth, wth_ref=a.wth)
     np.save(os.path.join(a.outdir, "meta.npy"), meta, allow_pickle=True)
     print(f"  wrote {a.outdir}/topo.bin and the .npy surface fields")
     return 0
