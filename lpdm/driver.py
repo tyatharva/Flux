@@ -113,6 +113,14 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
     marks = tuple(sorted(float(m) for m in tback_marks if 0 < float(m) <= t_back))
     cap_w = {m: 0.0 for m in marks}
     cap_fy = {m: np.zeros(len(fy_c)) for m in marks}
+    # Integral decomposed by how far the trajectory had TRAVELLED when it touched down.
+    # This is the direct test for periodic double counting: the domain repeats every Lx,
+    # so influence attributed to touchdowns beyond that distance is turbulence the
+    # trajectory had already sampled once. On a folded raster nothing falls off the edge
+    # any more, so the contamination shows up in the integral instead of being silently
+    # truncated -- which means it can finally be measured.
+    disp_edges = np.array([0.25, 0.5, 0.75, 1.0, 1.5, 2.0]) * fs.Lx
+    disp_w = np.zeros(len(disp_edges))
 
     # ---------------------------------------------------------------- reference frame
     # A real eddy-covariance system over a slope is DOUBLE ROTATED (Wilczak et al. 2001;
@@ -267,6 +275,9 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
         wt_c = 2.0 / np.maximum(res["td_w"], w_floor)
         wt = wsf[res["td_particle"]] * wt_c
         fy_h += np.histogram(X, bins=fy_e, weights=wt)[0]
+        dsp = np.hypot(res["td_x"] - xr, res["td_y"] - yr)     # UNWRAPPED, so it is the
+        for m_ in range(len(disp_edges)):                      # true path displacement
+            disp_w[m_] += wt[dsp <= disp_edges[m_]].sum()
         if marks:
             age = res.get("td_t")
             if age is not None:
@@ -314,6 +325,9 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
                        f2=fy_h2 / max(h2.n_particles, 1) / fs.dx),
                capture={m: dict(integral=float(cap_w[m] / npart),
                                 fy=cap_fy[m] / npart / fs.dx) for m in marks},
+               by_disp=[dict(max_disp=float(d), frac_of_Lx=float(d / fs.Lx),
+                             integral=float(v / npart))
+                        for d, v in zip(disp_edges, disp_w)],
                w_bar=Wb, w_sf_mean=w_sf_mean, yaw=float(theta), pitch=float(phi),
                cover_share={k: (v / cover_tot if cover_tot else np.nan)
                             for k, v in cover_w.items()},

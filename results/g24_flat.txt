@@ -1,30 +1,39 @@
 
-=== runs/g24_flat/window: 361 dumps ===
-  receptor  (i,j,k)=(140,93,3)  x=3372 y=2244  z=30.000 m ASL = 30.000 m AGL (ground 0.00 m)
-  releases  225 times over 2100-3000 s, 700 each = 157,500 particles; t_back=900 s
-  receptor means over the averaging period: U=+5.3119 V=+2.4083 W=+0.0067 m/s
-  double rotation: yaw +24.39 deg, pitch +0.066 deg (sin=+0.00115)
+=== runs/g24_flat/window: 541 dumps ===
+  cache 27.70 GB, window 0-2700 s (cadence 5.0 s), loaded in 196 s
+  receptor pinned to the TOWER cell (i,j) = (93, 93)
+  receptor  (i,j,k)=(93,93,3)  x=2244 y=2244  z=30.000 m ASL = 30.000 m AGL (ground 0.00 m)
+  releases  450 times over 900-2700 s, 700 each = 315,000 particles; t_back=900 s
+  receptor means over the averaging period: U=+5.5117 V=+2.3555 W=-0.0088 m/s
+  double rotation: yaw +23.14 deg, pitch -0.084 deg (sin=-0.00147)
   wrap-around cap: retiring trajectories past 4464 m of displacement (domain 4464 x 4464 m)
-  SGS MOST floor: factor 1.441 at the receptor (1.00-2.49 over the column); sigma_w/u* 1.03 -> 1.20 (surface-layer target 1.25)
-  mean streamline-frame w over all releases: +0.00184 m/s (model-frame mean was +0.00670); rotation removed 72.5% of it
-  LES scalars at z=30.00 m: U=5.99 m/s dir=247.5 deg  u*=0.347  h=607 m  1/L=0.00e+00
-    sigma_v 0.480 (resolved 0.348 + sub-grid, e_sgs=0.1630);  sigma_w 0.356 (resolved 0.135);  sigma_w/u* = 1.03 (surface-layer expectation ~1.25)
-  touchdowns 254,085;  largest single weight 142.4;  top 0.1% carry 8.3% of the total |weight|
-  integral of f_flux over grid = 0.984 (all touchdowns 0.984; shortfall = influence truncated by t_back=900 s)
+  SGS MOST floor: factor 1.449 at the receptor (1.00-2.53 over the column); phi_w=1.000 at z/L=+0.000; sigma_w/u* 1.02 -> 1.20 (surface-layer target 1.25)
+  mean streamline-frame w over all releases: +0.00246 m/s (model-frame mean was -0.00883); rotation removed 72.1% of it
+  LES scalars at z=30.00 m: U=6.02 m/s dir=247.1 deg  u*=0.350  h=607 m  1/L=0.00e+00
+    sigma_v 0.482 (resolved 0.351 + sub-grid, e_sgs=0.1640);  sigma_w 0.358 (resolved 0.136);  sigma_w/u* = 1.02
+  touchdowns 463,269;  largest single weight 188.8;  top 0.1% carry 7.5% of the total |weight|
+  integral of f_flux over the raster = 1.089 (all touchdowns 1.089)
 
-=== GATE 1: LES+LPDM vs Kljun et al. (2015) ===
-  LES+LPDM                   peak_x=  270.0 m  centroid=( 1034.6, -48.8) m  80% area=  25.56 ha  x80=[90,2610] m
-  Kljun FFP                  peak_x=  210.0 m  centroid=(  764.6,  -0.0) m  80% area=  25.56 ha  x80=[90,1350] m
-  Kljun x_max (analytic)       189.3 m
-  Kljun integral over grid   0.931
+=== flat-and-neutral reference check (Kljun is DIAGNOSTIC here, DESCRIPTIVE over real surface) ===
+  LES + LPDM               peak    264 m   80% of f_y within   1748 m   80% area   31.7 ha   centroid    653 m at 229.4 deg
+  Kljun FFP                peak    192 m   80% of f_y within   1108 m   80% area   17.6 ha   centroid    604 m at 247.1 deg
+  source-area overlap vs Kljun:  80% 40%   50% 41%
+  peak   LES 264 m   Kljun 192 m
+  integral over the raster:  LES 1.09   Kljun 0.87
+  NOTE: the near-field peak is CONSTRAINED -- the MOST-anchored sigma_w floor is
+        anchored to surface-layer similarity, the same theory Kljun rests on. The
+        80% area, the tail and the land-cover shares are free.
 
-  peak-location difference     +60.0 m (+29%)
-  centroid difference         +270.0 m (+35%)
-  80% source-area overlap      48.6%
+=== capture vs t_back (same window, same touchdowns, truncated) ===
+   t_back   150 s   integral 0.489  =  44.9% of the 900 s value   peak   264 m   80% within    500 m
+   t_back   300 s   integral 0.747  =  68.6% of the 900 s value   peak   264 m   80% within    846 m
+   t_back   450 s   integral 0.882  =  81.0% of the 900 s value   peak   264 m   80% within   1118 m
+   t_back   600 s   integral 0.968  =  88.9% of the 900 s value   peak   264 m   80% within   1367 m
+   t_back   750 s   integral 1.031  =  94.6% of the 900 s value   peak   264 m   80% within   1569 m
 
-=== GATE 2: irreducible error floor ===
-  window half 1              peak_x=  330.0 m  centroid=( 1010.6, -40.8) m  80% area=  22.32 ha  x80=[150,3210] m
-  window half 2              peak_x=  270.0 m  centroid=( 1059.5, -57.0) m  80% area=  26.28 ha  x80=[150,3330] m
-  half-vs-half  80% overlap   53.6%   peak difference +60.0 m   centroid difference -48.9 m
+=== error floor: the two halves of this window ===
+  half 1                   peak    264 m   80% of f_y within   1612 m   80% area   22.2 ha   centroid    681 m at 235.6 deg
+  half 2                   peak    336 m   80% of f_y within   2011 m   80% area   37.6 ha   centroid    636 m at 224.0 deg
+  half-vs-half 80% overlap 50%   peak difference -72 m   centroid difference 140 m
 
-  wrote results/g24_flat.json and results/g24_flat.png
+  wrote results/g24_flat.npz and .json
