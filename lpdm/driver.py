@@ -190,7 +190,26 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
         wwp = np.asarray(st["ww_prof"], dtype=np.float64)
         esp = np.asarray(st["esgs_prof"], dtype=np.float64)
         h = float(st["h"])
-        tgt2 = (1.25 * float(st["ustar"]) * np.maximum(1.0 - zl / max(h, 1.0), 0.0) ** 0.75) ** 2
+        # STABILITY DEPENDENCE. The neutral surface layer has sigma_w/u* = 1.25; under
+        # free convection it is larger and grows as (-z/L)^(1/3), and in stable conditions
+        # it is slightly larger per unit u* as well. Using the neutral constant in a CBL
+        # would anchor the floor to the wrong target -- and the CBL is the modal daytime
+        # state at this site (CONUS404: 57% of quality-controlled hours are unstable).
+        #
+        #   phi_w = (1 - 3 z/L)^(1/3)   z/L < 0    (Panofsky et al. 1977)
+        #         = 1 + 0.2 z/L         z/L > 0    (Kaimal & Finnigan 1994)
+        #
+        # phi_w(0) = 1 exactly, so every neutral result is unchanged bit for bit; this is a
+        # strict generalisation of the relation the floor was calibrated on, not a retune.
+        # It is still a SURFACE-LAYER relation, and the taper below still switches it off
+        # above 0.2h -- which in a CBL is where sigma_w stops scaling with u* and starts
+        # scaling with w*.
+        Lv = float(st["L"])
+        zeta = zl / Lv if np.isfinite(Lv) and abs(Lv) > 1e-6 else np.zeros_like(zl)
+        phi_w = np.where(zeta < 0.0, np.maximum(1.0 - 3.0 * zeta, 1.0) ** (1.0 / 3.0),
+                         1.0 + 0.2 * np.minimum(zeta, 2.0))
+        tgt2 = (1.25 * phi_w * float(st["ustar"])
+                * np.maximum(1.0 - zl / max(h, 1.0), 0.0) ** 0.75) ** 2
         need = np.maximum(tgt2 - wwp, 0.0)
         have = np.maximum((2.0 / 3.0) * esp, 1e-9)
         # MOST is a SURFACE-LAYER relation. Applying it through the whole boundary layer
@@ -206,6 +225,7 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
             kk = int(np.argmin(np.abs(zl - z_target)))
             print(f"  SGS MOST floor: factor {fac[kk]:.3f} at the receptor "
                   f"({fac.min():.2f}-{fac.max():.2f} over the column); "
+                  f"phi_w={phi_w[kk]:.3f} at z/L={zeta[kk] if np.ndim(zeta) else 0:+.3f}; "
                   f"sigma_w/u* {np.sqrt(wwp[kk] + (2/3)*esp[kk])/st['ustar']:.2f} -> "
                   f"{np.sqrt(wwp[kk] + fac[kk]*(2/3)*esp[kk])/st['ustar']:.2f} "
                   f"(surface-layer target 1.25)")
