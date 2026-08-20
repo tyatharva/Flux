@@ -1,5 +1,23 @@
 # Staged Plan — First Working Footprint
 
+> **FOURTH PASS, 2026-08-20 — `FOURTH_PASS_RESULTS.md`.** Five changes, four of them
+> closing gaps the third pass left open and one adding a regime it never had.
+>
+> 1. **A window is (30 min + `t_back`), not 30 min.** The third pass's footprints were
+>    15-minute footprints wearing a 30-minute label: the first `t_back` of a window yields
+>    no releases at all. Chaining a longer window under the 45-minute ceiling needed a fork
+>    change, `ioLPDMfullFrq`, because lean output is not restartable.
+> 2. **The raster is now the LES grid** — touchdowns bin by column index, folded modulo the
+>    domain. No rotation, no resample. Kljun is evaluated at the same cells' own
+>    coordinates. This is also the array the CNF will consume.
+> 3. **Convective is in.** CONUS404 says 57.5% of quality-controlled hours at this site are
+>    unstable, so neutral-only missed the modal daytime state.
+> 4. **CONUS404 is a climatology, never a forcing** — it sets sweep ranges and sampling
+>    density, nothing else.
+> 5. **Flat/neutral is a standing regression**, and it earned that on its first run: it
+>    found a well-mixed violation in the adopted `sigma_w` floor and a scoring bug in
+>    `run_case.sh`. See `FOURTH_PASS_RESULTS.md` §5.
+
 > **THIRD PASS, 2026-08-19 — `THIRD_PASS_RESULTS.md`.** Configuration changed: a **static**
 > `186 x 186 x 122` domain at **24 m** (4464 m box), geography built once from a USGS 3DEP
 > DEM and ESA WorldCover, direction set by rotating the geostrophic wind rather than the
@@ -212,6 +230,12 @@ is about storage, not speed, and those are separate problems.
 
 **Gate — well-mixed test:** release a uniform particle distribution in the flat neutral
 case from Stage 2. It must remain uniform.
+
+**IT MUST BE RUN IN THE CONFIGURATION FOOTPRINTS ARE ACTUALLY COMPUTED IN.** Added
+2026-08-20 after this gate missed a real violation for a whole pass. It had only ever been
+run on the unmodified closure, while every production footprint used `--sgs-most` — which
+rescales the sub-grid variance by a height-dependent factor and therefore changes the
+Thomson drift the gate exists to check. `stage4_wellmixed.py --sgs-most`.
 
 If particles accumulate near the surface, the SGS closure violates the well-mixed condition
 and **every footprint computed afterward is wrong in the near field** — precisely where the
