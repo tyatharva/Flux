@@ -67,7 +67,8 @@ def main():
         ax = [axg[0, 0], axg[0, 1], axg[1, 0]]
         ax1d = axg[1, 1]
         vmax = float(max(les.max(), klj.max()))
-        norm = LogNorm(vmin=vmax / 1e4, vmax=vmax)
+        vmin = vmax / 1e4
+        norm = LogNorm(vmin=vmin, vmax=vmax)
 
         def decorate(axx, dark=True):
             if not flat:
@@ -91,7 +92,12 @@ def main():
 
         for k, (F, name) in enumerate(((les, "LES + backward LPDM"),
                                        (klj, "Kljun et al. (2015), same scalars"))):
-            im = ax[k].imshow(np.ma.masked_less_equal(F, 0), origin="lower", extent=ext,
+            # Mask below the colour floor rather than painting it black: Kljun is
+            # analytically positive over a wide wedge and tiny over most of it, so a
+            # clipped log scale renders the whole wedge as a solid dark block and hides
+            # the geography underneath. Masking shows where each field is actually
+            # negligible, and it is the same threshold for both panels.
+            im = ax[k].imshow(np.ma.masked_less(F, vmin), origin="lower", extent=ext,
                               cmap="magma", norm=norm)
             decorate(ax[k])
             ax[k].set_title(name, fontsize=11)

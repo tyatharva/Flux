@@ -36,13 +36,25 @@ def main():
     a = ap.parse_args()
     paths = sorted(glob.glob(os.path.join(a.outdir, "*.[0-9]*")),
                    key=lambda p: int(p.split(".")[-1]))[::a.stride]
+    # Coordinate geometry is static and the fork's ioLPDMmode writes it into the FIRST
+    # file of a run only, so a mid-window dump legitimately has no zPos. Find it once.
+    z = zg = None
+    for q in sorted(glob.glob(os.path.join(a.outdir, "*.[0-9]*")),
+                    key=lambda p_: int(p_.split(".")[-1])):
+        with Dataset(q) as d:
+            if "zPos" in d.variables:
+                z = np.squeeze(np.asarray(d["zPos"][:], dtype=np.float64))[:, 0, 0]
+                zg = np.squeeze(np.asarray(d["topoPos"][:], dtype=np.float64))
+                geom_path = q
+                break
+    if z is None:
+        raise SystemExit("no dump in this directory carries zPos")
     ww = ee = None
     ust = 0.0
     for p in paths:
         with Dataset(p) as d:
             g = lambda v: np.squeeze(np.asarray(d[v][:], dtype=np.float64))
             w = g("w"); e = np.maximum(g("TKE_0"), 0.0)
-            z = g("zPos")[:, 0, 0]; zg = np.squeeze(np.asarray(d["topoPos"][:]))
             ust += float(g("fricVel").mean())
         v = ((w - w.mean(axis=(-2, -1), keepdims=True)) ** 2).mean(axis=(-2, -1))
         ww = v if ww is None else ww + v
@@ -52,7 +64,7 @@ def main():
     sg = (2.0 / 3.0) * ee
     frac = sg / np.maximum(ww + sg, 1e-30)
     dz = np.gradient(z)
-    with Dataset(paths[0]) as d:
+    with Dataset(geom_path) as d:
         xp = np.squeeze(np.asarray(d["xPos"][:], dtype=np.float64))
         dx = float(xp[0, 0, 1] - xp[0, 0, 0])
     delta = (dx * dx * dz) ** (1.0 / 3.0)

@@ -43,5 +43,4 @@ for s in $(seq $S0 $NSEG); do
   IN=$(basename $(ls -1 $D/output/FE_CBL.* | sort -t. -k2 -n | tail -1)); IPATH="./output/"
 done
 echo "### CBL spin-up complete: $(ls $D/output | wc -l) dumps"
-./docker/pyrun.sh docker/stage2_gate.py $(ls -1 $D/output/FE_CBL.* | sort -t. -k2 -n) 2>&1 \
-    | tail -40 | tee results/cbl_stage2.txt
+./docker/pyrun.sh bin/cbl_check.py $(ls -1 $D/output/FE_CBL.* | sort -t. -k2 -n) 2>&1 | tee results/cbl_spinup.txt
