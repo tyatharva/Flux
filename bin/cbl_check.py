@@ -7,6 +7,14 @@ and it is sharp enough to be a real test:
 
   z_i        height of the MINIMUM buoyancy flux (the entrainment minimum) -- the
              standard definition, and independent of the TKE threshold used elsewhere
+
+THE SURFACE FLUX IS THE PRESCRIBED htFlux, NOT THE RESOLVED COVARIANCE AT k=0. At the
+lowest LES level almost all of the heat flux is sub-grid -- it enters as a surface-layer
+boundary condition, not as resolved w'theta' -- so the resolved covariance there is
+0.01 K m/s against a prescribed 0.11. Using it makes w* three times too small, L twelve
+times too long, and the entrainment ratio meaningless. Away from the surface the resolved
+flux does dominate, so z_i and the entrainment MINIMUM are read off the resolved profile
+as usual; only the surface value comes from the boundary condition.
   w*         (g/theta * w'theta'_s * z_i)^(1/3), the convective velocity scale
   entrainment ratio   -w'theta'(z_i) / w'theta'(0)  ~  0.2   (Deardorff 1972; Moeng &
              Sullivan 1994). Too small means the inversion is not yet being eroded;
@@ -63,7 +71,7 @@ def main():
     for t_, p in zip(tt, ps):
         k = int(np.argmin(p["wt"]))
         zi = float(p["z"][k])
-        wts = float(p["wt"][0])
+        wts = float(p["hf"]) if np.isfinite(p["hf"]) else float(p["wt"][0])
         th0 = float(p["th"][0])
         ws = (G / th0 * max(wts, 1e-9) * zi) ** (1.0 / 3.0)
         er = -float(p["wt"][k]) / max(wts, 1e-9)
@@ -76,7 +84,7 @@ def main():
     k = int(np.argmin(last["wt"]))
     zi = float(last["z"][k])
     th0 = float(last["th"][0])
-    wts = float(last["wt"][0])
+    wts = float(last["hf"]) if np.isfinite(last["hf"]) else float(last["wt"][0])
     ws = (G / th0 * max(wts, 1e-9) * zi) ** (1.0 / 3.0)
     print(f"\n  --- final state: z_i = {zi:.0f} m, w* = {ws:.3f} m/s, "
           f"T* = z_i/w* = {zi/ws:.0f} s, u* = {last['ust']:.3f} m/s")
@@ -99,6 +107,10 @@ def main():
         print(f"  {zz[kk]:7.2f} {last['z'][kk]:7.0f} {sw[kk]:7.3f} {ref:9.3f} "
               f"{sw[kk]/max(ref,1e-9):7.2f}")
     er = -float(last["wt"][k]) / max(wts, 1e-9)
+    print(f"      surface flux (prescribed htFlux) {wts:.4f} K m/s; resolved w'theta' at "
+          f"the first level is only {float(last['wt'][0]):.4f} -- the rest is sub-grid")
+    print(f"      w*/u* = {ws/max(last['ust'],1e-9):.2f}  (free convection dominates "
+          f"above ~2)")
     ok = 0.10 <= er <= 0.35
     print(f"\n  entrainment ratio {er:.3f}  (expected ~0.2): "
           f"{'OK' if ok else 'OUTSIDE 0.10-0.35 -- check the capping inversion'}")
