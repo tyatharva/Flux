@@ -119,3 +119,83 @@ grid-relative to earth-relative wind rotation (`COSALPHA`/`SINALPHA`, -5.55 deg 
 whole direction bin and is applied.
 
 ---
+
+## 4. The convective regime
+
+The third pass ran neutral only. CONUS404 says that is the wrong single regime to have: at
+this site 27.2% of quality-controlled hours are very unstable and another 30.3% unstable,
+against 13.3% near-neutral. So the convective boundary layer is the modal daytime state,
+and the corpus has to contain it.
+
+`runs/g24_base/base_cbl.in` — an idealised dry CBL, cold start, every number taken from the
+CONUS404 midday distribution rather than guessed:
+
+| | value | source |
+|---|---|---|
+| `surflayer_wth` | **0.11 K m/s** (127 W/m2) | CONUS404 p50, local 10-16 h, `w'theta' > 0.05` |
+| mixed layer | 0-800 m at 300 K | CONUS404 midday `z_i` p50 = 859 m |
+| capping inversion | 800-900 m at 0.08 K/m (+8 K) | |
+| free atmosphere | 0.004 K/m | |
+| `U_g` | 10 m/s, unchanged from neutral | so the ONLY difference is thermal |
+| derived | `w* = 1.42 m/s`, `T* = 562 s`, `z_i/L = -18` | CONUS404 midday p50 `z_i/L` = -19.8 |
+
+Spin-up is 5400 s = **9.6 `T*`**, chained as three 33-minute segments.
+
+**Holding `U_g` fixed at 10 m/s is a design choice, not laziness.** The neutral corpus was
+forced the same way, so the neutral-to-convective difference is attributable to the thermal
+forcing alone rather than confounded with a wind-speed change. The achieved `u*` and
+`U(30 m)` are measured and reported per case.
+
+**`z_i` grows at about 148 m/h by entrainment and that is not drift.** A convective boundary
+layer has no stationary depth; `bin/cbl_check.py` reports the achieved `z_i`, `w*`, the
+entrainment ratio (expected ~0.2) and `sigma_w/w*` against Lenschow et al. (1980) rather
+than against NCAR's neutral validation case, which says nothing about a CBL.
+
+### Surface heat flux is per-cell, from the land cover
+
+`prep_surface.py --wth` gives `htFlux` a per-class map. With `surflayer_idealsine = 0`
+FastEddy's surface-layer kernel comments "reuse *htFlux array values" and never overwrites
+what the restart injected, so this needs no source change — the same restart-injection
+lever that already carries `z0m`.
+
+| class | multiplier | `w'theta'` (K m/s) |
+|---|---|---|
+| cropland (reference) | 1.00 | 0.110 |
+| tree / grass / shrub | 1.10 | 0.121 |
+| built-up | 1.50 | 0.165 |
+| **permanent water** | **0.12** | **0.013** |
+| **solar array** | **1.60** | **0.176** |
+
+**The water multiplier is directional, and that is the point.** Within 4 km the water is
+almost entirely E and NE, so an easterly fetch is over a surface with a tenth of the land's
+sensible heat flux — a real, strong, direction-dependent surface heterogeneity that the
+neutral cases cannot express at all.
+
+**The array multiplier retires an accepted omission.** CLAUDE.md lists the elevated heat
+source as a known omission; with a per-cell `htFlux` it no longer has to be one. PV modules
+are darker than the crop they replaced and do not transpire, so nearly all absorbed
+shortwave that is not exported as electricity leaves as sensible heat, and field studies of
+utility-scale arrays report a daytime enhancement of order 1.5-2. This is also the pathway
+CLAUDE.md identifies for albedo: with no radiation scheme, `htFlux` is what albedo would
+have controlled. So in the convective cases the array is a roughness patch **and** a heat
+source; in the neutral cases it is roughness only. The contrast is deliberate.
+
+### The sigma_w floor had to become stability-aware
+
+The adopted `--sgs-most` floor was anchored to `sigma_w/u* = 1.25`, the **neutral**
+surface-layer value. Under free convection the surface-layer value is larger and grows as
+`(-z/L)^(1/3)`, so the neutral constant would anchor the correction to the wrong target in
+exactly the regime that matters most.
+
+    phi_w = (1 - 3 z/L)^(1/3)   z/L < 0     (Panofsky et al. 1977)
+          = 1 + 0.2 z/L         z/L > 0     (Kaimal & Finnigan 1994)
+
+`phi_w(0) = 1` exactly, so **every neutral result is unchanged bit for bit** — this is a
+strict generalisation of the relation the floor was calibrated on, not a retune. At the
+planned CBL it takes the receptor target from `1.25 u*` to `1.81 u*`.
+
+The taper across `0.1h - 0.2h` is unchanged and matters more convectively than neutrally:
+above it, CBL `sigma_w` scales with `w*`, not `u*`, and a surface-layer relation has nothing
+to say there.
+
+---
