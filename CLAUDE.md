@@ -562,6 +562,40 @@ values, not the model, below ~1 M cells.
 
 ### Backward-LPDM traps, settled by measurement (2026-08-18)
 
+- **RESCALING THE SUB-GRID VARIANCE BREAKS THE WELL-MIXED CONDITION UNLESS THE DRIFT IS
+  RESCALED WITH IT.** Thomson's reverse-time drift contains `d(sigma^2)/dz`. `--sgs-most`
+  multiplies the variance by a HEIGHT-DEPENDENT `sc(z)` (2.5 near the surface, 1 above
+  `0.2h`), so the gradient the drift needs is
+
+      sc * dsig2dz  +  (2/3) e * dsc/dz
+
+  and `dsc/dz` is the larger of the two — comparable to the LES's own gradient. Using the
+  unscaled gradient leaves the drift too weak, backward particles get unopposed vertical
+  mixing, and **the flux-footprint integral climbs past 1 and keeps going** (1.089 at
+  `t_back = 900 s` on the flat neutral control, where the answer is exactly 1). Found
+  2026-08-20 by the standing flat/neutral control; fixed by the product rule, which
+  reduces to the unscaled field exactly when `sc = 1`.
+
+  Two lessons beyond the arithmetic. **An integral that crosses 1 and keeps climbing cannot
+  be truncation** — a finite backward time can only lose influence — so it is always a
+  model inconsistency, never a domain problem. And **the well-mixed gate must be run in the
+  configuration the footprints are actually computed in**: it had only ever been run on the
+  unmodified closure, so it could not have caught this. `stage4_wellmixed.py --sgs-most`.
+
+- **The footprint integral is a statement about the DOMAIN, not about `t_back`.** At
+  `t_back = 900 s` the flat/neutral integral is 0.888 — and Kljun, evaluated on the
+  IDENTICAL 4464 m box, integrates to **0.875**. An exact analytic footprint puts only
+  87.5% of its mass inside this domain, so 0.888 vs 0.875 is agreement to 1.5% and the
+  shortfall below 1 is simply the tail that lies outside the box. Never report the
+  shortfall as an estimator error without quoting Kljun on the same cells.
+
+- **`t_back`: shape converges by 450-600 s, magnitude does not converge at all.** Measured
+  exactly, by masking one release ensemble on touchdown age. The crosswind-integrated
+  profile is within 12.0% L1 of the 900 s answer by 600 s, against a **29.4%** half-vs-half
+  sampling floor, and the peak does not move across the whole range. Production windows use
+  `t_back = 900 s` (45-minute windows) because the integral is still gaining ~0.02 per
+  100 s at 900 s and the extra cost is about one hour across a whole campaign.
+
 - **Periodic wrap-around double-counts the footprint.** A backward trajectory that travels
   more than one domain length re-enters the turbulence it already sampled; its later
   touchdowns are the same eddies counted again. Left uncapped, the flux-footprint integral
