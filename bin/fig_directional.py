@@ -97,10 +97,25 @@ def main():
         ext = [d["xe"][0], d["xe"][-1], d["ye"][0], d["ye"][-1]]
         im = ax.imshow(np.ma.masked_less_equal(d["les"], 0), origin="lower", extent=ext,
                        aspect="equal", cmap="magma", norm=norm)
-        ax.contourf(X, Y, tile(water), levels=[0.5, 1.5], colors=["#00b8ff"], alpha=0.18)
-        ax.contour(X, Y, tile(water), levels=[0.5], colors="#00b8ff", linewidths=1.0)
-        ax.contourf(X, Y, tile(array), levels=[0.5, 1.5], colors=["#39ff14"], alpha=0.45)
-        ax.contour(X, Y, tile(array), levels=[0.5], colors="#39ff14", linewidths=1.8)
+        # Periodic images faint and dashed; the primary tile solid on top. The images are
+        # real -- trajectories wrap into them, up to the one-domain-length cap -- but the
+        # far field carries at most 2.3% of the flux (and negative in two cases), so they
+        # are prominent on a log colour scale and negligible in the integral.
+        J0, I0 = np.mgrid[0:ny, 0:nx]
+        dx0 = (I0 - it_) * dxg; dy0 = (J0 - jt_) * dxg
+        X0 = -(dx0 * ca + dy0 * sa); Y0 = -dx0 * sa + dy0 * ca
+        ax.contour(X, Y, tile(water), levels=[0.5], colors="#00b8ff", linewidths=0.7,
+                   linestyles=":", alpha=0.45)
+        ax.contour(X, Y, tile(array), levels=[0.5], colors="#39ff14", linewidths=0.9,
+                   linestyles=":", alpha=0.45)
+        ax.contourf(X0, Y0, water.astype(float), levels=[0.5, 1.5], colors=["#00b8ff"],
+                    alpha=0.18)
+        ax.contour(X0, Y0, water.astype(float), levels=[0.5], colors="#00b8ff",
+                   linewidths=1.0)
+        ax.contourf(X0, Y0, array.astype(float), levels=[0.5, 1.5], colors=["#39ff14"],
+                    alpha=0.55)
+        ax.contour(X0, Y0, array.astype(float), levels=[0.5], colors="#39ff14",
+                   linewidths=1.8)
         ax.plot(0, 0, marker="*", ms=15, mfc="w", mec="k", mew=0.8, ls="none", zorder=6)
         ax.set_xlim(ext[0], ext[1]); ax.set_ylim(ext[2], ext[3])
         ax.set_xlabel("upwind distance (m)")
@@ -117,13 +132,16 @@ def main():
         axi = ax.inset_axes([0.56, 0.60, 0.42, 0.37])
         axi.imshow(np.ma.masked_less_equal(d["les"], 0), origin="lower", extent=ext,
                    aspect="equal", cmap="magma", norm=norm)
-        axi.contourf(X, Y, tile(array), levels=[0.5, 1.5], colors=["#39ff14"], alpha=0.5)
-        axi.contour(X, Y, tile(array), levels=[0.5], colors="#39ff14", linewidths=1.4)
+        axi.contourf(X0, Y0, array.astype(float), levels=[0.5, 1.5], colors=["#39ff14"],
+                     alpha=0.55)
+        axi.contour(X0, Y0, array.astype(float), levels=[0.5], colors="#39ff14",
+                    linewidths=1.4)
         axi.plot(0, 0, marker="*", ms=9, mfc="w", mec="k", mew=0.6, ls="none")
         axi.set_xlim(-400, 700); axi.set_ylim(-450, 450)
         axi.set_xticks([]); axi.set_yticks([])
         for s_ in axi.spines.values():
-            s_.set_edgecolor("w")
+            s_.set_edgecolor("#39ff14"); s_.set_linewidth(1.4)
+        axi.set_title("near field, $\\pm$450 m", fontsize=7.5, color="0.25", pad=2)
 
     # ---- the gate: array and water share vs direction --------------------------------
     axa = fig.add_subplot(gs[1, 0:2])
@@ -142,9 +160,8 @@ def main():
     for i, v in enumerate(wat):
         axa.text(i + 0.19, v + 0.6, f"{v:.1f}%", ha="center", fontsize=8.5, color="#14507f")
     axa.set_xticks(x)
-    axa.set_xticklabels([f"{t}\n(array reaches "
-                         f"{ {'wN':250,'wS':100,'wE':60,'wW':60}.get(t,0) } m upwind)"
-                         for t in tags], fontsize=9)
+    CH = {"wN": 146, "wS": 108, "wE": 65, "wW": 65}
+    axa.set_xticklabels([f"{t}\n(array chord {CH.get(t,0)} m)" for t in tags], fontsize=9)
     axa.set_ylabel("% of the flux footprint")
     axa.grid(alpha=0.25, axis="y")
     axa.legend(frameon=False, fontsize=9)
@@ -161,8 +178,8 @@ def main():
     kl = d0["kljun"] / (d0["kljun"].sum() * RES * RES)
     axb.plot(d0["xc"], kl.sum(axis=0) * RES, lw=2.0, ls="--", color="k",
              label="Kljun (from the northerly's inputs)")
-    axb.axvspan(0, 250, color="#39ff14", alpha=0.22)
-    axb.text(125, axb.get_ylim()[1] * 0.02, "array reach,\nnortherly", ha="center",
+    axb.axvspan(0, 146, color="#39ff14", alpha=0.22)
+    axb.text(73, axb.get_ylim()[1] * 0.02, "array chord,\nnortherly", ha="center",
              fontsize=8, color="#1a6b1a")
     axb.set_xlim(-50, 2600); axb.grid(alpha=0.25)
     axb.set_xlabel("upwind distance (m)"); axb.set_ylabel("$f_y$ (m$^{-1}$)")

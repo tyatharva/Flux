@@ -7,6 +7,13 @@
 > S), which turns Stage 6 into a ~300x directional test. Two results below are superseded:
 > the thread block (`1x2x64`, not `4x4x16`, worth 17%) and Stage 5's diagnosis (the
 > near-field error is a measurable `sigma_w` deficit, not diffuse resolution loss).
+>
+> **EXECUTED 2026-08-20.** Stage 2 stationarity ✅ PASS (was -8.4 sigma), Stage 3 ✅ PASS on
+> the fork at 15 GB per window, Stage 6 ✅ PASS quantitatively — the array takes 15.9x its
+> area share on a northerly and 0.00x on a westerly, from one fixed patch with only the wind
+> turning, and the measured directional ratios reproduce the geometric prediction to within
+> a factor of two. Stage 5's sub-grid gate still fails (~80%) but the error it proxies for is
+> now diagnosed and largely corrected. Full results in `THIRD_PASS_RESULTS.md`.
 
 Goal of this plan: **one FastEddy run producing one backward-LPDM flux footprint.**
 Not a corpus. Not a trained model. One end-to-end pass.
