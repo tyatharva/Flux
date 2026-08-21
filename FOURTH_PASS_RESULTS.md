@@ -381,3 +381,95 @@ it cannot remove it from the *transport*. This is the advective non-closure that
 covariance hard over complex terrain, and it is a result rather than an estimator error.
 
 ---
+
+## 7. The convective regime, and what it did to the sub-grid gate
+
+### The spin-up validates against convective similarity
+
+90 minutes = 9.6 `T*`, cold start, flat and uniform. `bin/cbl_check.py` compares against a
+CBL's own structure rather than against NCAR's neutral case, which says nothing about one.
+
+| | LES | expected |
+|---|---|---|
+| `w*` | 1.434 m/s | 1.42 predicted from `w'theta'` and `z_i` |
+| `T* = z_i/w*` | 574 s | 562 |
+| `z_i` | 823 m | 800 initial, entraining |
+| `w*/u*` | **2.86** | > 2 means free convection dominates |
+| **entrainment ratio** | **0.149** | 0.10-0.35 (Deardorff 1972) — **OK** |
+| `sigma_w/w*` at `z/z_i` = 0.1 / 0.2 / 0.35 / 0.5 | 0.491 / 0.607 / 0.683 / 0.703 | Lenschow 0.572 / 0.659 / 0.679 / 0.641 |
+
+Within 10% of Lenschow through the bulk and within 21% everywhere. Domain TKE flat over the
+last three dumps.
+
+**One deviation, stated rather than tuned away.** `z_i/L` came out **-9.3**, not the -18
+designed for, because `u*` reached 0.502 rather than the assumed 0.40: a CBL with the same
+geostrophic forcing mixes momentum down and raises `u*`. So the case lands in the site's
+*unstable* class (30.3% of quality-controlled hours) rather than *very unstable* (27.2%).
+Kept, because holding `U_g` fixed at 10 m/s is what makes the neutral-to-convective
+difference attributable to the thermal forcing alone. Achieved values are reported
+throughout, never requested ones.
+
+**A diagnostic trap worth recording.** `cbl_check.py` first read the surface buoyancy flux
+as the RESOLVED covariance at `k = 0`. At the lowest LES level almost all of the heat flux
+is sub-grid — it enters as a surface-layer boundary condition — so that reads 0.0088 K m/s
+against a prescribed 0.11. Every derived quantity then said "this is not a convective
+boundary layer" about a boundary layer that is: `w*` three times too small, `L` twelve times
+too long, `z_i/L` = -0.6 instead of -9.3, and `sigma_w/w*` at 2-2.7x Lenschow.
+
+### The sub-grid gate: the predicted improvement, measured
+
+| | neutral flat | convective flat |
+|---|---|---|
+| sub-grid fraction of `sigma_w^2` at 30 m | **85.5%** | **52.3%** |
+| `Delta` needed to reach the 40% gate | <~ 8.6 m | **<~ 14.4 m** |
+| resolved `w` variance at `k = 1` | 3.2e-3 | **2.75e-2** (8.6x) |
+
+It falls, substantially, for the predicted reason: CBL `sigma_w` draws on resolved
+`z_i`-scale thermals rather than `z`-scale eddies, and 24 m resolves a 900 m thermal far
+better than it resolves a 30 m surface-layer eddy. **Convection nearly halves the resolution
+requirement** — the gate needs `Delta <~ 14.4 m` instead of 8.6 m, i.e. about 1.2x finer
+spacing rather than 2x. Still a FAIL at `Delta = 17.05 m`, but a much closer one.
+
+### The floor does MORE convectively, not less — and why that is not a contradiction
+
+Floor factor at the receptor: **3.37x** convectively, 1.45x on flat neutral ground, and
+**1.00-1.002x over real terrain in all four neutral directions**. The expectation going in
+was that better-resolved convection would need less. It needs more, and the reason is that
+two different quantities were being conflated:
+
+| | sub-grid FRACTION | `sigma_w` DEFICIT vs similarity |
+|---|---|---|
+| neutral flat | 85.5% | 1.02 against 1.25 u*, **18% low** |
+| convective flat | **52.3%** | 1.06 against 1.56 u*, **32% low** |
+
+Convection resolves a far larger *share* of the variance and still sits further below what
+similarity asks for, because similarity asks for much more: the target rises from 1.25 u* to
+1.56 u* while the LES only moves from 1.02 to 1.06.
+
+**This also exposed a modelling freedom that had been implicit.** The floor is anchored to
+Panofsky et al. (1977). Lenschow et al. (1980)'s mixed-layer relation asks for 1.26 u* where
+Panofsky asks 1.56 u*. The two **agree to 1% in the free-convection limit** —
+`1.803 kappa^(1/3) / 1.34 = 0.991` — and differ only in the transition, where Panofsky
+retains a neutral 1.25 u* term carrying shear production and Lenschow has none. A 30 m
+receptor under a 900 m CBL sits exactly in that transition.
+
+`--sgs-most-mode {surface,blend,mixed}` makes the choice explicit and measurable. The
+default stays `surface`, on the grounds that it is the more complete of the two where shear
+is not negligible; **`blend` must never be the default**, because as `w* -> 0` the
+mixed-layer target goes to zero and the minimum would switch the floor off just short of
+neutral, where it is needed most.
+
+### The convective flat control is the best Kljun agreement of the pass
+
+| | LES | Kljun |
+|---|---|---|
+| peak | **192 m** | **192 m** — exact |
+| 80% source area | 14.8 ha | 26.0 ha |
+| 80% / 50% overlap | **64% / 68%** | — |
+| integral | 0.902 | 0.875 |
+
+Against 50% / 44% overlap for the neutral flat control. The LES footprint is *tighter* than
+Kljun's, which is what a convective boundary layer should do: strong vertical mixing brings
+influence down closer to the tower.
+
+---
