@@ -16,23 +16,31 @@ upstream_url    = https://github.com/NCAR/FastEddy-model
 upstream_tag    = v5.0.1
 upstream_sha    = e0cd2f3efcdff8ea543668228a983a95953478ca
 
-# Divergence from upstream v5.0.1 as of 2026-08-19: ONE feature, ioLPDMmode.
+# Divergence from upstream v5.0.1 as of 2026-08-21: ONE feature area, lean LPDM output.
 #
 #   59f0472  ioLPDMmode: lean 16-bit output for offline Lagrangian dispersion
 #   692a3cd  Fix ioLPDMmode: rho must be processed; packed range must avoid the fill value
 #   159c855  ioLPDMfullFrq: interleave a restartable full dump into lean output
 #
-# One optional parameter, defaulting to 0 = upstream behaviour, so the diff is inert unless
-# asked for. It writes only the fields a backward LPDM reads and CF-packs the 3-D
-# prognostics to 16 bit: a 30-min window at 5 s goes from 61 GB to 15.4 GB at the 24 m grid.
-# The resulting files are NOT restartable (rho and pressure are absent by construction).
+# TWO optional parameters (SRC/IO/io.c:92-95), both defaulting to 0 = upstream behaviour,
+# so the diff is inert unless asked for:
 #
-# The kegonsa branch is currently byte-identical to upstream v5.0.1. All build
-# customization for this project (sm_89, include/library paths) is applied via
-# make command-line overrides in docker/build_fasteddy.sh, NOT by editing the
-# FastEddy Makefile. This keeps the fork's diff against upstream empty so that
-# pulling NCAR bugfixes stays conflict-free, and so that the first real commit
-# on kegonsa is a genuine physical or numerical change.
+#   ioLPDMmode     writes only the fields a backward LPDM reads and CF-packs the 3-D
+#                  prognostics to 16 bit. A 30-min window at 5 s goes from 61 GB to 15.4 GB
+#                  at the 24 m grid. These files are NOT restartable -- rho and pressure are
+#                  absent by construction.
+#   ioLPDMfullFrq  writes any dump whose ABSOLUTE step is a multiple of N in full upstream
+#                  form while every other dump stays lean, which is what makes a long
+#                  sampling window chainable under the 45-minute wall cap. Verified: the
+#                  interleaved full dump has the same variable set and dtypes as a mode-0
+#                  dump and differs from an independent mode-0 run only at the ~1e-4
+#                  nondeterminism floor.
+#
+# The kegonsa branch touches SRC/IO/ ONLY -- io.c, io.h and io_netcdf.c. No solver,
+# grid or hydro-core file is modified, so NCAR bugfixes outside SRC/IO/ merge cleanly.
+# All build customization for this project (sm_89, include/library paths) is applied via
+# make command-line overrides in docker/build_fasteddy.sh, NOT by editing the FastEddy
+# Makefile, so the build setup contributes nothing to the diff.
 #
 # A vertical-subset (k-range) limit remains possible if storage ever binds again, but
 # ioLPDMmode already clears the Stage 3 gate by a factor of two, so it has not been needed.
