@@ -75,6 +75,17 @@ def main():
                     help="surface dir whose meta.npy pins the receptor to the tower cell")
     ap.add_argument("--sgs-most", action="store_true",
                     help="MOST-anchored sub-grid variance floor (see lpdm/driver.py)")
+    ap.add_argument("--sgs-most-mode", default="surface",
+                    choices=("surface", "blend", "mixed"),
+                    help="which similarity relation the sigma_w floor is anchored to. "
+                         "'surface' (default) is Panofsky et al. (1977), which carries "
+                         "both shear and buoyancy production and reduces to 1.25 u* at "
+                         "neutral. 'mixed' is Lenschow et al. (1980), a free-convection "
+                         "relation with no neutral term. 'blend' takes the minimum. The "
+                         "two asymptote to within 1% of each other in free convection but "
+                         "differ by ~25% in the transition, which is where a 30 m "
+                         "receptor in a 900 m CBL sits -- so this is a real modelling "
+                         "freedom and it is quantified rather than assumed away.")
     ap.add_argument("--sgs-scale", type=float, default=1.0,
                     help="multiplier on the sub-grid VARIANCE (diagnostic lever)")
     ap.add_argument("--aniso", action="store_true",
@@ -120,7 +131,8 @@ def main():
                               t_back=a.tback, c0=a.c0, seed=len(runs), cover=cover,
                               aniso=SURFACE_LAYER_ANISO if a.aniso else None,
                               sgs_scale=a.sgs_scale, sgs_most=a.sgs_most,
-                              tback_marks=marks, rel_seconds=a.rel_seconds, receptor_ij=rij)
+                              tback_marks=marks, rel_seconds=a.rel_seconds,
+                              sgs_most_mode=a.sgs_most_mode, receptor_ij=rij)
         if a.sgs_scale != 1.0:
             print("  SUB-GRID VARIANCE SCALED by %.3f (diagnostic)" % a.sgs_scale)
         if a.aniso:
@@ -192,7 +204,8 @@ def main():
                cover_share=r0.get("cover_share", {}),
                cover_share_nowrap=r0.get("cover_share_nowrap", {}),
                wrapped_fraction=r0.get("wrapped_fraction", None),
-               sgs_most=bool(a.sgs_most), wind_angle=r0["wind_angle"])
+               sgs_most=bool(a.sgs_most), sgs_most_mode=a.sgs_most_mode,
+               wind_angle=r0["wind_angle"])
 
     # ---- how much backward time the estimator actually needs ------------------------
     if r0.get("capture"):

@@ -39,7 +39,8 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
                       grid_x=(-600.0, 4500.0), grid_y=(-1500.0, 1500.0),
                       seed=0, split_halves=True, batch_releases=12, w_floor=0.02,
                       max_disp=None, cover=None, aniso=None, sgs_scale=1.0, sgs_most=False,
-                      receptor_ij=None, tback_marks=(), rel_seconds=None, verbose=True):
+                      receptor_ij=None, tback_marks=(), rel_seconds=None, sgs_most_mode="surface",
+                      verbose=True):
     """Release, integrate backward, accumulate on the STATIC north-up raster.
 
     THE RASTER IS THE LES GRID. Touchdowns are binned by their LES column index, folded
@@ -216,8 +217,40 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
         zeta = zl / Lv if np.isfinite(Lv) and abs(Lv) > 1e-6 else np.zeros_like(zl)
         phi_w = np.where(zeta < 0.0, np.maximum(1.0 - 3.0 * zeta, 1.0) ** (1.0 / 3.0),
                          1.0 + 0.2 * np.minimum(zeta, 2.0))
-        tgt2 = (1.25 * phi_w * float(st["ustar"])
-                * np.maximum(1.0 - zl / max(h, 1.0), 0.0) ** 0.75) ** 2
+        tgt_sfc = (1.25 * phi_w * float(st["ustar"])
+                   * np.maximum(1.0 - zl / max(h, 1.0), 0.0) ** 0.75)
+        # MIXED-LAYER TARGET, and why a convective case needs both.
+        #
+        # The surface-layer relation above and Lenschow et al. (1980)'s mixed-layer
+        # relation are both standard, both valid in their own regime, and at the
+        # measurement height of a convective boundary layer they DISAGREE: at
+        # z/L = -0.4, z/z_i = 0.033 the surface-layer form asks for sigma_w/u* = 1.62
+        # while Lenschow asks for about 1.26. Anchoring a floor to the larger of two
+        # relations that disagree by 30% is how a correction becomes a fudge.
+        #
+        # THE DEFAULT REMAINS THE SURFACE-LAYER FORM, for a reason worth writing down.
+        # In the free-convection limit the two agree to 1%: Panofsky asymptotes to
+        # 1.803 (kappa z g/theta w'th')^(1/3) and Lenschow to 1.34 (z g/theta w'th')^(1/3),
+        # and 1.803 kappa^(1/3) / 1.34 = 0.991. They differ only in the TRANSITION, where
+        # the surface-layer form retains a neutral 1.25 u* term that carries shear
+        # production and the mixed-layer form has none. At z/L = -0.36 the shear term is
+        # not negligible, so the surface-layer form is the more complete of the two.
+        # 'blend' and 'mixed' exist to MEASURE how much that choice is worth, not to
+        # quietly replace it -- and 'blend' must never be the default, because as w* -> 0
+        # the mixed-layer target -> 0 and the minimum would switch the floor off entirely
+        # just short of neutral, where it is needed most.
+        wth = float(st.get("htFlux", 0.0) or 0.0)
+        th0 = float(st.get("theta0", 300.0) or 300.0)
+        wstar = (9.81 / th0 * max(wth, 0.0) * max(h, 1.0)) ** (1.0 / 3.0)
+        zz = np.clip(zl / max(h, 1.0), 1e-4, 1.5)
+        tgt_mix = 1.34 * wstar * zz ** (1.0 / 3.0) * np.maximum(1.0 - 0.8 * zz, 0.0)
+        if sgs_most_mode == "surface" or wstar <= 0.0:
+            tgt = tgt_sfc
+        elif sgs_most_mode == "mixed":
+            tgt = tgt_mix
+        else:                                     # "blend": the conservative floor
+            tgt = np.minimum(tgt_sfc, tgt_mix)
+        tgt2 = tgt ** 2
         need = np.maximum(tgt2 - wwp, 0.0)
         have = np.maximum((2.0 / 3.0) * esp, 1e-9)
         # MOST is a SURFACE-LAYER relation. Applying it through the whole boundary layer
@@ -231,6 +264,10 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
         sgs_scale = (zl, fac)
         if verbose:
             kk = int(np.argmin(np.abs(zl - z_target)))
+            print(f"  SGS floor mode '{sgs_most_mode}': surface-layer target "
+                  f"{tgt_sfc[kk]/st['ustar']:.2f} u*, mixed-layer target "
+                  f"{tgt_mix[kk]/st['ustar']:.2f} u* (w*={wstar:.2f} m/s), "
+                  f"used {tgt[kk]/st['ustar']:.2f} u*")
             print(f"  SGS MOST floor: factor {fac[kk]:.3f} at the receptor "
                   f"({fac.min():.2f}-{fac.max():.2f} over the column); "
                   f"phi_w={phi_w[kk]:.3f} at z/L={zeta[kk] if np.ndim(zeta) else 0:+.3f}; "
