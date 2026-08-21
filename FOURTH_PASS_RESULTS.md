@@ -482,3 +482,83 @@ Kljun's, which is what a convective boundary layer should do: strong vertical mi
 influence down closer to the tower.
 
 ---
+
+## 8. Stage 6, convective — PASS, and convection changes the answer completely
+
+Same four directions, same fixed geography, same 90-degree re-indexing, from the convective
+spin-up. Achieved winds land closer to the cardinal points than the neutral set because the
+Ekman turning angle is smaller in a well-mixed CBL (7-13 deg against 22-25 deg).
+
+| case | wind from | **array** | x area | **water** | x area | peak | `x50` | integral |
+|---|---|---|---|---|---|---|---|---|
+| **wN** | 353 deg | **48.02%** | **222x** | 0.00% | 0.00 | 144 m | **202 m** | 1.250 |
+| wS | 177 deg | 8.67% | 40x | -0.02% | 0.00 | 168 m | 272 m | 0.693 |
+| wE | 83 deg | 0.21% | 1.0x | **5.32%** | 0.33 | 168 m | 191 m | 1.047 |
+| wW | 263 deg | 0.09% | 0.4x | 0.00% | 0.00 | 240 m | 339 m | 0.759 |
+
+**Array swing 528x**, against 368x neutral.
+
+### On a convective northerly the tower is measuring itself
+
+**48% of the flux comes from the solar array** — from 0.22% of the domain. Neutrally the same
+geometry gives 3.01%. Three effects compound and all three are physical:
+
+1. **The footprint is far more compact.** `x50` halves, 468 m -> 202 m, because convective
+   mixing brings influence down close to the tower.
+2. **The achieved wind is closer to due north** (353 deg against 335 deg), so the array's
+   upwind chord is 252 m against 143 m — nearly the full 250 m the rectangle offers.
+3. **The array carries 1.6x the surface heat flux** of the cropland around it. That is the
+   albedo pathway PROJECT_BRIEF.md lists as an accepted omission, and it is no longer omitted.
+
+### The lake runs the opposite way
+
+15.33% of the neutral easterly footprint, **5.32% convectively** — a 2.9x reduction for the
+same lake and nearly the same direction. Again two compounding effects: the convective
+footprint does not reach as far into water that starts more than 1 km out, and water carries
+**0.12x** the land's sensible heat flux, so it generates almost none of the thermals a
+convective footprint is made of.
+
+**Two surface features, two opposite responses to the same change in stability.** The array
+gains an order of magnitude; the lake loses two thirds. Neither is put in by hand — both
+follow from one per-cell `htFlux` map and the flow.
+
+### The gate, made quantitative — and it closes to 1%
+
+| case | chord | PRED from the LES's own `f_y` | **MEASURED** |
+|---|---|---|---|
+| wN | 252 m | 47.74% | **48.02%** |
+| wS | 100 m | 8.79% | **8.67%** |
+| wE | 60 m | 0.93% | 0.21% |
+| wW | 60 m | 0.60% | 0.09% |
+
+For the two directions where the array registers at all, predicting its share from the
+rectangle's upwind chord and the LES's **own** crosswind-integrated footprint reproduces the
+measured land-cover attribution to **0.6% and 1.4%**. Those are independent calculations —
+one geometric, one accumulated from ~236,000 touchdowns in LES index space — so the
+agreement says the attribution is real and not an artifact of how touchdowns are binned. The
+60 m chords are 2.5 grid cells and the geometric estimate is not meaningful there.
+
+Kljun predicts **28.31%** for the northerly against 48.02% measured: it under-predicts by
+1.7x because its footprint is broader than the convective LES's. That is the gate — a
+difference from Kljun, in a direction that is explained.
+
+### Convective windows are cheaper to converge, which the corpus should exploit
+
+Half-vs-half sampling floor, all eight production cases:
+
+| | 80% overlap | peak difference | **centroid difference** |
+|---|---|---|---|
+| neutral, four directions | 37-54% | 0-168 m | **152-436 m** |
+| convective, four directions | 43-51% | 0-24 m | **15-90 m** |
+
+**The convective centroid is four to ten times better determined by the same 30 minutes of
+releases.** The third pass established the centroid as the expensive metric — 336 m at p90
+after 22.5 min — but that was measured on a *neutral flat* case. A compact footprint with a
+short tail converges far faster, and the peak is identical between halves in three of the
+four convective cases.
+
+So the sampling time a corpus case needs is **stability-dependent**, and the neutral cases
+set the requirement. That is worth knowing before buying GPU hours uniformly across the
+sweep.
+
+---
