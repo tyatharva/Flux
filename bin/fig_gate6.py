@@ -96,7 +96,13 @@ def main():
         if c == len(have) - 1:
             cb = fig.colorbar(im, ax=ax, pad=0.015, fraction=0.035)
             cb.set_label("$f$ (m$^{-2}$)", fontsize=8)
-        axi = ax.inset_axes([0.56, 0.60, 0.42, 0.37])
+        # Put the near-field inset on the DOWNWIND side, so it never covers the plume.
+        # The plume runs upwind along (ux, uy), so the free corner is the opposite one.
+        # (ux, uy) is the direction the wind BLOWS, so it points DOWNWIND -- which is the
+        # empty half of the panel, the footprint being upwind of the tower.
+        ix0 = 0.56 if ux > 0 else 0.02
+        iy0 = 0.60 if uy > 0 else 0.03
+        axi = ax.inset_axes([ix0, iy0, 0.42, 0.37])
         axi.imshow(np.ma.masked_less_equal(z["les"], 0), origin="lower", extent=ext,
                    aspect="equal", cmap="magma", norm=norm)
         axi.contourf(dxm, dym, array.astype(float), levels=[0.5, 1.5], colors=["#39ff14"],
@@ -107,7 +113,7 @@ def main():
         axi.set_xticks([]); axi.set_yticks([])
         for s_ in axi.spines.values():
             s_.set_edgecolor("#39ff14"); s_.set_linewidth(1.4)
-        axi.set_title("near field, $\\pm$450 m", fontsize=7.5, color="0.25", pad=2)
+        axi.set_title("near field, $\\pm$450 m", fontsize=7.5, color="0.25", pad=1.5)
 
     # ---- the gate ---------------------------------------------------------------------
     axa = fig.add_subplot(gs[1, 0:2])
@@ -120,21 +126,26 @@ def main():
     axa.bar(x + 0.19, wat, 0.36, color="#1f77b4", label="open water")
     axa.axhline(aa, color="#2ca02c", ls="--", lw=1.2)
     axa.axhline(wa, color="#1f77b4", ls="--", lw=1.2)
-    axa.text(len(tags) - 0.5, aa, f" array area share {aa:.2f}%", fontsize=8,
-             color="#1a6b1a", va="bottom", ha="right")
-    axa.text(len(tags) - 0.5, wa, f" water area share {wa:.1f}%", fontsize=8,
-             color="#14507f", va="bottom", ha="right")
+    axa.text(-0.45, aa + 0.15, f"array area share {aa:.2f}%", fontsize=8,
+             color="#1a6b1a", va="bottom", ha="left")
+    axa.text(-0.45, wa + 0.15, f"water area share {wa:.1f}%", fontsize=8,
+             color="#14507f", va="bottom", ha="left")
+    # Log scale: the whole point is a swing of two to three orders of magnitude, and a
+    # linear axis renders every direction but the easterly as a flat line at zero.
+    axa.set_yscale("symlog", linthresh=0.01, linscale=0.5)
+    axa.set_ylim(0, 40)
     for i, v in enumerate(arr):
-        axa.text(i - 0.19, max(v, 0) + 0.4, f"{v:.2f}%\n({v/aa:.0f}x)", ha="center",
-                 fontsize=8, color="#1a6b1a")
+        axa.text(i - 0.19, max(v, 0.011) * 1.35, f"{v:.2f}%\n{v/aa:.1f}x area",
+                 ha="center", fontsize=8, color="#1a6b1a")
     for i, v in enumerate(wat):
-        axa.text(i + 0.19, max(v, 0) + 0.4, f"{v:.1f}%", ha="center", fontsize=8,
-                 color="#14507f")
+        axa.text(i + 0.19, max(v, 0.011) * 1.35, f"{v:.2f}%\n{v/wa:.2f}x area",
+                 ha="center", fontsize=8, color="#14507f")
     axa.set_xticks(x)
     axa.set_xticklabels([f"{t}\n{load(a.prefix,t)[1]['stats']['wdir']:.0f}$\\degree$"
                          for t in tags], fontsize=9)
     axa.set_ylabel("% of the flux footprint")
-    axa.grid(alpha=0.25, axis="y"); axa.legend(frameon=False, fontsize=9, loc="upper left")
+    axa.grid(alpha=0.25, axis="y")
+    axa.legend(frameon=False, fontsize=9, loc="lower left", ncol=2)
     axa.set_title("THE GATE — one fixed patch, one fixed lake, only the wind turns",
                   fontsize=10.5)
 

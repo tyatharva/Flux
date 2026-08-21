@@ -1,18 +1,25 @@
-  wS       158°     108 m     3.49%      1.00     3.48%     0.53%      1.79%
-  wE        67°      65 m     0.11%      1.00     0.11%     0.02%      1.23%
-  wW       247°      65 m     0.12%      1.00     0.12%     0.00%      0.23%
+  Solar-array footprint share: predicted from geometry vs measured by the LPDM
 
-  MEASURED SWING across direction: 3.50% (wN) to 0.00% (wW)  =  35000x
-  area share of the domain: 0.22%  ->  enrichment 15.9x at best, 0.00x at worst
+  case     wind    chord Kljun cum crosswind  PRED-Klj  MEASURED  PRED-LES
+           from in array  to chord    factor     share     share     share
+  ------------------------------------------------------------------------
+  wN       335°     143 m     9.92%      0.99     9.86%     3.01%      5.24%
+  wS       158°     108 m     3.55%      1.00     3.55%     0.85%      1.07%
+  wE        66°      66 m     0.11%      1.00     0.11%     0.01%      0.09%
+  wW       247°      65 m     0.12%      1.00     0.12%     0.01%      0.03%
 
-  PRED-LES is shown for completeness but is NOT a fair check at these chords:
-  the footprint raster is 60 m, so at a 65-146 m chord it is interpolating inside
-  the first cell or two, while MEASURED comes from touchdowns attributed exactly
-  in 24 m LES cells. Compare RATIOS instead, which are resolution-robust:
+  MEASURED SWING across direction: 3.01% (wN) to 0.01% (wW)  =  368x
+  area share of the domain: 0.22%  ->  enrichment 13.9x at best, 0.04x at worst
 
-    wN / wE :  predicted    97.2x   measured   175.0x
-    wN / wS :  predicted     3.0x   measured     6.6x
-    wS / wE :  predicted    32.0x   measured    26.5x
+  PRED-LES uses the LES's OWN crosswind-integrated footprint in place of
+  Kljun's, so a gap between PRED-Klj and PRED-LES is the near-field difference
+  between the two footprints, while a gap between PRED-LES and MEASURED would
+  be an attribution error. Ratios are quoted as well, being the more robust
+  comparison at chords of a few grid cells:
+
+    wN / wE :  predicted    89.5x   measured   215.0x
+    wN / wS :  predicted     2.8x   measured     3.5x
+    wS / wE :  predicted    32.2x   measured    60.8x
 
   The measured swing EXCEEDS the predicted one in every pair, and in the same
   direction each time: the LES puts less mass in the near field than Kljun does
