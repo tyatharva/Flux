@@ -562,3 +562,82 @@ set the requirement. That is worth knowing before buying GPU hours uniformly acr
 sweep.
 
 ---
+
+## 9. What the `sigma_w` floor is worth — measured, not argued
+
+The floor runs at 3.37x on the convective flat case, which is a large intervention, and
+section 7 showed the two similarity relations it could be anchored to disagree by 25% at a
+30 m receptor under a 900 m CBL. That is the largest remaining modelling freedom in the
+convective footprints, so it was measured: **one convective flat window, scored four ways on
+identical fields and an identical release ensemble**, so every difference is the closure.
+
+| anchor | `sigma_w/u*` | peak | `x50` | 80% area | overlap vs Kljun (80% / 50%) | integral |
+|---|---|---|---|---|---|---|
+| none — raw LES sub-grid | 1.06 | 264 m | 611 m | 54.3 ha | 29% / 31% | 0.887 |
+| mixed-layer (Lenschow) | 1.06 | 216 m | 460 m | 33.4 ha | 44% / 50% | 0.906 |
+| blend = min of the two | 1.06 | 216 m | 460 m | 33.4 ha | 44% / 50% | 0.906 |
+| **surface-layer [ADOPTED]** | 1.06 | **192 m** | **292 m** | **14.8 ha** | **59% / 62%** | 0.934 |
+| Kljun on the same cells | — | **192 m** | — | 26.0 ha | — | 0.881 |
+
+`blend` and `mixed` coincide exactly, because in the surface layer the mixed-layer target
+lies below the surface-layer one everywhere, so the minimum simply *is* the mixed-layer form.
+
+**Three things follow.**
+
+1. **The choice is not within noise.** The crosswind-integrated shape differs from the
+   adopted variant by **66.1%** L1 with no floor and **46.5%** with the mixed-layer anchor,
+   against a **half-vs-half sampling floor of 38% overlap / 59 m centroid** for this window.
+   Anchoring the floor is a real decision with a measurable consequence, and it would have
+   been wrong to leave it implicit.
+2. **The adopted anchor is the best of the four** against the one external reference that is
+   diagnostic here — a flat, uniform, convective surface is where FFP is valid. It matches
+   Kljun's peak exactly (192 m) and roughly doubles the source-area overlap against using no
+   floor at all (59% vs 29%).
+3. **The floor is doing real work, not cosmetics.** Without it the footprint is 3.7x too
+   large in 80% source area (54.3 ha against Kljun's 26.0) and its peak sits 72 m too far
+   upwind.
+
+**Stated as a limitation.** This is a calibration against Monin-Obukhov similarity, applied
+as a rule rather than a number, and validated against Kljun on the one configuration where
+Kljun is diagnostic. It is not a first-principles closure. The honest summary is that the
+near-field convective footprint is *anchored* to surface-layer similarity and the tail is
+free — the same split section 3 of `THIRD_PASS_RESULTS.md` established for the neutral case,
+now measured rather than asserted.
+
+Note the numbers above come from a **fresh realisation** of the convective flat window
+(FastEddy is not bitwise reproducible), so they differ slightly from section 7's: peak 192 m
+in both, overlap 59% against 64%, integral 0.934 against 0.902. That spread is itself a
+useful reminder of the run-to-run floor.
+
+---
+
+## 10. Where this leaves the project
+
+**Every gate in PLAN.md now passes except Stage 5 Gate 1**, and that one has moved from
+"unreachable" to "1.2x of spacing away" in the regime that matters most.
+
+| stage | gate | neutral | convective |
+|---|---|---|---|
+| 2 | TKE stationarity | ✅ (third pass) | ✅ TKE flat from 25 min, `w*/u*` 2.86, entrainment 0.149 |
+| 3 | window under 30 GB | ✅ 22 GB, and now **chainable** via `ioLPDMfullFrq` | ✅ |
+| 4 | well-mixed | ✅ **re-run with the floor active** — backward rms 3.61% vs a 5.48% floor | inherited |
+| 5 | sub-grid < 40% | ❌ 85.5% | ❌ **52.3%**, gate needs `Delta <~ 14.4 m` not 8.6 m |
+| 5 | error floor | ✅ 37-54% overlap | ✅ 43-51%, centroid **4-10x better** |
+| 6 | explicable difference | ✅ **368x** array swing | ✅ **528x**, array reaches **48%** of the flux |
+
+**What is left, in priority order.**
+
+1. **The 24 m vs 12 m convergence test** (~4 GPU-h, carried over from the third pass). The
+   sub-grid gate is now within 1.2x of spacing convectively, so this is the measurement that
+   decides whether 24 m is good enough or whether the corpus needs a finer grid.
+2. **Sweep `z_i`.** CONUS404 says it spans 80-1475 m at this site and Kljun takes it as an
+   input; the two spin-ups here sit at 643 m and 1011 m. A corpus that does not sweep it
+   leaves that input channel untrained.
+3. **Compensate the Ekman turning in the forcing angle**, or keep labelling by achieved
+   direction. Neutral runs land 22-25 deg off the nominal, convective ones 7-13 deg — and
+   the difference between 335 deg and 353 deg is worth a factor of 1.8 in the array's chord.
+4. **Decide the corpus sampling time per stability class**, not uniformly. The neutral cases
+   need 4-10x longer for the same centroid precision.
+5. The forward well-mixed control's 12-18% bulge over 30-70 m (section 5) is unexplained.
+   Backward is clean and footprints use backward, so it does not invalidate anything here,
+   but a well-mixed model should be well mixed in both directions.
