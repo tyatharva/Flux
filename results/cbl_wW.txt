@@ -1,0 +1,55 @@
+
+=== runs/cbl_wW/window: 541 dumps ===
+  cache 27.70 GB, window 0-2700 s (cadence 5.0 s), loaded in 164 s
+  receptor pinned to the TOWER cell (i,j) = (93, 93)
+  receptor  (i,j,k)=(93,93,3)  x=2244 y=2244  z=21.234 m ASL = 30.089 m AGL (ground -8.85 m)
+  releases  450 times over 900-2700 s, 700 each = 315,000 particles; t_back=900 s
+  receptor means over the averaging period: U=+7.3867 V=+0.4165 W=+0.0035 m/s
+  double rotation: yaw +3.23 deg, pitch +0.027 deg (sin=+0.00047)
+  wrap-around cap: retiring trajectories past 4464 m of displacement (domain 4464 x 4464 m)
+  SGS floor mode 'surface': surface-layer target 1.74 u*, mixed-layer target 1.52 u* (w*=1.99 m/s), used 1.74 u*
+  SGS MOST floor: factor 3.105 at the receptor (1.00-20.57 over the column); phi_w=1.424 at z/L=-0.630; sigma_w/u* 1.16 -> 1.74 (surface-layer target 1.25)
+  mean streamline-frame w over all releases: -0.00015 m/s (model-frame mean was +0.00347); rotation removed 95.6% of it
+  flux weight from touchdowns the periodic fold MOVED: 1.3%
+  footprint-weighted land-cover share (from touchdowns, unblurred):
+    class          folded  unwrapped     area
+    solar array     0.11%      0.09%    0.22%
+    water           0.04%      0.00%   16.09%
+    tree           19.97%     19.28%   28.53%
+    grassland      14.98%     15.17%   15.67%
+    cropland       64.17%     64.81%   37.21%
+    built           0.74%      0.65%    2.20%
+    wetland         0.00%      0.00%    0.03%
+    (unwrapped excludes touchdowns whose periodic fold moved them onto different
+     real geography; quote that column for the site)
+  LES scalars at z=30.00 m: U=6.94 m/s dir=263.4 deg  u*=0.517  h=1089 m  1/L=-2.10e-02
+    sigma_v 1.148 (resolved 1.050 + sub-grid, e_sgs=0.3229);  sigma_w 0.600 (resolved 0.380);  sigma_w/u* = 1.16
+  touchdowns 232,814;  largest single weight 319.3;  top 0.1% carry 7.0% of the total |weight|
+  integral of f_flux over the raster = 0.759 (all touchdowns 0.759)
+
+=== flat-and-neutral reference check (Kljun is DIAGNOSTIC here, DESCRIPTIVE over real surface) ===
+  LES + LPDM               peak    240 m   80% of f_y within    677 m   80% area   12.2 ha   centroid    439 m at 262.9 deg
+  Kljun FFP                peak    168 m   80% of f_y within    896 m   80% area   24.2 ha   centroid    499 m at 263.4 deg
+  source-area overlap vs Kljun:  80% 67%   50% 66%
+  peak   LES 240 m   Kljun 168 m
+  integral over the raster:  LES 0.76   Kljun 0.90
+  NOTE: the near-field peak is CONSTRAINED -- the MOST-anchored sigma_w floor is
+        anchored to surface-layer similarity, the same theory Kljun rests on. The
+        80% area, the tail and the land-cover shares are free.
+
+=== where the integral comes from, by trajectory displacement ===
+   the domain repeats every 4464 m, so anything beyond one domain length is
+   turbulence the trajectory had already sampled once
+   within 0.25 L  ( 1116 m)   integral 0.707
+   within 0.50 L  ( 2232 m)   integral 0.749
+   within 0.75 L  ( 3348 m)   integral 0.752
+   within 1.00 L  ( 4464 m)   integral 0.759
+   within 1.50 L  ( 6696 m)   integral 0.759
+   within 2.00 L  ( 8928 m)   integral 0.759
+
+=== error floor: the two halves of this window ===
+  half 1                   peak    240 m   80% of f_y within    698 m   80% area   11.1 ha   centroid    442 m at 261.9 deg
+  half 2                   peak    216 m   80% of f_y within    678 m   80% area   12.2 ha   centroid    437 m at 263.8 deg
+  half-vs-half 80% overlap 46%   peak difference +24 m   centroid difference 15 m
+
+  wrote results/cbl_wW.npz and .json
