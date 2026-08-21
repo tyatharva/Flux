@@ -47,7 +47,9 @@ print('%.6f %.6f'%(u,v))")
     python3 bin/prep_restart.py "$SPIN" "$D/FE_RST.0" --rot "$ROT" --grid "$GRID" \
         || die "$NAME: prep_restart"
     A_NT=$(python3 -c "
-frq=int(round(5.0/$DT)); print(int(round($ADJ_S/$DT/frq))*frq")
+frq=int(round(5.0/$DT)); print(int(round($ADJ_S/$DT/frq))*frq)")
+    [ -n "$A_NT" ] && [ "$A_NT" -gt 0 ] 2>/dev/null \
+        || die "$NAME: adjustment step count did not compute (got '$A_NT')"
     sed -e "s|^dt = .*|dt = $DT|" -e "s|^Nt = .*|Nt = $A_NT|" \
         -e "s|^NtBatch = .*|NtBatch = $((A_NT/4))|" -e "s|^frqOutput = .*|frqOutput = $((A_NT/4))|" \
         -e "s|^inPath = .*|inPath = ./|" -e "s|^inFile = .*|inFile = FE_RST.0|" \
