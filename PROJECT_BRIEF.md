@@ -285,6 +285,36 @@ These were evaluated and rejected. Re-proposing them wastes time.
 
 ## Status
 
+**FOURTH PASS COMPLETE, 2026-08-21** — see `FOURTH_PASS_RESULTS.md`. Eight production cases
+on the static `186 x 186 x 122` @ 24 m domain: four wind directions in each of two
+stability regimes, all from two spun-up states by 90-degree re-indexing, with 30 minutes of
+releases each.
+
+| stage | gate | neutral | convective |
+|---|---|---|---|
+| 2 | stationarity | ✅ | ✅ `w*/u*` 2.86, entrainment ratio 0.149, `sigma_w/w*` within 10% of Lenschow |
+| 3 | window < 30 GB | ✅ 22 GB, **chainable** (`ioLPDMfullFrq`) | ✅ |
+| 4 | well-mixed | ✅ backward rms **3.61%** vs a 5.48% counting floor, **with the floor active** | inherited |
+| 5 | sub-grid < 40% | ❌ 85.5% | ❌ **52.3%** — needs `Delta <~ 14.4 m`, not 8.6 m |
+| 5 | error floor | ✅ 37-54% overlap, centroid 152-436 m | ✅ 43-51%, centroid **15-90 m** |
+| 6 | explicable difference | ✅ array swing **368x** | ✅ **528x**; array is **48% of the flux** on a northerly |
+
+**The headline is that convection changes what this tower measures.** On a convective
+northerly the solar array supplies **48% of the flux** from 0.22% of the domain — 222x its
+area share, against 3.01% neutrally. The lake runs the other way: 15.3% of the neutral
+easterly footprint, 5.3% convectively. Both follow from one per-cell `htFlux` map (water
+0.12x, array 1.6x) and the flow. Since the site is unstable 57.5% of quality-controlled
+hours, **a neutral-only corpus trains the emulator on the weakest version of its own
+target.**
+
+**Two real bugs were found by the standing flat/neutral control on its first run:** the
+`sigma_w` floor was breaking the well-mixed condition (a height-dependent variance rescaling
+whose gradient the Thomson drift did not know about), and `run_case.sh` was scoring the
+wrong dump for every window run since the third pass. Both are in
+`FOURTH_PASS_RESULTS.md` §5 and `FASTEDDY_TRAPS.md`.
+
+---
+
 **Stage 0a PASSED (2026-08-17)** — see `STAGE0A_RESULTS.md` for full evidence.
 Container builds; Example03_SBL and Example01_NBL both run to completion on `sm_89` with
 no `too many resources requested for launch`. The NBL failure that previously blocked

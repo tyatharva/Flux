@@ -1,0 +1,39 @@
+
+=== runs/cbl_flat/window: 541 dumps ===
+  cache 27.70 GB, window 0-2700 s (cadence 5.0 s), loaded in 162 s
+  receptor pinned to the TOWER cell (i,j) = (93, 93)
+  receptor  (i,j,k)=(93,93,3)  x=2244 y=2244  z=30.000 m ASL = 30.000 m AGL (ground 0.00 m)
+  releases  450 times over 900-2700 s, 700 each = 315,000 particles; t_back=900 s
+  receptor means over the averaging period: U=+7.4336 V=+1.1621 W=+0.0363 m/s
+  double rotation: yaw +8.89 deg, pitch +0.277 deg (sin=+0.00483)
+  wrap-around cap: retiring trajectories past 4464 m of displacement (domain 4464 x 4464 m)
+  mean streamline-frame w over all releases: +0.00302 m/s (model-frame mean was +0.03632); rotation removed 91.7% of it
+  flux weight from touchdowns the periodic fold MOVED: 9.1%
+  LES scalars at z=30.00 m: U=7.55 m/s dir=265.9 deg  u*=0.493  h=914 m  1/L=-1.31e-02
+    sigma_v 1.113 (resolved 1.047 + sub-grid, e_sgs=0.2127);  sigma_w 0.521 (resolved 0.361);  sigma_w/u* = 1.06
+  touchdowns 328,436;  largest single weight 172.8;  top 0.1% carry 6.4% of the total |weight|
+  integral of f_flux over the raster = 0.887 (all touchdowns 0.887)
+
+=== flat-and-neutral reference check (Kljun is DIAGNOSTIC here, DESCRIPTIVE over real surface) ===
+  LES + LPDM               peak    264 m   80% of f_y within   1469 m   80% area   54.3 ha   centroid    550 m at 250.2 deg
+  Kljun FFP                peak    192 m   80% of f_y within    997 m   80% area   25.9 ha   centroid    540 m at 265.9 deg
+  source-area overlap vs Kljun:  80% 29%   50% 31%
+  peak   LES 264 m   Kljun 192 m
+  integral over the raster:  LES 0.89   Kljun 0.88
+
+=== where the integral comes from, by trajectory displacement ===
+   the domain repeats every 4464 m, so anything beyond one domain length is
+   turbulence the trajectory had already sampled once
+   within 0.25 L  ( 1116 m)   integral 0.628
+   within 0.50 L  ( 2232 m)   integral 0.800
+   within 0.75 L  ( 3348 m)   integral 0.866
+   within 1.00 L  ( 4464 m)   integral 0.887
+   within 1.50 L  ( 6696 m)   integral 0.887
+   within 2.00 L  ( 8928 m)   integral 0.887
+
+=== error floor: the two halves of this window ===
+  half 1                   peak    264 m   80% of f_y within   1652 m   80% area   63.0 ha   centroid    554 m at 249.8 deg
+  half 2                   peak    264 m   80% of f_y within   1002 m   80% area   17.3 ha   centroid    540 m at 251.5 deg
+  half-vs-half 80% overlap 30%   peak difference +0 m   centroid difference 21 m
+
+  wrote results/cbl_flat_nofloor.npz and .json

@@ -1,5 +1,11 @@
 # Staged Plan — First Working Footprint
 
+> **FOURTH PASS COMPLETE, 2026-08-21 — `FOURTH_PASS_RESULTS.md`.** Eight production
+> cases, both stability regimes. Stage 6 passes in both: array swing 368x neutral, 528x
+> convective, and on a convective northerly the array supplies **48% of the measured flux**.
+> Stage 5's sub-grid gate still fails but convection nearly halves the resolution it needs
+> (`Delta <~ 14.4 m` against 8.6 m). Two bugs found by the new standing control.
+>
 > **FOURTH PASS, 2026-08-20 — `FOURTH_PASS_RESULTS.md`.** Five changes, four of them
 > closing gaps the third pass left open and one adding a regime it never had.
 >

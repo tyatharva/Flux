@@ -31,20 +31,20 @@
     "V": 0.541052808589527
   },
   "les": {
-    "centroid_e": -393.74937040879485,
-    "centroid_n": -78.26673833096523,
-    "centroid_dist": 401.45267345764444,
-    "centroid_bearing": 258.75768218846275,
-    "area80_cells": 257,
-    "area80_ha": 14.8032,
-    "area50_ha": 3.744,
+    "centroid_e": -485.2988964504109,
+    "centroid_n": -123.28074369761543,
+    "centroid_dist": 500.71265278862666,
+    "centroid_bearing": 255.74661453106165,
+    "area80_cells": 579,
+    "area80_ha": 33.3504,
+    "area50_ha": 8.7552,
     "peak_e": -168.0,
     "peak_n": -48.0,
-    "peak_value": 2.686994664725614e-05,
-    "peak_x": 192.0,
-    "mean_x": 498.06154146376343,
-    "x80": 603.9694990405511,
-    "integral": 0.9337836550958027
+    "peak_value": 1.4442108131870687e-05,
+    "peak_x": 216.0,
+    "mean_x": 724.7367770627296,
+    "x80": 984.4080847505932,
+    "integral": 0.906322045142453
   },
   "kljun": {
     "centroid_e": -538.6467981515317,
@@ -62,52 +62,52 @@
     "x80": 997.3260468593247,
     "integral": 0.9393366637382348
   },
-  "overlap_kljun": 0.5948905109489051,
-  "overlap50_kljun": 0.6153846153846154,
-  "integral_les": 0.9337836550958022,
-  "integral_les_all": 0.9337836550958027,
+  "overlap_kljun": 0.4426229508196721,
+  "overlap50_kljun": 0.4973821989528796,
+  "integral_les": 0.9063220451424526,
+  "integral_les_all": 0.9063220451424525,
   "integral_kljun": 0.8814061852538231,
   "cover_share": {},
   "cover_share_nowrap": {},
-  "wrapped_fraction": 0.01769967243554675,
+  "wrapped_fraction": 0.05072034040865939,
   "sgs_most": true,
-  "sgs_most_mode": "surface",
+  "sgs_most_mode": "mixed",
   "wind_angle": 4.1110246461371895,
   "by_disp": [
     {
       "max_disp": 1116.0,
       "frac_of_Lx": 0.25,
-      "integral": 0.8526646081283777
+      "integral": 0.7487234121242126
     },
     {
       "max_disp": 2232.0,
       "frac_of_Lx": 0.5,
-      "integral": 0.9146998634490913
+      "integral": 0.8580550027916125
     },
     {
       "max_disp": 3348.0,
       "frac_of_Lx": 0.75,
-      "integral": 0.9240410214959854
+      "integral": 0.8872707872937663
     },
     {
       "max_disp": 4464.0,
       "frac_of_Lx": 1.0,
-      "integral": 0.9337763982723475
+      "integral": 0.9063900890731942
     },
     {
       "max_disp": 6696.0,
       "frac_of_Lx": 1.5,
-      "integral": 0.9337836550958027
+      "integral": 0.9063220451424525
     },
     {
       "max_disp": 8928.0,
       "frac_of_Lx": 2.0,
-      "integral": 0.9337836550958027
+      "integral": 0.9063220451424525
     }
   ],
   "halves": {
-    "overlap": 0.38497652582159625,
-    "dpeak": 0.0,
-    "dcentroid": 58.92811126726113
+    "overlap": 0.33078393881453155,
+    "dpeak": -24.0,
+    "dcentroid": 58.15735497869816
   }
 }
