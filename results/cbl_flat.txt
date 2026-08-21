@@ -1,0 +1,43 @@
+
+=== runs/cbl_flat/window: 541 dumps ===
+  cache 27.70 GB, window 0-2700 s (cadence 5.0 s), loaded in 162 s
+  receptor pinned to the TOWER cell (i,j) = (93, 93)
+  receptor  (i,j,k)=(93,93,3)  x=2244 y=2244  z=30.000 m ASL = 30.000 m AGL (ground 0.00 m)
+  releases  450 times over 900-2700 s, 700 each = 315,000 particles; t_back=900 s
+  receptor means over the averaging period: U=+7.3945 V=+1.0010 W=+0.0546 m/s
+  double rotation: yaw +7.71 deg, pitch +0.419 deg (sin=+0.00732)
+  wrap-around cap: retiring trajectories past 4464 m of displacement (domain 4464 x 4464 m)
+  SGS MOST floor: factor 3.369 at the receptor (1.00-9.98 over the column); phi_w=1.297 at z/L=-0.395; sigma_w/u* 1.06 -> 1.58 (surface-layer target 1.25)
+  mean streamline-frame w over all releases: -0.00127 m/s (model-frame mean was +0.05460); rotation removed 97.7% of it
+  flux weight from touchdowns the periodic fold MOVED: 1.1%
+  LES scalars at z=30.00 m: U=7.55 m/s dir=265.9 deg  u*=0.493  h=914 m  1/L=-1.32e-02
+    sigma_v 1.119 (resolved 1.054 + sub-grid, e_sgs=0.2131);  sigma_w 0.521 (resolved 0.360);  sigma_w/u* = 1.06
+  touchdowns 233,213;  largest single weight 229.4;  top 0.1% carry 5.2% of the total |weight|
+  integral of f_flux over the raster = 0.902 (all touchdowns 0.902)
+
+=== flat-and-neutral reference check (Kljun is DIAGNOSTIC here, DESCRIPTIVE over real surface) ===
+  LES + LPDM               peak    192 m   80% of f_y within    618 m   80% area   14.8 ha   centroid    403 m at 259.9 deg
+  Kljun FFP                peak    192 m   80% of f_y within    998 m   80% area   26.0 ha   centroid    540 m at 265.9 deg
+  source-area overlap vs Kljun:  80% 64%   50% 68%
+  peak   LES 192 m   Kljun 192 m
+  integral over the raster:  LES 0.90   Kljun 0.88
+  NOTE: the near-field peak is CONSTRAINED -- the MOST-anchored sigma_w floor is
+        anchored to surface-layer similarity, the same theory Kljun rests on. The
+        80% area, the tail and the land-cover shares are free.
+
+=== where the integral comes from, by trajectory displacement ===
+   the domain repeats every 4464 m, so anything beyond one domain length is
+   turbulence the trajectory had already sampled once
+   within 0.25 L  ( 1116 m)   integral 0.835
+   within 0.50 L  ( 2232 m)   integral 0.891
+   within 0.75 L  ( 3348 m)   integral 0.902
+   within 1.00 L  ( 4464 m)   integral 0.902
+   within 1.50 L  ( 6696 m)   integral 0.902
+   within 2.00 L  ( 8928 m)   integral 0.902
+
+=== error floor: the two halves of this window ===
+  half 1                   peak    192 m   80% of f_y within    708 m   80% area   19.8 ha   centroid    417 m at 256.5 deg
+  half 2                   peak    192 m   80% of f_y within    565 m   80% area    8.2 ha   centroid    387 m at 265.2 deg
+  half-vs-half 80% overlap 36%   peak difference +0 m   centroid difference 68 m
+
+  wrote results/cbl_flat.npz and .json
