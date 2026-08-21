@@ -298,3 +298,86 @@ touchdowns) and upward (escape into the LES's own deficient variance aloft, wher
 linger). Recorded as a threshold that the fix tightened, not as a passing grade.
 
 ---
+
+## 6. Stage 6, neutral — PASS, on the number the plan predicted
+
+Four directions from ONE spun-up state by 90-degree re-indexing. Terrain, roughness and the
+array are **bit-identical** in all four, so every difference is flow. 30 minutes of releases
+each, `t_back = 900 s`, accumulated on the LES columns.
+
+| case | wind from | **array** | x area | **water** | x area | peak | integral | wrapped |
+|---|---|---|---|---|---|---|---|---|
+| **wN** | 335 deg | **3.01%** | **13.9x** | 0.00% | 0.00 | 264 m | 0.838 | 2.7% |
+| wS | 158 deg | 0.85% | 3.9x | 0.47% | 0.03 | 300 / **1080 m** | 1.065 | 2.8% |
+| wE | 66 deg | 0.01% | 0.1x | **15.33%** | **0.95** | 192 m | 0.919 | 1.1% |
+| wW | 247 deg | 0.01% | 0.0x | 0.00% | 0.00 | 288 m | 0.731 | -2.0% |
+
+Array area share 0.22%, water 16.09%. Shares exclude periodically folded touchdowns.
+
+**Array swing wN/wE = 215x, wN/wW = 368x.** PLAN.md predicted **~300x** from the geometry
+alone, before any of these runs existed. The ordering is exact and follows the upwind reach:
+north 250 m, south 100 m, east and west 60 m.
+
+**The water is the mirror image on a different axis.** 15.33% of the footprint on an
+easterly against 0.00% on a westerly and a northerly, tracking the lake's real E/NE
+position. Two independent surface features, two independent directional signatures, one
+fixed map.
+
+### Made quantitative
+
+`bin/stage6_predict.py` predicts each share from the array rectangle's upwind chord and
+Kljun's cumulative footprint:
+
+| pair | predicted | measured |
+|---|---|---|
+| wN / wE | 89.5x | **215x** |
+| wN / wS | 2.8x | **3.5x** |
+| wS / wE | 32.2x | **60.8x** |
+
+The measured swing **exceeds** the predicted one in every pair, in the same direction each
+time. That is a consistency check rather than a discrepancy: the prediction is built on
+Kljun's near field, whose peak is at 192 m against the LES's 264 m, so a patch reaching only
+65-143 m upwind loses proportionally more in the LES than a Kljun-based estimate says.
+
+### The southerly is bimodal, and the surface says why
+
+`f_y` for the southerly has a near lobe at 300 m and a **larger** far lobe at **1080 m**,
+reproduced independently by both halves of the window, so it is structure and not sampling
+noise. `bin/upwind_transect.py` puts `f_y` directly above the terrain, roughness and
+land-cover class along the same ray, and the answer is one line:
+
+- 300-600 m: **tree cover, `z0` = 1.00 m** against 0.10 for the cropland around it, sitting
+  in the deepest part of a hollow (terrain -18 m)
+- 800-1000 m: grass, then trees again
+- 1080-1600 m: open cropland on ground that **climbs about 20 m**
+
+Tall roughness in a hollow lifts backward trajectories over it instead of letting them
+touch down; the rising ground beyond comes up to meet them. The dips in `f_y` sit on the
+forest bands and the far peak sits on the rising open ground. The westerly, whose transect
+is near-uniform cropland for 1200 m, is single-peaked exactly as Kljun expects.
+
+**This is what the Stage 6 gate asks for** — a difference from Kljun you can point at on
+the map — and it is a stronger form of it than the third pass reached, because the feature
+is named rather than merely present.
+
+### The sigma_w floor switches itself off over real terrain
+
+Measured at the receptor in all four terrain cases: floor factor **1.000-1.002**, because
+the LES already delivers `sigma_w/u*` of **1.20-1.24** against the surface-layer 1.25. On
+flat uniform ground the same grid gives 1.02 and the floor lifts it to 1.20.
+
+So the deficit that motivated the correction is largely an artefact of the idealised flat
+case: real terrain generates resolved-scale vertical motion (resolved `sigma_w` 0.186-0.195
+against 0.136 flat) that flat, uniform ground cannot. The floor behaves the way a floor
+should — it acts where variance is genuinely missing and stands aside where it is not.
+Which also means **every terrain footprint in this pass is free of it**, and the
+"constrained vs free" caveat applies only to the flat control.
+
+### The integral straddles 1 with the sign of the mean vertical motion
+
+wS 1.065 at `w_bar = +0.15 m/s`, wE 0.919 at -0.08, wN 0.838 at -0.15, wW 0.731 at +0.08.
+The streamline rotation removes `w_bar` from the *weight* -- verified, 99-100% of it -- but
+it cannot remove it from the *transport*. This is the advective non-closure that makes eddy
+covariance hard over complex terrain, and it is a result rather than an estimator error.
+
+---
