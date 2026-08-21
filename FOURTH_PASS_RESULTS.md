@@ -366,12 +366,21 @@ Measured at the receptor in all four terrain cases: floor factor **1.000-1.002**
 the LES already delivers `sigma_w/u*` of **1.20-1.24** against the surface-layer 1.25. On
 flat uniform ground the same grid gives 1.02 and the floor lifts it to 1.20.
 
-So the deficit that motivated the correction is largely an artefact of the idealised flat
-case: real terrain generates resolved-scale vertical motion (resolved `sigma_w` 0.186-0.195
-against 0.136 flat) that flat, uniform ground cannot. The floor behaves the way a floor
-should — it acts where variance is genuinely missing and stands aside where it is not.
-Which also means **every terrain footprint in this pass is free of it**, and the
-"constrained vs free" caveat applies only to the flat control.
+Real terrain generates resolved-scale vertical motion (resolved `sigma_w` 0.186-0.195
+against 0.136 flat) that flat, uniform ground cannot, so in NEUTRAL conditions the floor
+has nothing left to supply and stands aside. The four neutral terrain footprints are
+therefore free of it entirely, and the "constrained vs free" caveat applies only to the
+neutral flat control.
+
+**That does not generalise to the convective cases, and it would have been easy to claim it
+did.** Convectively the floor is 3.1x over the same terrain (section 7): the similarity
+target rises with `phi_w` to 1.74 u* while the LES only reaches 1.16 u*, so the gap widens
+even though the terrain is identical. The floor is driven by STABILITY, not by terrain:
+
+| | flat | over terrain |
+|---|---|---|
+| neutral | 1.45x | **1.00x** |
+| convective | 3.37x | **3.11x** |
 
 ### The integral straddles 1 with the sign of the mean vertical motion
 
