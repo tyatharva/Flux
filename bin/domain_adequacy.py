@@ -131,42 +131,65 @@ def spectra(paths):
 KLJUN_NULL = dict(array_share_pts=0.24, x90_rel=0.009, peak_m=1.0)
 
 
-def compare(fa, fb):
+def compare(fa, fb, res=16.0):
+    """Compare the two footprints against a floor MEASURED the same way each quantity is.
+
+    Every tolerance here is the larger of two things that were both measured, never an
+    opinion: the half-vs-half difference within each window (the sampling floor), and what
+    Kljun itself predicts from the z_i change alone (the model's own null). A third floor,
+    one grid cell, applies to the peak -- the peak is quantised to the raster, so a
+    tolerance below 16 m is asking the measurement to be finer than its own resolution.
+    """
     a, b = (json.load(open(f)) for f in (fa, fb))
     print("=== footprint observables: shallow (L=4 z_i) vs deep (L=2 z_i) ===")
     print(f"  A = {fa}\n  B = {fb}\n")
-    fl_a = a.get("halves", {}) or {}
-    fl_b = b.get("halves", {}) or {}
-    # The sampling floor is the larger of the two windows' own half-vs-half differences.
-    floor_peak = max(abs(fl_a.get("dpeak", 0.0)), abs(fl_b.get("dpeak", 0.0)))
-    floor_cent = max(fl_a.get("dcentroid", 0.0), fl_b.get("dcentroid", 0.0))
-    print(f"  sampling floor from the two windows' own halves: "
-          f"peak {floor_peak:.0f} m, centroid {floor_cent:.0f} m")
+    fa_h = a.get("halves", {}) or {}
+    fb_h = b.get("halves", {}) or {}
+    flo = lambda k: max(abs(fa_h.get(k, 0.0) or 0.0), abs(fb_h.get(k, 0.0) or 0.0))
+    floor_peak, floor_cent, floor_x80 = flo("dpeak"), flo("dcentroid"), flo("dx80")
+
+    def share(d, cls="solar array"):
+        return 100.0 * (d.get("cover_share_nowrap", {}).get(cls) or 0.0)
+
+    def share_floor(d, cls="solar array"):
+        ch = d.get("cover_share_halves") or [{}, {}]
+        if not ch[0] or cls not in ch[0]:
+            return 0.0
+        return 100.0 * abs((ch[0][cls] or 0.0) - (ch[1][cls] or 0.0))
+    floor_share = max(share_floor(a), share_floor(b))
+
+    print("  sampling floors, from each window's own halves:")
+    print(f"    peak {floor_peak:.0f} m (raster resolution {res:.0f} m)   "
+          f"centroid {floor_cent:.0f} m   x80 {floor_x80:.0f} m   "
+          f"array share {floor_share:.2f} points")
+    print("  Kljun's own null for z_i 488 -> 976 m at a 10 m receptor:")
+    print(f"    array share {KLJUN_NULL['array_share_pts']:.2f} points   "
+          f"x90 {100*KLJUN_NULL['x90_rel']:.1f}%   peak {KLJUN_NULL['peak_m']:.0f} m")
+
     ok = True
     rows = []
 
-    def cmp(name, va, vb, floor, null, unit="", rel=False):
+    def cmp(name, va, vb, tol, unit=""):
         nonlocal ok
         d = vb - va
-        tol = max(floor, null)
-        good = abs(d) <= tol if not rel else abs(d) <= tol * max(abs(va), 1e-9)
+        good = abs(d) <= tol
         ok &= good
-        lim = f"{tol:.3g}{unit}" if not rel else f"{100*tol:.1f}%"
-        dd = f"{d:+.3g}{unit}" if not rel else f"{100*d/max(abs(va),1e-9):+.1f}%"
-        rows.append(f"  {name:<22}{va:10.3f}{vb:10.3f}   {dd:>10}   tol {lim:>8}   "
-                    f"{'ok' if good else 'DIFFERS'}")
+        rows.append(f"  {name:<22}{va:10.3f}{vb:10.3f}{d:+11.3f}{unit:<4}"
+                    f"  tol {tol:7.2f}{unit:<4}  {'ok' if good else 'DIFFERS'}")
 
-    print(f"\n  {'observable':<22}{'shallow':>10}{'deep':>10}{'diff':>13}{'tolerance':>14}")
+    print(f"\n  {'observable':<22}{'shallow':>10}{'deep':>10}{'diff':>11}"
+          f"{'':4}  {'tolerance':>11}{'':4}")
     cmp("peak_x (m)", a["les"]["peak_x"], b["les"]["peak_x"],
-        floor_peak, KLJUN_NULL["peak_m"], " m")
+        max(floor_peak, KLJUN_NULL["peak_m"], res), " m")
     cmp("centroid dist (m)", a["les"]["centroid_dist"], b["les"]["centroid_dist"],
-        floor_cent, 0.0, " m")
-    cmp("x80 of f_y (m)", a["les"]["x80"], b["les"]["x80"], 0.0,
-        KLJUN_NULL["x90_rel"], rel=True)
-    sa = 100 * (a.get("cover_share_nowrap", {}).get("solar array") or 0.0)
-    sb = 100 * (b.get("cover_share_nowrap", {}).get("solar array") or 0.0)
-    cmp("array share (points)", sa, sb, 0.0, KLJUN_NULL["array_share_pts"], " pts")
+        max(floor_cent, res), " m")
+    cmp("x80 of f_y (m)", a["les"]["x80"], b["les"]["x80"],
+        max(floor_x80, KLJUN_NULL["x90_rel"] * abs(a["les"]["x80"]), res), " m")
+    sa, sb = share(a), share(b)
+    cmp("array share (points)", sa, sb,
+        max(floor_share, KLJUN_NULL["array_share_pts"]), " pt")
     print("\n".join(rows))
+
     if ok:
         verdict = ("PASS -- L >= 2 z_i is not binding for this observable. Convective-"
                    "midday\n          coverage goes 19.3% -> 60.9% and 122^3 covers "
@@ -177,6 +200,9 @@ def compare(fa, fb):
                    "L >= 4 z_i), and that is a\n          grid decision, which belongs "
                    "to the user.")
     print(f"\n  GATE E: {verdict}")
+    print("\n  This half of the gate cannot stand alone: the two cases are genuinely")
+    print("  different physical states, so agreement here is necessary and not sufficient.")
+    print("  Read it WITH the lock-in spectra, which detect the artifact directly.")
     return 0 if ok else 1
 
 

@@ -89,7 +89,7 @@ def main():
     print(f"\n  --- final state: z_i = {zi:.0f} m, w* = {ws:.3f} m/s, "
           f"T* = z_i/w* = {zi/ws:.0f} s, u* = {last['ust']:.3f} m/s")
     L = -last["ust"] ** 3 * th0 / (0.4 * G * max(wts, 1e-9))
-    print(f"      L = {L:.1f} m,  z_i/L = {zi/L:+.1f},  30/L = {30/L:+.3f}  "
+    print(f"      L = {L:.1f} m,  z_i/L = {zi/L:+.1f},  10/L = {10/L:+.3f}  "
           f"(CONUS404 midday p50 at this site: z_i/L = -19.8)")
     if len(zis) > 2:
         gr = np.polyfit(tt[-3:] / 3600.0, np.array(zis[-3:]), 1)[0]

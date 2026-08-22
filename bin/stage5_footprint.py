@@ -280,8 +280,16 @@ def main():
               f"peak difference {m1['peak_x']-m2['peak_x']:+.0f} m   "
               f"centroid difference {np.hypot(m1['centroid_e']-m2['centroid_e'], m1['centroid_n']-m2['centroid_n']):.0f} m")
         out["halves"] = dict(overlap=ovh, dpeak=m1["peak_x"] - m2["peak_x"],
+                             dx80=m1["x80"] - m2["x80"],
                              dcentroid=float(np.hypot(m1["centroid_e"] - m2["centroid_e"],
                                                       m1["centroid_n"] - m2["centroid_n"])))
+        ch = r0.get("cover_share_halves") or [{}, {}]
+        out["cover_share_halves"] = ch
+        if ch[0]:
+            print("  half-vs-half land-cover share (the sampling floor on each share):")
+            for nm in ch[0]:
+                print(f"    {nm:<12} {100*ch[0][nm]:7.2f}% vs {100*ch[1][nm]:7.2f}%  "
+                      f"-> floor {100*abs(ch[0][nm]-ch[1][nm]):.2f} points")
     if len(runs) > 1:
         g1 = runs[1][2]["grid"]
         b0, b1 = g0.normalised("flux"), g1.normalised("flux")

@@ -339,6 +339,13 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
     cover_nw = {k: 0.0 for k in (cover or {})}
     cover_tot_nw = 0.0
     wrapped_w = 0.0
+    # Per-HALF cover shares. The land-cover share is the observable the domain-adequacy
+    # gate turns on, and a gate needs a sampling floor measured the same way its quantity
+    # is -- otherwise the tolerance is an opinion. The halves split by RELEASE TIME, the
+    # same split the peak and centroid floors already use, so the three floors are
+    # commensurable.
+    cover_h = [{k: 0.0 for k in (cover or {})}, {k: 0.0 for k in (cover or {})}]
+    cover_tot_h = [0.0, 0.0]
     for b0 in range(0, len(times), batch_releases):
         tb = times[b0:b0 + batch_releases]
         n = len(tb) * n_per_release
@@ -380,13 +387,19 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
         wrap = (np.abs(res["td_x"] - xr) > 0.5 * fs.Lx) | \
                (np.abs(res["td_y"] - yr) > 0.5 * fs.Ly)
         wrapped_w += wt[wrap].sum()
+        rel_t = t[res["td_particle"]]          # release time of each touchdown
         if cover:
             cover_tot += wt.sum()
             cover_tot_nw += wt[~wrap].sum()
+            hmask = (rel_t <= tmid, rel_t > tmid)
+            for hh in (0, 1):
+                cover_tot_h[hh] += wt[hmask[hh] & (~wrap)].sum()
             for nm, msk in cover.items():
                 sel_c = msk[jj, ii]
                 cover_w[nm] += wt[sel_c].sum()
                 cover_nw[nm] += wt[sel_c & (~wrap)].sum()
+                for hh in (0, 1):
+                    cover_h[hh][nm] += wt[sel_c & (~wrap) & hmask[hh]].sum()
         n_td += len(X)
         if split_halves:
             rel = t[res["td_particle"]]
@@ -430,6 +443,8 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
                             for k, v in cover_w.items()},
                cover_share_nowrap={k: (v / cover_tot_nw if cover_tot_nw else np.nan)
                                    for k, v in cover_nw.items()},
+               cover_share_halves=[{k: (v / cover_tot_h[hh] if cover_tot_h[hh] else np.nan)
+                                    for k, v in cover_h[hh].items()} for hh in (0, 1)],
                wrapped_fraction=float(wrapped_w / max(full.sum_flux_all, 1e-30)),
                n_particles=full.n_particles, n_touchdown=n_td,
                wind_angle=float(np.degrees(ang)))
