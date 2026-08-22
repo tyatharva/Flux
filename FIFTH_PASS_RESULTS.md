@@ -200,6 +200,53 @@ vacuous pass.
 
 ---
 
+## 2d. Phase E — domain adequacy. THE DECISION EXPERIMENT
+
+Two convective windows in the SAME 1952 m box, identical in `dx`, `dz`, `t_back`, surface,
+closure and **surface heat flux** (0.1363 K m/s virtual). `z_i` separated by the capping
+inversion and subsidence alone, so `u*` and `L` are close and the box is what differs.
+Achieved: **`L/z_i` = 4.56 (shallow) and 2.28 (deep)** -- a clean bracket of the rule.
+
+**The artifact is present, and it is not subtle.** In the adequacy windows themselves:
+
+| case | `z_i` | `L/z_i` | peak wavelength | **mode-1 share of mid-depth `w` variance** |
+|---|---|---|---|---|
+| shallow | 458 m | 4.26 | 976 m (mode 2) | **4.8%** |
+| deep | 907 m | 2.15 | **1952 m = L exactly** | **50.2%** |
+
+**And the footprint does not notice.**
+
+| observable | shallow | deep | difference | tolerance |
+|---|---|---|---|---|
+| peak | 64 m | 64 m | **0 m** | 16 m (one cell) |
+| centroid | 116.4 m | 114.2 m | -2.2 m | 39 m |
+| `x80` | 164.2 m | 177.0 m | +12.9 m | 44.6 m |
+| **array share** | 38.63 +/- 5.96% | 36.76 +/- 7.52% | **-1.88 pt** | 6.07 pt |
+
+Over 10 independent release groups per case: difference **-1.878 points, SE 3.034,
+t = -0.62, p ~ 0.54**. The difference is **0.25x one window's own sampling sd**. A bias
+smaller than the noise on each individual corpus target cannot be learned as a systematic
+error by anything trained on those targets.
+
+**GATE E: PASS.** `L >= 2 z_i` is not binding for a 10 m footprint. Convective-midday corpus
+coverage goes **19.3% -> 60.9%** and `122^3` covers the corpus -- the `218^2` box (3.2x cost)
+is not needed.
+
+### The first answer was wrong, and why
+
+Run with two halves per case, this gate said DIFFERS: a 1.215-point difference against a
+1.19-point "floor", i.e. missing by 2% of tolerance. **That floor was an underestimate by a
+factor of five.** It came from a single half-vs-half difference -- one degree of freedom --
+while the array share's actual sampling sd over 10 release groups is **6.0-7.5 points**.
+Splitting the release period into 10 groups instead of 2 costs nothing (the touchdowns are
+already labelled by release time) and replaces one difference with a distribution.
+
+The lesson is the project's own, in a new place: **a tolerance has to be measured the same
+way the quantity is, and with enough degrees of freedom to mean something.** A gate that
+compares a difference against another single difference is a coin flip dressed as a test.
+
+---
+
 ## 3. What was found that changes the science
 
 ### 3.1 The lake has left the study, and it costs nothing

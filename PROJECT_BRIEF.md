@@ -239,7 +239,17 @@ hours (`bin/zi_coverage.py`, `results/zi_coverage.txt`):
 | `L >= 3 z_i` | 651 m | 63.4% | 57.7% | **33.6%** |
 | `L >= 2 z_i` | 976 m | 81.3% | 76.1% | **60.9%** |
 
-**And the cap is BIASED, not merely restrictive.** `z_i` and surface heat flux are
+**MEASURED 2026-08-22: THE CAP IS NOT BINDING FOR A 10 m FOOTPRINT, so the corpus uses
+`L >= 2 z_i` and covers 60.9% of convective midday.** Two windows at `L/z_i` = 4.56 and 2.28,
+identical in everything including surface heat flux. The deep case IS locked in -- **50.2%**
+of its mid-depth `w` variance sits in mode 1 (`lambda = L` exactly) against **4.8%** in the
+compliant one -- and its footprint is statistically indistinguishable: peak identical,
+centroid -2.2 m of a 39 m floor, array share **-1.88 points, SE 3.03, t = -0.62, p ~ 0.54**,
+which is 0.25x one window's own sampling sd. The 4 `z_i` rule governs mixed-layer
+similarity, and lock-in is exactly its failure; it does not reach a 10 m receptor, where
+surface-layer scaling governs. See `bin/domain_adequacy.py` and `FIFTH_PASS_RESULTS.md`.
+
+**And the cap would have been BIASED, not merely restrictive, had it bound.** `z_i` and surface heat flux are
 positively correlated (rank correlation **+0.43** over convective midday), so the excluded
 deep-CBL hours carry **1.51x the heat flux** and **1.58x the `w*`** of the representable
 ones. A `z_i`-capped corpus is thinnest exactly where the array's flux enhancement is

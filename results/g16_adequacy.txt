@@ -1,0 +1,29 @@
+=== footprint observables: shallow (L=4 z_i) vs deep (L=2 z_i) ===
+  A = results/g16_adq_shallow.json
+  B = results/g16_adq_deep.json
+
+  sampling floors, from each window's own halves:
+    peak 0 m (raster resolution 16 m)   centroid 39 m   x80 45 m   array share 6.07 points
+  Kljun's own null for z_i 488 -> 976 m at a 10 m receptor:
+    array share 0.24 points   x90 0.9%   peak 1 m
+
+  observable               shallow      deep       diff        tolerance    
+  peak_x (m)                64.000    64.000     +0.000 m    tol   16.00 m    ok
+  centroid dist (m)        116.420   114.232     -2.188 m    tol   39.00 m    ok
+  x80 of f_y (m)           164.160   177.028    +12.868 m    tol   44.64 m    ok
+  array share (points)      36.454    34.674     -1.780 pt   tol    6.07 pt   ok
+
+  === the array share as a two-sample comparison ===
+  shallow   38.63%  sd 5.96 over 10 release groups
+  deep      36.76%  sd 7.52 over 10 release groups
+  difference -1.878 points, standard error 3.034  ->  t = -0.62, p ~ 0.536
+  as a fraction of ONE window's own sampling sd (7.52 pts): 0.25x
+  A bias smaller than the noise on each individual corpus target cannot be
+  learned as a systematic error by anything trained on those targets.
+
+  GATE E: PASS -- L >= 2 z_i is not binding for this observable. Convective-midday
+          coverage goes 19.3% -> 60.9% and 122^3 covers the corpus.
+
+  This half of the gate cannot stand alone: the two cases are genuinely
+  different physical states, so agreement here is necessary and not sufficient.
+  Read it WITH the lock-in spectra, which detect the artifact directly.
