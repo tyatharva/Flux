@@ -1,0 +1,29 @@
+Lock-in diagnostic, measured on the two convective spin-up states (2026-08-22)
+This is the artifact itself, detected WITHOUT reference to the footprint.
+
+=== lock-in diagnostic: the 2-D spectrum of w at mid-depth ===
+An unconstrained CBL peaks near lambda ~ 1.5 z_i. A locked one snaps to the
+largest mode the box holds (mode 1, lambda = L) and that mode takes an
+anomalous share of the variance.
+
+  dump                          z_i  L/z_i      z  peak lam  lam/z_i  mode1 %  r(L/2)
+  FE_CBL.420000                458m   4.26    227      976m     2.13     1.8%   0.193
+  FE_CBL.440000                458m   4.26    227      976m     2.13     2.6%   0.103
+  FE_CBL.640000                907m   2.15    458     1952m     2.15    55.1%   0.328
+  FE_CBL.660000                907m   2.15    458     1952m     2.15    53.9%   0.175
+
+  READ: lam/z_i near 1.5 and a small mode-1 share = unconstrained.
+        peak lambda pinned at L, a large mode-1 share, and r(L/2) strongly
+        negative = the box is organising the thermals.
+
+The deep case IS locked in: the spectral peak sits at mode 1 (lambda = L exactly)
+and that single mode carries 54% of the mid-depth w variance, against 2% in the
+compliant case. A 25x difference, and not a marginal call.
+
+This does NOT by itself decide Gate E. The 4 z_i rule was written for mixed-layer
+similarity -- w* scaling, entrainment, the shape of the w spectrum at mid-depth --
+and lock-in is precisely the failure of that. Whether it reaches a footprint at
+10 m, where surface-layer scaling governs and Kljun's own z_i channel spans one
+percentage point of array share, is the separate question the footprint comparison
+answers. Because the artifact is demonstrably PRESENT, agreement there would be
+strong evidence rather than a vacuous pass.
