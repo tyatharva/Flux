@@ -183,12 +183,31 @@ def compare(fa, fb, res=16.0):
     def share(d, cls="solar array"):
         return 100.0 * (d.get("cover_share_nowrap", {}).get(cls) or 0.0)
 
-    def share_floor(d, cls="solar array"):
-        ch = d.get("cover_share_halves") or [{}, {}]
-        if not ch[0] or cls not in ch[0]:
-            return 0.0
-        return 100.0 * abs((ch[0][cls] or 0.0) - (ch[1][cls] or 0.0))
-    floor_share = max(share_floor(a), share_floor(b))
+    def share_groups(d, cls="solar array"):
+        # Per-release-group shares, in per cent: the sampling DISTRIBUTION of the share.
+        ch = d.get("cover_share_halves") or []
+        v = np.array([100.0 * (g.get(cls) or np.nan) for g in ch], dtype=float)
+        return v[np.isfinite(v)]
+
+    ga, gb = share_groups(a), share_groups(b)
+    # With >= 4 groups per case the share has a real sampling distribution, and the
+    # comparison becomes a two-sample test instead of one difference against another.
+    stat = None
+    if ga.size >= 4 and gb.size >= 4:
+        from math import erfc, sqrt
+        sea, seb = ga.std(ddof=1) / np.sqrt(ga.size), gb.std(ddof=1) / np.sqrt(gb.size)
+        sed = float(np.hypot(sea, seb))
+        dm = float(gb.mean() - ga.mean())
+        tstat = dm / max(sed, 1e-12)
+        pval = erfc(abs(tstat) / sqrt(2.0))
+        stat = dict(mean_a=float(ga.mean()), mean_b=float(gb.mean()),
+                    sd_a=float(ga.std(ddof=1)), sd_b=float(gb.std(ddof=1)),
+                    se=sed, d=dm, t=tstat, p=pval, na=int(ga.size), nb=int(gb.size))
+        floor_share = 2.0 * sed          # ~95%: below this the two are indistinguishable
+    else:
+        floor_share = max(
+            (abs(ga[0] - ga[1]) if ga.size >= 2 else 0.0),
+            (abs(gb[0] - gb[1]) if gb.size >= 2 else 0.0))
 
     print("  sampling floors, from each window's own halves:")
     print(f"    peak {floor_peak:.0f} m (raster resolution {res:.0f} m)   "
@@ -221,6 +240,19 @@ def compare(fa, fb, res=16.0):
     cmp("array share (points)", sa, sb,
         max(floor_share, KLJUN_NULL["array_share_pts"]), " pt")
     print("\n".join(rows))
+    if stat:
+        print("\n  === the array share as a two-sample comparison ===")
+        print(f"  shallow  {stat['mean_a']:6.2f}%  sd {stat['sd_a']:.2f} over "
+              f"{stat['na']} release groups")
+        print(f"  deep     {stat['mean_b']:6.2f}%  sd {stat['sd_b']:.2f} over "
+              f"{stat['nb']} release groups")
+        print(f"  difference {stat['d']:+.3f} points, standard error {stat['se']:.3f}"
+              f"  ->  t = {stat['t']:+.2f}, p ~ {stat['p']:.3f}")
+        sd1 = max(stat['sd_a'], stat['sd_b'])
+        print(f"  as a fraction of ONE window's own sampling sd ({sd1:.2f} pts): "
+              f"{abs(stat['d'])/max(sd1,1e-9):.2f}x")
+        print("  A bias smaller than the noise on each individual corpus target cannot be")
+        print("  learned as a systematic error by anything trained on those targets.")
 
     if ok:
         verdict = ("PASS -- L >= 2 z_i is not binding for this observable. Convective-"
