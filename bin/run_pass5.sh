@@ -219,6 +219,10 @@ for cfl in 1.00 1.10 1.15 1.20 1.25 1.30 1.35 1.40; do
   echo "$res" | grep -q "k0/k1 SKIP" && v="SKIP (undeveloped)"
   printf "%-9s %-12s %-9s %s\n" "$cfl" "$DTT" "${k:-?}" "$v"
 done
+echo
+echo "The domain-mean k0/k1 above is NOT sufficient over terrain: the amplification is"
+echo "local, and 1.7% of cells carry the steep slopes. Condition on slope:"
+./docker/pyrun.sh bin/k0k1_by_slope.py runs/g16_terr/output/FE_TDT.$TNT --grid "$GRID"
 } 2>&1 | tee $R/g16_terrain_dt.txt
 
 # ---------------------------------------------------------------- Phase D: the control

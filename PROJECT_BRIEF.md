@@ -480,6 +480,33 @@ of `CFL_3d`, not of the spacing** (confirmed at 10 m and again at 30 m).
 must be `< 1`** (~0.27 when correct, matching NCAR's NBL at 0.25). A value near 9 means `dt` is
 too large.
 
+**But at 122^3 @ 16 m, TERRAIN DID NOT LOWER THE BOUNDARY, and the standing check could
+not have told you either way.** Measured 2026-08-22: a ladder from CFL_3d 1.00 to 1.40 over
+the real surface, branched off a state already adjusted to the terrain, stayed clean at
+every rung -- domain-mean `k0/k1` = 0.60-0.62 throughout, against a flat boundary of 1.51
+and a projected terrain boundary of 1.51/1.252 = 1.21.
+
+Two things follow, and the second is the important one.
+
+1. **The production flat `dt` (CFL_3d 1.35) carries over to terrain at this grid.** The
+   amplification projection was conservative here.
+2. **`docker/k0k1_check.py` is a DOMAIN MEAN and is structurally blind to terrain-driven
+   acoustic noise.** The amplification is local -- only 1.7% of this domain exceeds slope
+   0.14 -- and a handful of ringing columns cannot move a 14,884-cell average. So the
+   ladder passing is not by itself evidence. **`bin/k0k1_by_slope.py` conditions the same
+   ratio on the local slope**, which is the terrain-aware form of the test, and it is what
+   actually establishes the result:
+
+   | slope bin | cells | `k0/k1` median | p95 |
+   |---|---|---|---|
+   | 0.00-0.02 | 3524 | 0.42 | 0.81 |
+   | 0.05-0.08 | 3489 | 0.59 | 0.95 |
+   | 0.11-0.14 | 682 | 0.68 | 1.07 |
+   | 0.14-0.20 | 249 | 0.65 | 1.00 |
+
+   A monotone rise from 0.42 to 0.68 is resolved vertical motion over topography, which is
+   real. Grid-scale acoustic noise is a ratio near **9**, and it is nowhere.
+
 **TERRAIN AMPLIFIES THE EFFECTIVE CFL, and the amplification scales with GRID ANISOTROPY:**
 
     CFL_eff  ~  CFL_3d * sqrt(1 + (slope * dx/dz)^2)
