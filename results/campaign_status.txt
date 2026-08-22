@@ -1,0 +1,3 @@
+CAMPAIGN STOPPED: run_pass5.sh (C1/C2/B4/Phase D)
+CAMPAIGN STOPPED: run_pass5.sh (C1/C2/B4/Phase D)
+CAMPAIGN STOPPED: run_pass5.sh (C1/C2/B4/Phase D)

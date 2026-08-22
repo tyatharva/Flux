@@ -1,0 +1,84 @@
+### window runs/g16_flat: 164160 steps = 2400 s
+###   1 segment(s) of 164160 steps = 42.4 min wall each (cap 60 min)
+###   frqOutput = 342 (5.0 s), ioLPDMfullFrq = 164160
+--- segment 1/1: 0 -> 164160
+  k0/k1 OK (0.129 < 1.0): k0/k1= 0.129  ww[0]=2.509e-04 ww[1]=1.951e-03 (z=2.0,6.0 m)
+  RUN OK (exit 0, no CORRUPTED, no NaN/Inf, completion banner, k0/k1 < 1)
+--- window complete: 481 dumps, 8.4G
+
+=== runs/g16_flat/window: 481 dumps ===
+  cache 10.65 GB, window 0-2400 s (cadence 5.0 s), loaded in 64 s
+  displacement height map from data/grid16/dmap.npy: 0.00-2.00 m, mean 0.973 m
+  receptor pinned to the TOWER cell (i,j) = (61, 61)
+  receptor  (i,j,k)=(61,61,2.0000)  x=984 y=984  z=10.000 m ASL = 10.000 m AGL (ground 0.00 m)
+  displacement height at the receptor d=1.500 m  ->  effective aerodynamic height z-d = 8.500 m
+  releases  451 times over 600-2400 s, 700 each = 315,700 particles; t_back=600 s
+  receptor means over the averaging period: U=+3.2188 V=+2.3418 W=-0.0100 m/s
+  double rotation: yaw +36.04 deg, pitch -0.144 deg (sin=-0.00251)
+  wrap-around cap: retiring trajectories past 1952 m of displacement (domain 1952 x 1952 m)
+  SGS floor mode 'surface': surface-layer target 1.23 u*, mixed-layer target 0.00 u* (w*=0.00 m/s), used 1.23 u*
+  SGS MOST floor: receptor d=1.500 m; factor 1.000 at the receptor (1.00-2.45 over the column); phi_w=1.000 at z/L=+0.000; sigma_w/u* 1.23 -> 1.23 (surface-layer target 1.25)
+  mean streamline-frame w over all releases: -0.00051 m/s (model-frame mean was -0.00999); rotation removed 94.8% of it
+  flux weight from touchdowns the periodic fold MOVED: 3.4%
+  footprint-weighted land-cover share (from touchdowns, unblurred):
+    class          folded  unwrapped     area
+    solar array    27.85%     28.83%    1.03%
+    water          -0.00%      0.00%    0.05%
+    tree            3.92%      2.37%   23.47%
+    grassland       6.83%      5.72%   20.49%
+    cropland       59.03%     60.65%   49.72%
+    built           2.38%      2.43%    4.89%
+    (unwrapped excludes touchdowns whose periodic fold moved them onto different
+     real geography; quote that column for the site)
+  LES scalars at z=10.00 m: U=3.86 m/s dir=233.7 deg  u*=0.359  h=399 m  1/L=0.00e+00
+    sigma_v 0.524 (resolved 0.289 + sub-grid, e_sgs=0.2859);  sigma_w 0.443 (resolved 0.074);  sigma_w/u* = 1.23
+  touchdowns 579,535;  largest single weight 170.3;  top 0.1% carry 9.6% of the total |weight|
+  integral of f_flux over the raster = 0.914 (all touchdowns 0.914)
+
+  Kljun evaluated at the EFFECTIVE height z-d = 8.500 m (geometric 10.000 m, d = 1.500 m)
+
+=== flat-and-neutral reference check (Kljun is DIAGNOSTIC here, DESCRIPTIVE over real surface) ===
+  LES + LPDM               peak     64 m   80% of f_y within    378 m   80% area    3.2 ha   centroid    204 m at 226.5 deg
+  Kljun FFP                peak     64 m   80% of f_y within    218 m   80% area    1.5 ha   centroid    153 m at 233.6 deg
+  source-area overlap vs Kljun:  80% 33%   50% 52%
+  peak   LES 64 m   Kljun 64 m
+  integral over the raster:  LES 0.91   Kljun 0.96
+  NOTE: the near-field peak is CONSTRAINED -- the MOST-anchored sigma_w floor is
+        anchored to surface-layer similarity, the same theory Kljun rests on. The
+        80% area, the tail and the land-cover shares are free.
+
+=== capture vs t_back (same window, same touchdowns, truncated) ===
+   t_back    60 s   integral 0.529  =  57.8% of the 600 s value   peak    64 m   80% within    108 m
+   t_back   100 s   integral 0.654  =  71.5% of the 600 s value   peak    64 m   80% within    155 m
+   t_back   150 s   integral 0.733  =  80.2% of the 600 s value   peak    64 m   80% within    202 m
+   t_back   200 s   integral 0.778  =  85.1% of the 600 s value   peak    64 m   80% within    240 m
+   t_back   250 s   integral 0.807  =  88.3% of the 600 s value   peak    64 m   80% within    272 m
+   t_back   300 s   integral 0.832  =  91.0% of the 600 s value   peak    64 m   80% within    302 m
+   t_back   400 s   integral 0.873  =  95.5% of the 600 s value   peak    64 m   80% within    344 m
+   t_back   500 s   integral 0.904  =  98.9% of the 600 s value   peak    64 m   80% within    369 m
+
+=== where the integral comes from, by trajectory displacement ===
+   the domain repeats every 1952 m, so anything beyond one domain length is
+   turbulence the trajectory had already sampled once
+   within 0.25 L  (  488 m)   integral 0.775
+   within 0.50 L  (  976 m)   integral 0.868
+   within 0.75 L  ( 1464 m)   integral 0.901
+   within 1.00 L  ( 1952 m)   integral 0.914
+   within 1.50 L  ( 2928 m)   integral 0.914
+   within 2.00 L  ( 3904 m)   integral 0.914
+
+=== error floor: the two halves of this window ===
+  half 1                   peak     64 m   80% of f_y within    509 m   80% area    4.2 ha   centroid    209 m at 220.3 deg
+  half 2                   peak     64 m   80% of f_y within    306 m   80% area    1.8 ha   centroid    201 m at 236.8 deg
+  half-vs-half 80% overlap 43%   peak difference +0 m   centroid difference 59 m
+  half-vs-half land-cover share (the sampling floor on each share):
+    solar array    26.74% vs   31.81%  -> floor 5.07 points
+    water           0.00% vs    0.00%  -> floor 0.00 points
+    tree            3.09% vs    1.35%  -> floor 1.74 points
+    grassland       6.33% vs    4.85%  -> floor 1.47 points
+    cropland       60.78% vs   60.47%  -> floor 0.32 points
+    built           3.06% vs    1.52%  -> floor 1.54 points
+
+  wrote results/g16_flat.npz and .json
+
+  BASELINE WRITTEN -> results/regression_baseline_g16.json

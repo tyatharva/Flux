@@ -1,0 +1,22 @@
+  === GATED: the restart READ, echoed back before any timestep ===
+  runs/g16_spin/output/FE_G16.1520000
+  -> runs/g16_c2/output/FE_C2.1520000
+  u          max|diff| = 0.000e+00   BIT-FOR-BIT
+  v          max|diff| = 0.000e+00   BIT-FOR-BIT
+  w          max|diff| = 0.000e+00   BIT-FOR-BIT
+  theta      max|diff| = 0.000e+00   BIT-FOR-BIT
+  rho        max|diff| = 0.000e+00   BIT-FOR-BIT
+  pressure   max|diff| = 0.000e+00   BIT-FOR-BIT
+  TKE_0      max|diff| = 0.000e+00   BIT-FOR-BIT
+  fricVel    max|diff| = 0.000e+00   BIT-FOR-BIT
+  htFlux     max|diff| = 0.000e+00   BIT-FOR-BIT
+  z0m        max|diff| = 0.000e+00   BIT-FOR-BIT
+
+  === REPORTED: divergence over 20000 steps, and its floor ===
+  u          chain vs re-run: max 9.546e-03, rms 5.572e-04
+  theta      chain vs re-run: max 5.951e-03, rms 8.972e-04
+  TKE_0      chain vs re-run: max 1.058e-03, rms 4.158e-05
+  Two identical re-runs of the same steps diverge by the same order -- this is
+  fp32 chaos, not a lossy restart. See results/g16_c2_floor.txt.
+
+  GATE C2: PASS -- the restart read is lossless, so a chained boundary is not a seam

@@ -45,6 +45,57 @@ findings do.
 | **B8** halo check | **PASS** | 122 x 122 x 122 interior. **The CNF raster is 122 x 122.** |
 | **C1** stationarity | **PASS** | `U/u*` +0.03 %/h; Kljun `x_peak` +0.06 %/h |
 | **C2** restart resume | **PASS** | the read is bit-for-bit on every field |
+| **D1** well-mixed | **PASS** | backward rms **4.26%**, forward 4.12%, vs a 5.48% counting floor |
+| **D2** the integral | **PASS** | LES **0.914** vs Kljun **0.956** on the identical box |
+| **D3** error floor | **PASS**, narrowly | half-vs-half 80% overlap **43%** vs LES-vs-Kljun **33%** |
+
+---
+
+## 2b. Phase D — the flat/neutral control
+
+One 2400 s window, 481 dumps, 8.4 GB, 315,700 particles released over exactly 30 minutes.
+
+**Gate D1.** Backward and forward both pass, and they agree with each other (rms 4.26% and
+4.12%, max 11.0% and 11.2%, lowest three bins 1.025 and 1.032). Agreement between the two
+directions is the real content: a sign error in the reverse-time drift shows up as a
+backward-only failure, which is exactly the bug the fourth pass found. Run with `--sgs-most`
+and the displacement correction active, i.e. in the configuration footprints are actually
+computed in.
+
+**Gate D2.** The integral converges **from below** with the wrap cap on -- 0.775 within
+0.25 L, 0.868 within 0.5 L, 0.901 within 0.75 L, **0.914** overall -- and Kljun evaluated on
+the identical cells gives **0.956**. So the LES captures 95.6% of what the analytic model
+captures on the same box. At a 30 m receptor the comparable pair was 0.888 vs 0.875, i.e.
+the LES exceeded Kljun; here it sits just below, which is the direction finite `t_back`
+should push it.
+
+**Gate D3, and a caveat about which metrics to trust.** The half-vs-half 80% overlap is
+**43%** against an LES-vs-Kljun overlap of **33%** -- above it, so the metric is not at its
+own noise floor, but by 10 points where the 24 m grid separated by 22. Related and worth
+stating: **`x80` is not a reliable statistic at this grid.** Its half-vs-half floor is
+**203 m**, 54% of `x80` itself, because the tail is carried by rare large-weight touchdowns
+(the largest single weight is 170, and the top 0.1% carry 9.6% of the total). Quote the peak
+and the 80% source AREA; treat `x80` as indicative only.
+
+**`t_back` = 600 s, measured not assumed.** The capture curve, free from masking the same
+touchdowns on age:
+
+| `t_back` | integral | % of the 600 s value | peak | `x80` |
+|---|---|---|---|---|
+| 100 s | 0.654 | 71.5% | 64 m | 155 m |
+| 200 s | 0.778 | 85.1% | 64 m | 240 m |
+| 300 s | 0.832 | 91.0% | 64 m | 302 m |
+| 400 s | 0.873 | 95.5% | 64 m | 344 m |
+| **500 s** | **0.904** | **98.9%** | 64 m | 369 m |
+| 600 s | 0.914 | 100% | 64 m | 378 m |
+
+**The peak is converged at every `t_back` down to 60 s.** Convergence is set by the integral,
+which reaches 98.9% at 500 s; production takes 500 x 1.25 = **600 s**, so a production window
+is 2400 s and fits in ONE sub-1-hour segment.
+
+**Backward transit from the 10 m receptor: median 59 s**, p25 28 s, p75 133 s, p95 443 s.
+At 30 m the median was 180-290 s. The `z/sigma_w` scaling predicted 60-95 s; measured 59 s.
+
 
 ---
 

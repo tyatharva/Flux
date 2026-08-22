@@ -1,0 +1,27 @@
+  77 dumps to 6.26 simulated hours = 0.36 inertial periods (2pi/f = 17.6 h)
+
+  per-hour windows: is the TURBULENCE settled while the mean turns?
+        window       u*   U(10)    U/u*   sw/u*  TKE/u*^2    z_i    dir
+   1.0-2.0       0.4032   4.293  10.648   1.213     0.895    413  264.0
+   2.0-3.0       0.3517   3.753  10.673   1.217     0.893    422  256.8
+   3.0-4.0       0.3333   3.567  10.700   1.222     0.882    426  248.4
+   4.0-5.0       0.3285   3.521  10.717   1.229     0.873    419  240.9
+   5.0-6.0       0.3450   3.692  10.704   1.224     0.883    415  236.0
+
+  === GATED: the footprint's controlling parameters, last 1.5 h ===
+  U/u* (Kljun Pi_4)              10.7034    +0.03 %/h  (limit 1)    0.02% per 40-min window   ok
+  sigma_v/u*                      2.0563    -1.87 %/h  (limit 3)    1.24% per 40-min window   ok
+  sigma_w/u* at the receptor      1.2234    +0.15 %/h  (limit 2)    0.10% per 40-min window   ok
+  TKE/u*^2                        0.8765    -2.37 %/h  (limit 5)    1.58% per 40-min window   ok
+  z_i                           414.4375    -0.83 %/h  (limit 3)    0.55% per 40-min window   ok
+  Kljun x_peak                   38.1758    +0.06 %/h  (limit 1)    0.04% per 40-min window   ok
+  Kljun x90                     520.1672    +0.05 %/h  (limit 1)    0.03% per 40-min window   ok
+
+  === REPORTED, not gated: the mean flow rides the inertial oscillation ===
+  u*                              0.3457    +6.27 %/h
+  U(10 m)                         3.6997    +6.31 %/h
+  wind direction                236.2447    -1.41 %/h
+  domain TKE                      0.1047   +10.07 %/h
+  x_peak spans 38.0-38.3 m across the scored window, against a 16 m raster cell.
+
+  GATE C1: PASS -- the turbulence is in equilibrium and the footprint parameters are stationary; the mean flow is oscillating inertially, which is physical and is carried as a per-case LABEL

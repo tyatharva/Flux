@@ -1,0 +1,11 @@
+terrain dt ladder, branched from runs/g16_terr/output/FE_TADJ.40000 (adjusted at CFL_3d 1.05)
+each rung: 4000 steps from step 40000 to 44000
+CFL_3d    dt (s)       k0/k1     verdict
+1.00      0.0108457    0.603     OK
+1.10      0.0119303    0.609     OK
+1.15      0.0124726    0.611     OK
+1.20      0.0130148    0.610     OK
+1.25      0.0135571    0.612     OK
+1.30      0.0140994    0.616     OK
+1.35      0.0146417    0.617     OK
+1.40      0.0151840    0.616     OK
