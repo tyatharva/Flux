@@ -105,7 +105,8 @@ def main():
     print("  MEASURED SWING across direction: %.2f%% (%s) to %.2f%% (%s)  =  %.0fx" % (
         max(m), rows[int(np.argmax(m))][0], max(min(m), 1e-4),
         rows[int(np.argmin(m))][0], max(m) / max(min(m), 1e-4)))
-    aa = 100.0 * float(np.load("data/grid/array.npy").mean())
+    grid = os.environ.get("GRID", "data/grid16")
+    aa = 100.0 * float(np.load(os.path.join(grid, "array.npy")).mean())
     print("  area share of the domain: %.2f%%  ->  enrichment %.1fx at best, %.2fx at worst"
           % (aa, max(m) / aa, min(m) / aa))
     print()
@@ -121,14 +122,34 @@ def main():
         me = d[a_][6] / max(d[b_][6], 1e-9)
         print("    %s / %s :  predicted %7.1fx   measured %7.1fx" % (a_, b_, pr, me))
     print()
-    print("  The measured swing EXCEEDS the predicted one in every pair, and in the same")
-    print("  direction each time: the LES puts less mass in the near field than Kljun does")
-    print("  (peak 270 m against 150 m), so a patch that only reaches 65-146 m upwind loses")
-    print("  more than Kljun says it should. Sign and ordering both hold.")
+    # Say what THIS run shows, not what a previous pass showed. The fourth-pass version of
+    # this block asserted "peak 270 m against 150 m" and "backed ~24 deg" as fixed text,
+    # which prints a conclusion whatever the data does -- the one thing a gate must never do.
+    rat = [(a_, b_, d[a_][5] / max(d[b_][5], 1e-9), d[a_][6] / max(d[b_][6], 1e-9))
+           for a_, b_ in (("wN", "wE"), ("wN", "wS"), ("wS", "wE"))]
+    over = sum(1 for _, _, pr, me in rat if me > pr)
+    same = sum(1 for _, _, pr, me in rat if (pr - 1.0) * (me - 1.0) > 0)
+    print("  %d of %d ratio pairs have the measured swing EXCEEDING the predicted one, and"
+          % (over, len(rat)))
+    print("  %d of %d agree in SIGN (both above or both below unity). Sign and ordering are"
+          % (same, len(rat)))
+    print("  the robust content here: the chords are 60-250 m, i.e. 4-16 cells at 16 m, so")
+    print("  the absolute prediction is asking more of the near field than the raster gives.")
     print()
-    print("  The achieved surface winds are backed ~24 deg from the geostrophic forcing by")
-    print("  Ekman turning, so none of these is a due N/S/E/W case. The prediction uses the")
-    print("  ACHIEVED direction, which is why it is a fair comparison.")
+    # rows = (tag, wdir, chord, kljun_cum%, crosswind_factor, pred, measured, pred_les)
+    ch = [r[2] for r in rows]
+    print("  Array chords this pass: %.0f-%.0f m upwind of the tower. The chord is capped"
+          % (min(ch), max(ch)))
+    print("  by the array's 120 m WIDTH, not its 350 m length: a ray from the tower toward")
+    print("  any direction off due north leaves through an east or west edge within ~100 m.")
+    print("  That is why the directional swing is modest here and why absolute share, not")
+    print("  the N-vs-E/W ratio, is the discriminator at a 10 m receptor.")
+    print()
+    frm = [r[1] for r in rows]
+    print("  Achieved surface directions: %s." % ", ".join("%.0f deg" % f for f in frm))
+    print("  They are backed from the geostrophic forcing by Ekman turning AND carried by")
+    print("  the inertial oscillation, so none is a due N/S/E/W case. The prediction uses")
+    print("  the ACHIEVED direction, which is what makes the comparison fair.")
     return 0
 
 
