@@ -24,7 +24,7 @@ from lpdm import kljun
 from scipy.special import erf
 
 W, E, S, N = -60.0, 60.0, -100.0, 250.0     # array rectangle, metres from the tower
-ZM, Z0 = 30.0, 0.05
+ZM, Z0 = 10.0, 0.05
 
 
 def chord(theta_from_deg):

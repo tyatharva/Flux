@@ -104,6 +104,15 @@ class LPDM:
         z_ref value, which makes its gradient zero there -- so the sub-layer is
         trivially well mixed and cannot manufacture the near-surface accumulation the
         Stage 4 gate exists to detect.
+
+        DISPLACEMENT HEIGHT. The log law is u ~ ln((z - d)/z0), not ln(z/z0). At a 30 m
+        receptor over d ~ 0.1 m that distinction was invisible; at 10 m over a 2-3 m solar
+        array with d ~ 1.5 m it is 10-15% of every similarity argument, and the first LES
+        level (1.997 m on the production grid) sits AT the displacement height -- so
+        (z_ref - d) is a small number and the anchor has to be floored rather than
+        assumed positive. d comes from fs.displacement() and is measured from the MODEL's
+        ground, so it is zero wherever the surface build already put the displacement
+        surface into topoPos.
         """
         fs = self.fs
         fi, fj = fs.hindex(x, y)
@@ -120,8 +129,15 @@ class LPDM:
         below = zagl < self.z_ref
         if below.any():
             z0b = np.maximum(z0[below], 1e-4)
-            scal = (np.log(np.maximum(zagl[below], 1.001 * z0b) / z0b)
-                    / np.log(self.z_ref / z0b))
+            db = fs.displacement(fi[below], fj[below])
+            # Both heights are floored just above z0 so the logarithms stay finite and
+            # ordered: a particle inside the canopy (zagl < d) and an anchor level at or
+            # below the displacement height are both reachable over the array, and either
+            # one un-floored produces a negative or infinite scaling that the clip below
+            # would silently absorb.
+            zeff = np.maximum(zagl[below] - db, 1.001 * z0b)
+            zref_eff = np.maximum(self.z_ref - db, 1.002 * z0b)
+            scal = np.log(zeff / z0b) / np.log(zref_eff / z0b)
             scal = np.clip(scal, 0.0, 1.0)
             u[below] *= scal
             v[below] *= scal

@@ -95,6 +95,11 @@ class FieldSet:
         # both horizontal directions, so the gradient wraps.
         self.zg_dx = np.gradient(np.pad(self.zg, 1, mode="wrap"), self.dx, axis=1)[1:-1, 1:-1]
         self.zg_dy = np.gradient(np.pad(self.zg, 1, mode="wrap"), self.dy, axis=0)[1:-1, 1:-1]
+        # Per-cell displacement height. FastEddy has no d -- surflayer_z0 and surflayer_z0t
+        # are the only surface-layer length scales it carries -- so d never appears in a
+        # dump and has to be supplied from the surface directory that built the run.
+        # None means zero everywhere, which is what every flat/uniform case wants.
+        self.dmap = None
 
         # --- invert the terrain-following map: recover the flat-column shape F_k ---
         # z = F_k*(zC - zg)/zC + zg  =>  F_k = (z - zg) * zC/(zC - zg).  Taken from a
@@ -206,6 +211,31 @@ class FieldSet:
         if not self.zg.any():
             return np.zeros_like(np.asarray(fi, dtype=np.float64))
         return map_coordinates(self.zg, [np.mod(fj, self.ny), np.mod(fi, self.nx)],
+                               order=1, mode="grid-wrap")
+
+    def set_displacement(self, d):
+        """Attach a per-cell displacement height (ny, nx), in metres.
+
+        MUST BE MEASURED FROM THE MODEL'S GROUND, not from bare earth. Where the surface
+        build raised topoPos by the displacement height (--raise-topo, over the array), the
+        model ground already IS the effective surface, so d there is zero and passing the
+        canopy value would count it twice; everywhere else d is unchanged.
+        bin/prep_surface.py writes dmap.npy under exactly that rule -- it subtracts
+        whatever it put into the terrain -- so the pairing cannot be got wrong by hand.
+        """
+        if d is None:
+            self.dmap = None
+            return
+        d = np.ascontiguousarray(np.asarray(d, dtype=np.float64))
+        if d.shape != (self.ny, self.nx):
+            raise ValueError(f"displacement map is {d.shape}, grid is {(self.ny, self.nx)}")
+        self.dmap = d
+
+    def displacement(self, fi, fj):
+        """d at the particle, bilinear and periodic. Zero unless a map is attached."""
+        if self.dmap is None:
+            return np.zeros_like(np.asarray(fi, dtype=np.float64))
+        return map_coordinates(self.dmap, [np.mod(fj, self.ny), np.mod(fi, self.nx)],
                                order=1, mode="grid-wrap")
 
     def ground_slope(self, fi, fj):

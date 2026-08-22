@@ -28,6 +28,9 @@ def main():
     ap.add_argument("--zrelease", type=float, default=1200.0)
     ap.add_argument("--c0", type=float, default=3.0)
     ap.add_argument("--ztouch", type=float, default=2.0)
+    ap.add_argument("--z-target", type=float, default=10.0,
+                    help="receptor height, m AGL, for the MOST floor and the transit-time "
+                         "check. Was hard-coded at 30.0 in two places.")
     ap.add_argument("--sgs-most", action="store_true",
                     help="run the gate WITH the MOST-anchored variance floor in place. "
                          "The floor rescales sigma^2 by a height-dependent factor, and a "
@@ -50,7 +53,7 @@ def main():
     sgs = 1.0
     if a.sgs_most:
         from lpdm.les_stats import window_stats
-        k_r = int(np.argmin(np.abs(fs.zk - 30.0)))
+        k_r = int(np.argmin(np.abs(fs.zk - a.z_target)))
         st = window_stats(paths[::max(1, len(paths) // 40)], k_r)
         zl = np.asarray(st["zlev"], dtype=np.float64)
         wwp = np.asarray(st["ww_prof"], dtype=np.float64)
@@ -79,8 +82,8 @@ def main():
         print(f"  ({out['iters']} integrator steps, {time.time()-t0:.0f} s)")
 
     # ---- second gate: backward transit time from the 30 m receptor to the surface
-    print("\n  --- backward transit time from the receptor ---")
-    k_r = int(np.argmin(np.abs(fs.zk - 30.0)))
+    print(f"\n  --- backward transit time from the {a.z_target:.0f} m receptor ---")
+    k_r = int(np.argmin(np.abs(fs.zk - a.z_target)))
     zr = float(fs.zk[k_r])
     n = 20000
     rng = np.random.default_rng(7)
@@ -97,8 +100,9 @@ def main():
         q = np.percentile(tt, [5, 25, 50, 75, 95])
         print("  transit time (s): " + "  ".join(f"p{p}={v:.0f}" for p, v in
                                                  zip((5, 25, 50, 75, 95), q)))
-        print(f"  median {q[2]/60:.1f} min. PLAN.md expects 1-5 min unstable, "
-              f"10-15 min stable; neutral sits between.")
+        print(f"  median {q[2]/60:.1f} min at z = {zr:.1f} m. Transit scales roughly as "
+              f"z/sigma_w, so the 30 m receptor's 180-290 s should fall to ~60-95 s here; "
+              f"this median is what sizes t_back and therefore the window.")
     print(f"\n  STAGE 4 GATE: {'PASS' if ok and frac > 0.5 else 'FAIL'}")
     return 0 if (ok and frac > 0.5) else 1
 

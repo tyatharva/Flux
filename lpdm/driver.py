@@ -10,7 +10,8 @@ from .les_stats import window_stats
 from .model import LPDM
 
 
-def receptor_indices(fs, z_target=30.0, x_frac=0.75, y_frac=0.5, ij=None):
+def receptor_indices(fs, z_target=10.0, x_frac=0.75, y_frac=0.5, ij=None,
+                     exact_agl=False):
     """Receptor cell. `ij` pins it to a specific column and overrides the fractions.
 
     The fractions date from the wind-ALIGNED elongated domain, where the tower sat 3/4
@@ -18,13 +19,25 @@ def receptor_indices(fs, z_target=30.0, x_frac=0.75, y_frac=0.5, ij=None):
     fractions would put the receptor 1128 m east of it -- harmless over flat uniform
     ground, and completely wrong over real geography, where it would sample the wrong
     surface entirely. Pass the tower cell from data/grid/meta.npy.
+
+    `exact_agl` returns a FRACTIONAL level whose height above the local ground is exactly
+    z_target, instead of the nearest cell centre. The production grid puts a cell centre
+    at 10.000000 m so the two agree exactly there and this costs nothing -- but the
+    instrument is 10 m above BARE GROUND, and a surface built with --raise-topo lifts the
+    model ground over the array by the displacement height. Snapping to the nearest level
+    there would put the receptor 10 m above the PANELS, i.e. 11.5 m above bare ground,
+    which is a 15% error in exactly the quantity this pass exists to get right.
     """
-    k = int(np.argmin(np.abs(fs.zk - z_target)))
     if ij is not None:
-        return int(ij[0]), int(ij[1]), k
-    i = int(round(x_frac * fs.nx))
-    j = int(round(y_frac * fs.ny))
-    return i, j, k
+        i, j = int(ij[0]), int(ij[1])
+    else:
+        i = int(round(x_frac * fs.nx))
+        j = int(round(y_frac * fs.ny))
+    if exact_agl:
+        one = lambda v: np.array([float(v)])
+        zg = float(fs.ground(one(i), one(j))[0])
+        return i, j, float(fs.kindex(one(zg + z_target), one(i), one(j))[0])
+    return i, j, int(np.argmin(np.abs(fs.zk - z_target)))
 
 
 def make_releases(fs, n_per_release, t_first, t_last, dt_release, xr, yr, zr):
@@ -34,13 +47,13 @@ def make_releases(fs, n_per_release, t_first, t_last, dt_release, xr, yr, zr):
     return (np.full(n, xr), np.full(n, yr), np.full(n, zr), t, times)
 
 
-def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.0,
+def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.0,
                       t_back=900.0, c0=3.0, z_touch=2.0, grid_res=20.0,
                       grid_x=(-600.0, 4500.0), grid_y=(-1500.0, 1500.0),
                       seed=0, split_halves=True, batch_releases=12, w_floor=0.02,
                       max_disp=None, cover=None, aniso=None, sgs_scale=1.0, sgs_most=False,
                       receptor_ij=None, tback_marks=(), rel_seconds=None, sgs_most_mode="surface",
-                      verbose=True):
+                      exact_agl=False, verbose=True):
     """Release, integrate backward, accumulate on the STATIC north-up raster.
 
     THE RASTER IS THE LES GRID. Touchdowns are binned by their LES column index, folded
@@ -60,7 +73,7 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
     slab of the time axis and stays resident, while one ensemble spanning the whole window
     touches all of it on every step. Same answer, far less memory traffic.
     """
-    i_r, j_r, k_r = receptor_indices(fs, z_target, ij=receptor_ij)
+    i_r, j_r, k_r = receptor_indices(fs, z_target, ij=receptor_ij, exact_agl=exact_agl)
     xr = fs.x0 + i_r * fs.dx
     yr = fs.y0 + j_r * fs.dy
     # ABSOLUTE height of that cell centre. Over terrain this is NOT fs.zk[k_r]: the
@@ -70,7 +83,13 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
     zr = float(fs.height(np.array([float(k_r)]), np.array([float(i_r)]),
                          np.array([float(j_r)]))[0])
     zg_r = float(fs.ground(np.array([float(i_r)]), np.array([float(j_r)]))[0])
+    d_r = float(fs.displacement(np.array([float(i_r)]), np.array([float(j_r)]))[0])
     st = window_stats(paths, k_r)
+    # Effective aerodynamic height: what every similarity relation, and Kljun, actually
+    # take as z_m. Over the flat control d is ~0.1 m and this is a 1% correction; over the
+    # array at a 10 m receptor it is 15%.
+    st["d_recept"] = d_r
+    st["z_eff"] = (zr - zg_r) - d_r
 
     # A window is (averaging period + t_back) long: the first t_back seconds of it produce
     # no releases at all, because a backward trajectory needs that much history behind it.
@@ -88,8 +107,12 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
     times = np.arange(t_first, t_last + 1e-9, dt_release)
     tmid = 0.5 * (times[0] + times[-1])
     if verbose:
-        print(f"  receptor  (i,j,k)=({i_r},{j_r},{k_r})  x={xr:.0f} y={yr:.0f}  "
+        print(f"  receptor  (i,j,k)=({i_r},{j_r},"
+              f"{k_r:.4f}" + (" fractional" if not float(k_r).is_integer() else "") +
+              f")  x={xr:.0f} y={yr:.0f}  "
               f"z={zr:.3f} m ASL = {zr-zg_r:.3f} m AGL (ground {zg_r:.2f} m)")
+        print(f"  displacement height at the receptor d={d_r:.3f} m  ->  effective "
+              f"aerodynamic height z-d = {st['z_eff']:.3f} m")
         print(f"  releases  {len(times)} times over {t_first:.0f}-{t_last:.0f} s, "
               f"{n_per_release} each = {len(times)*n_per_release:,} particles; "
               f"t_back={t_back:.0f} s")
@@ -214,7 +237,21 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
         # above 0.2h -- which in a CBL is where sigma_w stops scaling with u* and starts
         # scaling with w*.
         Lv = float(st["L"])
-        zeta = zl / Lv if np.isfinite(Lv) and abs(Lv) > 1e-6 else np.zeros_like(zl)
+        # DISPLACEMENT HEIGHT. phi_w is a function of (z - d)/L, not z/L.
+        #
+        # The floor is one 1-D profile applied to every particle, so d has to be a single
+        # number, and the RECEPTOR COLUMN's is the right one rather than the domain mean.
+        # The floor exists to repair sigma_w at the receptor -- that is what it is
+        # calibrated against and what the taper below confines it to -- so it should take
+        # the receptor's own aerodynamic height. The domain mean would be dominated by
+        # something else entirely: WorldCover puts 28.5% of the wider domain under tree
+        # cover, whose d ~ 0.7 h_c is metres, none of which the LES resolves and none of
+        # which is near the tower.
+        #
+        # The (1 - z/h) taper below keeps z: it is about boundary-layer depth, not about
+        # surface-layer similarity.
+        zl_eff = np.maximum(zl - d_r, 1e-3)
+        zeta = zl_eff / Lv if np.isfinite(Lv) and abs(Lv) > 1e-6 else np.zeros_like(zl)
         phi_w = np.where(zeta < 0.0, np.maximum(1.0 - 3.0 * zeta, 1.0) ** (1.0 / 3.0),
                          1.0 + 0.2 * np.minimum(zeta, 2.0))
         tgt_sfc = (1.25 * phi_w * float(st["ustar"])
@@ -268,7 +305,7 @@ def compute_footprint(fs, paths, z_target=30.0, n_per_release=700, dt_release=4.
                   f"{tgt_sfc[kk]/st['ustar']:.2f} u*, mixed-layer target "
                   f"{tgt_mix[kk]/st['ustar']:.2f} u* (w*={wstar:.2f} m/s), "
                   f"used {tgt[kk]/st['ustar']:.2f} u*")
-            print(f"  SGS MOST floor: factor {fac[kk]:.3f} at the receptor "
+            print(f"  SGS MOST floor: receptor d={d_r:.3f} m; factor {fac[kk]:.3f} at the receptor "
                   f"({fac.min():.2f}-{fac.max():.2f} over the column); "
                   f"phi_w={phi_w[kk]:.3f} at z/L={zeta[kk] if np.ndim(zeta) else 0:+.3f}; "
                   f"sigma_w/u* {np.sqrt(wwp[kk] + (2/3)*esp[kk])/st['ustar']:.2f} -> "

@@ -31,7 +31,7 @@ LIMIT = 0.40
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("outdir")
-    ap.add_argument("--ztarget", type=float, default=30.0)
+    ap.add_argument("--ztarget", type=float, default=10.0)
     ap.add_argument("--stride", type=int, default=20)
     a = ap.parse_args()
     paths = sorted(glob.glob(os.path.join(a.outdir, "*.[0-9]*")),

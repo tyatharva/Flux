@@ -33,7 +33,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("outdir")
     ap.add_argument("--dt", type=float, default=0.0625)
-    ap.add_argument("--ztarget", type=float, default=30.0)
+    ap.add_argument("--ztarget", type=float, default=10.0)
     ap.add_argument("--n", type=int, default=600)
     ap.add_argument("--dtrel", type=float, default=5.0)
     ap.add_argument("--wfloor", type=float, default=0.02)

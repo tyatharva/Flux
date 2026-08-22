@@ -27,7 +27,18 @@ G = 9.81
 
 
 def window_stats(paths, k_recept):
-    """Ensemble statistics over a series of dumps, at the receptor level."""
+    """Ensemble statistics over a series of dumps, at the receptor level.
+
+    `k_recept` may be FRACTIONAL. It has to be, once the surface build can raise topoPos
+    by the displacement height over the array: the receptor is pinned to a fixed height
+    above BARE GROUND, so over a raised patch it sits between two model levels rather than
+    on one. The receptor-level moments are then taken from the linearly interpolated
+    field, which is exactly what the LPDM's own 4-D interpolation does at that height --
+    interpolating the finished variances instead would be a different quantity.
+    """
+    kf = float(k_recept)
+    k0 = int(np.floor(kf))
+    fr = kf - k0
     U = V = 0.0
     uu = vv = ww = uv = 0.0
     esgs = 0.0
@@ -42,6 +53,11 @@ def window_stats(paths, k_recept):
     # than from every dump.
     with Dataset(paths[0]) as ds0:
         z = np.squeeze(np.asarray(ds0["zPos"][:], dtype=np.float64))[:, 0, 0]
+    nz = len(z)
+    k0 = int(np.clip(k0, 0, nz - 1))
+    k1 = min(k0 + 1, nz - 1)
+    f1 = fr if k1 > k0 else 0.0
+    lev = lambda a: (1.0 - f1) * a[k0] + f1 * a[k1]      # receptor-level 2-D slice
     for p in paths:
         with Dataset(p) as ds:
             g = lambda v: np.squeeze(np.asarray(ds[v][:], dtype=np.float64))
@@ -60,13 +76,14 @@ def window_stats(paths, k_recept):
                 th_ = float(g("theta")[0].mean())
                 hfx += (-(us_ ** 3) * th_ * iLm / (KAPPA * G)) if abs(iLm) > 1e-12 else 0.0
             th0 += float(g("theta")[0].mean())
-        Uk, Vk = u[k_recept].mean(), v[k_recept].mean()
+        ur, vr, wr = lev(u), lev(v), lev(w)
+        Uk, Vk = ur.mean(), vr.mean()
         U += Uk; V += Vk
-        uu += ((u[k_recept] - Uk) ** 2).mean()
-        vv += ((v[k_recept] - Vk) ** 2).mean()
-        uv += ((u[k_recept] - Uk) * (v[k_recept] - Vk)).mean()
-        esgs += float(e[k_recept].mean())
-        ww += ((w[k_recept] - w[k_recept].mean()) ** 2).mean()
+        uu += ((ur - Uk) ** 2).mean()
+        vv += ((vr - Vk) ** 2).mean()
+        uv += ((ur - Uk) * (vr - Vk)).mean()
+        esgs += float(lev(e).mean())
+        ww += ((wr - wr.mean()) ** 2).mean()
         pr = lambda a: a - a.mean(axis=(-2, -1), keepdims=True)
         t = 0.5 * ((pr(u) ** 2) + (pr(v) ** 2) + (pr(w) ** 2)).mean(axis=(-2, -1))
         tke_prof = t if tke_prof is None else tke_prof + t
@@ -98,7 +115,7 @@ def window_stats(paths, k_recept):
     above = np.where(tke_prof[kmax:] < 0.05 * tke_prof[kmax])[0]
     h = float(z[kmax + above[0]]) if len(above) else float(z[-1])
     L = (-ust ** 3 * th0 / (KAPPA * G * hfx)) if abs(hfx) > 1e-6 else np.inf
-    return dict(z=z, z_recept=float(z[k_recept]), u_mean=spd, wdir=float(wdir),
+    return dict(z=z, z_recept=float(lev(z)), k_recept=kf, u_mean=spd, wdir=float(wdir),
                 sigma_u=float(np.sqrt(uu + sgs)), sigma_v=sig_v,
                 sigma_w=float(np.sqrt(ww + sgs)),
                 sigma_v_resolved=float(np.sqrt(sig_v_res)),

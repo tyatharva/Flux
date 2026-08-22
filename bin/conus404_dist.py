@@ -35,7 +35,7 @@ import numpy as np
 
 K, G, CP, RD = 0.4, 9.81, 1004.5, 287.05
 Z0 = 0.05          # the site's geometric-mean WorldCover roughness (runs/g24_base/base.in)
-ZM = 30.0          # EC measurement height
+ZM = 10.0          # EC measurement height (corrected from 30 m, 2026-08-21)
 EPOCH = dt.datetime(1979, 10, 1)
 OCT = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
 

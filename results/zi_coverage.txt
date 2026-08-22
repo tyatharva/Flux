@@ -1,0 +1,36 @@
+CONUS404 at the tower: 25,736 quality-controlled hours of 39,456 (65.2%)
+
+=== z_i coverage: fraction of hours the box can hold ===
+population                                       L>=4 z_i     L>=3 z_i     L>=2 z_i
+  -- 1952 m box: caps z_i at 488 m (L>=4z_i), 651 m (L>=3z_i), 976 m (L>=2z_i)
+  all QC hours                                      49.5%        63.4%        81.3%
+  unstable (z/L < 0)                                45.7%        57.7%        76.1%
+  very unstable (z/L < -0.5)                        35.4%        46.8%        67.6%
+  convective midday (10-16 h, w'th' > 0.05)         19.3%        33.6%        60.9%
+  -- 3488 m box (fallback): caps z_i at 872 m (L>=4z_i), 1163 m (L>=3z_i), 1744 m (L>=2z_i)
+  all QC hours                                      76.8%        88.0%        97.8%
+  unstable (z/L < 0)                                71.0%        84.0%        96.7%
+  very unstable (z/L < -0.5)                        61.7%        78.3%        95.8%
+  convective midday (10-16 h, w'th' > 0.05)         53.0%        73.6%        94.7%
+
+=== bias of what the cap excludes (convective midday) ===
+z_i and surface heat flux are positively correlated, so the cap is not a random
+subsample: it removes the strongly-heated states preferentially.
+  rank correlation(z_i, w'th') over convective midday: +0.425
+
+  -- L >= 4 z_i, cap 488 m --
+                                     n   z_i p50   w'th' p50   u* p50   w* p50
+     representable (z_i<cap)      1335      363m      0.0798    0.389     0.98
+     EXCLUDED (z_i>=cap)          5571      957m      0.1204    0.407     1.56
+     excluded/representable at the medians:  w'th' 1.51x   w* 1.58x
+
+  -- L >= 2 z_i, cap 976 m --
+                                     n   z_i p50   w'th' p50   u* p50   w* p50
+     representable (z_i<cap)      4206      618m      0.1004    0.404     1.27
+     EXCLUDED (z_i>=cap)          2700     1283m      0.1316    0.402     1.77
+     excluded/representable at the medians:  w'th' 1.31x   w* 1.40x
+
+READ THIS AS: the cap costs coverage AND skews the corpus toward weak convection.
+Whether it must be paid is a separate, measurable question -- see the domain
+adequacy test (bin/domain_adequacy.py), which asks whether L = 2 z_i actually
+corrupts a 10 m footprint or only the w*-scaling the 4 z_i rule was written for.

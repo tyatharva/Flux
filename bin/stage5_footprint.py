@@ -59,8 +59,18 @@ def describe(name, g, fy, xc, res):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("dirs", nargs="+")
-    ap.add_argument("--dt", type=float, default=0.0271739)
+    ap.add_argument("--dt", type=float, default=0.0158228)
     ap.add_argument("--tback", type=float, default=900.0)
+    ap.add_argument("--z-target", type=float, default=10.0,
+                    help="receptor height in m AGL. THE DEFAULT USED TO BE 30.0 AND WAS "
+                         "NEVER PASSED FROM HERE, so every footprint silently landed on "
+                         "the level nearest 30 m. The instrument is at 10 m.")
+    ap.add_argument("--exact-agl", action="store_true",
+                    help="release at a FRACTIONAL level exactly --z-target above the local "
+                         "ground, instead of the nearest cell centre. Needed when the "
+                         "surface was built with --raise-topo, which lifts the model "
+                         "ground over the array by the displacement height while the "
+                         "instrument stays 10 m above bare ground.")
     ap.add_argument("--nrel", type=int, default=700)
     ap.add_argument("--dtrel", type=float, default=4.0)
     ap.add_argument("--c0", type=float, default=3.0)
@@ -121,13 +131,28 @@ def main():
                     m_ = (lc == k) & (~am)
                     if m_.any():
                         cover[nm] = m_
+        # Displacement height: FastEddy has no d, so it comes from the surface directory
+        # that built the run. prep_surface.py writes zeros into dmap.npy when --raise-topo
+        # already put the displacement surface into topoPos, so attaching it is always the
+        # right thing and can never double-count.
+        dsrc = a.cover_dir or a.receptor_from
+        if dsrc:
+            dp = os.path.join(dsrc, "dmap.npy")
+            if os.path.exists(dp):
+                dm = np.load(dp)
+                fs.set_displacement(dm)
+                print(f"  displacement height map from {dp}: "
+                      f"{dm.min():.2f}-{dm.max():.2f} m, mean {dm.mean():.3f} m")
+            else:
+                print(f"  no dmap.npy in {dsrc} -- displacement height treated as ZERO")
         rij = None
         if a.receptor_from and os.path.exists(os.path.join(a.receptor_from, "meta.npy")):
             m_ = np.load(os.path.join(a.receptor_from, 'meta.npy'), allow_pickle=True).item()
             rij = (m_['itower'], m_['jtower'])
             print(f"  receptor pinned to the TOWER cell (i,j) = {rij}")
         from lpdm.model import SURFACE_LAYER_ANISO
-        r = compute_footprint(fs, paths, n_per_release=a.nrel, dt_release=a.dtrel,
+        r = compute_footprint(fs, paths, z_target=a.z_target, exact_agl=a.exact_agl,
+                              n_per_release=a.nrel, dt_release=a.dtrel,
                               t_back=a.tback, c0=a.c0, seed=len(runs), cover=cover,
                               aniso=SURFACE_LAYER_ANISO if a.aniso else None,
                               sgs_scale=a.sgs_scale, sgs_most=a.sgs_most,
@@ -167,7 +192,14 @@ def main():
 
     d0, fs0, r0 = runs[0]
     g0, st = r0["grid"], r0["stats"]
-    zm = r0.get("z_agl", st["z_recept"])
+    # Kljun's z_m is an aerodynamic height, so it is z - d, not z. Over the flat control
+    # d ~ 0.1 m and the two agree to 1%; over the array at 10 m the difference moves the
+    # E/W footprint share by ~39% relative, which is far larger than any error floor here.
+    zm_agl = r0.get("z_agl", st["z_recept"])
+    zm = float(st.get("z_eff", zm_agl))
+    if abs(zm - zm_agl) > 1e-6:
+        print(f"\n  Kljun evaluated at the EFFECTIVE height z-d = {zm:.3f} m "
+              f"(geometric {zm_agl:.3f} m, d = {st.get('d_recept', 0.0):.3f} m)")
     ang = np.radians(r0["wind_angle"])
     fyc, fy = r0["fy"]["xc"], r0["fy"]["f"]
     res = float(fs0.dx)
@@ -196,7 +228,8 @@ def main():
               "Kljun rests on. The\n        80% area, the tail and the land-cover shares "
               "are free.")
 
-    out = dict(dirs=a.dirs, zm=zm, tback=a.tback, rel_seconds=a.rel_seconds, res=res,
+    out = dict(dirs=a.dirs, zm=zm, zm_agl=zm_agl, d_recept=st.get("d_recept", 0.0),
+               z_target=a.z_target, exact_agl=bool(a.exact_agl), tback=a.tback, rel_seconds=a.rel_seconds, res=res,
                stats={k: (float(v) if np.isscalar(v) else None) for k, v in st.items()},
                les=m_les, kljun=m_kl, overlap_kljun=ov80, overlap50_kljun=ov50,
                integral_les=g0.integral(), integral_les_all=g0.integral_all(),

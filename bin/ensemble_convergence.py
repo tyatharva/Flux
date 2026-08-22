@@ -43,7 +43,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("outdir")
     ap.add_argument("--dt", type=float, default=0.0340136)
-    ap.add_argument("--ztarget", type=float, default=30.0)
+    ap.add_argument("--ztarget", type=float, default=10.0)
     ap.add_argument("--tback", type=float, default=900.0)
     ap.add_argument("--nsub", type=int, default=18)
     ap.add_argument("--nper", type=int, default=900, help="particles per release time")
