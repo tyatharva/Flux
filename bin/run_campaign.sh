@@ -73,7 +73,13 @@ if ! have adequacy; then
     # Flat surface: the adequacy pair is about the BOX, so the real geography would only
     # add a second thing that differs between them.
     cp -f "$SRC" $D/output/FE_ADJ.0
-    WALLCAP=3600 BASE=$BASE bin/run_window.sh $D $D/output/FE_ADJ.0 $DT_WIN 2400 - \
+    # THE CASE'S OWN BASE FILE, not the neutral one. surflayer_wth is moot here (the
+    # restart carries htFlux, which is IO-registered) but lsf_w_zlev1 is NOT: the deep
+    # case puts the subsidence peak at 1000 m and the shallow one at 500 m. Running the
+    # deep window under the shallow profile would apply the wrong subsidence to the
+    # inversion -- and this pair exists precisely to differ in nothing but z_i.
+    CBASE=runs/g16_base/base_cbl_$CASE.in
+    WALLCAP=3600 BASE=$CBASE bin/run_window.sh $D $D/output/FE_ADJ.0 $DT_WIN 2400 - \
       10.000000 0.000000 || die "adequacy window $CASE"
     ./docker/pyrun.sh bin/stage5_footprint.py $D/window --dt $DT_WIN --tback 400 \
       --rel-seconds 1800 --z-target 10.0 --sgs-most --cover-dir data/grid16_cbl \
@@ -103,12 +109,14 @@ for REG in nbl cbl; do
   if have dirs_$REG; then continue; fi
   say "5. Phase F: four directions, $REG"
   case $REG in
-    nbl) SRC=$(newest $SPIN/output);              GRID=data/grid16 ;;
-    cbl) SRC=$(newest runs/g16_cbl_shallow/output); GRID=data/grid16_cbl ;;
+    nbl) SRC=$(newest $SPIN/output);                GRID=data/grid16
+         RBASE=$BASE ;;
+    cbl) SRC=$(newest runs/g16_cbl_shallow/output); GRID=data/grid16_cbl
+         RBASE=runs/g16_base/base_cbl_shallow.in ;;
   esac
   TB=$(cat $R/tback_production.txt 2>/dev/null || echo 400)
   WIN=$(python3 -c "print(int(1800+$TB))")
-  BASE=$BASE ADJ_S=1200 SPS=0.0155 ZTARGET=10.0 \
+  BASE=$RBASE ADJ_S=1200 SPS=0.0155 ZTARGET=10.0 \
     bin/run_directions.sh g16_$REG "$SRC" "$GRID" $DT_WIN $WIN $TB \
     || die "Phase F directions $REG"
   mark dirs_$REG
@@ -124,7 +132,7 @@ if ! have dsens; then
     G=data/grid16_$TREAT
     EXTRA=""
     [ "$TREAT" = "raised" ] && EXTRA="--exact-agl"
-    BASE=$BASE ADJ_S=1200 SPS=0.0155 ZTARGET=10.0 ONLY=wN \
+    BASE=runs/g16_base/base_cbl_shallow.in ADJ_S=1200 SPS=0.0155 ZTARGET=10.0 ONLY=wN \
       EXACT_AGL="${EXTRA:+1}" \
       bin/run_directions.sh g16_ds$TREAT "$SRC" "$G" $DT_WIN $WIN $TB \
       || die "displacement sensitivity $TREAT"
