@@ -119,24 +119,34 @@ PY
 
 # ---------------------------------------------------------------- Gate C2: bit-for-bit
 say "Gate C2: the saved restart restarts bit-for-bit"
-LAST=$(newest $SPIN/output)
-STEP=${LAST##*.}
+# THE TEST HAS TO SPAN THE SAME INTERVAL THE CHAIN DID. Restart from the SECOND-TO-LAST
+# dump, run forward to the last one, and compare against what the chain already wrote for
+# that step. Restarting from the last dump and running PAST it compares two different
+# times and always "fails" -- which is what the first cut of this gate did, reporting
+# max|diff| of 3.7 m/s in u purely because the flow had advanced 293 s.
+#
+# What this actually proves: a chained segment boundary is not a seam. If it were lossy,
+# every multi-segment spin-up would be a different trajectory from the one it claims to
+# continue, and nothing downstream would say so.
+SERIES2=$(ls -1 $SPIN/output/FE_G16.* | sort -t. -k2 -n | tail -2)
+PREV=$(echo "$SERIES2" | head -1); LASTD=$(echo "$SERIES2" | tail -1)
+PSTEP=${PREV##*.}; LSTEP=${LASTD##*.}
 mkdir -p runs/g16_c2/output; rm -f runs/g16_c2/output/* runs/g16_c2/FE_RST.*
-cp -f "$LAST" runs/g16_c2/FE_RST.$STEP
-sed -e "s|^dt = .*|dt = $DT_FLAT|" -e "s|^Nt = .*|Nt = $((STEP+20000))|" \
-    -e 's|^NtBatch = .*|NtBatch = 20000|' -e 's|^frqOutput = .*|frqOutput = 20000|' \
-    -e 's|^inPath = .*|inPath = ./|' -e "s|^inFile = .*|inFile = FE_RST.$STEP|" \
+cp -f "$PREV" runs/g16_c2/FE_RST.$PSTEP
+echo "  restarting from step $PSTEP and re-running to step $LSTEP ($((LSTEP-PSTEP)) steps)"
+sed -e "s|^dt = .*|dt = $DT_FLAT|" -e "s|^Nt = .*|Nt = $LSTEP|" \
+    -e "s|^NtBatch = .*|NtBatch = $((LSTEP-PSTEP))|" \
+    -e "s|^frqOutput = .*|frqOutput = $((LSTEP-PSTEP))|" \
+    -e 's|^inPath = .*|inPath = ./|' -e "s|^inFile = .*|inFile = FE_RST.$PSTEP|" \
     -e 's|^outFileBase = .*|outFileBase = FE_C2|' "$BASE" > runs/g16_c2/c2.in
 ./docker/run_case.sh runs/g16_c2 c2.in $L/g16_c2.log || die "C2 run"
-./docker/pyrun.sh - "$LAST" "$(newest runs/g16_c2/output)" <<'PY' | tee $R/g16_c2.txt
-import sys, numpy as np
+./docker/pyrun.sh - "$LASTD" "runs/g16_c2/output/FE_C2.$LSTEP" <<'PY' | tee $R/g16_c2.txt
+import sys, os, numpy as np
 from netCDF4 import Dataset
-# The restart is a state RESUME, so re-running the same 20000 steps from the same file
-# must land on the same state the chain already produced -- and it must be bit-for-bit,
-# because anything else means the restart is lossy and every chained segment is a
-# different trajectory from the one it claims to continue.
 a,b = sys.argv[1], sys.argv[2]
 print(f"  chain dump   {a}\n  re-run dump  {b}")
+if not os.path.exists(b):
+    print("  FAIL: the re-run produced no dump at that step"); raise SystemExit(1)
 bad=0
 with Dataset(a) as A, Dataset(b) as B:
     for v in ('u','v','w','theta','rho','TKE_0'):
@@ -147,7 +157,7 @@ with Dataset(a) as A, Dataset(b) as B:
         d=np.abs(x-y).max()
         print(f"  {v:7s} max|diff| = {d:.3e}   {'bit-for-bit' if d==0 else 'DIFFERS'}")
         bad += (d != 0)
-print(f"\n  GATE C2: {'PASS' if not bad else 'FAIL'}")
+print(f"\n  GATE C2: {'PASS -- a chained segment boundary is not a seam' if not bad else 'FAIL'}")
 raise SystemExit(1 if bad else 0)
 PY
 [ "${PIPESTATUS[0]}" = "0" ] || die "C2 bit-for-bit"
