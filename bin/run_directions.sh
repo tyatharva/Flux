@@ -70,11 +70,12 @@ frq=int(round(5.0/$DT)); print(int(round($ADJ_S/$DT/frq))*frq)")
       || die "$NAME: window"
 
   # The previous direction's analysis is CPU-only and this direction's LES was GPU-only,
-  # so they overlapped. Only ONE analysis runs at a time -- each holds a 28 GB field cache
-  # and two would not fit -- so join it here, immediately before starting the next.
+  # so they overlapped. Only ONE analysis runs at a time -- each holds a ~10.5 GB fp16
+  # field cache at 122^3 (28 GB at the retired 186^2 grid) -- so join it here, immediately
+  # before starting the next.
   if [ -n "${APID:-}" ]; then wait "$APID" || echo "  (previous analysis exited non-zero)"; fi
   # Analysis in the background; the next direction's LES starts immediately. Peak storage
-  # is at most TWO windows (~46 GB), never the sum over directions (PROJECT_BRIEF.md).
+  # is at most TWO windows (~13 GB at this grid), never the sum over directions.
   (
     ./docker/pyrun.sh bin/stage5_footprint.py $D/window --dt "$DT" --tback "$TBACK" \
         --sgs-most --cover-dir "$GRID" --receptor-from "$GRID" --fp16-cache \
