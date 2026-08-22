@@ -185,4 +185,10 @@ cp -f "$LAST" runs/g16_flat/output/FE_ADJ.0
 # too short.
 TBACK=600 DT="$DT_WIN" SRC=runs/g16_flat/output/FE_ADJ.0 D=runs/g16_flat   GRID="$GRID" TAG=g16_flat BASE="$BASE" bin/regression_flat.sh --baseline   2>&1 | tee $R/g16_phaseD.txt
 
-say "PASS5 CHAIN COMPLETE: C1, C2, B4 and Phase D"
+# ---------------------------------------------------------------- t_back for production
+say "t_back, read off the control window's own capture curve"
+./docker/pyrun.sh bin/pick_tback.py $R/g16_flat.json --out $R/tback_production.txt 2>&1 \
+  | tee $R/g16_tback.txt
+[ -s $R/tback_production.txt ] || die "t_back was not determined -- Phase F cannot be sized"
+
+say "PASS5 CHAIN COMPLETE: C1, C2, B4, Phase D and t_back"
