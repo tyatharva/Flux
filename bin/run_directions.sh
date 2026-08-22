@@ -14,7 +14,7 @@
 set -uo pipefail
 cd /home/atyagi/Flux
 PRE="$1"; SPIN="$2"; GRID="$3"; DT="$4"; WIN="$5"; TBACK="$6"
-BASE="${BASE:-runs/g24_base/base.in}"
+BASE="${BASE:-runs/g16_base/base.in}"
 L=/tmp/flux-logs
 ADJ_S="${ADJ_S:-1200}"
 die(){ echo "FATAL: $*" >&2; exit 1; }
@@ -58,7 +58,8 @@ frq=int(round(5.0/$DT)); print(int(round($ADJ_S/$DT/frq))*frq)")
         -e "s|^outFileBase = .*|outFileBase = FE_ADJ|" \
         "$BASE" > "$D/adj.in"
     rm -f $D/output/FE_ADJ.*
-    echo "--- adjustment: $A_NT steps = ${ADJ_S} s  [proj $(python3 -c "print(f'{$A_NT*0.0364/60:.1f}')") min]"
+    SPS="${SPS:-0.0155}"
+    echo "--- adjustment: $A_NT steps = ${ADJ_S} s  [proj $(python3 -c "print(f'{$A_NT*$SPS/60:.1f}')") min]"
     ./docker/run_case.sh "$D" adj.in "$L/${PRE}_${NAME}_adj.log" || die "$NAME: adjustment"
     ADJ=$(ls -1 $D/output/FE_ADJ.* | sort -t. -k2 -n | tail -1)
     rm -f "$D/FE_RST.0"
@@ -76,7 +77,8 @@ frq=int(round(5.0/$DT)); print(int(round($ADJ_S/$DT/frq))*frq)")
   # is at most TWO windows (~46 GB), never the sum over directions (PROJECT_BRIEF.md).
   (
     ./docker/pyrun.sh bin/stage5_footprint.py $D/window --dt "$DT" --tback "$TBACK" \
-        --sgs-most --cover-dir data/grid --receptor-from data/grid --fp16-cache \
+        --sgs-most --cover-dir "$GRID" --receptor-from "$GRID" --fp16-cache \
+        --z-target "${ZTARGET:-10.0}" ${EXACT_AGL:+--exact-agl} \
         --tag ${PRE}_$NAME 2>&1 | grep -vE 'batch [0-9]+/' > results/${PRE}_$NAME.txt
     tail -32 results/${PRE}_$NAME.txt
     [ "${KEEP_FIELDS:-0}" = "1" ] || { rm -f $D/window/*; echo "--- $NAME window fields deleted"; }

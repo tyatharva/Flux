@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Convective spin-up: flat, uniform, dry CBL, cold start, chained sub-45-minute segments.
 #
+#   usage: D=runs/g16_cbl_deep BASE=runs/g16_base/base_cbl_deep.in NSEG=8 bin/spin_cbl.sh
+#
 # The regime this project cares about most. CONUS404 at the tower says 27% of
 # quality-controlled hours are VERY unstable (z/L < -0.5) and another 30% are unstable, so
 # the convective boundary layer is the modal daytime state, not an edge case -- and the
@@ -17,15 +19,27 @@
 # reported per window rather than assumed.
 set -uo pipefail
 cd /home/atyagi/Flux
-D=runs/cbl_spin
-BASE=runs/g24_base/base_cbl.in
-DT=0.0328947
-SEG=54720        # 1800 s per segment, 33.2 min wall at 0.0364 s/step
-NSEG="${NSEG:-3}"
-FRQ=9120         # a dump every 300 s, for the stationarity series
+# Parameterised so the same driver serves the neutral spin-up and BOTH convective targets
+# (z_i ~ 490 m at L = 4 z_i and z_i ~ 976 m at L = 2 z_i), which differ only in their
+# capping inversion -- the surface heat flux is deliberately identical, so the
+# domain-adequacy pair isolates the box rather than surface-layer physics.
+D="${D:-runs/g16_cbl_shallow}"
+BASE="${BASE:-runs/g16_base/base_cbl_shallow.in}"
+DT="${DT:-0.0162686}"
+SPS="${SPS:-0.0149}"          # measured s/step at 122^3, 1x2x64, spin-up IO cadence
+WALLCAP="${WALLCAP:-3600}"
+OUTBASE="${OUTBASE:-FE_CBL}"
+FRQ="${FRQ:-18440}"           # a dump every ~300 s, for the stationarity series
+# One segment is as long as the wall cap allows, rounded DOWN to a whole number of dumps.
+SEG=$(python3 -c "
+import math
+n=int($WALLCAP*0.93/$SPS); print(max($FRQ, n//$FRQ*$FRQ))")
+NSEG="${NSEG:-6}"
+python3 -c "print(f'### segments: {$SEG} steps = {$SEG*$DT:.0f} s simulated, {$SEG*$SPS/60:.1f} min wall (cap {$WALLCAP/60:.0f} min)')"
+[ "$(python3 -c "print(int($SEG*$SPS>$WALLCAP))")" = "1" ] && { echo "FATAL: segment over the wall cap"; exit 1; }
 mkdir -p $D/output
 IN=""; IPATH=""
-LAST=$(ls -1 $D/output/FE_CBL.* 2>/dev/null | sort -t. -k2 -n | tail -1)
+LAST=$(ls -1 $D/output/$OUTBASE.* 2>/dev/null | sort -t. -k2 -n | tail -1)
 S0=1
 if [ -n "$LAST" ]; then                       # resume a partial chain
   STEP=${LAST##*.}; S0=$((STEP/SEG + 1)); IN=$(basename $LAST); IPATH="./output/"
@@ -36,11 +50,13 @@ for s in $(seq $S0 $NSEG); do
   sed -e "s|^dt = .*|dt = $DT|" -e "s|^Nt = .*|Nt = $NT|" \
       -e "s|^NtBatch = .*|NtBatch = $FRQ|" -e "s|^frqOutput = .*|frqOutput = $FRQ|" \
       -e "s|^inPath = .*|inPath = $IPATH|" -e "s|^inFile = .*|inFile = $IN|" \
+      -e "s|^outFileBase = .*|outFileBase = $OUTBASE|" \
       "$BASE" > $D/seg$s.in
   echo "### CBL spin-up segment $s/$NSEG -> step $NT ($(python3 -c "print(f'{$NT*$DT/60:.0f}')") min simulated)"
   date '+%F %H:%M:%S'
-  ./docker/run_case.sh $D seg$s.in /tmp/flux-logs/cbl_seg$s.log || { echo "FATAL: segment $s"; exit 1; }
-  IN=$(basename $(ls -1 $D/output/FE_CBL.* | sort -t. -k2 -n | tail -1)); IPATH="./output/"
+  ./docker/run_case.sh $D seg$s.in /tmp/flux-logs/$(basename $D)_seg$s.log || { echo "FATAL: segment $s"; exit 1; }
+  IN=$(basename $(ls -1 $D/output/$OUTBASE.* | sort -t. -k2 -n | tail -1)); IPATH="./output/"
 done
 echo "### CBL spin-up complete: $(ls $D/output | wc -l) dumps"
-./docker/pyrun.sh bin/cbl_check.py $(ls -1 $D/output/FE_CBL.* | sort -t. -k2 -n) 2>&1 | tee results/cbl_spinup.txt
+FE_DT=$DT ./docker/pyrun.sh bin/cbl_check.py $(ls -1 $D/output/$OUTBASE.* | sort -t. -k2 -n) 2>&1 \
+  | tee "results/$(basename $D)_spinup.txt"

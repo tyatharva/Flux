@@ -132,3 +132,53 @@ permits it arithmetically. FastEddy reports this one cleanly.
 
 `i <- threadIdx.x` (`cuda_hydroCoreDevice.cu:648`) while `kStride = 1`. Cost measured at
 **17%** for the `4x4x16` block we shipped through Stage 1. Use `1x2x64`.
+
+## 10. `lsf_horMnSubTerms = 1` traps instantly when `moistureSelector = 0`
+
+Found 2026-08-22, on the first attempt to spin up a dry boundary layer with subsidence.
+
+### Symptom
+
+`lsfSelector = 1`, `lsf_horMnSubTerms = 1`, `moistureSelector = 0`. The run writes its
+step-0 dump, then dies on the first timestep:
+
+```
+GPUassert: an illegal memory access was encountered ../TIME_INTEGRATION/CUDA/cuda_timeIntDevice.cu 135
+```
+
+Unusually for this codebase, it is LOUD -- nonzero exit, no completion banner. That is luck,
+not design: it is the same bug as trap 1 and differs only in what the bad pointer happened
+to be.
+
+### Cause
+
+Two moisture accesses in the subsidence path are not guarded by `moistureSelector`, while
+the memory they touch is allocated only when it is:
+
+- `cuda_lsfSlabMeans()` launches the qv slab-mean kernel unconditionally over
+  `&moistScalars_d[0]`;
+- `cudaDevice_lsfRHS` writes `Frhs_qv[ijk]` unconditionally inside the
+  `lsf_horMnSubTerms_d == 1` branch.
+
+`cuda_moistureDeviceSetup()` allocates `moistScalars_d` and `moistScalarsFrhs_d` inside
+`if (moistureSelector > 0)` (`cuda_moistureDevice.cu:41`). Dry, both pointers are
+unassigned globals.
+
+So **upstream v5.0.1 subsidence is only usable with moisture on**. This project runs dry by
+decision (PROJECT_BRIEF.md), so the two had to be reconciled.
+
+### Fix
+
+Both guarded, fork commit on `kegonsa`. `lsf_numPhiVars` stays 5 and the qv profile slot
+stays zeroed by the existing `cudaMemset`, so rho/u/v/theta subsidence is bit-for-bit
+unchanged and a moist run is untouched.
+
+### And a plan error it exposed
+
+PLAN.md asked the smoke test to "confirm that `w` acquires the prescribed slab-mean
+subsidence". **It never will, and it should not.** `cudaDevice_lsfRHS` adds the subsidence
+tendency to `Frhs_HC[U_INDX]`, `[V_INDX]`, `[THETA_INDX]` and `Frhs_qv` -- there is no
+`W_INDX` term. Subsidence here is a large-scale vertical ADVECTION tendency applied against
+the slab-mean profile gradient, not a resolved vertical motion. Checking `w` would have
+"failed" a correct implementation. The real test is differential on the theta profile:
+`d<theta>/dt = -w_sub d<theta>/dz`.

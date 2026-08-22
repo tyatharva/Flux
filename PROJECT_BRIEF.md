@@ -52,42 +52,45 @@ downstream of that number changes, and four of the changes are large enough to r
 project:
 
 **1. The footprint shrinks by roughly a factor of three, so the domain shrinks with it.**
-Kljun `x90` at `z_m = 10 m`, `z0 = 0.03`:
+Kljun evaluated on the REAL WorldCover/3DEP map at `z_m = 10 m` (`bin/phaseA_geometry.py`,
+`results/phaseA_geometry.txt`), not on idealised distances:
 
-| stability | `x_peak` | `x50` | `x80` | **`x90`** |
-|---|---|---|---|---|
-| very unstable | 45 | 116 | 338 | **680** |
-| neutral | 51 | 132 | 384 | **766** |
-| stable | 58 | 149 | 430 | **855** |
-| very stable | 72 | 184 | 526 | **1033** |
+| stability | `x_peak` | `x90` | cells to the peak at `dx = 16 m` |
+|---|---|---|---|
+| very unstable | 27 m | 397 m | 1.7 |
+| unstable | 33 m | 478 m | 2.1 |
+| neutral | 38 m | 538 m | 2.4 |
+| stable | 48 m | 662 m | 3.0 |
+| very stable | 91 m | 1089 m | 5.7 |
 
-At 30 m the same four rows were 1936 / 2253 / 2804 / 3751 m. **Every stability class now fits
-inside a 1860 m box**, including the very-stable class that a 4464 m box could not hold — so
-the wrap-cap truncation that capped the flat integral ~18% low is structurally resolved rather
-than merely reduced.
+At 30 m the same classes ran 1936-3751 m. **Every class fits inside a 1952 m box**, so the
+wrap-cap truncation that capped the flat integral ~18% low is structurally resolved. Note
+the last column: the peak sits 1.7-5.7 cells from the tower, which bounds how sharply the
+CNF target can represent it. Recorded, not gated -- the grid is set by corpus economics and
+the near field is closure-dominated at `z/Delta ~ 1` regardless.
 
-**2. This tower measures the solar array, in every wind direction.** Fraction of the
-crosswind-integrated footprint inside the array's upwind reach (E/W 60 m, S 100 m, N 250 m):
+**2. This tower measures the solar array, in every wind direction -- and by MORE than the
+idealised table said.** Footprint-weighted array share on the real map, `z_m = 10 m`:
 
-| stability | E/W (60 m) | S (100 m) | **N (250 m)** | *(same at 30 m)* |
-|---|---|---|---|---|
-| very unstable | **24.1%** | **44.4%** | **73.6%** | *0.1 / 3.3 / 32.4%* |
-| neutral | **19.1%** | **39.3%** | **70.4%** | *0.0 / 1.1 / 24.3%* |
-| stable | **14.8%** | **34.4%** | **67.2%** | *0.0 / 0.1 / 12.9%* |
+| stability | E/W | S | **N** | N/E ratio | *(idealised estimate)* |
+|---|---|---|---|---|---|
+| very unstable | **43.6%** | 58.1% | **70.4%** | 1.61x | *24.1 / 44.4 / 73.6%* |
+| unstable | **35.4%** | 58.5% | **78.1%** | 2.21x | |
+| neutral | **29.9%** | 55.5% | **80.6%** | **2.69x** | *19.1 / 39.3 / 70.4%* |
+| stable | **20.3%** | 45.9% | **72.9%** | 3.59x | *14.8 / 34.4 / 67.2%* |
+| very stable | 3.0% | 21.2% | 59.3% | 19.5x | |
 
-The site question changes shape. At 30 m it was *"when does this tower see the array?"* —
-answer, on northerlies only, a ~300x directional swing. At 10 m it is *"the tower always sees
-the array; how much, and what mixes in?"* — the N-vs-E/W ratio falls from ~370x measured to
-about **3.7x**. Stage 6's directional test is correspondingly weaker, and near-field fidelity
-goes from important to being the whole game.
+The idealised numbers were crosswind-INTEGRATED fractions inside the array's upwind reach
+along a line from the tower. **The tower is inside a 2-D rectangle**, so flux arriving from
+crosswind angles still lands on the array and the real share is 1.4-1.6x larger --
+which makes the **N-vs-E/W RATIO smaller**, 3.7x -> **2.69x** neutral. Gate F must lean on
+**absolute share by direction**, not on the ratio.
 
-**3. The lake leaves the science.** Water is 1-1.5 km from the tower at the nearest. At 30 m
-the 1000-1500 m band carried 7.5-11.4% of the crosswind-integrated footprint and the LES
-measured 35.2% of a neutral easterly footprint as water. At 10 m the same band carries
-**2.5-3.1%**, and only **7-9% of the footprint lies beyond 930 m at all**. An 1860 m domain
-excludes the lake entirely, and that costs a few percent rather than a third. **Verify this
-against the real WorldCover map before committing the domain size** — it is a Kljun estimate,
-not a measurement.
+**3. The lake has left the science entirely.** Measured, not estimated: the 1952 m box
+contains **8 water cells of 14,884 (0.05%)**, and the worst-case footprint water share over
+every direction and stability is **0.01%**. At 30 m the LES measured 35.2% of a neutral
+easterly footprint as water. Land cover in the new box is crop 50.8%, tree 23.5%, grass
+20.5%, built 4.9%, array 1.03%.
 
 **4. The receptor may be inside the roughness sublayer.** See the next section. This is the
 serious one.
@@ -120,9 +123,33 @@ first level was at 4.3 m. At 2.0 m with `z0 = 0.3 m` the surface-layer scheme is
 law across `ln(z/z0) = 1.9`, which is not enough room for it to mean anything.
 
 **Decision: set the array `z0 = 0.10 m`, the low end of the range**, so the first level keeps
-`z/z0 = 20`. Record that the array's surface exchange is parameterised rather than resolved,
-and treat it as the dominant known modelling uncertainty at this receptor height. `dz_sfc`
-alternatives and their costs are in the grid section.
+`z/z0 = 20` (`ln(z/z0) = 2.99` at the 1.997 m first level). Record that the array's surface
+exchange is parameterised rather than resolved, and treat it as the dominant known modelling
+uncertainty at this receptor height.
+
+**AND RECORD WHAT IT COSTS, because it is not free and it is easy to miss.** WorldCover
+labels the array as cropland, whose `z0` is ALSO 0.10 m. At `z0_array = 0.10` the override
+therefore changes nothing at all: **the array is aerodynamically identical to the surface it
+replaced, and its entire NEUTRAL signal is zero**, leaving only the convective heat-flux
+contrast. `bin/prep_surface.py` now prints a warning when the two coincide rather than
+letting it pass silently.
+
+The way out is `--raise-topo`: put the displacement height into `topoPos` over the array, so
+the first model level sits 2.0 m above the RAISED surface (3.5 m above bare ground, clear of
+panel top) and a larger `z0` has room. **Which of the two is right is a measured
+sensitivity, not a decision** -- see the displacement-height treatments in the plan.
+
+**Displacement height is first-order here, and it was absent.** Kljun at `z_m = 10.0 -> 8.5 m`
+moves the array's E/W share **29.9% -> 38.2% (1.28x)** and `x90` 701 -> 596 m. `d` now enters
+the LPDM sub-layer log law, the MOST-anchored `sigma_w` floor (at the RECEPTOR column, not
+the domain mean -- 23.5% of the box is tree cover whose `d ~ 0.7 h_c` is metres the LES never
+resolves), and Kljun's `z_m`.
+
+**The receptor datum is 10 m above BARE GROUND (AGL).** So over the array the effective
+aerodynamic height is `z - d ~ 8.5 m`, and if `topoPos` is raised by `d` the receptor must be
+released at a FRACTIONAL level (`stage5_footprint.py --exact-agl`) to stay 10 m above true
+ground. Snapping to the nearest level there would put it 10 m above the PANELS -- an 11.5 m
+receptor, a 15% error in exactly the quantity this pass exists to get right.
 
 ---
 
@@ -142,71 +169,90 @@ alternatives and their costs are in the grid section.
   Roughness per class (water 1e-4, grass 0.03, cropland 0.10, built 0.5, tree 1.0), then the
   array rectangle overrides it — WorldCover labels the array as cropland, because it does not
   see photovoltaics.
-- **At `dx = 10 m` the 3DEP raster is at its native resolution**, so warping applies no
-  smoothing and terrain slopes will be materially steeper than the 24 m map. Re-measure the
-  slope distribution before setting the terrain `dt`, and consider a light smooth — the DEM's
-  own noise now enters the metric tensor directly.
+- **Land cover of the 1952 m box, measured**: cropland 50.8%, tree 23.5%, grass 20.5%,
+  built 4.9%, bare 0.3%, **water 0.05% (8 cells)**, array override 1.03% (154 cells, 3.94 ha).
+  Terrain relief 34.6 m raw; after mean removal and the taper, -18.2 to +13.9 m.
+- **At `dx = 16 m` the 3DEP raster (native 10 m) is only mildly coarsened**, so warping does
+  smooth a little. Measured slopes after 2 x (1-2-1): p50 0.041, p90 0.096, p99 0.146,
+  max 0.188. With `dx/dz_sfc = 4.007` that is a CFL amplification of 1.072 at p90 and
+  **1.252 at the steepest cell** — the projection that brackets the terrain `dt` search.
+- **Tree cells are the grid's worst case, and it is inherent.** `z0 = 1.0 m` with a first
+  model level at 1.997 m leaves `ln(z/z0) = 0.69` — the surface-layer scheme has almost no
+  room there. 23.5% of the box is tree. Recorded as a limitation of `dx = 16 m` with a 10 m
+  receptor, not fixable at this grid.
+- The domain's **geometric-mean `z0` is 0.1435 m** (used for `surflayer_z0` in the flat
+  spin-up); the drag-weighted effective value at 10 m is 0.2902 m, twice that. The spin-up
+  uses the geometric mean, consistent with prior passes, and the ~20 min adjustment on the
+  real surface absorbs the difference.
 - **Terrain is tapered at the wrap seams; land cover is NOT.** Terrain height enters the
   coordinate transform and its metric tensor, so a seam step is a numerical cliff. Roughness
   and surface heat flux are local boundary conditions, where a seam is just a coastline.
 
 ---
 
-## Domain configuration (10 m receptor)
+## Domain configuration (10 m receptor, 122^3 @ 16 m)
+
+**Grid decision, made 2026-08-22 and not to be reopened.** Chosen for corpus economics:
+targets are needed in quantity and per-target precision is secondary.
 
 | | value | note |
 |---|---|---|
-| `Nx x Ny x Nz` | **186 x 186 x 122** | padded 192/192/128 |
-| `dx = dy` | **10.0 m** | domain **1860 x 1860 m** |
+| `Nx x Ny x Nz` | **122 x 122 x 122** | `(N+6) = 128 = 2^7` in ALL THREE |
+| `dx = dy` | **16.0 m** | domain **1952 x 1952 m** |
 | `d_zeta` | **20.576132** | `zCeiling = d_zeta*(Nz-0.5) = 2500.0 m` |
 | `verticalDeformFactor` | **0.194059** | `verticalDeformQuadCoeff = 0` |
-| `dz_sfc` | **3.9933 m** | **`k = 2` centre at exactly 10.000000 m** |
+| `dz_sfc` | **3.9933 m** | **`k = 2` centre at exactly 10.000000000 m** |
 | first four centres | 1.9966, 5.9933, **10.000000**, 14.0236 m | 2 cells below the receptor |
-| `dz` at 400 m / at top | 14.2 m / 53.3 m | **55 levels below 400 m** |
-| `dampingLayerDepth` | **500.0** | clean domain to 2000 m |
-| thread block | **1 x 2 x 64** | `(N+6)` = 192/192/128, so 1/2/64 all divide |
-| cells | **4.22 M** | same tensor shape as the 24 m campaign |
-| **`dt`, flat** | **1/68 = 0.0147059 s** *(starting point)* | `CFL_3d = 1.468`. **Bisect it.** |
-| **`dt`, terrain** | **to be bisected** | `dx/dz = 2.504`, milder than 24 m's 2.80 |
-| cost | **2.44 GPU-h per simulated hour** | **2.24x** the 24 m grid's 1.09 |
-| `Delta` / `z/Delta` | **7.36 m / 1.36** | at 24 m it was 17.02 / 1.76 |
-| storage (`ioLPDMmode`) | 33.8 MB/dump | 35-min window at 5 s = **14.2 GB** |
+| `dz` at 400 m / at top | 14.4 m / 53.3 m | **55 levels below 400 m**, 84 below 1000 m |
+| `dampingLayerDepth` | **500.0** | clean domain to 2000 m; supports `z_i` to ~1000 m |
+| thread block | **1 x 2 x 64** | **measured fastest**, see below |
+| cells | **1.816 M** | |
+| **`dt`, flat** | **0.0146417 s** | `CFL_3d = 1.35`, **measured**, see below |
+| **`dt`, terrain** | *to be bisected* | `dx/dz = 4.007`, worse than any previous grid |
+| cost | **0.0149 s/step measured** -> **0.94-0.99 GPU-h per simulated hour** | |
+| `Delta` / `z/Delta` | **10.09 m / 0.99** | at 24 m it was 17.02 / 1.76 |
+| storage (`ioLPDMmode`) | 14.5 MB/dump | a 2400 s window at 5 s = **7.0 GB** |
+| wall cap | **1 hour** | = **1.02 simulated hours per segment** |
 
-**`(N + 6) % tB == 0` is satisfied**: `186 + 6 = 192 = 2^6 * 3` and `122 + 6 = 128 = 2^7`, so
-`1 x 2 x 64` is legal and so is every other shape the block sweep found competitive. Keeping
-`N = 186` also keeps the tensor shape identical to the fourth-pass campaign, so every script,
-figure and the CNF raster shape carry over unchanged.
+**`bin/vgrid.py` solves this grid from FastEddy's own `zDeform`** (`grid.c:1114-1127`), so it
+is never hand arithmetic in a comment again. With `verticalDeformQuadCoeff = 0`,
 
-**`dz_sfc` and a 10 m receptor are not independent.** Cell centres sit at `(k+0.5)*dz_sfc`, so a
-centre at exactly 10.000 m requires `dz_sfc = 10/(k+0.5)`:
+    z(zeta) = ((1 - c1)/zC^2) zeta^3 + c1 zeta,  zeta_k = (k+1/2) d_zeta,  zC = (Nz-1/2) d_zeta
 
-| `k` | `dz_sfc` | first level | cells below receptor | `z/Delta` | cost, GPU-h/sim-h |
-|---|---|---|---|---|---|
-| 1 | 6.667 m | 3.33 m | 1 | 1.14 | **1.75** |
-| **2** | **3.993 m** | **2.00 m** | **2** | **1.36** | **2.44** |
-| 3 | 2.857 m | 1.43 m | 3 | 1.52 | 3.21 |
+which is LINEAR in `c1`, so pinning a cell centre to an exact height is a division, not a
+root-find. It reproduces the retired 24 m grid exactly (`d_zeta` 24.691358, factor 0.346601,
+k=3 at 30.000000 m).
 
-`k = 2` is the adopted choice. `k = 3` buys `z/Delta` 1.36 -> 1.52 for **+32%** cost and pushes
-the first level to 1.43 m, deeper inside the panel displacement layer. `k = 1` is cheaper but
-leaves one cell below the receptor, which the LPDM interpolation cannot work with.
+**`dt` is set by `CFL_3d = c dt sqrt(2/dx^2 + 1/dz_sfc^2)`, c = 347.2 m/s.** That form
+reproduces the 24 m grid's stated 1.4946 at its `dt` to four digits. Here `1/CFL` = 92.202,
+so `dt = CFL/92.202`. A 5 s output cadence needs an integer step count; 0.0146417 gives
+341.5 steps, so **spin-up runs use a 300 s cadence and sampling windows re-derive `dt` to
+land the cadence on an integer** (`bin/run_window.sh` asserts it).
 
-**Fallback if the campaign budget binds:** `N = 162` at `dx = 10` (`L = 1620 m`, `N+6 = 168`,
-`tB` to 56) costs **1.85 GPU-h/sim-h**, 24% less. It still contains `x90` for every class.
+**Convective boundary layers are the binding constraint on `z_i`.** `L >= 4 z_i` caps `z_i`
+at **488 m**; `L >= 2 z_i` at **976 m**. Measured coverage of this site's convective-midday
+hours (`bin/zi_coverage.py`, `results/zi_coverage.txt`):
 
-**Convective boundary layers are the binding constraint on `z_i`, not the footprint.** A
-doubly-periodic CBL wants `L >= 4 z_i` or the largest thermals lock to the domain. At
-`L = 1860 m` that caps `z_i` at **465 m** (620 m if you accept `L >= 3 z_i`). CONUS404 puts the
-site's all-hours `z_i` median at 493 m and the **convective-midday median at 859 m** — so the
-box supports the lower half of the distribution and **deep midday CBLs are out of reach at this
-domain size.** State it wherever the corpus is described.
+| rule | `z_i` cap | all QC | unstable | **convective midday** |
+|---|---|---|---|---|
+| `L >= 4 z_i` | 488 m | 49.5% | 45.7% | **19.3%** |
+| `L >= 3 z_i` | 651 m | 63.4% | 57.7% | **33.6%** |
+| `L >= 2 z_i` | 976 m | 81.3% | 76.1% | **60.9%** |
 
-This is less damaging than it looks, for a reason specific to the new receptor height: Kljun's
-only `z_i` channel is the factor `1/(1 - z_m/h)`, which at `z_m = 10 m` spans just **4.4%** over
-`h = 200-1200 m`, against 14.7% at 30 m. **`z_i` is a nearly inert input to Kljun at 10 m.** It
-still must be swept — the LES's real `z_i` dependence runs through `w*` and thermal structure,
-which is exactly the residual the CNF is being asked to learn — but not in order to match Kljun.
+**And the cap is BIASED, not merely restrictive.** `z_i` and surface heat flux are
+positively correlated (rank correlation **+0.43** over convective midday), so the excluded
+deep-CBL hours carry **1.51x the heat flux** and **1.58x the `w*`** of the representable
+ones. A `z_i`-capped corpus is thinnest exactly where the array's flux enhancement is
+largest. **Whether the 4 `z_i` rule is binding for a 10 m FOOTPRINT is a separate and
+measurable question** -- it was written for `w*` scaling and entrainment -- and
+`bin/domain_adequacy.py` answers it. The fallback if it is binding is `218^2 @ 16 m`
+(`L = 3488 m`, 3.2x cost, 53.0% convective-midday coverage at `L >= 4 z_i`).
 
----
+This matters less than it looks for Kljun: its only `z_i` channel is `1/(1 - z_m/h)`, which
+at `z_m = 10 m` moves the array share by **1.0 percentage point** over `h = 200-1200 m` and
+`x90` by 3.5%. **`z_i` is a nearly inert input to Kljun at 10 m.** It still must be swept --
+the LES's real `z_i` dependence runs through `w*` and thermal structure, which is the
+residual the CNF is being asked to learn -- but not in order to match Kljun.
 
 ## Boundary and initial conditions
 
@@ -391,6 +437,13 @@ Evaluated and rejected. Re-proposing them wastes time.
   from one release ensemble. It would also lock the footprint definition into the LES run, so any
   change to `t_back`, the weighting, or the closure would require re-running the LES rather than
   re-running 10 minutes of LPDM.
+- **Fitting `stabilityScheme = 2` to a CONUS404 mean sounding** — impossible, and it was
+  the wrong idea anyway. Checked in the store's own `.zmetadata` 2026-08-22: `conus404_hourly`
+  carries **no time-varying atmospheric profiles**. Its only 4-D variables are soil and snow
+  (`SH2O`, `SMOIS`, `TSLB`, `SNICE`, `SNLIQ`, `TSNO`, `ZSNSO`); `PB` and `PHB` are static
+  base-state fields with no time axis. And the fit would have been self-defeating: the fitted
+  mean `z_i` (~860 m) is a state a 1952 m box cannot hold. **The capping inversion is a
+  CONTROL on `z_i` here, not a target to match**, and it is set to hold the case's `z_i`.
 - FNO / U-Net may be *benchmarked* against the CNF, but CNF is the primary architecture.
 
 ---
@@ -406,8 +459,17 @@ hand-picked and mutually inconsistent; never copy them.
 | | CFL_3d | behaviour |
 |---|---|---|
 | stability limit | ~1.79 | above this: NaN, `CORRUPTED` |
-| **accuracy limit** | **~1.64** | above this: **silent** grid-scale acoustic noise |
-| production | ~1.47-1.50 | ~10% margin |
+| accuracy limit, 24-30 m grids | ~1.64 | above this: **silent** grid-scale acoustic noise |
+| **accuracy limit, 122^3 @ 16 m** | **~1.51** | measured 2026-08-22: 1.50 clean, 1.53 gives k0/k1 = 8.7 |
+| **production, this grid** | **1.35** | `dt = 0.0146417 s`, ~10% margin |
+
+**The accuracy boundary is NOT the same number at every grid.** PROJECT_BRIEF.md previously said it
+was "a property of `CFL_3d`, not of the spacing (confirmed at 10 m and again at 30 m)". On
+this grid it is **~1.51, not ~1.64**, and the transition is sharp: `CFL_3d = 1.50` gives
+`k0/k1 = 0.610` and `1.53` gives `8.681`. What changed is the grid ANISOTROPY --
+`dx/dz_sfc = 4.007` here against 2.80 at 24 m -- so treat the boundary as something to
+**re-measure at every grid**, never to carry over. The 10% margin rule survives; the number
+it is applied to does not.
 
 Between the two the model runs to completion, exits 0, prints no warning, and produces resolved
 `w` at the lowest few levels that is grid-scale acoustic noise rather than turbulence. Everything
@@ -438,8 +500,14 @@ relaxes the 3-D CFL by at most `sqrt(3/2)`. Stretch for domain depth, never for 
   `tBx > 1` makes adjacent threads in a warp read addresses `iStride` floats apart — one 128-byte
   transaction becomes four 32-byte ones. Every shipped tutorial uses `tBx = 1`. The old `4x4x16`
   default was costing **17%**.
-- Best measured shapes: `1x2x64` (0.0359 s/step at 186x186x122), `1x6x32`, `1x3x64`.
+- Best measured shapes at 186x186x122: `1x2x64` (0.0359 s/step), `1x6x32`, `1x3x64`.
   **`tBz = 128` is rejected by the device** — CUDA caps `blockDim.z` at 64.
+- **At 122^3 the legal set is different**: `(N+6) = 128 = 2^7` in all three, so `tBy`/`tBz`
+  must be POWERS OF TWO and the 24 m grid's runners-up `1x6x32` and `1x3x64` are illegal.
+  Swept 2026-08-22, 300 steps each: **`1x2x64` fastest at 0.01475 s/step compute**, then
+  `1x2x32` (0.01485) and `1x8x16` (0.01490); `1x16x16` 12% slower, `1x32x8` **46% slower**.
+- **Measured 0.0149 s/step at 122^3 with a spin-up IO cadence**, 0.0155 with a 5 s window
+  cadence. The 8.51 ns/cell/step model predicts 0.01545 — 3.5% pessimistic here.
 - The divisibility rule is enforced on **per-rank, halo-inclusive** extents (`grid.c:222-240`);
   Nz is never decomposed.
 - Below ~1 M cells the ns/cell/step model is 7% optimistic — launch overhead. Use measured values.
@@ -454,6 +522,24 @@ relaxes the 3-D CFL by at most `sqrt(3/2)`. Stretch for domain depth, never for 
   `ioLPDMfullFrq = N` writes any output whose ABSOLUTE step is a multiple of `N` in full upstream
   form while every other dump stays lean. `bin/run_window.sh` is the driver.
 - **`hydroSubGridWrite = 0`** drops the 9 SGS stress fields when running in upstream mode.
+
+### The terrain taper width, measured
+
+The terrain is tapered to a constant over an outer ring so the periodic seam is not a
+numerical cliff. The ring costs real geography, and at a 1952 m box that is no longer
+cheap. Swept 2026-08-22:
+
+| `pad` | ring | real terrain reaches | slope p90 | slope max | CFL amplification |
+|---|---|---|---|---|---|
+| 20 | 320 m | 656 m | 0.0789 | 0.1838 | 1.242 |
+| **12** | **192 m** | **784 m** | 0.0964 | **0.1880** | **1.252** |
+| 10 | 160 m | 816 m | 0.1011 | 0.2102 | 1.307 |
+| 8 | 128 m | 848 m | 0.1059 | 0.2217 | 1.338 |
+
+**`pad = 12` is the knee.** Going 20 -> 12 buys 128 m of real terrain — which is what covers
+Kljun's `x90` here — for **+0.8%** CFL amplification. At 10 and 8 the TAPER becomes the
+steepest cell in the domain and starts setting the terrain `dt` itself, which is the wrong
+thing to be paying for.
 
 ### Sub-grid fraction — the gate is retired, not merely failing
 
@@ -594,11 +680,46 @@ for subsidence** to hold `z_i` inside what the domain supports.
 stationary depth. Subsidence slows it; it does not stop it. The achieved `z_i` is measured and
 reported per window.
 
-**Surface heat flux is per-cell, from the land cover** (`prep_surface.py --wth`). Water 0.12 of
-the land value, built 1.5, tree/grass 1.1, cropland 1.0, **array 1.6** — PV modules are darker
-than the crop they replaced and do not transpire, and field studies of utility-scale arrays report
-a daytime sensible enhancement of order 1.5-2. With no radiation scheme, `htFlux` is the channel
-albedo would have acted through.
+**Surface heat flux is per-cell, from the land cover, and it is the VIRTUAL flux**
+(`prep_surface.py --wth-sensible`). The per-class numbers in the literature are SENSIBLE-flux
+ratios — water 0.12, built 1.5, bare 1.4, tree/grass 1.1, cropland 1.0, **array 1.6** (PV
+modules are darker than the crop they replaced and do not transpire; field studies of
+utility-scale arrays report a daytime sensible enhancement of order 1.5-2). But the field
+FastEddy is given must be the VIRTUAL flux, because the run is dry and buoyancy is what
+`htFlux` is for. **The conversion is Bowen-ratio dependent and therefore class-dependent:**
+
+    w'th_v' = w'th' + 0.61 th w'q' = w'th' (1 + 0.61 th c_p / (B L_v)) = w'th' (1 + 0.0735/B)
+
+| class | B | s->v factor | sensible ratio | **virtual ratio** |
+|---|---|---|---|---|
+| cropland (reference) | 0.4 | 1.184 | 1.00 | **1.000** |
+| **solar array** | 4 | 1.018 | 1.60 | **1.376** |
+| built | 2 | 1.037 | 1.50 | 1.314 |
+| bare | 2 | 1.037 | 1.40 | 1.226 |
+| tree | 0.4 | 1.184 | 1.10 | 1.100 |
+| grassland | 0.5 | 1.147 | 1.10 | 1.066 |
+| wetland | 0.2 | 1.368 | 0.60 | 0.693 |
+| water | 0.15 | 1.490 | 0.12 | **0.151** |
+
+**Working in virtual flux COMPRESSES the wet-dry buoyancy contrast**, because the wetter
+surface's larger latent flux buys buoyancy back. That is physically correct and it is exactly
+what the decision to run dry is trading for. The fourth pass prescribed CONUS404's SENSIBLE
+flux directly and applied sensible ratios to it; PROJECT_BRIEF.md predicted that would cost 5-10% in
+`z_i` and `w*`.
+
+At the convective-midday reference (sensible p50 **0.109 K m/s**): cropland virtual
+**0.1290 K m/s (149 W/m2)**, **array 0.1776 (205 W/m2)**, water 0.0195. The array's own value
+barely moves from the fourth pass (0.176 -> 0.178, the two corrections nearly cancel) but the
+**array-to-water contrast falls ~32%** — and that contrast is what the directional signal is
+made of. The array multiplier is insensitive to its OWN Bowen ratio (1.37-1.40 over B = 2-6)
+and sensitive to cropland's (1.31-1.45 over B = 0.3-0.6); sweep it with `--bowen-crop`.
+
+**The `.in` scalar `surflayer_wth` must be the DOMAIN MEAN of that map, not the cropland
+reference.** A flat spin-up has no restart injection, so the scalar IS its flux; using the
+reference instead spins up a boundary layer at the wrong `z_i` for the run it feeds. On this
+domain the mean is **0.1363 K m/s** against a 0.1290 reference — and note the sign flipped
+from the 24 m domain (0.1006 vs 0.11), where 16% water pulled the mean DOWN. The water is
+gone; tree and built now pull it up. `prep_surface.py` prints it.
 
 ## Corpus structure
 
@@ -606,31 +727,64 @@ One spun-up **flat-terrain** state per `(stability, wind speed)` bin, **shared a
 directions in that bin** by 90-degree re-indexing.
 
 ```
-  once per bin:        flat-terrain spinup to stationarity     ~5 h simulated, 12.2 GPU-h, 26 segments
-  once per direction:  restart -> real rotated surface
-                       -> ~20 min adjustment + (30 min + t_back) sampling   2.24 GPU-h
+  once per bin:        flat-terrain spinup to stationarity     ~5 h simulated, ~4.9 GPU-h, 5 segments
+  once per direction:  restart -> real static surface
+                       -> ~20 min adjustment + (30 min + t_back) sampling   ~0.9 GPU-h, 1 segment
 ```
 
-At 2.44 GPU-h per simulated hour, **nothing is a single run** — every spin-up is ~26 chained
-segments and every window is 3-4. The 45-minute wall cap is enforced by the drivers
-(`bin/run_window.sh`, `bin/run_directions.sh`), which project before launching and refuse.
+At ~0.97 GPU-h per simulated hour and a **1-hour wall cap**, one segment is **1.02 simulated
+hours** — so a spin-up is 5-6 chained segments and **a whole sampling window fits in ONE**.
+The cap is enforced by the drivers (`bin/run_window.sh`, `bin/spin_cbl.sh`), which project
+before launching and refuse. `run_window.sh` derives both the planner and the refusal from a
+single `WALLCAP`; they used to be two independent constants that happened to agree.
 
-An 8-case campaign (2 stability x 4 directions from 2 base states) costs about **42 GPU-h**,
-against 20 GPU-h for the same campaign at the 24 m grid.
+An 8-case campaign (2 stability x 4 directions from 2 base states) costs about **12 GPU-h**,
+against 42 at the 186^2 @ 10 m grid and 20 at 24 m. That is the corpus economics the grid was
+chosen for.
 
 ---
 
 ## Status
 
-**FIFTH PASS — PLANNED, NOT RUN.** See `PLAN.md`. The receptor moved from 30 m to 10 m on
-2026-08-21 and the grid is being rebuilt around it. Everything below is the state of the
-*previous* configuration and its absolute distances do not carry over; the methodology,
-the traps, and the closure findings do.
+**FIFTH PASS IN PROGRESS, 2026-08-22.** Rebuilt around a **10 m receptor on a
+`122 x 122 x 122` @ 16 m grid** (1952 m domain), chosen for corpus economics. Phase A
+complete and committed; Phase B smoke batch mostly complete.
 
-**FOURTH PASS COMPLETE, 2026-08-21** — `FOURTH_PASS_RESULTS.md`. Eight production cases on the
-static `186 x 186 x 122` @ 24 m domain, **at a 30 m receptor**: four wind directions in each of
-two stability regimes, all from two spun-up states by 90-degree re-indexing, 30 minutes of
-releases each.
+| gate | result |
+|---|---|
+| **A1 water share** | **PASS** — worst case **0.01%** over every direction and stability, against a 10% threshold. The lake is outside the box and it costs nothing. |
+| **A** geometry + `z_i` coverage | **PASS**, committed. Array share on the real map is 1.4-1.6x the idealised estimate; the N-vs-E/W ratio falls to 2.69x neutral. |
+| **B1** grid launch | **PASS** — 122^3 launches clean, 0.0149 s/step |
+| **B2** thread blocks | **PASS** — `1x2x64` fastest of 9 legal shapes at 0.01475 s/step |
+| **B3** flat `dt` | **PASS** — accuracy boundary **~1.51**, production `CFL_3d = 1.35` (`dt = 0.0146417`) |
+| **B4** terrain `dt` | pending — needs a developed terrain state |
+| **B5** restart injection | **PASS** — `topoPos` 9.5e-7, `z0m` 1.5e-9, `htFlux` exact, `zPos` 1.2e-4 against the terrain-following formula |
+| **B6** 90-deg equivariance | **PASS** — rotation exact to 1.2e-14; after 200 steps mean wind agrees to 1.7e-5, column TKE to 1.2e-3 |
+| **B7** subsidence | **PASS**, after a FastEddy source fix — theta warms at 1.10x the prescribed `-w_sub dtheta/dz` |
+| **B8** halo check | **PASS** — `xIndex = yIndex = zIndex = 122`, interior only. **The CNF raster is 122 x 122.** |
+
+**A real FastEddy bug, found and fixed on the fork.** `lsf_horMnSubTerms = 1` with
+`moistureSelector = 0` dies instantly with an illegal memory access: `cuda_lsfSlabMeans()`
+launches the qv slab-mean over `moistScalars_d`, and `cudaDevice_lsfRHS` writes `Frhs_qv`,
+both unconditionally — while `cuda_moistureDeviceSetup()` allocates them only when
+`moistureSelector > 0`. **Upstream v5.0.1 subsidence is only usable with moisture on.** Both
+are now guarded on `kegonsa`; see `FASTEDDY_TRAPS.md` §10. Same class as the `NORHO` bug,
+differing only in whether the bad pointer trapped or produced `inf`.
+
+**And a plan error it exposed:** PLAN.md asked the smoke test to confirm that `w` acquires
+the prescribed subsidence. It never will. The scheme adds the tendency to `U`, `V`, `THETA`
+and `qv` — there is no `W_INDX` term — so subsidence is a large-scale ADVECTION tendency
+against the slab-mean gradient, not a resolved vertical motion. The check would have failed a
+correct implementation. The real test is differential on theta, and it passes.
+
+**A live bug in our own analysis path**, found before it cost anything:
+`stage5_footprint.py` never passed `z_target` to `compute_footprint`, so it fell through to
+the 30.0 default and every footprint would have been computed on the level nearest 30 m with
+nothing in the output to say so. Fixed, along with four other hard-coded 30 m receptors.
+
+**FOURTH PASS COMPLETE, 2026-08-21** — `FOURTH_PASS_RESULTS.md`. Eight production cases on a
+static `186 x 186 x 122` @ 24 m domain, **at a 30 m receptor**. Its absolute distances do not
+carry over; the methodology, the traps and the closure findings do.
 
 | stage | gate | neutral | convective |
 |---|---|---|---|
@@ -641,15 +795,10 @@ releases each.
 | 5 | error floor | 37-54% overlap, centroid 152-436 m | 43-51%, centroid 15-90 m |
 | 6 | explicable difference | PASS array swing **368x** | PASS **528x** |
 
-**Convection changes what a 30 m tower measures.** On a convective northerly the solar array
-supplied 48% of the flux from 0.22% of the domain — 222x its area share, against 3.01% neutrally.
-The lake ran the other way: 15.3% of the neutral easterly footprint, 5.3% convectively. Both
-follow from one per-cell `htFlux` map and the flow.
-
-**Two real bugs were found by the standing flat/neutral control on its first run:** the `sigma_w`
-floor was breaking the well-mixed condition, and `run_case.sh` was scoring the wrong dump for
-every window run since the third pass. Both are in `FOURTH_PASS_RESULTS.md` §5 and
-`FASTEDDY_TRAPS.md`.
+**Two real bugs were found by the standing flat/neutral control on its first run:** the
+`sigma_w` floor was breaking the well-mixed condition, and `run_case.sh` was scoring the
+wrong dump for every window run since the third pass. Both are in `FOURTH_PASS_RESULTS.md` §5
+and `FASTEDDY_TRAPS.md`.
 
 Earlier passes: `STAGE0A_RESULTS.md`, `STAGE1_RESULTS.md`, `STAGE2-6_RESULTS.md`,
 `STAGE2-6_RESULTS_V2.md`, `THIRD_PASS_RESULTS.md`. All superseded on absolute numbers.

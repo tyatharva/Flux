@@ -17,25 +17,31 @@
 # usage: regression_flat.sh [--baseline]     (--baseline rewrites the reference)
 set -uo pipefail
 cd /home/atyagi/Flux
-TBACK="${TBACK:-900}"
+# t_back is generous on purpose the FIRST time this runs at a new grid: the capture curve
+# it produces is what SIZES t_back, and a window too short to contain the answer cannot
+# report that it was too short. Drop it to the measured value afterwards.
+TBACK="${TBACK:-600}"
 WIN=$(python3 -c "print(1800+$TBACK)")
-DT=0.0328947
-SRC=runs/g24_flat/output/FE_ADJ.36480
-D=runs/g24_flat
-TAG=g24_flat
+DT="${DT:-0.0162686}"
+SRC="${SRC:-runs/g16_flat/output/FE_ADJ.0}"
+D="${D:-runs/g16_flat}"
+GRID="${GRID:-data/grid16}"
+TAG="${TAG:-g16_flat}"
+MARKS="${MARKS:-60,100,150,200,250,300,400,500}"
 
 if [ "${1:-}" != "--analysis-only" ]; then
-  bin/run_window.sh $D $SRC $DT $WIN - 10.000000 0.000000 || exit 1
+  BASE="${BASE:-runs/g16_base/base.in}" bin/run_window.sh $D $SRC $DT $WIN - 10.000000 0.000000 || exit 1
 fi
 ./docker/pyrun.sh bin/stage5_footprint.py $D/window --dt $DT --tback "$TBACK" \
-    --sgs-most --receptor-from data/grid --fp16-cache --tag $TAG 2>&1 \
+    --z-target 10.0 --tback-marks "$MARKS" \
+    --sgs-most --receptor-from "$GRID" --cover-dir "$GRID" --fp16-cache --tag $TAG 2>&1 \
     | grep -vE 'batch [0-9]+/' | tee results/$TAG.txt
 [ "${KEEP_FIELDS:-0}" = "1" ] || rm -f $D/window/*
 
 python3 - "$@" <<'PY'
 import json, os, sys
-new = json.load(open("results/g24_flat.json"))
-ref_p = "results/regression_baseline.json"
+new = json.load(open(os.environ.get("TAGJSON", "results/g16_flat.json")))
+ref_p = os.environ.get("REFJSON", "results/regression_baseline_g16.json")
 if "--baseline" in sys.argv or not os.path.exists(ref_p):
     json.dump(new, open(ref_p, "w"), indent=2)
     print("\n  BASELINE WRITTEN -> " + ref_p); raise SystemExit(0)
