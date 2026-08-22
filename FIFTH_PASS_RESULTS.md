@@ -165,6 +165,39 @@ Note the resolved surface heat flux at the first level is only 0.0077 of the pre
 `bin/cbl_check.py` must read the PRESCRIBED `htFlux` rather than the resolved covariance:
 using the resolved value would make this real CBL look like it was not one.
 
+**Gate C3, deep (`L = 2 z_i` target): PASS.** `z_i` = **857 m** -> `L/z_i` = **2.28**,
+`w*` = 1.557 m/s, `u*` = 0.500, **`w*/u*` = 3.11**, entrainment ratio **0.172**.
+
+So the pair the adequacy test actually runs at is **`L/z_i` = 4.56 and 2.28** -- a clean
+bracket of the rule, with identical surface heat flux (0.1363 K m/s virtual) and `z_i`
+separated by the capping inversion and subsidence alone.
+
+### The deep case IS locked in, and it is not a marginal call
+
+Measured directly, without reference to the footprint -- the 2-D spectrum of `w` at
+mid-depth:
+
+| case | `z_i` | `L/z_i` | peak wavelength | **mode-1 share of the variance** |
+|---|---|---|---|---|
+| shallow | 458 m | 4.26 | 976 m (**mode 2**) | **2.2%** |
+| deep | 907 m | 2.15 | **1952 m = L exactly (mode 1)** | **54.5%** |
+
+Over half the mid-depth `w` variance in the deep case sits in the single largest mode the
+box can hold, against 2% in the compliant one -- a **25x** difference. The box has no room
+for the thermals' natural scale, so the energy collects in the one mode available.
+
+A second, independent signature agrees: `sigma_w/w*` runs **1.13-1.29x Lenschow at
+`z/z_i` = 0.5-0.7** in the deep case against 1.02-1.14 in the shallow one. The locked
+circulation concentrates variance at mid-depth, which is exactly where mixed-layer
+similarity is supposed to hold.
+
+**This makes the footprint comparison MORE informative, not less.** The 4 `z_i` rule was
+written for mixed-layer similarity, and lock-in is precisely its failure. The separate
+question -- whether that reaches a footprint at 10 m, where surface-layer scaling governs
+and Kljun's own `z_i` channel spans one percentage point of array share -- is now being
+asked with the artifact demonstrably PRESENT, so agreement would be evidence rather than a
+vacuous pass.
+
 ---
 
 ## 3. What was found that changes the science
