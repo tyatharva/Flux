@@ -24,7 +24,12 @@ from lpdm import kljun
 from scipy.special import erf
 
 W, E, S, N = -60.0, 60.0, -100.0, 250.0     # array rectangle, metres from the tower
-ZM, Z0 = 10.0, 0.05
+# z_m is read PER CASE from the result json, not fixed here. It is the EFFECTIVE
+# aerodynamic height z - d, which is what stage5_footprint.py now hands Kljun -- and over
+# the array d is 1.5 m of a 10 m receptor, so a predictor using the geometric height would
+# disagree with the measurement it is supposed to test by construction rather than by
+# physics. Older jsons have no `zm` key and fall back to the geometric value.
+ZM_FALLBACK = 10.0
 
 
 def chord(theta_from_deg):
@@ -55,6 +60,7 @@ def cover_share(pre, tag):
 
 def main():
     print("  Solar-array footprint share: predicted from geometry vs measured by the LPDM")
+    print("  Kljun is evaluated at the EFFECTIVE height z - d from each case's json.")
     print()
     print("  %-4s %8s %8s %9s %9s %9s %9s %9s" % (
         "case", "wind", "chord", "Kljun cum", "crosswind", "PRED-Klj", "MEASURED",
@@ -67,6 +73,7 @@ def main():
     for tag in ("wN", "wS", "wE", "wW"):
         j = json.load(open(f"results/{pre}_{tag}.json"))
         st = j["stats"]
+        ZM = float(j.get("zm") or ZM_FALLBACK)
         wd = st["wdir"]
         c = chord(wd)
         x = np.arange(1.0, 6000.0, 1.0)
