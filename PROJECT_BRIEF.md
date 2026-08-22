@@ -672,8 +672,22 @@ one run*, not with extra runs. Randomised held-out reference, 400 draws:
 | 9 | 22.5 min | 60 m | **336 m** |
 
 **The peak converges at 12.5 min. The centroid never reaches 100 m in the measurable range.**
-Measured at a 30 m receptor on a 24 m grid; the absolute metres will shrink with the footprint at
-10 m, but the shape of the curve is the transferable part. **Re-measure once.**
+
+**RE-MEASURED AT THE 10 m RECEPTOR, 2026-08-22 (122^3 @ 16 m)**, from 12 independent 150 s
+sub-windows (lag |r| <= 0.28 against a 0.58 independence threshold):
+
+| n sub-windows | sampling time | peak p90 | centroid p90 |
+|---|---|---|---|
+| 1 | 2.5 min | **0 m** | 525 m |
+| 3 | 7.5 min | 0 m | 154 m |
+| **5** | **12.5 min** | **0 m** | **80 m** |
+| 6 | 15.0 min | 0 m | 43 m |
+
+**The peak is converged in a SINGLE 2.5-minute sub-window**, and the centroid reaches 100 m
+by 12.5 min where at 30 m it never reached it at all. The footprint is ~3x smaller and
+transit is 3-5x faster, so each sub-window holds far more independent realisations. **The
+30-minute EC averaging period is already well past what convergence needs** -- windows are
+sized by `t_back` and by the definition of eddy covariance, never by sampling noise.
 
 ---
 

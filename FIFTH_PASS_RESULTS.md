@@ -117,6 +117,28 @@ signal.
 
 
 
+**Ensemble convergence at the 10 m receptor -- the corpus design parameter.** From 12
+independent 150 s sub-windows of the one integration (lag autocorrelations |r| <= 0.28
+against a 2/sqrt(12) = 0.58 independence threshold, so the sub-windows are independent as
+assumed), scored against a held-out reference half over 400 random draws:
+
+| n sub-windows | sampling time | peak p90 | centroid p90 | 80% overlap |
+|---|---|---|---|---|
+| 1 | 2.5 min | **0 m** | 525 m | 32.5% |
+| 2 | 5.0 min | 0 m | 256 m | 38.2% |
+| 3 | 7.5 min | 0 m | 154 m | 41.7% |
+| 4 | 10.0 min | 0 m | 116 m | 44.9% |
+| **5** | **12.5 min** | **0 m** | **80 m** | 47.2% |
+| 6 | 15.0 min | 0 m | 43 m | 47.8% |
+
+**The peak is converged in a single 2.5-minute sub-window** and the centroid reaches 100 m
+by 12.5 minutes. Compare the 30 m receptor on the 24 m grid: the peak needed 12.5 min to
+reach one cell, and **the centroid never reached 100 m at all** in the measurable range
+(336 m at 22.5 min). The footprint is ~3x smaller here and transit times are 3-5x shorter,
+so each sub-window holds far more independent realisations. **The 30-minute averaging period
+eddy covariance requires is already well past what convergence needs**, so windows are sized
+by `t_back` and the EC definition, never by sampling noise.
+
 ---
 
 ## 2c. Phase C — the convective base states
