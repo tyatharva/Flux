@@ -250,14 +250,24 @@ def main():
             q = fy_metrics(fyc, c["fy"], res)
             rows.append(dict(t_back=m, integral=c["integral"],
                              frac=c["integral"] / max(full_i, 1e-12),
-                             peak_x=q["peak_x"], x80=q["x80"]))
+                             peak_x=q["peak_x"], x80=q["x80"],
+                             cover=c.get("cover", {})))
             print(f"   t_back {m:5.0f} s   integral {c['integral']:.3f}  "
                   f"= {100*c['integral']/max(full_i,1e-12):5.1f}% of the "
                   f"{a.tback:.0f} s value   peak {q['peak_x']:5.0f} m   "
                   f"80% within {q['x80']:6.0f} m")
         rows.append(dict(t_back=a.tback, integral=full_i, frac=1.0,
-                         peak_x=m_les["peak_x"], x80=m_les["x80"]))
+                         peak_x=m_les["peak_x"], x80=m_les["x80"],
+                         cover=r0.get("cover_share_nowrap", {})))
         out["capture"] = rows
+        ck = [k for k in (rows[0].get("cover") or {})]
+        if ck:
+            print("\n  land-cover share vs t_back (does the OBSERVABLE converge sooner")
+            print("  than the integral? the array is within 250 m; the tail is not)")
+            print("   " + "t_back".rjust(7) + "".join(f"{k:>13}" for k in ck))
+            for r in rows:
+                print(f"   {r['t_back']:7.0f}" +
+                      "".join(f"{100*(r['cover'].get(k) or 0.0):12.2f}%" for k in ck))
 
     if r0.get("by_disp"):
         print("\n=== where the integral comes from, by trajectory displacement ===")

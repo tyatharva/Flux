@@ -346,6 +346,14 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
     # commensurable.
     cover_h = [{k: 0.0 for k in (cover or {})}, {k: 0.0 for k in (cover or {})}]
     cover_tot_h = [0.0, 0.0]
+    # Cover share as a function of t_back, on the same age mask the capture curve uses.
+    # The INTEGRAL is the slowest thing to converge, because it keeps collecting far-field
+    # tail; the array sits within 250 m of the tower, so its share may settle far sooner --
+    # and the array share, not the integral, is what the corpus is being built to predict.
+    # Sizing t_back on the integral alone would buy backward time the observable does not
+    # need. Free, like the rest of the curve: it is a mask on touchdowns already in hand.
+    cap_cov = {m: {k: 0.0 for k in (cover or {})} for m in marks}
+    cap_cov_tot = {m: 0.0 for m in marks}
     for b0 in range(0, len(times), batch_releases):
         tb = times[b0:b0 + batch_releases]
         n = len(tb) * n_per_release
@@ -394,12 +402,22 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
             hmask = (rel_t <= tmid, rel_t > tmid)
             for hh in (0, 1):
                 cover_tot_h[hh] += wt[hmask[hh] & (~wrap)].sum()
+            age_c = res.get("td_t")
+            for m in marks:
+                if age_c is None:
+                    break
+                am = (age_c <= m) & (~wrap)
+                cap_cov_tot[m] += wt[am].sum()
             for nm, msk in cover.items():
                 sel_c = msk[jj, ii]
                 cover_w[nm] += wt[sel_c].sum()
                 cover_nw[nm] += wt[sel_c & (~wrap)].sum()
                 for hh in (0, 1):
                     cover_h[hh][nm] += wt[sel_c & (~wrap) & hmask[hh]].sum()
+                for m in marks:
+                    if age_c is None:
+                        break
+                    cap_cov[m][nm] += wt[sel_c & (~wrap) & (age_c <= m)].sum()
         n_td += len(X)
         if split_halves:
             rel = t[res["td_particle"]]
@@ -434,7 +452,10 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
                        f1=fy_h1 / max(h1.n_particles, 1) / fs.dx,
                        f2=fy_h2 / max(h2.n_particles, 1) / fs.dx),
                capture={m: dict(integral=float(cap_w[m] / npart),
-                                fy=cap_fy[m] / npart / fs.dx) for m in marks},
+                                fy=cap_fy[m] / npart / fs.dx,
+                                cover={k: (v / cap_cov_tot[m] if cap_cov_tot[m] else np.nan)
+                                       for k, v in cap_cov[m].items()})
+                        for m in marks},
                by_disp=[dict(max_disp=float(d), frac_of_Lx=float(d / fs.Lx),
                              integral=float(v / npart))
                         for d, v in zip(disp_edges, disp_w)],
