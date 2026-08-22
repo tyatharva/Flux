@@ -103,6 +103,11 @@ def main():
     ap.add_argument("--cover-dir", default=None,
                     help="surface dir (data/grid); adds land-cover attribution")
     ap.add_argument("--fp16-cache", action="store_true")
+    ap.add_argument("--cover-groups", type=int, default=2,
+                    help="split the release period into N independent groups and report "
+                         "each group's land-cover share. Two halves give one difference "
+                         "and one degree of freedom; N groups give a sampling "
+                         "DISTRIBUTION, which is what a 1-point effect needs.")
     a = ap.parse_args()
     os.makedirs(a.outdir, exist_ok=True)
     marks = tuple(float(v) for v in a.tback_marks.split(",") if v.strip())
@@ -157,7 +162,8 @@ def main():
                               aniso=SURFACE_LAYER_ANISO if a.aniso else None,
                               sgs_scale=a.sgs_scale, sgs_most=a.sgs_most,
                               tback_marks=marks, rel_seconds=a.rel_seconds,
-                              sgs_most_mode=a.sgs_most_mode, receptor_ij=rij)
+                              sgs_most_mode=a.sgs_most_mode, receptor_ij=rij,
+                              n_cover_groups=a.cover_groups)
         if a.sgs_scale != 1.0:
             print("  SUB-GRID VARIANCE SCALED by %.3f (diagnostic)" % a.sgs_scale)
         if a.aniso:
@@ -296,10 +302,18 @@ def main():
         ch = r0.get("cover_share_halves") or [{}, {}]
         out["cover_share_halves"] = ch
         if ch[0]:
-            print("  half-vs-half land-cover share (the sampling floor on each share):")
+            ng = len(ch)
+            print(f"  land-cover share over {ng} independent release groups "
+                  f"(the sampling distribution of each share):")
             for nm in ch[0]:
-                print(f"    {nm:<12} {100*ch[0][nm]:7.2f}% vs {100*ch[1][nm]:7.2f}%  "
-                      f"-> floor {100*abs(ch[0][nm]-ch[1][nm]):.2f} points")
+                v = np.array([100*(g.get(nm) or np.nan) for g in ch], dtype=float)
+                v = v[np.isfinite(v)]
+                if v.size < 2:
+                    continue
+                se = v.std(ddof=1)/np.sqrt(v.size)
+                print(f"    {nm:<12} mean {v.mean():6.2f}%  sd {v.std(ddof=1):5.2f}  "
+                      f"se {se:5.2f}  range {v.min():6.2f}-{v.max():6.2f}"
+                      + (f"  [{' '.join(f'{x:.1f}' for x in v)}]" if ng <= 12 else ""))
     if len(runs) > 1:
         g1 = runs[1][2]["grid"]
         b0, b1 = g0.normalised("flux"), g1.normalised("flux")

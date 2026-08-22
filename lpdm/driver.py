@@ -53,7 +53,7 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
                       seed=0, split_halves=True, batch_releases=12, w_floor=0.02,
                       max_disp=None, cover=None, aniso=None, sgs_scale=1.0, sgs_most=False,
                       receptor_ij=None, tback_marks=(), rel_seconds=None, sgs_most_mode="surface",
-                      exact_agl=False, verbose=True):
+                      exact_agl=False, n_cover_groups=2, verbose=True):
     """Release, integrate backward, accumulate on the STATIC north-up raster.
 
     THE RASTER IS THE LES GRID. Touchdowns are binned by their LES column index, folded
@@ -344,8 +344,14 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
     # is -- otherwise the tolerance is an opinion. The halves split by RELEASE TIME, the
     # same split the peak and centroid floors already use, so the three floors are
     # commensurable.
-    cover_h = [{k: 0.0 for k in (cover or {})}, {k: 0.0 for k in (cover or {})}]
-    cover_tot_h = [0.0, 0.0]
+    # N-WAY SPLIT OF THE RELEASE PERIOD. Two halves give a share ONE difference and hence
+    # essentially one degree of freedom -- enough for a rough floor, not enough to put a
+    # standard error on a 1-point effect. Splitting into N independent release groups costs
+    # nothing (the touchdowns are already labelled by release time) and turns the floor into
+    # a real sampling distribution. N = 2 reproduces the halves exactly.
+    NG = max(2, int(n_cover_groups))
+    cover_h = [{k: 0.0 for k in (cover or {})} for _ in range(NG)]
+    cover_tot_h = [0.0] * NG
     # Cover share as a function of t_back, on the same age mask the capture curve uses.
     # The INTEGRAL is the slowest thing to converge, because it keeps collecting far-field
     # tail; the array sits within 250 m of the tower, so its share may settle far sooner --
@@ -399,8 +405,11 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
         if cover:
             cover_tot += wt.sum()
             cover_tot_nw += wt[~wrap].sum()
-            hmask = (rel_t <= tmid, rel_t > tmid)
-            for hh in (0, 1):
+            # group index from the release time, evenly over [times[0], times[-1]]
+            span = max(float(times[-1] - times[0]), 1e-9)
+            gi = np.clip(((rel_t - times[0]) / span * NG).astype(int), 0, NG - 1)
+            hmask = tuple(gi == hh for hh in range(NG))
+            for hh in range(NG):
                 cover_tot_h[hh] += wt[hmask[hh] & (~wrap)].sum()
             age_c = res.get("td_t")
             for m in marks:
@@ -412,7 +421,7 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
                 sel_c = msk[jj, ii]
                 cover_w[nm] += wt[sel_c].sum()
                 cover_nw[nm] += wt[sel_c & (~wrap)].sum()
-                for hh in (0, 1):
+                for hh in range(NG):
                     cover_h[hh][nm] += wt[sel_c & (~wrap) & hmask[hh]].sum()
                 for m in marks:
                     if age_c is None:
@@ -465,7 +474,8 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
                cover_share_nowrap={k: (v / cover_tot_nw if cover_tot_nw else np.nan)
                                    for k, v in cover_nw.items()},
                cover_share_halves=[{k: (v / cover_tot_h[hh] if cover_tot_h[hh] else np.nan)
-                                    for k, v in cover_h[hh].items()} for hh in (0, 1)],
+                                    for k, v in cover_h[hh].items()}
+                                   for hh in range(NG)],
                wrapped_fraction=float(wrapped_w / max(full.sum_flux_all, 1e-30)),
                n_particles=full.n_particles, n_touchdown=n_td,
                wind_angle=float(np.degrees(ang)))
