@@ -1,202 +1,183 @@
-# Staged Plan — Fifth Pass, 10 m receptor
+# Staged Plan — Fifth Pass, 10 m receptor, 122^3 @ 16 m
 
-> **STATUS: planned, not run.** Written 2026-08-21, after the receptor was corrected from
-> 30 m to ~10 m. Stages 0-6 have all passed at least once at 24-30 m and a 30 m receptor
-> (`FOURTH_PASS_RESULTS.md`); this pass rebuilds the configuration around the real
-> instrument height and re-runs them. **Absolute distances from earlier passes do not carry
-> over. Methodology, traps and closure findings do.**
+> **STATUS: Phase A complete, Phase B 7/8 complete.** Rewritten 2026-08-22 against the
+> executed configuration. Absolute distances from earlier passes do not carry over;
+> methodology, traps and closure findings do.
 
-Goal of this pass: **one validated configuration at a 10 m receptor, producing one flat/neutral
-control footprint and then the production directions.**
+Goal: **one validated configuration at a 10 m receptor, a flat/neutral control footprint,
+the domain-adequacy answer, and then the production directions.**
 
-**Validate the configuration as ONE thing.** Every change below lands together, gets a batch of
-short smoke runs, and then one full window. No one-at-a-time experiments — the fourth pass
-established that the expensive failures are interactions (a scoring bug hidden by a path
-assumption, a closure rescaling hidden by a gate run in the wrong mode), and those only show up
-when the whole configuration runs end to end.
+**HARD RULE: no single run over 1 hour wall.** At 0.0149 s/step that is **1.02 simulated
+hours per segment**, so a spin-up is 5-6 chained segments and a whole sampling window fits
+in ONE. `bin/run_window.sh` and `bin/spin_cbl.sh` derive both their planning and their
+refusal from a single `WALLCAP` and refuse rather than ask.
 
-**HARD RULE: no single run over 45 minutes wall.** Project before launching. Everything long is
-a chain of sub-45-minute segments driven by `bin/run_window.sh` / `bin/run_directions.sh`, which
-compute the projection and refuse rather than ask.
+**Validate the configuration as ONE thing.** Everything lands together, gets a batch of
+short smoke runs, then one full window. The fourth pass established that the expensive
+failures are interactions, and those only show up end to end.
 
 ---
 
-## What changed, and why each change is here
+## The grid, settled
 
-| # | change | reason |
-|---|---|---|
-| 1 | **Receptor 30 m -> 10 m** | the instrument height. Everything else follows from it. |
-| 2 | **Grid 186x186x122 @ 10 m, `dz_sfc` 3.9933 m** | receptor lands on a cell centre at exactly 10.000000 m at `k = 2`; domain 1860 m contains `x90` for every stability class |
-| 3 | **Sub-grid 40% gate retired** | unreachable by ~2 orders of magnitude at a 10 m receptor. Replaced by measure-and-report + the well-mixed gate + a stated sensitivity band. |
-| 4 | **24 m vs 12 m convergence test dropped** | the grid is changing anyway |
-| 5 | **RSL caveat adopted** | panels 2-3 m, RSL 5-15 m, receptor 10 m. Kljun and the MOST floor are both weakened over the array. |
-| 6 | **`lsfSelector` subsidence** | the physical fix for Stage 2 stationarity, and the control on `z_i` |
-| 7 | **`stabilityScheme = 2` fitted to CONUS404** | 4-segment piecewise-linear theta, fitted, not injected |
-| 8 | **`Ug_grad`/`Vg_grad`** | geostrophic forcing takes a linear vertical gradient; use it if the sounding wants one |
-| 9 | **Dry, virtual heat flux** | explicit call. Moisture rejected; buoyancy deficit absorbed into `htFlux`. |
-| 10 | **`surflayer_idealsine` rejected** | it overwrites the per-cell `htFlux` map, which is load-bearing |
-| 11 | **Online footprint rejected** | IO is 3% of compute; forward tile-resolved aux scalars are a worse estimator |
-| 12 | **Array `z0` 0.10 m** | the first model level is at 2.0 m; a larger `z0` leaves the log law no room |
+`122 x 122 x 122` @ `dx = dy = 16 m`, domain 1952 m, receptor on a cell centre at exactly
+10.000000 m (`k = 2`), `dz_sfc = 3.9933 m`, `d_zeta = 20.576132`,
+`verticalDeformFactor = 0.194059`, `zCeiling 2500 m`, `dampingLayerDepth 500 m`, block
+`1 x 2 x 64`, `dt = 0.0146417 s` flat (`CFL_3d = 1.35`). **0.0149 s/step measured**,
+~0.97 GPU-h per simulated hour. Solved and re-derivable with `bin/vgrid.py`.
+
+Chosen for corpus economics: an 8-case campaign costs ~12 GPU-h against 42 at `186^2 @ 10 m`.
+The costs are `z/Delta ~ 0.99` at the receptor, a footprint peak 1.7-5.7 cells from the
+tower, and the `z_i` cap below.
 
 ---
 
-## Phase A — offline, no GPU (~1 day)
+## Phase A — offline. COMPLETE, committed (a6048c0)
 
-Everything here runs on fields and rasters already on disk. **Do it all before any GPU time**,
-because two of the items can still change the domain size.
+| item | result |
+|---|---|
+| `bin/vgrid.py` | solves the vertical grid from FastEddy's `zDeform`; reproduces the retired 24 m grid exactly |
+| `bin/phaseA_geometry.py` | **Gate A1 PASS**: worst-case water share **0.01%** vs a 10% threshold |
+| `bin/zi_coverage.py` | `L>=4 z_i` covers **19.3%** of convective midday; `L>=2 z_i` **60.9%**; the cap is biased (excluded hours carry **1.51x** the heat flux) |
+| displacement height | into the LPDM sub-layer log law, the MOST floor, and Kljun's `z_m`; worth **3.6-8.4 points** of array share |
+| `bin/prep_surface.py` | rebuilt at 122^2 @ 16 m; virtual-flux conversion; `dmap.npy`; `--raise-topo`; taper `pad = 12` measured as the knee |
+| the sounding fit | **impossible** — CONUS404 hourly has no atmospheric profiles. The inversion is a CONTROL on `z_i`, not a target. |
 
-1. **Re-evaluate the footprint geometry on the REAL map at `z_m = 10 m`.** Kljun on the actual
-   WorldCover/3DEP grid, not the idealised estimates in PROJECT_BRIEF.md. Report: fraction of the
-   footprint inside the array reach by direction and stability; fraction beyond 930 m; the
-   water share. **If the water share at 10 m exceeds ~10% in any direction, the 1860 m domain
-   is too small and the fallback is `N = 234 @ 8 m` or a return to a larger box.** This is the
-   last cheap chance to change the domain.
-2. **Re-measure `t_back` at 10 m** by masking one existing release ensemble on touchdown age —
-   the same method as the fourth pass, no new LES. It cannot be done at the new grid until a
-   window exists, so do it first on the 24 m fields with the receptor moved to the nearest cell
-   to 10 m. That gives the *scaling*, which is what sizes the window. Expect ~150-250 s
-   convergence and a **35-minute window**; confirm before writing the drivers.
-3. **Add displacement height to the LPDM's similarity functions.** Every MOST argument becomes
-   `(z - d)/L` with `d` from the per-cell land cover (array 1.5 m, tree 0.7 x height, crop/grass
-   ~0.1 m). This is a 10-15% correction at a 10 m receptor and it was negligible at 30 m.
-4. **Fit `stabilityScheme = 2` to the CONUS404 mean sounding.** Six parameters
-   (`zStableBottom{,2,3}`, `stableGradient{,2,3}`) by least squares on the lowest 1.5 km. Report
-   the RMS misfit in K. **Only if that misfit is demonstrably inadequate** — say, more than
-   ~0.5 K through the inversion — fall back to injecting a 3-D theta field via the restart file.
-   Also fit `Ug_grad`/`Vg_grad`/`z_Ug`/`z_Vg` to the mean wind profile in the same pass.
-5. **Rebuild the surface** with `bin/prep_surface.py` on the 186 x 186 @ 10 m box: 3DEP at native
-   resolution (**measure the slope distribution and decide on a light smooth**), WorldCover by
-   mode, array rectangle override at `z0 = 0.10 m`, per-cell `htFlux` as the **virtual** flux.
-
-**Gate A:** the array-share and water-share table at `z_m = 10 m` on the real map, and a
-`t_back` number. Both are inputs to the domain and window size. Commit before Phase B.
+Also fixed: `stage5_footprint.py` never passed `z_target`, so every footprint would have
+landed on the level nearest **30 m**. Four other hard-coded 30 m receptors with it.
 
 ---
 
-## Phase B — smoke runs, one batch (~2 h GPU)
+## Phase B — smoke batch. 7/8 COMPLETE, committed (5fe9c77)
 
-Short runs only. Nothing here exceeds a few minutes. Run them as one batch and score them
-together.
+B1 launch, B2 thread blocks, B3 flat `dt`, B5 restart injection, B6 equivariance,
+B7 subsidence, B8 halo check — **all PASS**. See `PROJECT_BRIEF.md` Status for the numbers.
 
-1. **Grid launches.** 200 steps at `186 x 186 x 122`. No `GRID_CUDA_DECOMPOSE_FAIL`, no
-   `too many resources requested for launch`.
-2. **Thread-block sweep.** `1x2x64` is the incumbent and `(N+6) = 192/192/128` leaves every
-   candidate legal. 200 steps each, ~2 minutes total. Pick the fastest, record s/step.
-3. **`dt` bisection, FLAT.** Start at `1/68 = 0.0147059 s` (`CFL_3d = 1.468`) and bisect with
-   `docker/diag_near_surface.py`. Pass condition `k0/k1 < 1`. Find the accuracy boundary, then
-   take ~10% margin below it.
-4. **`dt` bisection, TERRAIN.** Separately, on the real surface. `dx/dz = 2.504`, but the 3DEP
-   slopes are steeper at native resolution — the amplification must be measured, not scaled from
-   the 24 m grid. Expect a lower `dt` than the flat case; the two are not interchangeable.
-5. **Restart injection.** Write terrain, terrain-following `zPos`, `z0m`, `z0t`, `htFlux` into a
-   restart file and confirm the read is a no-op: dump the fields back out and compare.
-6. **90-degree equivariance.** Re-index a short flat run by 90 deg, run 200 steps, compare
-   profiles against the unrotated run. Must agree at the ~1e-4 nondeterminism floor.
-7. **`lsfSelector` + `lsf_horMnSubTerms` smoke.** 200 steps with subsidence on, confirm the run
-   is clean and that `w` acquires the prescribed slab-mean subsidence.
-8. **Halo check.** `ncdump -h` the first dump: dimensions must be `186 x 186 x 122`, interior
-   only. *(Confirmed on the 24 m grid 2026-08-21; re-confirm here because it fixes the CNF
-   raster shape.)*
+**B4 — terrain `dt`. PENDING.** It needs a state with developed turbulence over the real
+surface, so it waits on the neutral spin-up. `dx/dz_sfc = 4.007` is worse than any previous
+grid and the measured amplification is **1.252 at the steepest cell**, which brackets the
+search at `CFL_3d ~ 1.35/1.252 = 1.08`. **Measure it; never scale it.**
 
-**Gate B:** all eight clean, and two `dt` values recorded — flat and terrain. **Every script must
-grep output for `CORRUPTED`/NaN and must never trust the exit code alone**, and every check must
-test `np.isfinite(...).all()` FIRST — `inf` is not NaN, and a NaN passes every `>` comparison.
+Method, learned from B3: a cold start at 500 steps produces `ww[1]` below the `k0k1_check.py`
+floor and the check SKIPs, so the ladder only detects the gross acoustic failure. Branch the
+ladder off a developed state instead.
 
 ---
 
-## Phase C — spin-up (12.2 GPU-h per base state, ~26 chained segments)
+## Phase C — spin-ups (chained ~1-hour segments)
 
-Flat, uniform, doubly periodic. One base state per `(stability, wind speed)` bin; 90-degree
-re-indexing gives four directions from each.
+| state | target | `w'th_v'` land | simulated | GPU-h |
+|---|---|---|---|---|
+| neutral | — | 0 | ~5 h | ~4.9 |
+| convective shallow | `z_i ~ 490 m` (`L = 4 z_i`) | **0.1363** | ~5 h | ~4.9 |
+| convective deep | `z_i ~ 976 m` (`L = 2 z_i`) | **0.1363** | ~8 h | ~7.8 |
 
-- Neutral: `stabilityScheme = 2` with the fitted capping inversion, `lsfSelector = 1` +
-  `lsf_horMnSubTerms = 1`. **The capping inversion plus subsidence is the physical fix for the
-  Stage 2 stationarity failure** — an idealised neutral BL with no inversion has no equilibrium
-  depth and `u*` drifts forever.
-- Convective: same, plus `surflayer_wth` as the virtual flux, with the inversion and subsidence
-  chosen to hold `z_i` **below ~465 m** (`L >= 4 z_i`). Record the achieved `z_i` per segment.
+`stabilityScheme = 2` + `lsfSelector = 1` + `lsf_horMnSubTerms = 1`. `surflayer_wth` is the
+**domain mean of the per-cell virtual map**, not the cropland reference — a flat spin-up has
+no restart injection, so the scalar IS its flux.
 
-**Gate C1:** turbulence statistically stationary — domain TKE plateau and `u*` trend within
-~2 sigma. This is the gate that failed at -8.4 sigma in the second pass and passed in the third;
-subsidence is here to make it pass robustly rather than by luck of sampling time.
+**The two convective states carry the SAME surface flux on purpose.** `z_i` is separated by
+the capping inversion and subsidence alone, so `u*` and `L` match and Phase E tests the BOX
+rather than surface-layer physics. The `z_i`-conditioned fluxes (0.095 shallow / 0.142 deep)
+are for the Phase F corpus, not for this pair.
 
-**Gate C2:** the saved restart restarts bit-for-bit. Already verified at three grids; re-verify
-once at this one, it costs minutes.
-
-**Gate C3 (convective only):** CBL similarity — `w*/u*`, entrainment ratio ~0.2, `sigma_w/w*`
-against Lenschow. `bin/cbl_check.py`. **It must read the prescribed `htFlux`, not the resolved
-covariance at `k = 0`** — that bug made a real CBL look like it was not one.
-
----
-
-## Phase D — the flat/neutral control, first and standing (~2.5 GPU-h)
-
-**This is the first full window, and it is the standing regression.** Re-run it at every
-configuration change, not once. It is the only place Kljun is diagnostic — uniform `z0 = 0.03 m`
-puts the RSL top at 0.3-0.5 m, well below a 10 m receptor — and it is the canary for silent
-geometric bugs. It earned that on its first run by finding two.
-
-1. One (30 min + `t_back`) window, `--rel-seconds 1800`, 5 s cadence.
-2. **Well-mixed test in the production closure configuration**: `stage4_wellmixed.py --sgs-most`,
-   with the displacement-height correction active. Backward rms against the counting-noise floor.
-3. Footprint, and Kljun on the identical cells.
-4. Half-vs-half error floor: peak, centroid, 80% source-area overlap.
-5. Sub-grid fraction of `sigma_w^2` at the receptor — **reported, not gated**.
-
-**Gate D1 — well-mixed.** Backward rms within the counting-noise floor, lowest three bins within
-tolerance. Non-negotiable: if particles accumulate near the surface, every footprint computed
-afterward is wrong in exactly the near field where the whole signal now lives.
-
-**Gate D2 — the integral.** It must converge **from below** with the wrap cap on, and it must be
-compared against Kljun evaluated on the same box, never against 1. At 10 m only 7-9% of the
-footprint lies beyond 930 m, so expect the domain shortfall to be small — if the integral lands
-far from Kljun's value on the same cells, that is a real inconsistency, not truncation.
-
-**Gate D3 — error floor.** Half-vs-half 80% overlap must sit clearly above the LES-vs-Kljun
-overlap, or the metric is at its own noise floor and cannot score the emulator. It separated at
-59.2% vs 36.9% in the second pass; re-measure.
-
-**Also record here, once:** the ensemble-convergence curve at the new receptor height — peak and
-centroid p90 against sampling time, from sub-windows of one integration. It is the corpus design
-parameter and the absolute metres will have changed with the footprint.
+- **Gate C1** stationarity: domain TKE plateau, `u*` trend within ~2 sigma.
+- **Gate C2** the saved restart restarts bit-for-bit at this grid.
+- **Gate C3** (convective) CBL similarity via `bin/cbl_check.py`. It must read the prescribed
+  `htFlux`, not the resolved covariance at `k = 0`.
 
 ---
 
-## Phase E — production directions (~2.24 GPU-h each, 3-4 chained segments)
+## Phase D — the flat/neutral control, and `t_back`
 
-Four directions per base state, by 90-degree re-index, then restart onto the real surface with
-~20 min of adjustment before sampling.
+**First full window, and the standing regression.** The only place Kljun is diagnostic, and
+the canary that found two real bugs on its first run.
 
-**Gate E — explicable difference.** The footprint must differ from Kljun in a direction you can
-point at. **This gate is weaker at 10 m and the plan should say so up front**: the array's
-N-vs-E/W footprint share ratio falls from ~370x measured at 30 m to about **3.7x**, because at a
-10 m receptor the array is 15-24% of the footprint even crosswise. What replaces the swing as the
-discriminator:
+**`t_back` cannot be measured offline any more** — the saved 24 m window fields are gone,
+only single spin-up/adjustment dumps remain. So it is measured HERE, for free: run the
+control **generously long** (`t_back = 600 s`, window 2400 s, 0.65 GPU-h, one segment) with
+`--rel-seconds 1800` and `--tback-marks 60,100,150,200,250,300,400,500`. `compute_footprint`
+builds that capture curve from touchdown ages at no extra cost. Read the convergence point
+off it and fix production `t_back`. Expect ~150-250 s.
 
-- **Absolute array share by direction**, predicted from the array chord and the LES's own `f_y`,
-  against measured. At 30 m these agreed to 0.6% — that is the real test, and it is sharper than
-  a ratio.
-- **The near-field peak position** against the upwind roughness transect (`bin/upwind_transect.py`).
-- **Terrain response**, which is now a larger fraction of what is left once the array is
-  subtracted.
+Also record once: well-mixed in the production closure (`--sgs-most`, displacement active);
+the integral against Kljun on identical cells; the half-vs-half error floor; the sub-grid
+fraction of `sigma_w^2` (**reported, not gated**); the ensemble-convergence curve.
 
-**Report agreement to fewer significant figures, and state which parts are constrained and which
-are free.** Over terrain and over the array, Kljun is descriptive, not a target. The near-field
-peak is constrained by the MOST-anchored `sigma_w` floor, which is anchored to the same theory
-Kljun rests on — and inside the array's RSL that anchoring is an extrapolation. The 80% area, the
-tail, and the land-cover shares are free. Quote the measured anchor-sensitivity band (**46-66%
-shape L1**, against a 38% sampling floor) alongside any near-field number.
+- **Gate D1** well-mixed — backward rms within the counting-noise floor, lowest three bins in
+  tolerance. Non-negotiable.
+- **Gate D2** the integral converges **from below** with the wrap cap, compared against Kljun
+  on the same box, never against 1. Kljun says 92.6-94.1% lies within 930 m here.
+- **Gate D3** half-vs-half 80% overlap clearly above the LES-vs-Kljun overlap.
+
+Then re-baseline `bin/regression_flat.sh` at this grid.
 
 ---
 
-## After Phase E
+## Phase E — domain adequacy. THE DECISION EXPERIMENT (~1.3 GPU-h)
 
-Only then: corpus design, wind-rose stratification with a directional floor, CNF implementation.
+Two convective windows in the **same** 1952 m box at `z_i ~ 488` (`L = 4 z_i`) and `z_i ~ 976`
+(`L = 2 z_i`), identical in everything including surface heat flux. `bin/domain_adequacy.py`
+reports two independent things:
 
-Do not start ML work before Phase E passes. A trained model on a broken target pipeline looks
+1. **Lock-in, diagnosed directly** — the 2-D spectrum of `w` at mid-depth and the horizontal
+   autocorrelation at `L/2`. An unconstrained CBL peaks near `lambda ~ 1.5 z_i`; a locked one
+   pins to mode 1 (`lambda = L`), takes an anomalous share of the variance, and goes strongly
+   anti-correlated at half a domain length. This detects the artifact **without reference to
+   the footprint**, which is what makes the pair interpretable at all.
+2. **Footprint observables** against **both** the Phase D half-vs-half floor **and** the Kljun
+   null for this `z_i` pair (**+0.24 points** of array share, **-0.9%** in `x90`).
+
+**Gate E.** Agreement inside the floor *and* no spectral lock-in means `L >= 2 z_i` is
+acceptable for this observable, convective-midday coverage goes **19.3% -> 60.9%**, and
+122^3 covers the corpus. **Disagreement: stop and report the size of the error.** The fix is
+`218^2 @ 16 m` (`L = 3488 m`, 3.2x cost, 53.0% coverage at `L >= 4 z_i`) and that is a grid
+decision, which belongs to the user.
+
+---
+
+## Phase F — production directions and the displacement-height sensitivity
+
+Four directions per regime by 90-degree re-index, then restart onto the real surface with
+~20 min adjustment before sampling. 8 cases ~7.4 GPU-h.
+
+**The displacement-height sensitivity is a paper result**, measured on the northerly (largest
+array share), three windows, ~2.0 GPU-h:
+
+| treatment | array `z0` | `topoPos` | receptor |
+|---|---|---|---|
+| **baseline** | 0.10 m | flat | `k = 2`, exact 10.000 m |
+| **raised** | 0.25 m | +1.5 m over the array | fractional, `--exact-agl`, `z_agl = 8.5 m` |
+| **bracket** | 0.25 m | flat | `k = 2` (isolates `z0` from the raise) |
+
+Recorded either way: at `z0_array = 0.10` the array is **aerodynamically identical to the
+cropland it replaced** (`WORLDCOVER_Z0[40] = 0.10`), so its entire neutral signal is zero and
+only the convective heat-flux contrast distinguishes it. `prep_surface.py` warns when the two
+coincide.
+
+**Gate F — explicable difference, and it is weaker at 10 m than the plan used to claim.** The
+real map gives a N-vs-E/W array-share ratio of **2.69x** neutral, not the ~3.7x the idealised
+table suggested and not the ~370x measured at 30 m. The discriminators are:
+
+- **absolute array share by direction**, predicted from the array chord and the LES's own
+  `f_y`, against measured — at 30 m these agreed to 0.6%, which is far sharper than a ratio;
+- the **near-field peak position** against `bin/upwind_transect.py`;
+- **terrain response**, now a larger fraction of what is left once the array is subtracted.
+
+Over terrain and over the array Kljun is descriptive, never a target — the receptor is inside
+the RSL there. Quote the anchor-sensitivity band (**46-66% shape L1** against a 38% sampling
+floor) alongside any near-field number.
+
+---
+
+## After Phase F
+
+Only then: corpus design, wind-rose stratification with a directional floor, CNF
+implementation. **The CNF raster is `122 x 122`** — the LES interior, no halos, confirmed by
+`ncdump`.
+
+Do not start ML work before Phase F passes. A trained model on a broken target pipeline looks
 exactly like a trained model on a correct one.
-
-**The CNF raster is `186 x 186`** — the LES interior, no halos, confirmed by `ncdump`.
 
 ---
 
@@ -204,27 +185,28 @@ exactly like a trained model on a correct one.
 
 1. **The receptor may be inside the roughness sublayer over the array.** MOST does not hold
    there, so Kljun is not a reference over the array and the `sigma_w` floor is extrapolated.
-2. **The first model level is at 2.0 m, at or below panel top.** The array's surface exchange is
-   parameterised, not resolved. Dominant known modelling uncertainty.
-3. **Deep convective boundary layers are out of reach.** `L >= 4 z_i` caps `z_i` at ~465 m in an
-   1860 m box; the site's convective-midday median is 859 m.
-4. **The lake is outside the domain.** At a 10 m receptor it carries ~3% of the footprint rather
-   than the ~35% it carried at 30 m, but that is a Kljun estimate — confirm it in Phase A.
-5. **The near field is closure-dominated** at `z/Delta = 1.36`, worse than the 1.76 of the
-   previous configuration, because the eddy scale shrinks with height and `Delta` does not.
-6. **Real geography extends only to the taper ring**, ~730 m from the tower for terrain and
-   ~930 m for land cover; beyond that the surface is uniform.
+2. **The first model level is at 1.997 m, at or below panel top.** The array's surface
+   exchange is parameterised, not resolved. Dominant known modelling uncertainty.
+3. **Deep convective boundary layers are constrained.** `L >= 4 z_i` caps `z_i` at 488 m and
+   covers 19.3% of convective midday; the cap is biased against strong convection. Phase E
+   measures whether it is binding for a 10 m footprint.
+4. **The lake is outside the domain** — 0.05% of cells, 0.01% of any footprint. Measured.
+5. **The near field is closure-dominated** at `z/Delta = 0.99`, worse than 1.76 at 24 m,
+   because the eddy scale shrinks with height and `Delta` does not.
+6. **Real terrain extends to ~784 m** from the tower after the taper ring; land cover is real
+   to the seam.
+7. **Tree cells have `ln(z_first/z0) = 0.69`** — 23.5% of the box, where the surface-layer
+   scheme has almost no room. Inherent to `dx = 16 m` with a 10 m receptor.
 
 ---
 
 ## Working agreement
 
-- One phase per session where possible.
-- Report the gate result explicitly before moving on.
-- If a phase reveals the plan is wrong, say so and stop. Do not work around it silently.
+- Report the gate result explicitly before moving on. Commit at every passed gate.
 - Prefer reading FastEddy's own source over inferring behaviour from documentation. Every
-  capability claim in PROJECT_BRIEF.md now carries a file and line number; keep it that way.
-- Commit at every passed gate. FastEddy source edits go to the fork on `kegonsa`; everything else
-  to the main repo.
-- Stop early only if a gate fails three times, a fix needs FastEddy source changes beyond the
-  existing fork, or a segment projects over 45 minutes and cannot be broken into a chain.
+  capability claim in PROJECT_BRIEF.md carries a file and line number; keep it that way.
+- Every script greps for `CORRUPTED` and tests `np.isfinite(...).all()` FIRST. `inf` is not
+  NaN, and a NaN passes every `>` comparison.
+- Stop early only if a gate fails twice, a fix needs FastEddy source changes beyond the
+  existing fork, a segment projects over 1 hour and cannot be chained, or a result would
+  change the grid decision.
