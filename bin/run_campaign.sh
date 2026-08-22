@@ -10,6 +10,17 @@
 #   env:   FORCE=1   ignore sentinels and redo
 set -uo pipefail
 cd /home/atyagi/Flux
+
+# RUN FROM A FROZEN COPY. Bash reads a script lazily, by byte offset, so editing this file
+# while it is executing can drop the interpreter into the middle of a line and run garbage.
+# Over a 24 h campaign the file WILL be edited -- a later stage gets fixed while an earlier
+# one is still running -- so re-exec from a snapshot and make that safe by construction.
+# Edits then take effect on the next launch, which is what resumability is for anyway.
+if [ "${FROZEN:-0}" != "1" ]; then
+  cp -f "$0" /tmp/flux-logs/run_campaign.frozen.sh
+  FROZEN=1 exec bash /tmp/flux-logs/run_campaign.frozen.sh "$@"
+fi
+
 L=/tmp/flux-logs
 R=results
 DONE=$R/.done
