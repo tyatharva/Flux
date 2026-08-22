@@ -82,7 +82,41 @@ def spectrum_2d(f, dx):
     return lam, pw, n
 
 
-def spectra(paths):
+def _geometry(paths):
+    """z column and dx, from whichever dump in the series actually carries them.
+
+    Sampling windows are written in the fork's `ioLPDMmode`: lean, 16-bit, and holding
+    ONLY the fields the LPDM reads. The coordinate geometry is written into the FIRST
+    dump of a run and no other, so asking the last dump for `zPos` raises
+    "IndexError: zPos not found in /" -- which is what this function exists to avoid.
+    """
+    from netCDF4 import Dataset
+    for p in paths:
+        with Dataset(p) as ds:
+            if "zPos" in ds.variables and "xPos" in ds.variables:
+                z = np.squeeze(np.asarray(ds["zPos"][:], dtype=np.float64))[:, 0, 0]
+                x = np.squeeze(np.asarray(ds["xPos"][:], dtype=np.float64))
+                return z, float(x[0, 0, 1] - x[0, 0, 0])
+    # Nothing in the series carries it, so fall back to the LOWEST-numbered dump in the
+    # same directory -- which for a sampling window is the full-form step-0 dump the fork
+    # writes before lean output begins. This is what makes the diagnostic usable on a
+    # window without the caller having to know how ioLPDMmode lays its output out.
+    import glob as _glob
+    d = os.path.dirname(paths[0]) if paths else "."
+    cand = sorted(_glob.glob(os.path.join(d, "*.[0-9]*")),
+                  key=lambda q: int(q.rsplit(".", 1)[1]))
+    for p in cand:
+        with Dataset(p) as ds:
+            if "zPos" in ds.variables and "xPos" in ds.variables:
+                z = np.squeeze(np.asarray(ds["zPos"][:], dtype=np.float64))[:, 0, 0]
+                x = np.squeeze(np.asarray(ds["xPos"][:], dtype=np.float64))
+                print(f"  (geometry taken from {os.path.basename(p)}: lean ioLPDMmode "
+                      f"output writes zPos/xPos once, in the run's first dump)")
+                return z, float(x[0, 0, 1] - x[0, 0, 0])
+    raise SystemExit("  no dump in this directory carries zPos/xPos")
+
+
+def spectra(paths, geom_from=None):
     from netCDF4 import Dataset
     print("=== lock-in diagnostic: the 2-D spectrum of w at mid-depth ===")
     print("An unconstrained CBL peaks near lambda ~ 1.5 z_i. A locked one snaps to the")
@@ -91,16 +125,14 @@ def spectra(paths):
     print(f"  {'dump':<26}{'z_i':>7}{'L/z_i':>7}{'z':>7}{'peak lam':>10}"
           f"{'lam/z_i':>9}{'mode1 %':>9}{'r(L/2)':>8}")
     rows = []
+    z, dx = _geometry(list(geom_from or []) + list(paths))
     for p in paths:
         with Dataset(p) as ds:
             w = np.squeeze(np.asarray(ds["w"][:], dtype=np.float64))
             th = np.squeeze(np.asarray(ds["theta"][:], dtype=np.float64))
-            z = np.squeeze(np.asarray(ds["zPos"][:], dtype=np.float64))[:, 0, 0]
-            x = np.squeeze(np.asarray(ds["xPos"][:], dtype=np.float64))
         if not (np.isfinite(w).all() and np.isfinite(th).all()):
             print(f"  {os.path.basename(p):<26}  NON-FINITE FIELD -- skipped")
             continue
-        dx = float(x[0, 0, 1] - x[0, 0, 0])
         L = w.shape[-1] * dx
         zi, _ = zi_from_theta(th, z)
         km = int(np.argmin(np.abs(z - 0.5 * zi)))
@@ -212,7 +244,14 @@ if __name__ == "__main__":
         sys.exit(2)
     mode = sys.argv[1]
     if mode == "spectra":
-        spectra(sys.argv[2:])
+        # any --geom argument names a dump to take zPos/xPos from
+        args = sys.argv[2:]
+        geom = []
+        if "--geom" in args:
+            i = args.index("--geom")
+            geom = [args[i + 1]]
+            args = args[:i] + args[i + 2:]
+        spectra(args, geom_from=geom)
         sys.exit(0)
     elif mode == "compare":
         sys.exit(compare(sys.argv[2], sys.argv[3]))
