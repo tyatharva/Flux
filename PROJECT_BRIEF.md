@@ -523,6 +523,42 @@ relaxes the 3-D CFL by at most `sqrt(3/2)`. Stretch for domain depth, never for 
   form while every other dump stays lean. `bin/run_window.sh` is the driver.
 - **`hydroSubGridWrite = 0`** drops the 9 SGS stress fields when running in upstream mode.
 
+### Neutral stationarity is a statement about `u(z_m)/u*`, not about `u*`
+
+**Measured 2026-08-22, after the gate failed twice for the wrong reason.** A doubly-periodic
+neutral Ekman layer forced by a constant geostrophic wind does not settle to a fixed `u*` on
+any affordable timescale. `f = 9.94e-5` here, so the **inertial period is 17.6 h**: `u*` fell
+for the first ~4.4 h (one quarter period), then turned and rose. At 6.26 simulated hours it
+was climbing at **+6.3%/h**. Damping the oscillation needs several periods — 35-50 simulated
+hours for ONE base state — and a real boundary layer does not do it either. The tower
+measures during the oscillation.
+
+**Gate on the ratio.** Kljun's `Pi_4 = u(z_m)/u*` is the only channel through which the wind
+enters the streamwise footprint shape, and both of its terms ride the oscillation together:
+
+| window (h) | `u*` | `U(10 m)` | **`U/u*`** | `sigma_w/u*` | `TKE/u*^2` | `z_i` | dir |
+|---|---|---|---|---|---|---|---|
+| 1-2 | 0.4032 | 4.293 | **10.648** | 1.213 | 0.895 | 413 | 264.0 |
+| 2-3 | 0.3517 | 3.753 | **10.673** | 1.217 | 0.893 | 422 | 256.8 |
+| 3-4 | 0.3333 | 3.567 | **10.700** | 1.222 | 0.882 | 426 | 248.4 |
+| 4-5 | 0.3285 | 3.521 | **10.717** | 1.229 | 0.873 | 419 | 240.9 |
+| 5-6 | 0.3450 | 3.692 | **10.704** | 1.224 | 0.883 | 415 | 236.0 |
+
+`u*` moves 18%; `U/u*` moves 0.6%. Trends over the last 1.5 h: `U/u*` **+0.03%/h**,
+`sigma_w/u*` +0.15%/h, `z_i` -0.83%/h, and Kljun's derived `x_peak` **+0.06%/h**, spanning
+**38.0-38.3 m against a 16 m raster cell**. The turbulence is in equilibrium with the
+instantaneous shear; only the mean flow is turning.
+
+**So the mean-flow drift is carried as a per-case LABEL, not treated as an error.**
+`window_stats` reads the achieved `u*`, `U`, direction and `L` off the LES itself, so a
+slowly backing wind is a different point in the corpus's input space — which is the same
+reason PROJECT_BRIEF.md already says to label cases by ACHIEVED rather than forcing direction.
+
+Two ways this gate was written wrong before it was written right, both worth keeping:
+scoring "the last half" of a cold-start series penalises a run for the transient it must
+spend; and requiring a trend within 2 sigma of zero is unreachable at any length, because
+sigma shrinks with the scatter and a smooth transient stays many sigma from flat forever.
+
 ### The terrain taper width, measured
 
 The terrain is tapered to a constant over an outer ring so the periodic seam is not a
