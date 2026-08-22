@@ -183,7 +183,24 @@ cp -f "$LAST" runs/g16_flat/output/FE_ADJ.0
 # t_back is GENEROUS on purpose the first time: the capture curve this produces is what
 # SIZES t_back, and a window too short to contain the answer cannot report that it was
 # too short.
-TBACK=600 DT="$DT_WIN" SRC=runs/g16_flat/output/FE_ADJ.0 D=runs/g16_flat   GRID="$GRID" TAG=g16_flat BASE="$BASE" bin/regression_flat.sh --baseline   2>&1 | tee $R/g16_phaseD.txt
+# KEEP_FIELDS is on because GATE D1 -- the well-mixed test -- runs on these dumps and must
+# run BEFORE they are deleted. Leaving it off silently skipped the one gate the plan calls
+# non-negotiable: if particles accumulate near the surface, every footprint computed
+# afterwards is wrong in exactly the near field where the whole signal now lives.
+KEEP_FIELDS=1 TBACK=600 DT="$DT_WIN" SRC=runs/g16_flat/output/FE_ADJ.0 D=runs/g16_flat \
+  GRID="$GRID" TAG=g16_flat BASE="$BASE" bin/regression_flat.sh --baseline \
+  2>&1 | tee $R/g16_phaseD.txt
+
+say "Gate D1: the well-mixed condition, IN THE PRODUCTION CLOSURE"
+# --sgs-most is not optional here. The floor rescales sigma^2 by a height-dependent factor,
+# and a rescaling the Thomson drift does not know about breaks well-mixedness -- which is
+# exactly the bug the fourth pass found. The gate has to run in the configuration the
+# footprints are actually computed in, not in the unmodified one.
+./docker/pyrun.sh bin/stage4_wellmixed.py runs/g16_flat/window --dt "$DT_WIN" \
+  --z-target 10.0 --tlimit 600 --sgs-most --fp16-cache 2>&1 | tee $R/g16_wellmixed.txt
+WM=${PIPESTATUS[0]}
+rm -f runs/g16_flat/window/*
+[ "$WM" = "0" ] || die "Gate D1 well-mixed"
 
 # ---------------------------------------------------------------- t_back for production
 say "t_back, read off the control window's own capture curve"
