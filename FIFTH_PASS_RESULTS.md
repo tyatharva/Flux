@@ -96,6 +96,52 @@ is 2400 s and fits in ONE sub-1-hour segment.
 **Backward transit from the 10 m receptor: median 59 s**, p25 28 s, p75 133 s, p95 443 s.
 At 30 m the median was 180-290 s. The `z/sigma_w` scaling predicted 60-95 s; measured 59 s.
 
+**The OBSERVABLE converges well before the integral does.** The integral keeps collecting
+far-field tail; the array sits within 250 m of the tower. Tracking the land-cover share on
+the same age mask:
+
+| `t_back` | array share | vs its 600 s value |
+|---|---|---|
+| 60 s | 48.14% | +19.3 pts |
+| 100 s | 38.96% | +10.1 pts |
+| 200 s | 32.70% | +3.9 pts |
+| 250 s | 31.31% | +2.5 pts |
+| **400 s** | **28.94%** | **+0.11 pts** |
+| 600 s | 28.83% | -- |
+
+The array share is inside its own **5.07-point** half-vs-half sampling floor from `t_back`
+~200 s and converged to 0.1 points by 400 s, while the integral needed 500 s to reach 98.9%.
+Production keeps 600 s because the window fits in one segment either way and it is the
+measured value with margin -- but the sizing is now known to be set by the tail, not by the
+signal.
+
+
+
+---
+
+## 2c. Phase C — the convective base states
+
+**Gate C3, shallow (`L = 4 z_i` target): PASS.**
+
+| | value | expected |
+|---|---|---|
+| `z_i` | **428 m** | -> `L/z_i` = **4.56**, so the rule genuinely holds |
+| `w*` | 1.236 m/s | |
+| `u*` | 0.482 m/s | |
+| `w*/u*` | **2.56** | above ~2 = free convection dominates |
+| entrainment ratio | **0.223** | ~0.2 |
+| `sigma_w/w*` vs Lenschow | 0.96-1.02 through `z/z_i` = 0.2-0.5 | ~1 |
+| `z_i/L` | -6.7 | CONUS404 midday p50 -19.8 |
+| `T* = z_i/w*` | 346 s | |
+
+`z_i` is still growing at +79 m/h, which is entrainment, not drift -- a CBL has no
+stationary depth. Over a 40-minute window that is +53 m, taking `L/z_i` from 4.56 to 4.06,
+still inside the rule. The achieved value is what the case is labelled with.
+
+Note the resolved surface heat flux at the first level is only 0.0077 of the prescribed
+0.1363 K m/s -- the rest is sub-grid. That is `z/Delta ~ 1` again, and it is why
+`bin/cbl_check.py` must read the PRESCRIBED `htFlux` rather than the resolved covariance:
+using the resolved value would make this real CBL look like it was not one.
 
 ---
 
