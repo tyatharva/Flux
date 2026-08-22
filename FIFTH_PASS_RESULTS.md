@@ -247,6 +247,63 @@ compares a difference against another single difference is a coin flip dressed a
 
 ---
 
+## 2e. Phase F — production directions, neutral regime
+
+Four directions from one spin-up by 90-degree re-index, each restarted onto the real static
+surface with 20 min of adjustment before a 2400 s window. Labelled by ACHIEVED direction,
+which is backed from the geostrophic forcing by Ekman turning and carried further by the
+inertial oscillation -- none is a due N/S/E/W case.
+
+| case | achieved dir | `u*` | `U` | `h` | **array share** | integral | vs Kljun (80% ovl) |
+|---|---|---|---|---|---|---|---|
+| wW | 239 deg | 0.379 | 3.86 | 443 m | **20.08%** | 0.926 | 27% |
+| wS | 147 deg | 0.327 | 3.35 | 428 m | **45.79%** | 0.899 | 39% |
+| wE | 47 deg | 0.338 | 3.49 | 559 m | **37.68%** | 0.803 | 33% |
+| wN | 320 deg | 0.388 | 3.96 | 414 m | **42.13%** | 1.005 | 42% |
+
+**Measured swing 20.1% to 45.8% = 2.3x**, against an array occupying **1.03%** of the
+domain -- an enrichment of **19x at worst and 44x at best**. At a 30 m receptor the swing
+was ~370x, because the array was then in the footprint only on northerlies. It is 2.3x here
+because the tower is inside the array and sees it from every direction, which is the whole
+change at this receptor height.
+
+**Gate F -- the difference from Kljun is explicable, in the same direction every time.**
+The share predicted from the array chord and the LES's own crosswind-integrated `f_y`:
+
+| case | chord | PRED from Kljun `f_y` | PRED from the LES's own `f_y` | MEASURED |
+|---|---|---|---|---|
+| wN | 92 m | 55.68% | 47.49% | 42.13% |
+| wS | 110 m | 61.49% | 52.98% | 45.79% |
+| wE | 82 m | 51.44% | 40.74% | 37.68% |
+| wW | 70 m | 45.98% | 26.63% | 20.08% |
+
+Substituting the LES's own `f_y` for Kljun's moves the prediction toward the measurement in
+**every** case, which is what it must do if the attribution is sound. And the **ratios agree
+exactly** -- wN/wE 1.1x predicted vs 1.1x measured, wN/wS 0.9 vs 0.9, wS/wE 1.2 vs 1.2 --
+which is the robust content, because the chords are only 4-7 cells at 16 m.
+
+**Why the LES share is lower than Kljun's, quantified:**
+
+| | LES | Kljun |
+|---|---|---|
+| peak of `f_y` | 64 m (all four) | 48 m |
+| 80% source area | 2.2-4.3 ha | 1.6-1.7 ha |
+
+The LES footprint is **40-150% broader in 80% source area** and its peak is one cell farther
+out, so less of its mass lands on a patch that only reaches 70-110 m upwind. That is the
+sign and size of the array-share gap, it is the same in all four directions, and it is the
+near-field deficit the MOST-anchored `sigma_w` floor exists to bound -- at `z/Delta` = 0.99
+the closure supplies most of `sigma_w`, so quote the **46-66% anchor-sensitivity band**
+with any of these near-field numbers.
+
+**A geometric point that matters for the corpus.** The array chord is capped by the array's
+**120 m WIDTH**, not its 350 m length: a ray from the tower toward anything off due north
+leaves through an east or west edge within ~110 m. That is why the directional swing is
+modest at this receptor, and why **absolute share by direction, not the N-vs-E/W ratio, is
+the discriminator.**
+
+---
+
 ## 3. What was found that changes the science
 
 ### 3.1 The lake has left the study, and it costs nothing
