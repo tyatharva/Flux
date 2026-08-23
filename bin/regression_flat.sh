@@ -29,6 +29,11 @@ GRID="${GRID:-data/grid16}"
 TAG="${TAG:-g16_flat}"
 MARKS="${MARKS:-60,100,150,200,250,300,400,500}"
 
+# --compare-only scores an EXISTING footprint json (TAGJSON) against the baseline without
+# recomputing it. The closure pass already produces the flat/neutral footprint as part of
+# its battery, and running stage5 twice on the same 10 GB window to get the same answer is
+# 30 minutes bought for nothing.
+if [ "${1:-}" != "--compare-only" ]; then
 if [ "${1:-}" != "--analysis-only" ]; then
   BASE="${BASE:-runs/g16_base/base.in}" bin/run_window.sh $D $SRC $DT $WIN - 10.000000 0.000000 || exit 1
 fi
@@ -37,6 +42,7 @@ fi
     --sgs-most --receptor-from "$GRID" --cover-dir "$GRID" --fp16-cache --tag $TAG 2>&1 \
     | grep -vE 'batch [0-9]+/' | tee results/$TAG.txt
 [ "${KEEP_FIELDS:-0}" = "1" ] || rm -f $D/window/*
+fi
 
 python3 - "$@" <<'PY'
 import json, os, sys

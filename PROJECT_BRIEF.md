@@ -424,6 +424,15 @@ Backward LPDM, run offline on saved FastEddy output.
 - **Restart is a true bit-for-bit state resume** (verified twice, at two grids). Restarting from a
   dump and re-dumping reproduces that dump byte-for-byte. Requires netCDF; `ioOutputMode = 1`
   binary output is **not** restartable.
+- **A TOLERANCE MEASURED FROM ONE DIFFERENCE IS NOT A TOLERANCE.** A gate that scores a
+  result against a single half-vs-half difference is comparing against a statistic with
+  ONE degree of freedom, whose own sampling error is of the same size as the thing it is
+  bounding. Gates compare against a DISTRIBUTION with enough degrees of freedom to have a
+  standard error: Phase E's first verdict said DIFFERS on a 2-group floor and PASSED at
+  p ~ 0.54 on a 10-group one, a factor of **5 in the estimated floor** from nothing but
+  the number of groups. Use `--cover-groups N` (N >= 8) wherever a share or a shape is
+  being tested, quote the standard error, and never quote a tolerance without saying how
+  many independent realisations went into it.
 - Any grid change re-checks the `(N + 6) % tB == 0` rule before running.
 - Commit at every verification gate in PLAN.md. Do not proceed past a failed gate.
 - **The analysis stack lives in the container.** The host python has no scipy; run analysis as
