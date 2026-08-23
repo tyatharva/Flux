@@ -538,6 +538,24 @@ follows it. The correlations are modest (|r| 0.04-0.26) but their SIGN tracks th
 all eight cases, which is the content: the footprint is sitting on real topography and
 responding to it.
 
+### 2h. The standing regression, exercised
+
+`regression_flat.sh --baseline` writes the reference; the CHECK is what proves the
+tolerances accept a genuine re-run. Run on an independent 2400 s control window:
+
+| metric | baseline | re-run | difference | tolerance | |
+|---|---|---|---|---|---|
+| `peak_x` | 64.000 m | 64.000 m | +0.000 | 48.0 | ok |
+| `area80_ha` | 3.226 | 2.714 | -0.512 | 5.000 | ok |
+| `integral_les` | 0.914 | 0.868 | -0.046 | 0.080 | ok |
+| `overlap_kljun` | 0.333 | 0.373 | +0.040 | 0.150 | ok |
+
+**PASS -- inside the sampling floor.** Two things follow. The tolerances are calibrated:
+a genuinely independent realisation of the same configuration passes, so the regression will
+not reject every future run. And the two code changes that landed AFTER the baseline was
+written -- the N-way cover split and the fractional-k fix -- are no-ops on this path, which
+is what the check exists to establish rather than assume.
+
 ---
 
 ## 5b. THE PRINCIPAL OPEN FINDING: the sigma_w floor is not well-mixed convectively
