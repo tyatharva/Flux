@@ -21,6 +21,9 @@ import sys
 
 import numpy as np
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from lpdm.sgs_floor import check_monotone
+
 RINGS = (50.0, 100.0, 150.0, 250.0, 400.0, 600.0, 900.0)
 
 
@@ -92,10 +95,18 @@ def main():
         zl = np.asarray(fl["zl"]); fac = np.asarray(fl["fac"])
         sig2 = np.asarray(fl["sig2"]); base = np.asarray(fl["base"])
         k = int(np.argmin(np.abs(zl - j.get("z_target", 10.0))))
-        drops = int(np.sum(np.diff(sig2[:max(fl["kpk"], 2)]) < -1e-12))
+        # FLOOR-INDUCED turnovers only. sigma_w^2 also falls from the first model level
+        # through the lowest tens of metres in the model's OWN profile, because the
+        # sub-grid closure piles energy against the wall -- that is not the floor's doing
+        # and counting it made the retired taper look better than the corrected one.
+        # check_monotone() differences the two profiles, which is the whole question.
+        top = float(zl[fl["kpk"]]) if fl.get("kpk", -1) > 0 else 0.2 * float(fl["h"])
+        n_new, worst = check_monotone(
+            dict(zl=zl, sig2=sig2, base=np.asarray(fl["base"]), kpk=fl.get("kpk", -1)),
+            z_top=top)
         print(f"  {lab:<10} factor {fac[k]:6.3f} at the receptor, max {fac.max():6.2f} at "
               f"z={zl[int(np.argmax(fac))]:5.0f} m; sigma_w^2 {base[k]:.4f} -> {sig2[k]:.4f}; "
-              f"{drops} decreasing step(s) below z={zl[fl['kpk']]:.0f} m"
+              f"{n_new} FLOOR-INDUCED turnover(s) below z={top:.0f} m (worst {worst:+.2%})"
               f"{'  [LEGACY TAPER]' if fl.get('legacy') else ''}")
 
     # The one number the exercise exists to produce.

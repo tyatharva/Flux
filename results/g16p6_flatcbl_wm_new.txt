@@ -1,0 +1,16 @@
+  481 dumps: FE_WIN.0 .. FE_WIN.164160
+    loaded 1/481  FE_WIN.0
+    loaded 26/481  FE_WIN.8550
+    loaded 51/481  FE_WIN.17100
+    loaded 76/481  FE_WIN.25650
+    loaded 101/481  FE_WIN.34200
+    loaded 126/481  FE_WIN.42750
+    loaded 151/481  FE_WIN.51300
+    loaded 176/481  FE_WIN.59850
+    loaded 201/481  FE_WIN.68400
+    loaded 226/481  FE_WIN.76950
+    loaded 251/481  FE_WIN.85500
+    loaded 276/481  FE_WIN.94050
+    loaded 301/481  FE_WIN.102600
+    loaded 326/481  FE_WIN.111150
+    loaded 351/481  FE_WIN.119700

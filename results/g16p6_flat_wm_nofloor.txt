@@ -1,0 +1,90 @@
+  481 dumps: FE_WIN.0 .. FE_WIN.164160
+    loaded 1/481  FE_WIN.0
+    loaded 26/481  FE_WIN.8550
+    loaded 51/481  FE_WIN.17100
+    loaded 76/481  FE_WIN.25650
+    loaded 101/481  FE_WIN.34200
+    loaded 126/481  FE_WIN.42750
+    loaded 151/481  FE_WIN.51300
+    loaded 176/481  FE_WIN.59850
+    loaded 201/481  FE_WIN.68400
+    loaded 226/481  FE_WIN.76950
+    loaded 251/481  FE_WIN.85500
+    loaded 276/481  FE_WIN.94050
+    loaded 301/481  FE_WIN.102600
+    loaded 326/481  FE_WIN.111150
+    loaded 351/481  FE_WIN.119700
+    loaded 376/481  FE_WIN.128250
+    loaded 401/481  FE_WIN.136800
+    loaded 426/481  FE_WIN.145350
+    loaded 451/481  FE_WIN.153900
+    loaded 476/481  FE_WIN.162450
+    loaded 481/481  FE_WIN.164160
+  field cache 10.65 GB, 122x122x122, dt_dump=5.00 s, window 0-2400 s (64 s to load)
+
+  --- well-mixed test BACKWARD (the mode footprints use) ---
+  released uniformly over 2-1200 m; scored over 2-400 m
+      z (m)   final/initial
+       11.9           1.027   |####################
+       31.8           0.958   |###################
+       51.8           1.017   |####################
+       71.6           1.018   |####################
+       91.5           1.005   |####################
+      111.4           0.984   |###################
+      131.3           1.011   |####################
+      151.2           1.002   |####################
+      171.1           0.993   |###################
+      191.1           1.113   |######################
+      210.9           0.903   |##################
+      230.8           0.997   |###################
+      250.8           0.943   |##################
+      270.6           1.015   |####################
+      290.5           1.032   |####################
+      310.4           0.976   |###################
+      330.3           1.036   |####################
+      350.2           0.948   |##################
+      370.1           1.112   |######################
+      390.0           0.868   |#################
+  ~666 particles per bin initially; 1-sigma counting noise 5.48%
+  max |ratio-1| = 13.21%   rms = 5.70%   lowest 3 bins = 1.001
+  GATE: PASS  (max deviation < max(10%, 4 sigma); lowest 3 bins within max(5%, 3 sigma))
+  (27364 integrator steps, 372 s)
+
+  --- well-mixed test FORWARD (control) ---
+  released uniformly over 2-1200 m; scored over 2-400 m
+      z (m)   final/initial
+       11.9           1.038   |####################
+       31.8           1.031   |####################
+       51.8           1.009   |####################
+       71.6           1.024   |####################
+       91.5           1.051   |#####################
+      111.4           0.948   |##################
+      131.3           1.012   |####################
+      151.2           1.008   |####################
+      171.1           1.042   |####################
+      191.1           1.032   |####################
+      210.9           0.919   |##################
+      230.8           0.943   |##################
+      250.8           0.976   |###################
+      270.6           0.912   |##################
+      290.5           1.015   |####################
+      310.4           1.027   |####################
+      330.3           1.007   |####################
+      350.2           0.975   |###################
+      370.1           1.012   |####################
+      390.0           1.012   |####################
+  ~666 particles per bin initially; 1-sigma counting noise 5.48%
+  max |ratio-1| = 8.84%   rms = 3.97%   lowest 3 bins = 1.026
+  GATE: PASS  (max deviation < max(10%, 4 sigma); lowest 3 bins within max(5%, 3 sigma))
+  (27362 integrator steps, 374 s)
+
+  BOTH DIRECTIONS: PASS  (asymmetry is the primary diagnostic; backward alone proves nothing)
+
+  --- backward transit time from the 10 m receptor ---
+  receptor z = 10.00 m (level k=2)
+  reached the surface within 900 s: 65.5% of 20000 particles
+  transit time (s): p5=10  p25=21  p50=42  p75=100  p95=546
+  median 0.7 min at z = 10.0 m. Transit scales roughly as z/sigma_w, so the 30 m receptor's 180-290 s should fall to ~60-95 s here; this median is what sizes t_back and therefore the window.
+
+  STAGE 4 GATE: PASS
+  -> results/g16p6_flat_wm_nofloor.json
