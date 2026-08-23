@@ -302,6 +302,41 @@ leaves through an east or west edge within ~110 m. That is why the directional s
 modest at this receptor, and why **absolute share by direction, not the N-vs-E/W ratio, is
 the discriminator.**
 
+### Convective regime, and the residual the CNF exists to learn
+
+| case | achieved dir | `u*` | `z_i/L` | **array share** | 80% area | integral |
+|---|---|---|---|---|---|---|
+| wN | 339 deg | 0.466 | -27.3 | **81.36%** | 1.2 ha | 1.180 |
+| wS | 170 deg | 0.427 | -35.9 | **74.13%** | 1.0 ha | 0.997 |
+| wE | 70 deg | 0.416 | -64.7 | **63.02%** | 0.7 ha | 0.777 |
+| wW | 257 deg | 0.475 | -24.8 | **29.14%** | 1.5 ha | 0.768 |
+
+**Convection roughly doubles what this tower measures of the array**: 1.45x to 1.93x by
+direction, **mean 1.67x**. Swing across direction 2.8x, enrichment **28x to 79x** over the
+array's 1.03% area share. On a convective northerly the array supplies **81% of the flux
+from 1% of the domain.**
+
+**And the sign of the disagreement with Kljun FLIPS between regimes, for one reason:**
+
+| regime | LES 80% area / Kljun's | measured array share vs predicted |
+|---|---|---|
+| neutral | **1.29-2.69** (LES broader) | BELOW |
+| convective | **0.31-0.77** (LES more compact) | ABOVE |
+
+Kljun's own 80% source area barely moves between the two regimes -- 1.6-1.7 ha neutral,
+1.9-2.2 ha convective -- and it moves the WRONG WAY. The LES says convection makes the
+footprint **2 to 3 times more compact**; Kljun says slightly broader. **That is the residual
+the emulator exists to learn**, and it is a structural failure of the analytic model at a
+10 m receptor, not a tuning offset: no rescaling of Kljun's parameters changes the sign of
+its regime dependence.
+
+Convectively the chord prediction is also much sharper -- PRED-LES lands within 1-2 points
+of measured on wN (83.4 vs 81.4) and wS (75.2 vs 74.1) -- because the compact convective
+footprint sits well inside the array chord, so the 1-D chord approximation stops mattering.
+
+**Water is 0.00-0.05% of every one of the eight production footprints**, confirming Gate A1
+on real LES fields rather than on a Kljun estimate.
+
 ---
 
 ## 3. What was found that changes the science

@@ -1,0 +1,64 @@
+
+=== runs/g16_cbl_wN/window: 481 dumps ===
+  cache 10.65 GB, window 0-2400 s (cadence 5.0 s), loaded in 59 s
+  displacement height map from data/grid16_cbl/dmap.npy: 0.00-2.00 m, mean 0.973 m
+  receptor pinned to the TOWER cell (i,j) = (61, 61)
+  receptor  (i,j,k)=(61,61,2.0000)  x=984 y=984  z=3.098 m ASL = 10.028 m AGL (ground -6.93 m)
+  displacement height at the receptor d=1.500 m  ->  effective aerodynamic height z-d = 8.528 m
+  releases  451 times over 600-2400 s, 700 each = 315,700 particles; t_back=600 s
+  receptor means over the averaging period: U=+1.5010 V=-4.1641 W=-0.1487 m/s
+  double rotation: yaw -70.18 deg, pitch -1.924 deg (sin=-0.03357)
+  wrap-around cap: retiring trajectories past 1952 m of displacement (domain 1952 x 1952 m)
+  SGS floor mode 'surface': surface-layer target 1.58 u*, mixed-layer target 1.36 u* (w*=1.90 m/s), used 1.58 u*
+  SGS MOST floor: receptor d=1.500 m; factor 1.647 at the receptor (1.00-26.09 over the column); phi_w=1.280 at z/L=-0.365; sigma_w/u* 1.27 -> 1.58 (surface-layer target 1.25)
+  mean streamline-frame w over all releases: +0.00094 m/s (model-frame mean was -0.14868); rotation removed 99.4% of it
+  flux weight from touchdowns the periodic fold MOVED: -0.2%
+  footprint-weighted land-cover share (from touchdowns, unblurred):
+    class          folded  unwrapped     area
+    solar array    81.49%     81.36%    1.03%
+    water           0.00%      0.00%    0.05%
+    tree            1.02%      0.89%   23.47%
+    grassland       0.40%      0.15%   20.49%
+    cropland       17.12%     17.45%   49.72%
+    built          -0.03%      0.15%    4.89%
+    (unwrapped excludes touchdowns whose periodic fold moved them onto different
+     real geography; quote that column for the site)
+  LES scalars at z=10.00 m: U=4.56 m/s dir=339.3 deg  u*=0.466  h=635 m  1/L=-4.30e-02
+    sigma_v 1.012 (resolved 0.852 + sub-grid, e_sgs=0.4472);  sigma_w 0.592 (resolved 0.228);  sigma_w/u* = 1.27
+  touchdowns 269,996;  largest single weight 217.5;  top 0.1% carry 5.6% of the total |weight|
+  integral of f_flux over the raster = 1.180 (all touchdowns 1.180)
+
+  Kljun evaluated at the EFFECTIVE height z-d = 8.528 m (geometric 10.028 m, d = 1.500 m)
+
+=== flat-and-neutral reference check (Kljun is DIAGNOSTIC here, DESCRIPTIVE over real surface) ===
+  LES + LPDM               peak     64 m   80% of f_y within    144 m   80% area    1.2 ha   centroid    107 m at 344.9 deg
+  Kljun FFP                peak     48 m   80% of f_y within    198 m   80% area    1.9 ha   centroid    136 m at 339.2 deg
+  source-area overlap vs Kljun:  80% 82%   50% 88%
+  peak   LES 64 m   Kljun 48 m
+  integral over the raster:  LES 1.18   Kljun 0.95
+  NOTE: the near-field peak is CONSTRAINED -- the MOST-anchored sigma_w floor is
+        anchored to surface-layer similarity, the same theory Kljun rests on. The
+        80% area, the tail and the land-cover shares are free.
+
+=== where the integral comes from, by trajectory displacement ===
+   the domain repeats every 1952 m, so anything beyond one domain length is
+   turbulence the trajectory had already sampled once
+   within 0.25 L  (  488 m)   integral 1.173
+   within 0.50 L  (  976 m)   integral 1.182
+   within 0.75 L  ( 1464 m)   integral 1.180
+   within 1.00 L  ( 1952 m)   integral 1.181
+   within 1.50 L  ( 2928 m)   integral 1.180
+   within 2.00 L  ( 3904 m)   integral 1.180
+
+=== error floor: the two halves of this window ===
+  half 1                   peak     64 m   80% of f_y within    155 m   80% area    1.4 ha   centroid    102 m at 344.0 deg
+  half 2                   peak     64 m   80% of f_y within    136 m   80% area    0.9 ha   centroid    113 m at 346.0 deg
+  half-vs-half 80% overlap 63%   peak difference +0 m   centroid difference 12 m
+  land-cover share over 2 independent release groups (the sampling distribution of each share):
+    solar array  mean  81.13%  sd  3.15  se  2.22  range  78.91- 83.36  [83.4 78.9]
+    tree         mean   0.95%  sd  0.81  se  0.57  range   0.37-  1.52  [0.4 1.5]
+    grassland    mean   0.16%  sd  0.16  se  0.12  range   0.04-  0.27  [0.0 0.3]
+    cropland     mean  17.60%  sd  2.12  se  1.50  range  16.10- 19.10  [16.1 19.1]
+    built        mean   0.16%  sd  0.05  se  0.03  range   0.12-  0.19  [0.1 0.2]
+
+  wrote results/g16_cbl_wN.npz and .json
