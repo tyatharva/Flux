@@ -386,6 +386,15 @@ Backward LPDM, run offline on saved FastEddy output.
 - SGS component is a Langevin model driven by FastEddy's output SGS TKE (Weil et al. 2004).
 - **Well-mixed condition is the critical correctness test, and it MUST be run in the
   configuration footprints are actually computed in** (`stage4_wellmixed.py --sgs-most`).
+  **AND THE CONVECTIVE CONFIGURATION IS A DIFFERENT ONE.** Measured 2026-08-23: the floor's
+  factor at the receptor is **1.000 (inactive) neutrally** and **1.57-1.68 convectively**,
+  reaching 12-26 over the column. So a neutral PASS is a test of the UNMODIFIED model and
+  says nothing about the convective closure -- the fourth pass's "inherited" is invalid.
+  Run convectively, the gate PASSES backward (rms 7.51%) and **FAILS forward** (lowest three
+  bins 1.258), because the taper makes the floor factor peak at `0.1h` and fall to 1 by
+  `0.2h`, manufacturing a spurious `sigma_w^2` maximum that Thomson's drift converges on.
+  Convective integrals saturate above 1 (1.02-1.04 on flat ground) in consequence. **Fix the
+  taper before trusting a convective near-field number.** See `FIFTH_PASS_RESULTS.md` §5b.
 
 ## ML model
 

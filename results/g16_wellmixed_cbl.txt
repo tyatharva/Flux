@@ -1,0 +1,76 @@
+  181 dumps: FE_WIN.0 .. FE_WIN.61560
+    loaded 1/181  FE_WIN.0
+    loaded 26/181  FE_WIN.8550
+    loaded 51/181  FE_WIN.17100
+    loaded 76/181  FE_WIN.25650
+    loaded 101/181  FE_WIN.34200
+    loaded 126/181  FE_WIN.42750
+    loaded 151/181  FE_WIN.51300
+    loaded 176/181  FE_WIN.59850
+    loaded 181/181  FE_WIN.61560
+  field cache 4.01 GB, 122x122x122, dt_dump=5.00 s, window 0-900 s (22 s to load)
+  MOST floor ON: factor 1.00-11.40 over the column
+
+  --- well-mixed test BACKWARD (the mode footprints use) ---
+  released uniformly over 2-1200 m; scored over 2-400 m
+      z (m)   final/initial
+       11.9           0.973   |###################
+       31.8           1.098   |#####################
+       51.8           1.111   |######################
+       71.6           1.120   |######################
+       91.5           1.137   |######################
+      111.4           0.911   |##################
+      131.3           1.009   |####################
+      151.2           0.977   |###################
+      171.1           0.957   |###################
+      191.1           1.021   |####################
+      210.9           0.875   |#################
+      230.8           0.964   |###################
+      250.8           0.902   |##################
+      270.6           0.973   |###################
+      290.5           0.957   |###################
+      310.4           0.927   |##################
+      330.3           0.924   |##################
+      350.2           0.984   |###################
+      370.1           1.078   |#####################
+      390.0           0.993   |###################
+  ~666 particles per bin initially; 1-sigma counting noise 5.48%
+  max |ratio-1| = 13.67%   rms = 7.51%   lowest 3 bins = 1.059
+  GATE: PASS  (max deviation < max(10%, 4 sigma); lowest 3 bins within max(5%, 3 sigma))
+  (18241 integrator steps, 185 s)
+
+  --- well-mixed test FORWARD (control) ---
+  released uniformly over 2-1200 m; scored over 2-400 m
+      z (m)   final/initial
+       11.9           1.313   |##########################
+       31.8           1.225   |########################
+       51.8           1.233   |########################
+       71.6           1.247   |########################
+       91.5           1.101   |######################
+      111.4           0.984   |###################
+      131.3           0.960   |###################
+      151.2           0.924   |##################
+      171.1           0.888   |#################
+      191.1           0.951   |###################
+      210.9           0.886   |#################
+      230.8           0.951   |###################
+      250.8           1.008   |####################
+      270.6           1.018   |####################
+      290.5           0.931   |##################
+      310.4           0.918   |##################
+      330.3           0.907   |##################
+      350.2           0.910   |##################
+      370.1           0.952   |###################
+      390.0           0.900   |#################
+  ~666 particles per bin initially; 1-sigma counting noise 5.48%
+  max |ratio-1| = 31.27%   rms = 13.28%   lowest 3 bins = 1.258
+  GATE: FAIL  (max deviation < max(10%, 4 sigma); lowest 3 bins within max(5%, 3 sigma))
+  (18245 integrator steps, 186 s)
+
+  --- backward transit time from the 10 m receptor ---
+  receptor z = 10.00 m (level k=2)
+  reached the surface within 600 s: 48.2% of 20000 particles
+  transit time (s): p5=8  p25=16  p50=37  p75=127  p95=363
+  median 0.6 min at z = 10.0 m. Transit scales roughly as z/sigma_w, so the 30 m receptor's 180-290 s should fall to ~60-95 s here; this median is what sizes t_back and therefore the window.
+
+  STAGE 4 GATE: FAIL

@@ -497,6 +497,70 @@ resolved motion over topography. Acoustic noise is a ratio near 9, and it is now
 
 ---
 
+## 5b. THE PRINCIPAL OPEN FINDING: the sigma_w floor is not well-mixed convectively
+
+Found at the end of this pass, by asking a question the plan did not ask.
+
+**The neutral well-mixed gate says nothing about the convective closure, because the floor
+is a different closure in each.** Measured floor factor at the receptor:
+
+| case | factor at the receptor | factor over the column |
+|---|---|---|
+| flat/neutral control | **1.000** (INACTIVE) | 1.00-2.45 |
+| convective, all cases | **1.57-1.68** | 1.00 to **12-26** |
+
+The fourth pass recorded convective well-mixedness as "inherited" from the neutral test.
+That inheritance is invalid: neutrally the floor does nothing, so the neutral PASS is a
+test of the unmodified model.
+
+**Run in the convective closure, Gate D1 fails one direction:**
+
+| direction | max abs(ratio-1) | rms | lowest 3 bins | verdict |
+|---|---|---|---|---|
+| BACKWARD (what footprints use) | 13.67% | 7.51% | 1.059 | PASS |
+| FORWARD (control) | 31.27% | 13.28% | **1.258** | **FAIL** |
+
+A correct Lagrangian stochastic model in a stationary field is well mixed in BOTH
+directions. This asymmetry is not the sign error PROJECT_BRIEF.md warns about (that would fail
+backward and pass forward); it is the taper.
+
+**The mechanism, measured.** The floor factor is not monotone in height:
+
+| z (m) | resolved `ww` | sgs (2/3)e | **floor factor** | `sigma_w^2` | d/dz |
+|---|---|---|---|---|---|
+| 2.0 | 0.0012 | 0.3662 | 1.05 | 0.3865 | +0.0095 |
+| 26.3 | 0.1694 | 0.0820 | 5.00 | 0.5795 | +0.0064 |
+| **52.1** | 0.3758 | 0.0360 | **9.45** | **0.7159** | +0.0028 |
+| 61.3 | 0.4333 | 0.0321 | 8.77 | 0.7145 | **-0.0014** |
+| 91.5 | 0.5708 | 0.0268 | 3.79 | 0.6725 | **-0.0015** |
+| 114.3 | 0.6341 | 0.0256 | 1.00 | 0.6597 | +0.0021 |
+
+The factor peaks at **9.45 at 52 m -- exactly the taper's inner edge** (`0.1h` = 54 m) --
+then falls to 1 as the taper switches it off by `0.2h`. That manufactures a **spurious
+`sigma_w^2` MAXIMUM at the taper edge**, with `d(sigma_w^2)/dz < 0` at 10 of the 26 levels
+below 120 m. `sigma_w^2` must increase away from an impermeable wall; where the floor makes
+it decrease, Thomson's drift points inward from both sides and particles converge on the
+artificial maximum. The scored "lowest 3 bins" span 2-62 m and CONTAIN that maximum, which
+is what the 1.258 excess is.
+
+**The observable consequence.** Convective footprint integrals saturate ABOVE 1 -- 1.022 and
+1.040 on flat ground, where a correct estimator converges to ~1 from below as the neutral
+control does (0.914). They do SATURATE (flat beyond 1.0 L), so this is not the periodic
+wrap-around double counting PROJECT_BRIEF.md describes; it is the closure. **Read the convective
+array shares with a systematic uncertainty of order the integral overshoot, 2-4%.**
+
+**The fix is a closure change and is NOT made here.** The floor must be applied so that the
+transported `sigma_w^2` stays monotone in the surface layer -- e.g. by tapering the TARGET
+rather than the factor, or by clipping the factor so the product never turns over. That
+needs its own well-mixed validation in both directions, and making it silently at the end of
+a campaign would invalidate the eight production footprints already computed. It is the
+first thing the next pass should do.
+
+**Neutral results are unaffected** -- the floor is inactive there, and the neutral control
+passed both directions (4.26% and 4.12% rms).
+
+---
+
 ## 6. Known limitations
 
 1. The receptor may be inside the **roughness sublayer** over the array; MOST does not hold
