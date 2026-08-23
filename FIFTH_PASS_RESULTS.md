@@ -495,6 +495,49 @@ ringing columns cannot move a 14,884-cell mean. `bin/k0k1_by_slope.py` condition
 and the result stands up: `k0/k1` rises monotonically 0.42 -> 0.68 with slope, which is
 resolved motion over topography. Acoustic noise is a ratio near 9, and it is nowhere.
 
+### 2g. The remaining Gate F discriminators, and the sub-grid report
+
+**Sub-grid fraction of `sigma_w^2` at the receptor -- REPORTED, NOT GATED** (the 40% gate is
+retired; it is unreachable by ~2 orders of magnitude at any affordable grid):
+
+| state | sub-grid fraction at `z/Delta` = 0.99 | 40% crossing |
+|---|---|---|
+| neutral | **96.5%** | `z/Delta` ~ 3.58 |
+| convective shallow | **91.4%** | `z/Delta` ~ 2.42 |
+| convective deep | **90.7%** | `z/Delta` ~ 2.43 |
+
+At the 24 m grid and a 30 m receptor these were 85.5% and 52.3%. **The closure now supplies
+over 90% of `sigma_w^2` at the receptor**, which is the context for §5b: when the model
+supplies nine tenths of the quantity, a defect in how it is applied is not a detail.
+Reaching 40% would need `Delta <~ 2.8 m` neutrally, i.e. `dx ~ 3 m`.
+
+**Gate F discriminator 2 -- the upwind roughness transect.** Produced for both regimes:
+`figures/g16_nbl_transect_wN_wS_wE_wW.png` and `figures/g16_cbl_transect_wN_wS_wE_wW.png`,
+the footprint against the surface it came from, out to 900 m.
+
+**Gate F discriminator 3 -- terrain response, array cells excluded.** Kljun has no terrain,
+so any systematic relation between the non-array footprint mass and the ground under it is
+structure the analytic model cannot produce:
+
+| case | dir | footprint-mean terrain | along-wind slope | r(f, slope) |
+|---|---|---|---|---|
+| nbl_wN | 319 | -1.03 m | **+0.0129** | +0.177 |
+| nbl_wS | 147 | **-12.11 m** | **-0.0120** | -0.187 |
+| nbl_wE | 47 | -1.20 m | +0.0198 | +0.259 |
+| nbl_wW | 239 | -9.55 m | -0.0082 | -0.184 |
+| cbl_wN | 339 | +0.41 m | +0.0170 | +0.105 |
+| cbl_wS | 170 | -10.29 m | -0.0168 | -0.102 |
+| cbl_wE | 70 | -3.98 m | +0.0251 | +0.080 |
+| cbl_wW | 257 | -10.26 m | -0.0206 | -0.127 |
+
+Domain-mean terrain is -3.54 m. **The footprint-mean terrain spans 12.5 m across
+direction** -- northerlies and easterlies sample ground ~2.5 m above the domain mean,
+southerlies and westerlies 6-8 m below it. The along-wind slope **flips sign consistently
+between opposing directions**, as it must for a fixed terrain field, and `r(f, slope)`
+follows it. The correlations are modest (|r| 0.04-0.26) but their SIGN tracks the wind in
+all eight cases, which is the content: the footprint is sitting on real topography and
+responding to it.
+
 ---
 
 ## 5b. THE PRINCIPAL OPEN FINDING: the sigma_w floor is not well-mixed convectively

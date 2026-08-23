@@ -93,8 +93,8 @@ def main():
     tgt = np.interp(LIMIT, frac[ok][order][::-1], r[order][::-1])
     print(f"  the fraction collapses onto z/Delta; it crosses {LIMIT*100:.0f}% at "
           f"z/Delta ~ {tgt:.2f}")
-    print(f"  => a 30 m receptor needs Delta <~ {a.ztarget/max(tgt,1e-9):.1f} m, i.e. "
-          f"isotropic spacing of about that, NOT merely a finer dz.")
+    print(f"  => a {a.ztarget:.0f} m receptor needs Delta <~ {a.ztarget/max(tgt,1e-9):.1f} m, "
+          f"i.e. isotropic spacing of about that, NOT merely a finer dz.")
     return 0 if f < LIMIT else 1
 
 

@@ -1,0 +1,15 @@
+  Footprint mass vs the terrain it sits on, ARRAY CELLS EXCLUDED.
+  'slope along wind' is the terrain gradient projected on the mean wind vector:
+  positive = the footprint sits on ground rising toward the tower.
+
+  case           dir  <z_topo>  <slope_wind>   r(f,z)  r(f,slope)
+  nbl_wN         319    -1.03m        0.0129   -0.159       0.177
+  nbl_wS         147   -12.11m       -0.0120    0.147      -0.187
+  nbl_wE          47    -1.20m        0.0198   -0.063       0.259
+  nbl_wW         239    -9.55m       -0.0082   -0.165      -0.184
+  cbl_wN         339     0.41m        0.0170    0.120       0.105
+  cbl_wS         170   -10.29m       -0.0168   -0.201      -0.102
+  cbl_wE          70    -3.98m        0.0251   -0.042       0.080
+  cbl_wW         257   -10.26m       -0.0206   -0.051      -0.127
+
+  domain-mean terrain -3.54 m, mean |slope| 0.0480 -- the reference for the columns above.
