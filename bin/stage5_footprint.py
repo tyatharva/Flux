@@ -178,8 +178,6 @@ def main():
                               sgs_most_mode=a.sgs_most_mode, receptor_ij=rij,
                               sgs_most_legacy=a.sgs_most_legacy,
                               sgs_most_form=a.sgs_most_form,
-               sgs_subgrid_weight=not a.no_subgrid_weight,
-               sgs_eps_consistent=not a.no_eps_consistent,
                               sgs_subgrid_weight=not a.no_subgrid_weight,
                               sgs_eps_consistent=not a.no_eps_consistent,
                               n_cover_groups=a.cover_groups)
@@ -265,6 +263,8 @@ def main():
                sgs_most=bool(a.sgs_most), sgs_most_mode=a.sgs_most_mode,
                sgs_most_legacy=bool(a.sgs_most_legacy),
                sgs_most_form=a.sgs_most_form,
+               sgs_subgrid_weight=not a.no_subgrid_weight,
+               sgs_eps_consistent=not a.no_eps_consistent,
                wind_angle=r0["wind_angle"])
     # PERSIST THE CLOSURE PROFILES. Re-deriving the floor after the fact needs zlev,
     # ww_prof and esgs_prof, and until now none of the three survived the run -- the

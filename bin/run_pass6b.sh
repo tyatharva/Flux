@@ -17,6 +17,7 @@ L=/tmp/flux-logs; R=results; DONE=$R/.done6b
 mkdir -p $DONE $R $L
 DT_WIN=0.0146199; TB=600; WIN=2400; NPART=40000
 say(){ echo; echo "########## $* ##########"; date '+%F %H:%M:%S'; }
+bin/preflight.sh || { echo "PREFLIGHT FAILED -- not spending GPU time"; exit 1; }
 die(){ echo "PASS 6B STOPPED: $*" | tee -a $R/pass6b_status.txt >&2; exit 1; }
 newest(){ ls -1 "$1"/*.[0-9]* 2>/dev/null | sort -t. -k2 -n | tail -1; }
 have(){ [ "${FORCE:-0}" = "1" ] && return 1; [ -f "$DONE/$1" ]; }
@@ -35,12 +36,19 @@ battery(){                      # battery <windowdir> <grid> <tag>
     ./docker/pyrun.sh bin/stage4_wellmixed.py "$W" --dt $DT_WIN --n $NPART \
         --z-target 10.0 --dmap "$G/dmap.npy" $F --fp16-cache --tag ${T}_wm_$CFG \
         2>&1 | grep -vE '^    loaded' > $R/${T}_wm_$CFG.txt
+    [ -s "$R/${T}_wm_$CFG.json" ] || { tail -12 $R/${T}_wm_$CFG.txt >&2
+      echo "FATAL: ${T}_wm_$CFG produced no json" >&2; return 1; }
     grep -E "MOST floor|turnovers|GATE:|BOTH DIR" $R/${T}_wm_$CFG.txt
     echo "--- footprint  $T / $CFG"
     ./docker/pyrun.sh bin/stage5_footprint.py "$W" --dt $DT_WIN --tback $TB \
         --z-target 10.0 --rel-seconds 1800 $F --receptor-from "$G" --cover-dir "$G" \
         --fp16-cache --cover-groups 10 --tag ${T}_$CFG 2>&1 \
         | grep -vE 'batch [0-9]+/|^    loaded' > $R/${T}_$CFG.txt
+    # CHECK THE PRODUCT, NOT THE PIPELINE'S EXIT STATUS. Piping python into grep makes
+    # the shell report grep's success, so a traceback lands quietly in the .txt and the
+    # driver carries on -- which is exactly how a syntax error survived six launches.
+    [ -s "$R/${T}_$CFG.json" ] || { tail -12 $R/${T}_$CFG.txt >&2
+      echo "FATAL: ${T}_$CFG produced no footprint json" >&2; return 1; }
   done
   python3 bin/floor_bias.py new=${T}_new legacy=${T}_legacy none=${T}_nofloor \
       2>&1 | tee $R/${T}_floorbias.txt

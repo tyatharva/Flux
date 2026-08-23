@@ -82,6 +82,8 @@ frq=int(round(5.0/$DT)); print(int(round($ADJ_S/$DT/frq))*frq)")
         --sgs-most --cover-dir "$GRID" --receptor-from "$GRID" --fp16-cache \
         --z-target "${ZTARGET:-10.0}" ${EXACT_AGL:+--exact-agl} \
         --tag ${PRE}_$NAME 2>&1 | grep -vE 'batch [0-9]+/' > results/${PRE}_$NAME.txt
+    [ -s "results/${PRE}_$NAME.json" ] || { tail -12 results/${PRE}_$NAME.txt >&2
+      echo "FATAL: ${PRE}_$NAME produced no footprint json" >&2; exit 1; }
     tail -32 results/${PRE}_$NAME.txt
     [ "${KEEP_FIELDS:-0}" = "1" ] || { rm -f $D/window/*; echo "--- $NAME window fields deleted"; }
   ) &
