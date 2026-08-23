@@ -82,7 +82,18 @@ for REG in nbl cbl; do
          RBASE=runs/g16_base/base_cbl_shallow.in ;;
   esac
   [ -f "$GRID/topo.bin" ] || die "$GRID not built"
+  # MINIMUM PRODUCTION SPOT CHECK, not the full corpus. The closure is validated on the two
+  # flat control windows, which cost no GPU because they are already on disk -- but a flat
+  # uniform window never exercises terrain, the array, the raised topography or the
+  # fractional receptor, so one case per regime confirms the production path end to end.
+  # The northerly is the right one: largest array share (78-81% convective) and the
+  # direction the displacement-height sensitivity was measured on.
+  #
+  # All four directions per regime is 8.4 GPU-h and is DEFERRED -- that updates corpus
+  # numbers rather than confirming correctness. DIRS= takes a comma-separated list, so
+  # widening it later is one word, and the sentinels make it resumable.
   BASE=$RBASE ADJ_S=1200 SPS=0.0155 ZTARGET=8.5 EXACT_AGL=1 KEEP_FIELDS=1 \
+    ONLY="${DIRS:-wN}" \
     bin/run_directions.sh g16r_$REG "$SRC" "$GRID" $DT_WIN $WIN $TB || die "dirs $REG"
   mark dirs_$REG
 done
@@ -90,8 +101,7 @@ done
 # =================================== 6. the retired closure on the production fields
 if ! have legacy_prod; then
   say "the retired closure on the production fields"
-  for C in g16r_cbl_wN g16r_cbl_wS g16r_cbl_wE g16r_cbl_wW \
-           g16r_nbl_wN g16r_nbl_wS g16r_nbl_wE g16r_nbl_wW; do
+  for C in $(ls -d runs/g16r_*_w? 2>/dev/null | xargs -r -n1 basename); do
     D=runs/$C; G=data/grid16_raised
     case $C in g16r_nbl_*) G=data/grid16r_nbl ;; esac
     [ -d "$D/window" ] && [ "$(ls -1 $D/window/*.[0-9]* 2>/dev/null | wc -l)" -gt 10 ] || \
