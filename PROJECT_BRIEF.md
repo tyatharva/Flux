@@ -447,6 +447,24 @@ Backward LPDM, run offline on saved FastEddy output.
 - **Restart is a true bit-for-bit state resume** (verified twice, at two grids). Restarting from a
   dump and re-dumping reproduces that dump byte-for-byte. Requires netCDF; `ioOutputMode = 1`
   binary output is **not** restartable.
+- **VALIDATION MUST EXERCISE THE PRODUCTION CODE PATH AND THE PRODUCTION REGIME.** A gate
+  that tests a different closure than the footprints use is not a gate. Two instances, both
+  of which shipped a wrong result:
+  - **The wrong regime.** The neutral well-mixed gate passed a closure carrying **nine**
+    turnovers in `sigma_w^2` and a factor of **2.46**, because the floor is nearly inert
+    neutrally -- the receptor factor is 1.000 there and 1.59-1.67 convectively. The fifth
+    pass then recorded the convective closure as "inherited" from that PASS. Run the gate
+    in every regime the corpus contains, and treat a regime where a component is inert as
+    *no evidence at all* about that component.
+  - **The wrong code path.** `stage4_wellmixed.py` carried its own COPY of the `sigma_w`
+    floor, which had drifted from `lpdm/driver.py`'s and never received the displacement
+    correction. The gate validating the footprints was scoring a closure the footprints do
+    not compute. Gates import the production function; they never reimplement it.
+
+  Corollary for reporting: **quote the no-op control alongside the result.** The
+  convective failure was localised in one run by scoring the SAME window with no floor at
+  all -- the base model passed both directions, which is what proved the fault was the
+  floor and not the model. A gate result without its control says only "a number came out".
 - **A TOLERANCE MEASURED FROM ONE DIFFERENCE IS NOT A TOLERANCE.** A gate that scores a
   result against a single half-vs-half difference is comparing against a statistic with
   ONE degree of freedom, whose own sampling error is of the same size as the thing it is
