@@ -337,6 +337,43 @@ footprint sits well inside the array chord, so the 1-D chord approximation stops
 **Water is 0.00-0.05% of every one of the eight production footprints**, confirming Gate A1
 on real LES fields rather than on a Kljun estimate.
 
+### 2f. The displacement-height sensitivity -- the paper result
+
+Three treatments of the same convective northerly, **with the instrument held fixed at
+10.0 m above BARE GROUND in all three** and the effective aerodynamic height matched
+(8.50 vs 8.53 m), so the only thing that differs is how the array's surface is represented:
+
+| treatment | array `z0` | `topoPos` | receptor | **array share** | vs baseline |
+|---|---|---|---|---|---|
+| baseline | 0.10 m | flat | `k = 2` | 81.36% | -- |
+| bracket | 0.25 m | flat | `k = 2` | 82.26% | **+0.90 pt** |
+| raised | 0.25 m | **+1.5 m over the array** | fractional, `z_agl` = 8.5 m | **84.12%** | **+2.76 pt** |
+
+**The array's surface representation is worth 2.76 points of array share, 3.4% relative.**
+Of that, +0.90 is the roughness contrast alone (`z0` 0.10 -> 0.25, i.e. 1.0x -> 2.5x against
+cropland) and the remaining **+1.86 is putting the displacement height into the terrain**,
+which is what lifts the first model level from 2.0 m above bare ground to 3.5 m -- clear of
+panel top instead of inside it.
+
+**And separately, the receptor's own effective height is worth more.** A fourth run placed
+the instrument 11.5 m above bare ground (`z_eff` 8.53 -> 10.00 m) and the share fell
+**1.85 points**. So a 1.5 m error in either the surface representation or the receptor
+datum moves this number by 2-3 points in opposite directions.
+
+**This is a LOWER BOUND on the sensitivity, and deliberately so.** It was measured on the
+northerly, the direction with the LARGEST array share (81%), where the share is closest to
+saturation and least sensitive. Kljun on the real map predicts the same 1.5 m of effective
+height is worth **+8.3 points** on a neutral crosswise (E/W) direction, where the share is
+29.9% and far from saturated. Quote 2.8 points as what was measured where it matters least,
+and expect several times that crosswise.
+
+**What this settles.** The array's footprint share was partly a modelling choice, and the
+choice is now bounded rather than hidden. The `--raise-topo` treatment is the physically
+better one -- it is the only configuration in which the first model level sits above panel
+top and the array carries a real roughness contrast -- and it costs 2.76 points relative to
+the `z0 = 0.10` workaround that PROJECT_BRIEF.md adopted when the first level was thought to be the
+binding constraint.
+
 ---
 
 ## 3. What was found that changes the science

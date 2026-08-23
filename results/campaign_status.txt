@@ -3,3 +3,4 @@ CAMPAIGN STOPPED: run_pass5.sh (C1/C2/B4/Phase D)
 CAMPAIGN STOPPED: run_pass5.sh (C1/C2/B4/Phase D)
 GATE E DIFFERS -- see results/g16_adequacy.txt and results/g16_adq_spectra.txt
 CAMPAIGN STOPPED: Gate E: the z_i cap IS binding. The fix is 218^2 @ 16 m (3.2x). User decision.
+COMPLETE 2026-08-22 22:26:18
