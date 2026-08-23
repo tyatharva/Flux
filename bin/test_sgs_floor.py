@@ -109,6 +109,23 @@ def main():
     # correction reaches the drift; if they disagree on sigma^2 itself then one of them
     # is not the floor that was designed, and the well-mixed comparison between them
     # would be measuring the wrong thing.
+    print("\n=== the sub-grid-fraction weighting ===")
+    for name, st in (("convective", cases["convective"]), ("neutral", cases["neutral"])):
+        raw = most_floor(st, d_r=1.5, subgrid_weight=False)
+        wtd = most_floor(st, d_r=1.5, subgrid_weight=True)
+        n_new, worst = check_monotone(wtd)
+        check(f"{name}: weighting still forbids a floor-induced turnover", n_new == 0,
+              f"{n_new} drops, worst {worst:+.3%}")
+        check(f"{name}: weighting cannot RAISE the factor anywhere",
+              bool(np.all(wtd["fac"] <= raw["fac"] + 1e-9)),
+              f"max increase {np.max(wtd['fac'] - raw['fac']):+.3e}")
+        check(f"{name}: the factor is bounded well below the failing magnitude",
+              wtd["fac"].max() < 6.0, f"max {wtd['fac'].max():.2f} (raw {raw['fac'].max():.2f})")
+        kr = 2
+        print(f"        receptor factor {raw['fac'][kr]:.3f} -> {wtd['fac'][kr]:.3f}; "
+              f"column max {raw['fac'].max():.2f} -> {wtd['fac'].max():.2f}; "
+              f"f_sgs at the receptor {wtd['f_sgs'][kr]:.3f}")
+
     print("\n=== additive vs multiplicative deliver the same sigma^2 ===")
     for name, st in (("convective", cases["convective"]), ("neutral", cases["neutral"])):
         fl = most_floor(st, d_r=1.5)
@@ -134,7 +151,10 @@ def main():
     # The interpolant's derivative, as the LPDM now computes it, must be the exact
     # derivative of the curve the LPDM samples.
     print("\n=== drift consistency ===")
-    fl = most_floor(cases["convective"], d_r=1.5)
+    # Deliberately the UNWEIGHTED floor: this checks the interpolation scheme, not the
+    # floor's shape, and the weighted factor is smooth enough that a central difference
+    # nearly agrees -- which would make the test pass for the wrong reason.
+    fl = most_floor(cases["convective"], d_r=1.5, subgrid_weight=False)
     z, f = fl["zl"], fl["fac"]
     slope = np.diff(f) / np.diff(z)
     zt = np.linspace(z[0] + 0.01, z[40], 4000)

@@ -89,6 +89,12 @@ def main():
                     help="reproduce the RETIRED 0.1h-0.2h factor taper. Production never "
                          "uses it; it exists so the bias it introduced can be measured "
                          "against the SAME LES fields the corrected floor runs on.")
+    ap.add_argument("--no-subgrid-weight", action="store_true",
+                    help="DIAGNOSTIC: drop the sub-grid-fraction weighting, restoring the "
+                         "factor that reached 10x where the LES resolved 92%.")
+    ap.add_argument("--no-eps-consistent", action="store_true",
+                    help="DIAGNOSTIC: raise sigma^2 without raising eps, so T_L inflates "
+                         "with the floor as it used to.")
     ap.add_argument("--sgs-most-form", default="multiplicative",
                     choices=("additive", "multiplicative"),
                     help="how the floor reaches the drift; additive is production.")
@@ -172,6 +178,10 @@ def main():
                               sgs_most_mode=a.sgs_most_mode, receptor_ij=rij,
                               sgs_most_legacy=a.sgs_most_legacy,
                               sgs_most_form=a.sgs_most_form,
+               sgs_subgrid_weight=not a.no_subgrid_weight,
+               sgs_eps_consistent=not a.no_eps_consistent,
+                              sgs_subgrid_weight=not a.no_subgrid_weight,
+                              sgs_eps_consistent=not a.no_eps_consistent,
                               n_cover_groups=a.cover_groups)
         if a.sgs_scale != 1.0:
             print("  SUB-GRID VARIANCE SCALED by %.3f (diagnostic)" % a.sgs_scale)

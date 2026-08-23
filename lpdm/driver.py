@@ -55,7 +55,8 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
                       max_disp=None, cover=None, aniso=None, sgs_scale=1.0, sgs_most=False,
                       receptor_ij=None, tback_marks=(), rel_seconds=None, sgs_most_mode="surface",
                       exact_agl=False, n_cover_groups=2, sgs_most_legacy=False,
-                      sgs_most_form="multiplicative", verbose=True):
+                      sgs_most_form="multiplicative", sgs_subgrid_weight=True,
+                      sgs_eps_consistent=True, verbose=True):
     """Release, integrate backward, accumulate on the STATIC north-up raster.
 
     THE RASTER IS THE LES GRID. Touchdowns are binned by their LES column index, folded
@@ -221,7 +222,8 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
         # The construction lives in lpdm/sgs_floor.py so that the well-mixed GATE and
         # the footprints use the same code rather than two drifting copies -- see the
         # module docstring for why the factor-taper form was retired.
-        fl = most_floor(st, d_r=d_r, mode=sgs_most_mode, legacy=sgs_most_legacy)
+        fl = most_floor(st, d_r=d_r, mode=sgs_most_mode, legacy=sgs_most_legacy,
+                        subgrid_weight=sgs_subgrid_weight)
         zl, fac = fl["zl"], fl["fac"]
         floor_diag = fl
         n_new, worst = check_monotone(fl)
@@ -256,11 +258,14 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
                   f"sigma_w/u* {np.sqrt(fl['base'][kk])/fl['ustar']:.2f} -> "
                   f"{np.sqrt(fl['sig2'][kk])/fl['ustar']:.2f} (surface-layer target 1.25)")
             print(f"  monotonicity: {n_new} floor-induced turnover(s) in sigma_w^2 below "
-                  f"the peak (must be 0); delivery "
+                  f"the peak (must be 0); sub-grid weighting "
+                  f"{'ON' if sgs_subgrid_weight and not sgs_most_legacy else 'off'}, "
+                  f"eps-consistent {'ON' if sgs_eps_consistent else 'off'}; delivery "
                   f"{'MULTIPLICATIVE (retired)' if sgs_offset is None else 'additive'}")
 
     lp = LPDM(fs, c0=c0, z_touch=z_touch, seed=seed, aniso=aniso,
-              sgs_scale=sgs_scale, sgs_offset=sgs_offset)
+              sgs_scale=sgs_scale, sgs_offset=sgs_offset,
+              sgs_eps_consistent=sgs_eps_consistent)
     t_start = time.time()
     n_td = 0
     wsf_bar, wsf_n = [], 0

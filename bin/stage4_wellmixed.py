@@ -43,6 +43,10 @@ def main():
                          "introduced can be measured against the same fields.")
     ap.add_argument("--sgs-most-mode", default="surface",
                     choices=("surface", "mixed", "blend"))
+    ap.add_argument("--no-subgrid-weight", action="store_true",
+                    help="DIAGNOSTIC: drop the sub-grid-fraction weighting.")
+    ap.add_argument("--no-eps-consistent", action="store_true",
+                    help="DIAGNOSTIC: raise sigma^2 without raising eps.")
     ap.add_argument("--sgs-scale", type=float, default=1.0,
                     help="DIAGNOSTIC: a CONSTANT multiplier on the sub-grid variance, "
                          "with no height dependence and therefore no dsc/dz term. It "
@@ -90,7 +94,8 @@ def main():
             d_r = float(dm[fs.ny // 2, fs.nx // 2]) if a.d_recept is None else a.d_recept
         elif a.d_recept is not None:
             d_r = float(a.d_recept)
-        fl = most_floor(st, d_r=d_r, mode=a.sgs_most_mode, legacy=a.sgs_most_legacy)
+        fl = most_floor(st, d_r=d_r, mode=a.sgs_most_mode, legacy=a.sgs_most_legacy,
+                        subgrid_weight=not a.no_subgrid_weight)
         n_new, worst = check_monotone(fl)
         # Same delivery choice as production, for the same reason: the gate has to run
         # the closure the footprints run, down to how the correction reaches the drift.
@@ -100,7 +105,9 @@ def main():
             off = (fl["zl"], fl["delta"])
         kk = int(np.argmin(np.abs(fl["zl"] - a.z_target)))
         print(f"  MOST floor ON{' [LEGACY TAPER]' if a.sgs_most_legacy else ''}"
-              f" [{'multiplicative' if off is None else 'additive'}]: "
+              f" [{'multiplicative' if off is None else 'additive'}"
+              f"{'' if a.no_subgrid_weight else ', f_sgs-weighted'}"
+              f"{'' if a.no_eps_consistent else ', eps-consistent'}]: "
               f"factor {fl['fac'].min():.2f}-{fl['fac'].max():.2f} over the column, "
               f"{fl['fac'][kk]:.3f} at the receptor (d={d_r:.2f} m)")
         if not a.sgs_most_legacy:
@@ -116,7 +123,8 @@ def main():
         for i in sel[::max(1, len(sel) // 12)]:
             print(f"  {fl['zl'][i]:8.1f} {fl['wwp'][i]:10.4f} {fl['have'][i]:10.4f} "
                   f"{fl['fac'][i]:8.2f} {fl['sig2'][i]:10.4f} {dz[i]:+10.5f}")
-    lp = LPDM(fs, c0=a.c0, z_touch=a.ztouch, sgs_scale=sgs, sgs_offset=off)
+    lp = LPDM(fs, c0=a.c0, z_touch=a.ztouch, sgs_scale=sgs, sgs_offset=off,
+              sgs_eps_consistent=not a.no_eps_consistent)
     ok = True
     verdict = {}
     for direction, label in ((-1, "BACKWARD (the mode footprints use)"),
@@ -163,6 +171,8 @@ def main():
         verdict["config"] = dict(sgs_most=bool(a.sgs_most), legacy=bool(a.sgs_most_legacy),
                                  mode=a.sgs_most_mode, z_target=a.z_target,
                                  form=("multiplicative" if off is None else "additive"),
+                                 subgrid_weight=not a.no_subgrid_weight,
+                                 eps_consistent=not a.no_eps_consistent,
                                  outdir=a.outdir, transit_frac=float(frac))
         if a.sgs_most:
             verdict["floor"] = dict(

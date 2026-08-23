@@ -57,7 +57,7 @@ SURFACE_LAYER_ANISO = (6.25 / 3.807500, 3.61 / 3.807500, 1.5625 / 3.807500)
 class LPDM:
     def __init__(self, fs, c0=C0_DEFAULT, z_touch=2.0, dt_frac=0.05,
                  dt_min=0.01, dt_max=1.0, seed=0, aniso=None, sgs_scale=1.0,
-                 sgs_offset=None):
+                 sgs_offset=None, sgs_eps_consistent=True):
         self.fs = fs
         self.c0 = float(c0)
         # (3,1) column so it broadcasts against the (3,n) sub-grid velocity block.
@@ -97,6 +97,18 @@ class LPDM:
         else:
             self.sgs_scale = float(sgs_scale)
             self.sgs_scale_z = self.sgs_scale_f = None
+        # EPS CONSISTENCY. The floor asserts that more energy sits at the filter scale
+        # than the LES resolved. Energy at the filter scale dissipates FASTER, not slower
+        # -- but scaling sigma^2 alone leaves eps untouched and so inflates the Langevin
+        # timescale T_L = 2 sigma^2/(C0 eps) by the same factor. At sc = 10 that stretched
+        # the sub-grid memory length tenfold, until at z = 35 m it was comparable to the
+        # height itself and the adaptive step saturated at dt_max; the stochastic
+        # component had stopped being sub-grid. Scaling eps with sigma^2 holds T_L, and
+        # therefore the step, at its unscaled value. The continuum model is well mixed for
+        # any eps(z) -- the damping rate C0 eps/(2 sigma^2) and the stationary variance
+        # C0 eps T_L/2 = sigma^2 are both unchanged -- so this costs nothing in theory and
+        # removes the numerical failure mode in practice.
+        self.sgs_eps_consistent = bool(sgs_eps_consistent)
         # ADDITIVE floor delivery: sigma^2_sgs = (2/3)e + delta(z), a 1-D column offset.
         # Preferred over the multiplicative sgs_scale because the field's own gradient
         # then enters the drift with weight 1 instead of weight sc (up to 10x), and the
@@ -190,7 +202,8 @@ class LPDM:
             # Same reasoning as above: inside the sub-layer sigma^2 is held at its z_ref
             # value, so its gradient is zero -- including the rescaling's contribution.
             ds2z[below] = 0.0
-        sig2 = sc * (2.0 / 3.0) * e
+        sig2_raw = (2.0 / 3.0) * e
+        sig2 = sc * sig2_raw
         if self.off_z is not None:
             # Evaluated at the SAME height the sub-layer treatment holds e at, so a
             # particle below the first cell centre sees a frozen variance and a zero
@@ -205,6 +218,12 @@ class LPDM:
                 doff[below] = 0.0
             ds2z = ds2z + doff
         sig2 = np.maximum(sig2, 1e-6)
+        if self.sgs_eps_consistent:
+            # One expression covers both deliveries: whatever ratio the floor applied to
+            # the variance is applied to the dissipation, so T_L = 2 sigma^2/(C0 eps) --
+            # and with it the adaptive step -- comes out exactly as it would with no
+            # floor. Applied AFTER the sub-layer's eps ~ 1/z continuation, so they compose.
+            eps = eps * (sig2 / np.maximum(sig2_raw, 1e-12))
         eps = np.maximum(eps, 1e-8)
         return u, v, w, sig2, eps, ds2z, ustar
 

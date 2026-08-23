@@ -59,7 +59,7 @@ def phi_w_of_zeta(zeta):
                     1.0 + 0.2 * np.minimum(zeta, 2.0))
 
 
-def most_floor(st, d_r=0.0, mode="surface", legacy=False):
+def most_floor(st, d_r=0.0, mode="surface", legacy=False, subgrid_weight=True):
     """Height-dependent multiplier on the sub-grid variance.
 
     st      window_stats() dict: zlev, ww_prof, esgs_prof, ustar, L, h, htFlux, theta0
@@ -69,6 +69,8 @@ def most_floor(st, d_r=0.0, mode="surface", legacy=False):
             box is tree cover whose d is metres and none of it is near the tower).
     mode    'surface' (default, Panofsky), 'mixed' (Lenschow), 'blend' (the smaller).
     legacy  reproduce the retired 0.1h-0.2h factor taper, for measuring what it cost.
+    subgrid_weight
+            scale the correction by the sub-grid fraction (production; see below).
 
     Returns a dict with the profiles and a one-line summary. `fac` is what the LPDM takes
     as sgs_scale = (zl, fac).
@@ -149,6 +151,50 @@ def most_floor(st, d_r=0.0, mode="surface", legacy=False):
         extra["peak_degenerate"] = bool(degenerate)
 
     fac = np.maximum(fac, 1.0)              # it is a FLOOR; roundoff must not lower it
+
+    # ---- SUB-GRID-FRACTION WEIGHTING -------------------------------------------------
+    # The floor's entire justification is unresolved sub-filter variance, so it must scale
+    # with how much of the variance is actually sub-filter:
+    #
+    #     sc_eff = 1 + (sc - 1) f_sgs,     f_sgs = (2/3)e / (ww_resolved + (2/3)e)
+    #
+    # Without it the factor is LARGEST exactly where the LES resolves the MOST -- measured
+    # 10.1 at z = 52 m where 92% of ww is resolved -- which is backwards.  What the floor
+    # was repairing up there is not an LES deficit but the error in extrapolating a
+    # surface-layer anchor to 0.1 z_i, and it was repairing it by inflating the small
+    # remaining sub-grid part tenfold.  Measured: a CONSTANT inflation of 10 fails the
+    # convective well-mixed gate forward at 1.370 while a constant 1.673 passes at 1.130,
+    # so the magnitude is the thing that has to be bounded, and this bounds it by the only
+    # quantity that carries the physical argument.
+    #
+    # The weighting is applied to the FACTOR, then monotonicity is re-imposed, because the
+    # two do not commute: f_sgs falls with height faster than the raw factor rises, so
+    # their product dips (measured: sigma_w^2 0.3876 at 18 m against 0.3565 at 35 m) and a
+    # dip is the defect the running maximum exists to forbid.  Re-running it costs a
+    # slightly larger factor at the dip and keeps the structural guarantee.
+    if subgrid_weight and not legacy:
+        f_sgs = have / np.maximum(base, 1e-12)
+        facw = 1.0 + (fac - 1.0) * f_sgs
+        cap2 = float(base[kpk])
+        # Monotonise the weighted TARGET, never the model's own profile: `base` has a
+        # near-wall maximum from the sub-grid closure piling energy against the ground,
+        # and running a cumulative maximum through THAT would drag the wall value up the
+        # column and leave the floor active above the peak.
+        # Where the floor asserts nothing the target must CONTRIBUTE nothing, or the
+        # cumulative maximum picks up `base`'s near-wall value and spreads it up the
+        # column -- a floor switched on by a profile it was not correcting.
+        # The tolerance is load-bearing, not cosmetic: sig2 = base recovers fac = 1 only
+        # to roundoff, and a fac of 1 + 1e-16 would otherwise read as "active" and let the
+        # cap propagate up the column.
+        tgt_w = np.where(facw > 1.0 + 1e-9,
+                         np.minimum(wwp + facw * have, cap2), 0.0)
+        tgt_wm = np.maximum.accumulate(tgt_w[:kpk + 1])
+        sig2w = base.copy()
+        sig2w[:kpk + 1] = np.maximum(base[:kpk + 1], tgt_wm)
+        fac = np.maximum((sig2w - wwp) / have, 1.0)
+        extra["f_sgs"] = f_sgs
+        extra["fac_unweighted_max"] = float(facw.max())
+
     sig2 = wwp + fac * have
     # ---- ADDITIVE DELIVERY, and why it is not cosmetic ------------------------------
     # The model transports sigma^2_sgs.  Delivered as a FACTOR it is sc(z) (2/3)e(x,z),
