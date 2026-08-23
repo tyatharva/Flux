@@ -223,7 +223,17 @@ class LPDM:
             # the variance is applied to the dissipation, so T_L = 2 sigma^2/(C0 eps) --
             # and with it the adaptive step -- comes out exactly as it would with no
             # floor. Applied AFTER the sub-layer's eps ~ 1/z continuation, so they compose.
-            eps = eps * (sig2 / np.maximum(sig2_raw, 1e-12))
+            #
+            # THE DENOMINATOR IS FLOORED AT THE SAME 1e-6 AS THE NUMERATOR, and that is
+            # the whole correctness of this line. Above the boundary layer the SGS TKE
+            # goes to zero -- measured, 51.3% of cells in a neutral window carry
+            # (2/3)e < 1e-6 -- so dividing by the raw value made the ratio 1e6 where the
+            # numerator had been clipped and the denominator had not. eps was then
+            # inflated a millionfold in the free atmosphere, T_L collapsed, and the
+            # adaptive step pinned to dt_min for every particle above z_i. Flooring both
+            # sides identically makes the ratio exactly 1 wherever the clip is what is
+            # being compared, which is the only answer that means anything there.
+            eps = eps * np.maximum(sig2 / np.maximum(sig2_raw, 1e-6), 1.0)
         eps = np.maximum(eps, 1e-8)
         return u, v, w, sig2, eps, ds2z, ustar
 

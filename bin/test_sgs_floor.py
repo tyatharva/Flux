@@ -171,6 +171,26 @@ def main():
           float(np.max(np.abs(cen[:40] - np.r_[slope[:40]]))) > 0.05,
           f"max |central - exact| = {np.max(np.abs(cen[:40] - slope[:40])):.3f}")
 
+    # The eps-consistency ratio, which had a millionfold failure mode above the boundary
+    # layer: the numerator is clipped at 1e-6 and the denominator was not, so wherever the
+    # SGS TKE had gone to zero -- 51.3% of cells in a measured neutral window -- the ratio
+    # evaluated to 1e6 and inflated eps by the same factor. Both sides are floored
+    # identically now, and this pins that.
+    print("\n=== eps-consistency ratio ===")
+    raw = np.array([0.0, 1e-12, 1e-9, 1e-7, 1e-6, 1e-3, 0.1, 0.5])
+    for sc in (1.0, 2.0, 3.5):
+        sig2 = np.maximum(sc * raw, 1e-6)
+        ratio = np.maximum(sig2 / np.maximum(raw, 1e-6), 1.0)
+        check(f"ratio never exceeds the floor factor (sc={sc})",
+              bool(np.all(ratio <= sc + 1e-12)), f"max {ratio.max():.4f}")
+        check(f"ratio is exactly 1 where the clip is what is compared (sc={sc})",
+              bool(np.all(ratio[raw < 1e-6] == 1.0)))
+        check(f"ratio is exactly sc where the variance is resolved (sc={sc})",
+              bool(np.allclose(ratio[raw >= 1e-3], sc)))
+    old_ratio = np.maximum(sc * raw, 1e-6) / np.maximum(raw, 1e-12)
+    check("the retired denominator really did blow up", old_ratio.max() > 1e5,
+          f"max {old_ratio.max():.1e}")
+
     print("\n" + ("ALL PASS" if not FAIL else f"{len(FAIL)} FAILED: " + "; ".join(FAIL)))
     return 1 if FAIL else 0
 
