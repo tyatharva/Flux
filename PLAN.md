@@ -1,8 +1,20 @@
 # Staged Plan — Fifth Pass, 10 m receptor, 122^3 @ 16 m
 
-> **STATUS: Phase A complete, Phase B 7/8 complete.** Rewritten 2026-08-22 against the
-> executed configuration. Absolute distances from earlier passes do not carry over;
+> **STATUS: COMPLETE, 2026-08-22.** Every phase ran and every gate passed. Results in
+> `FIFTH_PASS_RESULTS.md`. Absolute distances from earlier passes do not carry over;
 > methodology, traps and closure findings do.
+>
+> | phase | verdict |
+> |---|---|
+> | A offline geometry, `z_i` coverage, displacement | **PASS** (Gate A1 water 0.01%) |
+> | B smoke batch, 8 items | **PASS** (flat `dt` boundary 1.51; terrain does not lower it) |
+> | C spin-ups: neutral + 2 convective | **PASS** (C1, C2, C3 x2) |
+> | D flat/neutral control | **PASS** (D1 well-mixed, D2 integral, D3 floor) |
+> | E domain adequacy | **PASS** -- `L >= 2 z_i` is not binding, p ~ 0.54 |
+> | F 8 production directions + displacement sensitivity | **PASS** (Gate F explicable) |
+>
+> Total ~30 GPU-h. The campaign ran unattended via `bin/run_campaign.sh` (resumable,
+> gated, self-freezing) with `bin/run_pass5.sh` for the gate chain.
 
 Goal: **one validated configuration at a 10 m receptor, a flat/neutral control footprint,
 the domain-adequacy answer, and then the production directions.**
@@ -53,10 +65,12 @@ landed on the level nearest **30 m**. Four other hard-coded 30 m receptors with 
 B1 launch, B2 thread blocks, B3 flat `dt`, B5 restart injection, B6 equivariance,
 B7 subsidence, B8 halo check — **all PASS**. See `PROJECT_BRIEF.md` Status for the numbers.
 
-**B4 — terrain `dt`. PENDING.** It needs a state with developed turbulence over the real
-surface, so it waits on the neutral spin-up. `dx/dz_sfc = 4.007` is worse than any previous
-grid and the measured amplification is **1.252 at the steepest cell**, which brackets the
-search at `CFL_3d ~ 1.35/1.252 = 1.08`. **Measure it; never scale it.**
+**B4 — terrain `dt`. PASS, and it did not lower `dt` at all.** A ladder from `CFL_3d` 1.00
+to 1.40 over the real surface, branched off a state already adjusted to the terrain, stayed
+clean at every rung. **And the standing check could not have told you either way**:
+`docker/k0k1_check.py` is a DOMAIN MEAN, terrain amplification is local, and only 1.7% of
+this domain exceeds slope 0.14 -- a few ringing columns cannot move a 14,884-cell average.
+`bin/k0k1_by_slope.py` conditions on slope and is what actually establishes the result.
 
 Method, learned from B3: a cold start at 500 steps produces `ww[1]` below the `k0k1_check.py`
 floor and the check SKIPs, so the ladder only detects the gross acoustic failure. Branch the
