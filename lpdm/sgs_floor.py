@@ -150,7 +150,28 @@ def most_floor(st, d_r=0.0, mode="surface", legacy=False):
 
     fac = np.maximum(fac, 1.0)              # it is a FLOOR; roundoff must not lower it
     sig2 = wwp + fac * have
-    return dict(zl=zl, fac=fac, sig2=sig2, base=base, tgt2=tgt2, tgt_sfc=tgt_sfc,
+    # ---- ADDITIVE DELIVERY, and why it is not cosmetic ------------------------------
+    # The model transports sigma^2_sgs.  Delivered as a FACTOR it is sc(z) (2/3)e(x,z),
+    # whose z-derivative the drift needs, and the product rule gives
+    #     sc * d[(2/3)e]/dz  +  (2/3)e * dsc/dz.
+    # Two things go wrong there and BOTH are amplified by the floor.  The first term's
+    # d[(2/3)e]/dz comes from lpdm/fields.py as a CENTRAL DIFFERENCE that is then
+    # 4-D interpolated -- it is not the derivative of the interpolant that samples e --
+    # and the floor multiplies that inconsistency by sc, which reaches 10 convectively.
+    # The second is that the two terms nearly cancel (measured -0.0257 and +0.0232 at
+    # z = 25 m, summing to -0.001), so a few-percent error in either is most of the
+    # answer.  Measured consequence: the base model passes the well-mixed gate in both
+    # directions convectively and the SAME model with a multiplicative floor fails
+    # forward at lowest-three-bins 1.236.
+    #
+    # Delivered as an OFFSET, sigma^2_sgs = (2/3)e(x,z) + delta(z), the derivative is
+    #     d[(2/3)e]/dz  +  d(delta)/dz,
+    # the field term keeps weight 1 -- exactly the configuration that passes with no
+    # floor at all -- and d(delta)/dz is the exact derivative of a 1-D profile.  Same
+    # target, same monotone construction, same floor semantics (delta >= 0); only the
+    # delivery differs.
+    delta = np.maximum(sig2 - base, 0.0)
+    return dict(zl=zl, fac=fac, sig2=sig2, base=base, delta=delta, tgt2=tgt2, tgt_sfc=tgt_sfc,
                 tgt_mix=tgt_mix, wwp=wwp, have=have, phi=phi, zeta=zeta, kpk=kpk,
                 wstar=float(wstar), ustar=ust, h=h, L=Lv, d_r=float(d_r),
                 mode=mode, legacy=bool(legacy), **extra)

@@ -105,6 +105,24 @@ def main():
     print(f"  receptor factor: legacy {fl_old['fac'][2]:.3f}  vs  "
           f"restructured {fl_new['fac'][2]:.3f}")
 
+    # THE TWO DELIVERIES MUST DESCRIBE THE SAME VARIANCE. They differ only in how the
+    # correction reaches the drift; if they disagree on sigma^2 itself then one of them
+    # is not the floor that was designed, and the well-mixed comparison between them
+    # would be measuring the wrong thing.
+    print("\n=== additive vs multiplicative deliver the same sigma^2 ===")
+    for name, st in (("convective", cases["convective"]), ("neutral", cases["neutral"])):
+        fl = most_floor(st, d_r=1.5)
+        have, wwp = fl["have"], fl["wwp"]
+        mult = wwp + fl["fac"] * have          # sigma^2 via the factor
+        addv = wwp + have + fl["delta"]        # sigma^2 via the offset
+        check(f"{name}: the two deliveries agree on sigma^2",
+              bool(np.allclose(mult, addv, rtol=1e-10, atol=1e-12)),
+              f"max |diff| = {np.max(np.abs(mult - addv)):.2e}")
+        check(f"{name}: the offset is non-negative (still a floor)",
+              bool(np.all(fl["delta"] >= -1e-15)), f"min {fl['delta'].min():.2e}")
+        check(f"{name}: the offset vanishes where the floor is inactive",
+              bool(np.allclose(fl["delta"][fl["kpk"]:], 0.0)))
+
     # A floor that is never needed must be exactly inert -- bit for bit, so a run in
     # conditions the LES already resolves is unchanged by the closure change.
     print("\n=== inertness ===")

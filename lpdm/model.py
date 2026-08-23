@@ -56,7 +56,8 @@ SURFACE_LAYER_ANISO = (6.25 / 3.807500, 3.61 / 3.807500, 1.5625 / 3.807500)
 
 class LPDM:
     def __init__(self, fs, c0=C0_DEFAULT, z_touch=2.0, dt_frac=0.05,
-                 dt_min=0.01, dt_max=1.0, seed=0, aniso=None, sgs_scale=1.0):
+                 dt_min=0.01, dt_max=1.0, seed=0, aniso=None, sgs_scale=1.0,
+                 sgs_offset=None):
         self.fs = fs
         self.c0 = float(c0)
         # (3,1) column so it broadcasts against the (3,n) sub-grid velocity block.
@@ -96,6 +97,17 @@ class LPDM:
         else:
             self.sgs_scale = float(sgs_scale)
             self.sgs_scale_z = self.sgs_scale_f = None
+        # ADDITIVE floor delivery: sigma^2_sgs = (2/3)e + delta(z), a 1-D column offset.
+        # Preferred over the multiplicative sgs_scale because the field's own gradient
+        # then enters the drift with weight 1 instead of weight sc (up to 10x), and the
+        # product rule's near-cancellation disappears -- see lpdm/sgs_floor.py. Measured:
+        # multiplicative fails the convective well-mixed gate forward at lo3 1.236 where
+        # the unmodified model passes at 1.090.
+        if sgs_offset is not None:
+            self.off_z, self.off_f = (np.asarray(v, dtype=np.float64) for v in sgs_offset)
+            self.off_slope = np.diff(self.off_f) / np.diff(self.off_z)
+        else:
+            self.off_z = self.off_f = self.off_slope = None
         self.z_touch = float(z_touch)
         self.dt_frac, self.dt_min, self.dt_max = dt_frac, dt_min, dt_max
         self.rng = np.random.default_rng(seed)
@@ -178,7 +190,21 @@ class LPDM:
             # Same reasoning as above: inside the sub-layer sigma^2 is held at its z_ref
             # value, so its gradient is zero -- including the rescaling's contribution.
             ds2z[below] = 0.0
-        sig2 = np.maximum(sc * (2.0 / 3.0) * e, 1e-6)
+        sig2 = sc * (2.0 / 3.0) * e
+        if self.off_z is not None:
+            # Evaluated at the SAME height the sub-layer treatment holds e at, so a
+            # particle below the first cell centre sees a frozen variance and a zero
+            # gradient -- the property that makes the sub-layer trivially well mixed.
+            zq = np.maximum(zagl, self.z_ref)
+            sig2 = sig2 + np.interp(zq, self.off_z, self.off_f)
+            idx = np.clip(np.searchsorted(self.off_z, zq) - 1, 0,
+                          len(self.off_slope) - 1)
+            doff = np.where((zq < self.off_z[0]) | (zq > self.off_z[-1]), 0.0,
+                            self.off_slope[idx])
+            if below.any():
+                doff[below] = 0.0
+            ds2z = ds2z + doff
+        sig2 = np.maximum(sig2, 1e-6)
         eps = np.maximum(eps, 1e-8)
         return u, v, w, sig2, eps, ds2z, ustar
 

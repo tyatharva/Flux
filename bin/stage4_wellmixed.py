@@ -43,6 +43,17 @@ def main():
                          "introduced can be measured against the same fields.")
     ap.add_argument("--sgs-most-mode", default="surface",
                     choices=("surface", "mixed", "blend"))
+    ap.add_argument("--sgs-scale", type=float, default=1.0,
+                    help="DIAGNOSTIC: a CONSTANT multiplier on the sub-grid variance, "
+                         "with no height dependence and therefore no dsc/dz term. It "
+                         "separates two hypotheses that the height-dependent floor "
+                         "confounds -- whether the gate fails because of the floor's "
+                         "GRADIENT or simply because of its MAGNITUDE.")
+    ap.add_argument("--sgs-most-form", default="multiplicative",
+                    choices=("additive", "multiplicative"),
+                    help="how the floor reaches the drift. Additive is production; the "
+                         "multiplicative factor amplifies the field's own gradient error "
+                         "by sc (up to 10x convectively) and is kept for comparison.")
     ap.add_argument("--dmap", default=None,
                     help="displacement map, for the receptor-column d the floor needs.")
     ap.add_argument("--d-recept", type=float, default=None)
@@ -60,7 +71,10 @@ def main():
           f"dt_dump={fs.dt_dump:.2f} s, window {fs.t[0]:.0f}-{fs.t[-1]:.0f} s "
           f"({time.time()-t0:.0f} s to load)")
 
-    sgs = 1.0
+    sgs, off = a.sgs_scale, None
+    if a.sgs_scale != 1.0:
+        print(f"  DIAGNOSTIC: constant sub-grid variance x{a.sgs_scale:.3f} "
+              f"(no height dependence, so the drift's dsc/dz term is exactly zero)")
     if a.sgs_most:
         # THE GATE MUST RUN THE PRODUCTION CLOSURE, and it must run the SAME CODE that
         # produces it. This block used to be a second copy of the floor that had already
@@ -78,9 +92,15 @@ def main():
             d_r = float(a.d_recept)
         fl = most_floor(st, d_r=d_r, mode=a.sgs_most_mode, legacy=a.sgs_most_legacy)
         n_new, worst = check_monotone(fl)
-        sgs = (fl["zl"], fl["fac"])
+        # Same delivery choice as production, for the same reason: the gate has to run
+        # the closure the footprints run, down to how the correction reaches the drift.
+        if a.sgs_most_legacy or a.sgs_most_form == "multiplicative":
+            sgs = (fl["zl"], fl["fac"])
+        else:
+            off = (fl["zl"], fl["delta"])
         kk = int(np.argmin(np.abs(fl["zl"] - a.z_target)))
-        print(f"  MOST floor ON{' [LEGACY TAPER]' if a.sgs_most_legacy else ''}: "
+        print(f"  MOST floor ON{' [LEGACY TAPER]' if a.sgs_most_legacy else ''}"
+              f" [{'multiplicative' if off is None else 'additive'}]: "
               f"factor {fl['fac'].min():.2f}-{fl['fac'].max():.2f} over the column, "
               f"{fl['fac'][kk]:.3f} at the receptor (d={d_r:.2f} m)")
         if not a.sgs_most_legacy:
@@ -96,7 +116,7 @@ def main():
         for i in sel[::max(1, len(sel) // 12)]:
             print(f"  {fl['zl'][i]:8.1f} {fl['wwp'][i]:10.4f} {fl['have'][i]:10.4f} "
                   f"{fl['fac'][i]:8.2f} {fl['sig2'][i]:10.4f} {dz[i]:+10.5f}")
-    lp = LPDM(fs, c0=a.c0, z_touch=a.ztouch, sgs_scale=sgs)
+    lp = LPDM(fs, c0=a.c0, z_touch=a.ztouch, sgs_scale=sgs, sgs_offset=off)
     ok = True
     verdict = {}
     for direction, label in ((-1, "BACKWARD (the mode footprints use)"),
@@ -142,6 +162,7 @@ def main():
         import json
         verdict["config"] = dict(sgs_most=bool(a.sgs_most), legacy=bool(a.sgs_most_legacy),
                                  mode=a.sgs_most_mode, z_target=a.z_target,
+                                 form=("multiplicative" if off is None else "additive"),
                                  outdir=a.outdir, transit_frac=float(frac))
         if a.sgs_most:
             verdict["floor"] = dict(

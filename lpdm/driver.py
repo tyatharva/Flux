@@ -54,7 +54,8 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
                       seed=0, split_halves=True, batch_releases=12, w_floor=0.02,
                       max_disp=None, cover=None, aniso=None, sgs_scale=1.0, sgs_most=False,
                       receptor_ij=None, tback_marks=(), rel_seconds=None, sgs_most_mode="surface",
-                      exact_agl=False, n_cover_groups=2, sgs_most_legacy=False, verbose=True):
+                      exact_agl=False, n_cover_groups=2, sgs_most_legacy=False,
+                      sgs_most_form="multiplicative", verbose=True):
     """Release, integrate backward, accumulate on the STATIC north-up raster.
 
     THE RASTER IS THE LES GRID. Touchdowns are binned by their LES column index, folded
@@ -208,6 +209,7 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
               f"displacement (domain {fs.Lx:.0f} x {fs.Ly:.0f} m)")
 
     floor_diag = None
+    sgs_offset = None
     if sgs_most:
         # ---- MOST-anchored sub-grid variance floor ---------------------------------
         # Measured on this pipeline: the LES delivers sigma_w/u* well below the
@@ -228,7 +230,20 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
                 f"the restructured floor introduced {n_new} new turnover(s) in "
                 f"sigma_w^2 (worst {worst:+.3%}) -- this is the defect the "
                 f"restructure exists to make impossible; do not run footprints on it")
-        sgs_scale = (zl, fac)
+        # DELIVERY. MEASURED, and the answer was not the expected one. Additive delivery
+        # was built to remove a real inconsistency -- the field's own dsig2dz is a central
+        # difference that multiplicative delivery enters with weight sc (10.2x
+        # convectively) while the product rule's two terms nearly cancel. It does remove
+        # it, and the two deliveries are bit-identical on sigma^2. It did NOT fix the
+        # convective well-mixed gate, and it made the BACKWARD direction -- the one
+        # footprints use -- worse: lowest-three-bins 1.014 -> 1.152. So multiplicative
+        # stays the default on measurement, additive is kept as a recorded negative
+        # result, and neither is trusted convectively until the gate passes. See
+        # SIXTH_PASS_RESULTS.md.
+        if sgs_most_legacy or sgs_most_form == "multiplicative":
+            sgs_scale = (zl, fac)
+        else:
+            sgs_offset = (zl, fl["delta"])
         if verbose:
             kk = int(np.argmin(np.abs(zl - z_target)))
             print(f"  SGS floor mode '{sgs_most_mode}'"
@@ -241,10 +256,11 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
                   f"sigma_w/u* {np.sqrt(fl['base'][kk])/fl['ustar']:.2f} -> "
                   f"{np.sqrt(fl['sig2'][kk])/fl['ustar']:.2f} (surface-layer target 1.25)")
             print(f"  monotonicity: {n_new} floor-induced turnover(s) in sigma_w^2 below "
-                  f"the peak (must be 0)")
+                  f"the peak (must be 0); delivery "
+                  f"{'MULTIPLICATIVE (retired)' if sgs_offset is None else 'additive'}")
 
     lp = LPDM(fs, c0=c0, z_touch=z_touch, seed=seed, aniso=aniso,
-              sgs_scale=sgs_scale)
+              sgs_scale=sgs_scale, sgs_offset=sgs_offset)
     t_start = time.time()
     n_td = 0
     wsf_bar, wsf_n = [], 0
