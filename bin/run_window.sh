@@ -52,6 +52,23 @@ echo "###   frqOutput = $FRQ ($CAD s), ioLPDMfullFrq = $SEGS"
 [ "$(python3 -c "print(int($SEGS*$SPS>$WALLCAP))")" = "1" ] \
   && die "segment projects $(python3 -c "print(f'{$SEGS*$SPS/60:.1f}')") min, over the ${WALLCAP}s cap"
 
+# RESUMABILITY, and the reason it earns its keep. A window is 42 minutes of GPU; a crash
+# or a kill anywhere in the analysis that follows used to mean recomputing all of it, and
+# the fields are on disk the whole time. On success the exact configuration is stamped
+# into the window directory, and an invocation whose configuration matches a stamp is a
+# no-op. The stamp is computed HERE, by the same code on both paths, so a window produced
+# by hand ahead of a campaign and one produced by the campaign are only ever reused when
+# they are the same window -- a different dt, length, restart, terrain or forcing does not
+# match and the LES runs.
+STAMP="$TOT|$DT|$WIN|$TOPO|$UG|$VG|$(basename "$RST")|$(stat -c%s "$RST")"
+if [ -f "$D/window/.window_complete" ] && \
+   [ "$(cat "$D/window/.window_complete")" = "$STAMP" ] && \
+   [ "$(ls -1 "$D"/window/*.[0-9]* 2>/dev/null | wc -l)" -eq "$((TOT/FRQ + 1))" ]; then
+  echo "--- window already complete and identically configured; reusing $(ls -1 $D/window/*.[0-9]* | wc -l) dumps"
+  echo "---   ($D/window/.window_complete matches; delete it to force a re-run)"
+  exit 0
+fi
+
 rm -f "$D"/window/* "$D"/FE_RST.*
 cp -f "$RST" "$D/FE_RST.0" || die "copy restart"
 IN="FE_RST.0"; IPATH="./"; PREV=0
@@ -79,4 +96,5 @@ for s in $(seq 1 "$NSEG"); do
   PREV=$NT
 done
 rm -f "$D"/FE_RST.*
-echo "--- window complete: $(ls $D/window | wc -l) dumps, $(du -sh $D/window | cut -f1)"
+printf '%s' "$STAMP" > "$D/window/.window_complete"
+echo "--- window complete: $(ls $D/window/*.[0-9]* | wc -l) dumps, $(du -sh $D/window | cut -f1)"
