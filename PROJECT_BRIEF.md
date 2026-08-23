@@ -386,15 +386,38 @@ Backward LPDM, run offline on saved FastEddy output.
 - SGS component is a Langevin model driven by FastEddy's output SGS TKE (Weil et al. 2004).
 - **Well-mixed condition is the critical correctness test, and it MUST be run in the
   configuration footprints are actually computed in** (`stage4_wellmixed.py --sgs-most`).
-  **AND THE CONVECTIVE CONFIGURATION IS A DIFFERENT ONE.** Measured 2026-08-23: the floor's
-  factor at the receptor is **1.000 (inactive) neutrally** and **1.57-1.68 convectively**,
-  reaching 12-26 over the column. So a neutral PASS is a test of the UNMODIFIED model and
-  says nothing about the convective closure -- the fourth pass's "inherited" is invalid.
-  Run convectively, the gate PASSES backward (rms 7.51%) and **FAILS forward** (lowest three
-  bins 1.258), because the taper makes the floor factor peak at `0.1h` and fall to 1 by
-  `0.2h`, manufacturing a spurious `sigma_w^2` maximum that Thomson's drift converges on.
-  Convective integrals saturate above 1 (1.02-1.04 on flat ground) in consequence. **Fix the
-  taper before trusting a convective near-field number.** See `FIFTH_PASS_RESULTS.md` §5b.
+  **AND THE CONVECTIVE CONFIGURATION IS A DIFFERENT ONE.** Measured 2026-08-23: the
+  floor's factor at the receptor is **1.000 (inactive) neutrally** and **1.67
+  convectively**, reaching **10-12 over the column**. So a neutral PASS is a test of the
+  UNMODIFIED model and says nothing about the convective closure.
+
+  **THE CONVECTIVE GATE FAILS FOR EVERY FLOOR CONFIGURATION TRIED, AND THE CAUSE IS THE
+  MAGNITUDE OF THE INFLATION, NOT ITS SHAPE.** Sixth pass, one flat convective window,
+  identical fields (`SIXTH_PASS_RESULTS.md`):
+
+  | closure | backward lo3 | forward lo3 | max factor |
+  |---|---|---|---|
+  | **no floor** | 1.013 PASS | 1.090 PASS | -- |
+  | **constant x1.673** | 0.974 PASS | 1.130 PASS | 1.67 |
+  | monotone floor | 1.014 PASS | **1.236 FAIL** | 10.24 |
+  | retired taper | **1.036 FAIL** | **1.260 FAIL** | 12.17 |
+  | **constant x10** | 1.069 PASS | **1.370 FAIL** | 10.0 |
+
+  A CONSTANT x10 -- no taper, no turnover, `dsc/dz` exactly zero -- fails worse than any
+  shaped floor, and the unmodified model passes. **So every hypothesis about profile shape
+  is excluded.** The fifth pass blamed a spurious `sigma_w^2` maximum; that maximum is now
+  structurally impossible and the failure is unchanged (1.236 vs 1.260). The mechanism is
+  that inflating `sigma^2` without inflating `eps` inflates `T_L = 2 sigma^2/(C0 eps)` by
+  the same factor, so at `sc = 10` the sub-grid memory length grows tenfold and the
+  stochastic component stops being sub-grid. It is also unphysical: at 34-52 m the LES
+  already resolves **84-92%** of its own `ww`, so there is no sub-grid deficit to repair
+  there.
+
+  **DO NOT compute or quote a convective footprint until the floor carries a magnitude
+  bound.** Bounding it is a decision about the science -- the anchor choice is worth
+  **46-66% shape L1** -- not a defect to repair. Neutral is unaffected: the restructured
+  floor is indistinguishable from the unmodified model in both directions (1.002 / 1.024
+  against 1.001 / 1.026) and the standing regression passes.
 
 ## ML model
 
@@ -454,6 +477,9 @@ Evaluated and rejected. Re-proposing them wastes time.
 - **`surflayer_idealsine` / diurnal cycle within a run** — overwrites the per-cell `htFlux` map.
 - **Moisture (`moistureSelector = 1`)** — run dry, prescribe the virtual heat flux instead.
 - **Sub-grid-fraction < 40% as a gate** — retired. See below.
+- **A neutral well-mixed PASS as evidence about the convective closure** — the floor
+  is nearly inert neutrally, so the neutral gate tests a different model. It passed a
+  closure carrying NINE turnovers. Run the gate convectively or do not claim it.
 - **24 m vs 12 m convergence test** — dropped; the grid is changing anyway.
 - **Online footprint calculation inside FastEddy** — rejected 2026-08-21. Two reasons, both
   measured. **(i) It solves a problem we do not have**: IO is ~3% of compute and a window is
