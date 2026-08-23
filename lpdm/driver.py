@@ -163,9 +163,16 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
     # separate mean subtraction -- and subtracting a mean is exactly what was numerically
     # dangerous, because it adds w_bar times the unbounded concentration integral.
     sel = (fs.t >= t_first - 1e-6) & (fs.t <= t_last + 1e-6)
-    Ub = float(fs.u[sel, k_r, j_r, i_r].mean())
-    Vb = float(fs.v[sel, k_r, j_r, i_r].mean())
-    Wb = float(fs.w[sel, k_r, j_r, i_r].mean())
+    # k_r is FRACTIONAL under exact_agl -- the receptor holds a fixed height above bare
+    # ground, so over ground raised by the displacement height it sits between two model
+    # levels. Interpolate the same way window_stats does, or these three lines raise
+    # "only integers, slices ... are valid indices" and only on the raised treatment.
+    _k0 = int(np.floor(k_r)); _k1 = min(_k0 + 1, fs.nz - 1)
+    _fk = float(k_r) - _k0
+    _lev = lambda A: ((1.0 - _fk) * A[sel, _k0, j_r, i_r] + _fk * A[sel, _k1, j_r, i_r])
+    Ub = float(_lev(fs.u).mean())
+    Vb = float(_lev(fs.v).mean())
+    Wb = float(_lev(fs.w).mean())
     theta = np.arctan2(Vb, Ub)
     phi = np.arctan2(Wb, np.hypot(Ub, Vb))
     if verbose:

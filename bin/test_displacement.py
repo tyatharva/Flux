@@ -118,6 +118,25 @@ def main(outdir):
     check("and the fractional level actually moved", abs(k2 - kk) > 1e-6,
           f"{kk:.4f} -> {k2:.4f}")
 
+    # ---- 4. compute_footprint END TO END on the fractional path ------------------------
+    # receptor_indices and window_stats were unit-tested for fractional k; compute_footprint
+    # was not, and it indexed the field arrays with k_r directly. That raised only on the
+    # raised-topo treatment, after a 42-minute window had already been spent.
+    from lpdm.driver import compute_footprint
+    fs.zg = fs.zg.copy(); fs.zg[:] = 0.0
+    fs.set_displacement(np.full((fs.ny, fs.nx), 1.5))
+    try:
+        r = compute_footprint(fs, paths, z_target=float(fs.zk[2]) - 1.5, exact_agl=True,
+                              n_per_release=20, dt_release=60.0, t_back=30.0,
+                              rel_seconds=120.0, receptor_ij=(fs.nx // 2, fs.ny // 2),
+                              split_halves=False, verbose=False)
+        ok = np.isfinite(r["grid"].integral())
+        check("compute_footprint runs with a FRACTIONAL receptor level", bool(ok),
+              f"k={r['k_recept']:.4f}, integral {r['grid'].integral():.3f}")
+    except Exception as e:
+        check("compute_footprint runs with a FRACTIONAL receptor level", False, repr(e))
+    fs.set_displacement(None)
+
     print(f"\n  {'ALL CHECKS PASS' if not FAIL else 'FAILURES: ' + ', '.join(FAIL)}")
     return 1 if FAIL else 0
 
