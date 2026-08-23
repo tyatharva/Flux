@@ -44,6 +44,8 @@ thousands of steps and fp32 roundoff accumulates into a spurious drift.
 """
 from __future__ import annotations
 
+import os
+
 import numpy as np
 
 C0_DEFAULT = 3.0        # Weil, Sullivan & Moeng (2004) for the LES sub-grid Langevin term
@@ -122,6 +124,7 @@ class LPDM:
             self.off_z = self.off_f = self.off_slope = None
         self.z_touch = float(z_touch)
         self.dt_frac, self.dt_min, self.dt_max = dt_frac, dt_min, dt_max
+        self.seed = int(seed)
         self.rng = np.random.default_rng(seed)
         self.z_ref = float(fs.zk[0])        # lowest LES cell centre
         self.z_top = float(fs.zk[-1])
@@ -238,10 +241,59 @@ class LPDM:
         return u, v, w, sig2, eps, ds2z, ustar
 
     # ------------------------------------------------------------------ integrator
-    def run(self, x, y, z, t, direction=-1, t_limit=600.0, max_iter=200_000,
-            reflect_touchdown=True, record_touchdown=True, z_ceil=None,
-            max_disp=None, progress=None):
-        """Integrate an ensemble. direction=-1 backward (footprints), +1 forward.
+    # ---------------------------------------------------------------- parallel driver
+    # PARTICLES ARE INDEPENDENT, so the ensemble splits exactly. The split is NOT a
+    # performance switch bolted on top of the serial path -- it is the path, and the
+    # number of WORKERS is the only performance knob. The ensemble is always cut into
+    # `n_chunks` pieces, each with its own deterministically derived seed, so the answer
+    # is bit-identical whether those chunks run in one process or sixteen. That property
+    # is what makes the parallelism safe to trust, and bin/test_parallel_lpdm.py asserts
+    # it rather than leaving it to be assumed.
+    #
+    # Workers are forked, so the 10.6 GB field cache is shared copy-on-write and N
+    # workers cost no extra RAM for it -- which is the whole reason this is worth doing
+    # at 122^3. Do not switch the start method to spawn without re-checking that.
+    N_CHUNKS_DEFAULT = 16
+
+    def run(self, x, y, z, t, n_workers=None, n_chunks=None, **kw):
+        n = len(x)
+        n_chunks = int(n_chunks or self.N_CHUNKS_DEFAULT)
+        n_chunks = max(1, min(n_chunks, n))
+        if n_workers is None:
+            n_workers = int(os.environ.get("LPDM_WORKERS", "1"))
+        n_workers = max(1, min(int(n_workers), n_chunks))
+        t = np.full(n, float(t), dtype=np.float64) if np.isscalar(t) else np.asarray(t)
+        bnds = np.linspace(0, n, n_chunks + 1).astype(int)
+        # Seeds are derived from the ensemble seed and the chunk INDEX, never from the
+        # worker that happens to pick the chunk up, so scheduling order cannot change a
+        # result.
+        jobs = [(int(self.seed), k, x[a:b], y[a:b], z[a:b], t[a:b], kw)
+                for k, (a, b) in enumerate(zip(bnds[:-1], bnds[1:])) if b > a]
+        if n_workers == 1 or len(jobs) == 1:
+            parts = [self._run_chunk(j) for j in jobs]
+        else:
+            import multiprocessing as mp
+            global _LPDM_FORKED
+            _LPDM_FORKED = self
+            with mp.get_context("fork").Pool(n_workers) as pool:
+                parts = pool.map(_lpdm_chunk_worker, jobs, chunksize=1)
+        return _merge_runs(parts, bnds)
+
+    def _run_chunk(self, job):
+        seed, k, cx, cy, cz, ct, kw = job
+        # A fresh generator per chunk. self.rng is left alone so that any other caller
+        # of the object sees the state it expects.
+        saved = self.rng
+        self.rng = np.random.default_rng((seed + 1) * 1_000_003 + k)
+        try:
+            return self._run_one(cx, cy, cz, ct, **kw)
+        finally:
+            self.rng = saved
+
+    def _run_one(self, x, y, z, t, direction=-1, t_limit=600.0, max_iter=200_000,
+                 reflect_touchdown=True, record_touchdown=True, z_ceil=None,
+                 max_disp=None, progress=None):
+        """Integrate ONE chunk of an ensemble. direction=-1 backward, +1 forward.
 
         Returns a dict of arrays. Touchdowns are recorded as (particle, x, y, |w|)
         in UNWRAPPED horizontal coordinates so a footprint can extend past one
@@ -381,3 +433,33 @@ class LPDM:
                     td_y=cat(td_y), td_w=cat(td_w), td_t=cat(td_t),
                     x=fx, y=fy_, z=fz, t=ft_, elapsed=fe,
                     n_unfinished=len(idx), iters=it + 1)
+
+
+# Module level so the forked Pool can reach it; the parent sets _LPDM_FORKED before the
+# fork, and the child inherits the object -- and the field cache behind it -- by memory.
+_LPDM_FORKED = None
+
+
+def _lpdm_chunk_worker(job):
+    return _LPDM_FORKED._run_chunk(job)
+
+
+def _merge_runs(parts, bnds):
+    """Concatenate chunk results into the single-ensemble form callers expect.
+
+    td_particle is chunk-LOCAL and has to be offset, or every touchdown in every chunk
+    after the first is attributed to the wrong release velocity -- silently, because the
+    indices stay in range.
+    """
+    if len(parts) == 1:
+        return parts[0]
+    out = {"n": int(sum(p["n"] for p in parts)),
+           "n_unfinished": int(sum(p["n_unfinished"] for p in parts)),
+           "iters": int(max(p["iters"] for p in parts))}
+    for key in ("rel_u", "rel_v", "rel_w", "w_release", "x", "y", "z", "t", "elapsed"):
+        out[key] = np.concatenate([p[key] for p in parts])
+    for key in ("td_x", "td_y", "td_w", "td_t"):
+        out[key] = np.concatenate([p[key] for p in parts])
+    out["td_particle"] = np.concatenate(
+        [p["td_particle"] + bnds[k] for k, p in enumerate(parts)]).astype(np.int64)
+    return out

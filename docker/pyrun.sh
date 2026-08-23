@@ -4,5 +4,8 @@
 #   docker/pyrun.sh - <<'PY' ... PY      (script on stdin)
 # --entrypoint python3 skips the image's CUDA banner scripts.
 set -uo pipefail
+# LPDM_WORKERS is forwarded so the campaign can size the fork pool per stage;
+# without it every container would silently fall back to one core.
 exec docker run --rm -i --user "$(id -u):$(id -g)" -e HOME=/tmp \
+  -e LPDM_WORKERS="${LPDM_WORKERS:-1}" \
   -v /home/atyagi/Flux:/work -w /work --entrypoint python3 flux-fasteddy:cuda118 "$@"

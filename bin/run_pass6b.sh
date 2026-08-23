@@ -58,45 +58,30 @@ if ! have controls; then
   SRC=$(newest runs/g16_cbl_shallow/output)
   BASE=runs/g16_base/base_cbl_shallow.in bin/run_window.sh runs/g16_flatcbl "$SRC" \
       $DT_WIN $WIN - 10.000000 0.000000 || die "cbl window"
-  say "3. both closure batteries, concurrently"
-  ( battery runs/g16_flat/window    data/grid16     g16p6b_flat    > $L/bat_nbl.out 2>&1 ) &
-  P1=$!
-  ( battery runs/g16_flatcbl/window data/grid16_cbl g16p6b_flatcbl > $L/bat_cbl.out 2>&1 ) &
-  P2=$!
+  # THE GPU AND THE CPU ARE DIFFERENT MACHINES, so the production LES chain starts HERE
+  # and the control batteries run against it rather than after it. Production is ~8.5
+  # GPU-h and the batteries are ~20 min of CPU once the LPDM is forked across cores, so
+  # the batteries disappear entirely into the LES.
+  #
+  # Concurrency budget: two batteries plus run_directions.sh's own analysis is three field
+  # caches at ~10.6 GB, and the fork pools share theirs copy-on-write, so 32 GB of 62.
+  say "3. production LES chain (GPU) starts now, in the background"
+  ( bash bin/run_pass6b_production.sh > $L/prod.out 2>&1 ) &
+  PROD=$!
+  say "4. both closure batteries (CPU), concurrently with the LES"
+  ( LPDM_WORKERS=8 battery runs/g16_flat/window    data/grid16     g16p6b_flat \
+      > $L/bat_nbl.out 2>&1 ) & P1=$!
+  ( LPDM_WORKERS=8 battery runs/g16_flatcbl/window data/grid16_cbl g16p6b_flatcbl \
+      > $L/bat_cbl.out 2>&1 ) & P2=$!
   wait $P1; R1=$?; wait $P2; R2=$?
   cat $L/bat_nbl.out; cat $L/bat_cbl.out
-  [ $R1 -eq 0 ] && [ $R2 -eq 0 ] || die "a control battery failed"
+  [ $R1 -eq 0 ] && [ $R2 -eq 0 ] || { kill $PROD 2>/dev/null; die "a control battery failed"; }
   TAGJSON=$R/g16p6b_flat_new.json bin/regression_flat.sh --compare-only \
       2>&1 | tail -12 | tee $R/g16p6b_regression.txt
   mark controls
+  say "5. waiting on the production LES chain"
+  wait $PROD || die "production chain"
 fi
-
-# ============================================ 4-5. production on the RAISED map, both regimes
-for REG in nbl cbl; do
-  if have dirs_$REG; then continue; fi
-  say "production, $REG, raised topography"
-  case $REG in
-    nbl) SRC=$(newest runs/g16_spin/output);        GRID=data/grid16r_nbl
-         RBASE=runs/g16_base/base.in ;;
-    cbl) SRC=$(newest runs/g16_cbl_shallow/output); GRID=data/grid16_raised
-         RBASE=runs/g16_base/base_cbl_shallow.in ;;
-  esac
-  [ -f "$GRID/topo.bin" ] || die "$GRID not built"
-  # MINIMUM PRODUCTION SPOT CHECK, not the full corpus. The closure is validated on the two
-  # flat control windows, which cost no GPU because they are already on disk -- but a flat
-  # uniform window never exercises terrain, the array, the raised topography or the
-  # fractional receptor, so one case per regime confirms the production path end to end.
-  # The northerly is the right one: largest array share (78-81% convective) and the
-  # direction the displacement-height sensitivity was measured on.
-  #
-  # All four directions per regime is 8.4 GPU-h and is DEFERRED -- that updates corpus
-  # numbers rather than confirming correctness. DIRS= takes a comma-separated list, so
-  # widening it later is one word, and the sentinels make it resumable.
-  BASE=$RBASE ADJ_S=1200 SPS=0.0155 ZTARGET=8.5 EXACT_AGL=1 KEEP_FIELDS=1 \
-    ONLY="${DIRS:-wN}" \
-    bin/run_directions.sh g16r_$REG "$SRC" "$GRID" $DT_WIN $WIN $TB || die "dirs $REG"
-  mark dirs_$REG
-done
 
 # =================================== 6. the retired closure on the production fields
 if ! have legacy_prod; then
@@ -106,8 +91,8 @@ if ! have legacy_prod; then
     case $C in g16r_nbl_*) G=data/grid16r_nbl ;; esac
     [ -d "$D/window" ] && [ "$(ls -1 $D/window/*.[0-9]* 2>/dev/null | wc -l)" -gt 10 ] || \
       { echo "  (no retained fields for $C -- skipped)"; continue; }
-    ./docker/pyrun.sh bin/stage5_footprint.py $D/window --dt $DT_WIN --tback $TB \
-        --z-target 8.5 --exact-agl --sgs-most --sgs-most-legacy --receptor-from "$G" \
+    LPDM_WORKERS=12 ./docker/pyrun.sh bin/stage5_footprint.py $D/window --dt $DT_WIN \
+        --tback $TB --z-target 8.5 --exact-agl --sgs-most --sgs-most-legacy --receptor-from "$G" \
         --cover-dir "$G" --fp16-cache --cover-groups 10 --tag ${C}_legacy 2>&1 \
         | grep -vE 'batch [0-9]+/|^    loaded' > $R/${C}_legacy.txt
     python3 bin/floor_bias.py new=$C legacy=${C}_legacy 2>&1 | tee $R/${C}_floorbias.txt

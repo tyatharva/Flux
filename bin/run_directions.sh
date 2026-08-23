@@ -77,6 +77,7 @@ frq=int(round(5.0/$DT)); print(int(round($ADJ_S/$DT/frq))*frq)")
   # Analysis in the background; the next direction's LES starts immediately. Peak storage
   # is at most TWO windows (~13 GB at this grid), never the sum over directions.
   (
+    LPDM_WORKERS="${LPDM_WORKERS:-8}" \
     ./docker/pyrun.sh bin/stage5_footprint.py $D/window --dt "$DT" --tback "$TBACK" \
         --sgs-most --cover-dir "$GRID" --receptor-from "$GRID" --fp16-cache \
         --z-target "${ZTARGET:-10.0}" ${EXACT_AGL:+--exact-agl} \
