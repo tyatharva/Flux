@@ -8,6 +8,7 @@ import numpy as np
 from .footprint import FootprintGrid
 from .les_stats import window_stats
 from .model import LPDM
+from .sgs_floor import check_monotone, most_floor
 
 
 def receptor_indices(fs, z_target=10.0, x_frac=0.75, y_frac=0.5, ij=None,
@@ -53,7 +54,7 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
                       seed=0, split_halves=True, batch_releases=12, w_floor=0.02,
                       max_disp=None, cover=None, aniso=None, sgs_scale=1.0, sgs_most=False,
                       receptor_ij=None, tback_marks=(), rel_seconds=None, sgs_most_mode="surface",
-                      exact_agl=False, n_cover_groups=2, verbose=True):
+                      exact_agl=False, n_cover_groups=2, sgs_most_legacy=False, verbose=True):
     """Release, integrate backward, accumulate on the STATIC north-up raster.
 
     THE RASTER IS THE LES GRID. Touchdowns are binned by their LES column index, folded
@@ -206,118 +207,42 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
         print(f"  wrap-around cap: retiring trajectories past {max_disp:.0f} m of "
               f"displacement (domain {fs.Lx:.0f} x {fs.Ly:.0f} m)")
 
+    floor_diag = None
     if sgs_most:
-        # ---- MOST-anchored sub-grid variance floor -------------------------------------
-        # Measured on this pipeline: the LES delivers sigma_w/u* = 1.09 at the 30 m
-        # receptor against the neutral surface-layer value of ~1.25, because at
-        # z/Delta ~ 1.5 the eddies that carry w are at or below the filter scale. A low
-        # sigma_w makes backward particles descend too slowly, so they travel too far
-        # before touching down -- which is exactly the observed error (peak 390 m against
-        # Kljun's 210 m). Verified by direct test: scaling the sub-grid variance so
-        # sigma_w matches similarity moves the peak to 270 m and lifts the 80% source-area
-        # overlap from 36.9% to 47.6%.
+        # ---- MOST-anchored sub-grid variance floor ---------------------------------
+        # Measured on this pipeline: the LES delivers sigma_w/u* well below the
+        # surface-layer 1.25 at the receptor, because at z/Delta ~ 1 the eddies that
+        # carry w are at or below the filter scale. A low sigma_w makes backward
+        # particles descend too slowly, so they travel too far before touching down.
+        # This is a FLOOR: where the model already resolves enough, the factor is 1.
         #
-        # This is a FLOOR, not a replacement. Where the LES already resolves enough, the
-        # factor is 1 and nothing happens; the correction only supplies what similarity
-        # says is missing, and it switches itself off above the surface layer because
-        # (1 - z/h)^(3/4) decays and the resolved fraction grows.
-        #
-        # It is a calibration against Monin-Obukhov similarity, valid where MOST is:
-        # flat, uniform, surface layer. Calibrate there and apply the RULE -- never the
-        # number -- everywhere else.
-        zl = np.asarray(st["zlev"], dtype=np.float64)
-        wwp = np.asarray(st["ww_prof"], dtype=np.float64)
-        esp = np.asarray(st["esgs_prof"], dtype=np.float64)
-        h = float(st["h"])
-        # STABILITY DEPENDENCE. The neutral surface layer has sigma_w/u* = 1.25; under
-        # free convection it is larger and grows as (-z/L)^(1/3), and in stable conditions
-        # it is slightly larger per unit u* as well. Using the neutral constant in a CBL
-        # would anchor the floor to the wrong target -- and the CBL is the modal daytime
-        # state at this site (CONUS404: 57% of quality-controlled hours are unstable).
-        #
-        #   phi_w = (1 - 3 z/L)^(1/3)   z/L < 0    (Panofsky et al. 1977)
-        #         = 1 + 0.2 z/L         z/L > 0    (Kaimal & Finnigan 1994)
-        #
-        # phi_w(0) = 1 exactly, so every neutral result is unchanged bit for bit; this is a
-        # strict generalisation of the relation the floor was calibrated on, not a retune.
-        # It is still a SURFACE-LAYER relation, and the taper below still switches it off
-        # above 0.2h -- which in a CBL is where sigma_w stops scaling with u* and starts
-        # scaling with w*.
-        Lv = float(st["L"])
-        # DISPLACEMENT HEIGHT. phi_w is a function of (z - d)/L, not z/L.
-        #
-        # The floor is one 1-D profile applied to every particle, so d has to be a single
-        # number, and the RECEPTOR COLUMN's is the right one rather than the domain mean.
-        # The floor exists to repair sigma_w at the receptor -- that is what it is
-        # calibrated against and what the taper below confines it to -- so it should take
-        # the receptor's own aerodynamic height. The domain mean would be dominated by
-        # something else entirely: WorldCover puts 28.5% of the wider domain under tree
-        # cover, whose d ~ 0.7 h_c is metres, none of which the LES resolves and none of
-        # which is near the tower.
-        #
-        # The (1 - z/h) taper below keeps z: it is about boundary-layer depth, not about
-        # surface-layer similarity.
-        zl_eff = np.maximum(zl - d_r, 1e-3)
-        zeta = zl_eff / Lv if np.isfinite(Lv) and abs(Lv) > 1e-6 else np.zeros_like(zl)
-        phi_w = np.where(zeta < 0.0, np.maximum(1.0 - 3.0 * zeta, 1.0) ** (1.0 / 3.0),
-                         1.0 + 0.2 * np.minimum(zeta, 2.0))
-        tgt_sfc = (1.25 * phi_w * float(st["ustar"])
-                   * np.maximum(1.0 - zl / max(h, 1.0), 0.0) ** 0.75)
-        # MIXED-LAYER TARGET, and why a convective case needs both.
-        #
-        # The surface-layer relation above and Lenschow et al. (1980)'s mixed-layer
-        # relation are both standard, both valid in their own regime, and at the
-        # measurement height of a convective boundary layer they DISAGREE: at
-        # z/L = -0.4, z/z_i = 0.033 the surface-layer form asks for sigma_w/u* = 1.62
-        # while Lenschow asks for about 1.26. Anchoring a floor to the larger of two
-        # relations that disagree by 30% is how a correction becomes a fudge.
-        #
-        # THE DEFAULT REMAINS THE SURFACE-LAYER FORM, for a reason worth writing down.
-        # In the free-convection limit the two agree to 1%: Panofsky asymptotes to
-        # 1.803 (kappa z g/theta w'th')^(1/3) and Lenschow to 1.34 (z g/theta w'th')^(1/3),
-        # and 1.803 kappa^(1/3) / 1.34 = 0.991. They differ only in the TRANSITION, where
-        # the surface-layer form retains a neutral 1.25 u* term that carries shear
-        # production and the mixed-layer form has none. At z/L = -0.36 the shear term is
-        # not negligible, so the surface-layer form is the more complete of the two.
-        # 'blend' and 'mixed' exist to MEASURE how much that choice is worth, not to
-        # quietly replace it -- and 'blend' must never be the default, because as w* -> 0
-        # the mixed-layer target -> 0 and the minimum would switch the floor off entirely
-        # just short of neutral, where it is needed most.
-        wth = float(st.get("htFlux", 0.0) or 0.0)
-        th0 = float(st.get("theta0", 300.0) or 300.0)
-        wstar = (9.81 / th0 * max(wth, 0.0) * max(h, 1.0)) ** (1.0 / 3.0)
-        zz = np.clip(zl / max(h, 1.0), 1e-4, 1.5)
-        tgt_mix = 1.34 * wstar * zz ** (1.0 / 3.0) * np.maximum(1.0 - 0.8 * zz, 0.0)
-        if sgs_most_mode == "surface" or wstar <= 0.0:
-            tgt = tgt_sfc
-        elif sgs_most_mode == "mixed":
-            tgt = tgt_mix
-        else:                                     # "blend": the conservative floor
-            tgt = np.minimum(tgt_sfc, tgt_mix)
-        tgt2 = tgt ** 2
-        need = np.maximum(tgt2 - wwp, 0.0)
-        have = np.maximum((2.0 / 3.0) * esp, 1e-9)
-        # MOST is a SURFACE-LAYER relation. Applying it through the whole boundary layer
-        # over-corrects: between roughly 0.1h and h the resolved variance is legitimately
-        # below the surface-layer extrapolation and there is nothing to repair. Measured:
-        # the untapered floor reached 3.3x aloft and gave a WORSE 80% overlap (40.4%) than
-        # a plain scalar (47.6%), despite an identical peak. Taper the correction off
-        # across 0.1h - 0.2h so it acts only where the relation it is anchored to holds.
-        taper = np.clip((0.2 * h - zl) / (0.1 * h), 0.0, 1.0)
-        fac = 1.0 + taper * np.maximum(need / have - 1.0, 0.0)
+        # The construction lives in lpdm/sgs_floor.py so that the well-mixed GATE and
+        # the footprints use the same code rather than two drifting copies -- see the
+        # module docstring for why the factor-taper form was retired.
+        fl = most_floor(st, d_r=d_r, mode=sgs_most_mode, legacy=sgs_most_legacy)
+        zl, fac = fl["zl"], fl["fac"]
+        floor_diag = fl
+        n_new, worst = check_monotone(fl)
+        if n_new and not sgs_most_legacy:
+            raise RuntimeError(
+                f"the restructured floor introduced {n_new} new turnover(s) in "
+                f"sigma_w^2 (worst {worst:+.3%}) -- this is the defect the "
+                f"restructure exists to make impossible; do not run footprints on it")
         sgs_scale = (zl, fac)
         if verbose:
             kk = int(np.argmin(np.abs(zl - z_target)))
-            print(f"  SGS floor mode '{sgs_most_mode}': surface-layer target "
-                  f"{tgt_sfc[kk]/st['ustar']:.2f} u*, mixed-layer target "
-                  f"{tgt_mix[kk]/st['ustar']:.2f} u* (w*={wstar:.2f} m/s), "
-                  f"used {tgt[kk]/st['ustar']:.2f} u*")
-            print(f"  SGS MOST floor: receptor d={d_r:.3f} m; factor {fac[kk]:.3f} at the receptor "
-                  f"({fac.min():.2f}-{fac.max():.2f} over the column); "
-                  f"phi_w={phi_w[kk]:.3f} at z/L={zeta[kk] if np.ndim(zeta) else 0:+.3f}; "
-                  f"sigma_w/u* {np.sqrt(wwp[kk] + (2/3)*esp[kk])/st['ustar']:.2f} -> "
-                  f"{np.sqrt(wwp[kk] + fac[kk]*(2/3)*esp[kk])/st['ustar']:.2f} "
-                  f"(surface-layer target 1.25)")
+            print(f"  SGS floor mode '{sgs_most_mode}'"
+                  f"{' [LEGACY TAPER]' if sgs_most_legacy else ''}: surface-layer target "
+                  f"{fl['tgt_sfc'][kk]/fl['ustar']:.2f} u*, mixed-layer target "
+                  f"{fl['tgt_mix'][kk]/fl['ustar']:.2f} u* (w*={fl['wstar']:.2f} m/s)")
+            print(f"  SGS MOST floor: receptor d={d_r:.3f} m; factor {fac[kk]:.3f} at the "
+                  f"receptor ({fac.min():.2f}-{fac.max():.2f} over the column); "
+                  f"active below z={zl[fl['kpk']]:.0f} m (the model's own sigma_w^2 peak); "
+                  f"sigma_w/u* {np.sqrt(fl['base'][kk])/fl['ustar']:.2f} -> "
+                  f"{np.sqrt(fl['sig2'][kk])/fl['ustar']:.2f} (surface-layer target 1.25)")
+            print(f"  monotonicity: {n_new} floor-induced turnover(s) in sigma_w^2 below "
+                  f"the peak (must be 0)")
+
     lp = LPDM(fs, c0=c0, z_touch=z_touch, seed=seed, aniso=aniso,
               sgs_scale=sgs_scale)
     t_start = time.time()
@@ -463,7 +388,7 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
               f"(model-frame mean was {Wb:+.5f}); rotation removed "
               f"{100*(1-abs(w_sf_mean)/max(abs(Wb),1e-12)):.1f}% of it")
     npart = max(full.n_particles, 1)
-    out = dict(stats=st, grid=full, receptor=(xr, yr, zr), z_agl=zr - zg_r, k_recept=k_r,
+    out = dict(stats=st, grid=full, floor=floor_diag, receptor=(xr, yr, zr), z_agl=zr - zg_r, k_recept=k_r,
                fy=dict(xe=fy_e, xc=fy_c, f=fy_h / npart / fs.dx,
                        f1=fy_h1 / max(h1.n_particles, 1) / fs.dx,
                        f2=fy_h2 / max(h2.n_particles, 1) / fs.dx),

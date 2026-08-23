@@ -85,6 +85,10 @@ def main():
                     help="surface dir whose meta.npy pins the receptor to the tower cell")
     ap.add_argument("--sgs-most", action="store_true",
                     help="MOST-anchored sub-grid variance floor (see lpdm/driver.py)")
+    ap.add_argument("--sgs-most-legacy", action="store_true",
+                    help="reproduce the RETIRED 0.1h-0.2h factor taper. Production never "
+                         "uses it; it exists so the bias it introduced can be measured "
+                         "against the SAME LES fields the corrected floor runs on.")
     ap.add_argument("--sgs-most-mode", default="surface",
                     choices=("surface", "blend", "mixed"),
                     help="which similarity relation the sigma_w floor is anchored to. "
@@ -163,6 +167,7 @@ def main():
                               sgs_scale=a.sgs_scale, sgs_most=a.sgs_most,
                               tback_marks=marks, rel_seconds=a.rel_seconds,
                               sgs_most_mode=a.sgs_most_mode, receptor_ij=rij,
+                              sgs_most_legacy=a.sgs_most_legacy,
                               n_cover_groups=a.cover_groups)
         if a.sgs_scale != 1.0:
             print("  SUB-GRID VARIANCE SCALED by %.3f (diagnostic)" % a.sgs_scale)
@@ -244,7 +249,22 @@ def main():
                cover_share_nowrap=r0.get("cover_share_nowrap", {}),
                wrapped_fraction=r0.get("wrapped_fraction", None),
                sgs_most=bool(a.sgs_most), sgs_most_mode=a.sgs_most_mode,
+               sgs_most_legacy=bool(a.sgs_most_legacy),
                wind_angle=r0["wind_angle"])
+    # PERSIST THE CLOSURE PROFILES. Re-deriving the floor after the fact needs zlev,
+    # ww_prof and esgs_prof, and until now none of the three survived the run -- the
+    # window fields are deleted by design, so the sigma_w^2 profile that produced a
+    # footprint was unrecoverable the moment the case finished. They are a few kB.
+    _fl = r0.get("floor")
+    if _fl is not None:
+        out["floor"] = {k: ([float(v) for v in _fl[k]]
+                            if isinstance(_fl[k], np.ndarray) else _fl[k])
+                        for k in ("zl", "fac", "sig2", "base", "wwp", "have", "tgt2",
+                                  "kpk", "wstar", "ustar", "h", "L", "d_r", "mode",
+                                  "legacy")}
+    for _k in ("zlev", "ww_prof", "esgs_prof", "tke_prof"):
+        if st.get(_k) is not None:
+            out.setdefault("profiles", {})[_k] = [float(v) for v in np.asarray(st[_k])]
 
     # ---- how much backward time the estimator actually needs ------------------------
     if r0.get("capture"):

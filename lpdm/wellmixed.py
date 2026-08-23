@@ -73,4 +73,8 @@ def report(out, label=""):
     ok = dev.max() < max(0.10, 4 * noise) and abs(lo3 - 1.0) < max(0.05, 3 * noise)
     print(f"  GATE: {'PASS' if ok else 'FAIL'}"
           f"  (max deviation < max(10%, 4 sigma); lowest 3 bins within max(5%, 3 sigma))")
+    out["metrics"] = dict(maxdev=float(dev.max()), rms=float(np.sqrt((dev ** 2).mean())),
+                          lo3=lo3, noise=float(noise), ok=bool(ok),
+                          ratio=[float(v) for v in ratio],
+                          zc=[float(v) for v in zc])
     return ok

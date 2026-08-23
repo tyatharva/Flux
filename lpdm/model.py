@@ -83,7 +83,16 @@ class LPDM:
             # motion, touch down too often, and the flux-footprint integral climbs past 1.
             # Measured on the flat neutral control: 1.089 at t_back = 900 s, where the
             # answer for a horizontally homogeneous surface is exactly 1.
-            self.sgs_scale_dfdz = np.gradient(self.sgs_scale_f, self.sgs_scale_z)
+            # EXACT DERIVATIVE OF THE INTERPOLANT, not a central difference of the
+            # samples. sc(z) is sampled below with np.interp, i.e. the model's variance
+            # field IS the piecewise-linear interpolant of sgs_scale_f; its derivative is
+            # therefore piecewise CONSTANT, (df/dz) on each interval. np.gradient returns
+            # a smoothed central difference, which is the derivative of a DIFFERENT
+            # function -- so the drift was being given the gradient of a curve the model
+            # does not transport. That mismatch is invisible where sc is smooth and large
+            # where it is not, which is exactly where the floor does its work.
+            self.sgs_scale_slope = (np.diff(self.sgs_scale_f)
+                                    / np.diff(self.sgs_scale_z))
         else:
             self.sgs_scale = float(sgs_scale)
             self.sgs_scale_z = self.sgs_scale_f = None
@@ -152,7 +161,13 @@ class LPDM:
         # where there is turbulence.
         if self.sgs_scale is None:
             sc = np.interp(zagl, self.sgs_scale_z, self.sgs_scale_f)
-            dscdz = np.interp(zagl, self.sgs_scale_z, self.sgs_scale_dfdz)
+            # Which interval is the particle in? Clamped at both ends, matching np.interp's
+            # constant extrapolation -- where sc is constant its derivative is zero, so the
+            # end intervals' slopes are NOT extended beyond the table.
+            idx = np.clip(np.searchsorted(self.sgs_scale_z, zagl) - 1,
+                          0, len(self.sgs_scale_slope) - 1)
+            dscdz = np.where((zagl < self.sgs_scale_z[0]) | (zagl > self.sgs_scale_z[-1]),
+                             0.0, self.sgs_scale_slope[idx])
         else:
             sc = self.sgs_scale
             dscdz = 0.0

@@ -38,6 +38,16 @@ def main():
                          "well-mixedness -- so the gate has to be run in the configuration "
                          "the footprints are actually computed in, not only in the "
                          "unmodified one.")
+    ap.add_argument("--sgs-most-legacy", action="store_true",
+                    help="reproduce the RETIRED 0.1h-0.2h factor taper, so the bias it "
+                         "introduced can be measured against the same fields.")
+    ap.add_argument("--sgs-most-mode", default="surface",
+                    choices=("surface", "mixed", "blend"))
+    ap.add_argument("--dmap", default=None,
+                    help="displacement map, for the receptor-column d the floor needs.")
+    ap.add_argument("--d-recept", type=float, default=None)
+    ap.add_argument("--tag", default=None,
+                    help="write the per-direction verdict to results/<tag>.json")
     ap.add_argument("--fp16-cache", action="store_true")
     a = ap.parse_args()
 
@@ -52,26 +62,43 @@ def main():
 
     sgs = 1.0
     if a.sgs_most:
+        # THE GATE MUST RUN THE PRODUCTION CLOSURE, and it must run the SAME CODE that
+        # produces it. This block used to be a second copy of the floor that had already
+        # drifted from lpdm/driver.py's (it never received the displacement correction),
+        # so the gate was validating a closure the footprints do not use.
         from lpdm.les_stats import window_stats
+        from lpdm.sgs_floor import check_monotone, most_floor
         k_r = int(np.argmin(np.abs(fs.zk - a.z_target)))
         st = window_stats(paths[::max(1, len(paths) // 40)], k_r)
-        zl = np.asarray(st["zlev"], dtype=np.float64)
-        wwp = np.asarray(st["ww_prof"], dtype=np.float64)
-        esp = np.asarray(st["esgs_prof"], dtype=np.float64)
-        h = float(st["h"]); Lv = float(st["L"])
-        zeta = zl / Lv if np.isfinite(Lv) and abs(Lv) > 1e-6 else np.zeros_like(zl)
-        phi = np.where(zeta < 0.0, np.maximum(1.0 - 3.0 * zeta, 1.0) ** (1.0 / 3.0),
-                       1.0 + 0.2 * np.minimum(zeta, 2.0))
-        tgt2 = (1.25 * phi * float(st["ustar"])
-                * np.maximum(1.0 - zl / max(h, 1.0), 0.0) ** 0.75) ** 2
-        need = np.maximum(tgt2 - wwp, 0.0)
-        have = np.maximum((2.0 / 3.0) * esp, 1e-9)
-        taper = np.clip((0.2 * h - zl) / (0.1 * h), 0.0, 1.0)
-        fac = 1.0 + taper * np.maximum(need / have - 1.0, 0.0)
-        sgs = (zl, fac)
-        print(f"  MOST floor ON: factor {fac.min():.2f}-{fac.max():.2f} over the column")
+        d_r = 0.0
+        if a.dmap:
+            dm = np.load(a.dmap)
+            d_r = float(dm[fs.ny // 2, fs.nx // 2]) if a.d_recept is None else a.d_recept
+        elif a.d_recept is not None:
+            d_r = float(a.d_recept)
+        fl = most_floor(st, d_r=d_r, mode=a.sgs_most_mode, legacy=a.sgs_most_legacy)
+        n_new, worst = check_monotone(fl)
+        sgs = (fl["zl"], fl["fac"])
+        kk = int(np.argmin(np.abs(fl["zl"] - a.z_target)))
+        print(f"  MOST floor ON{' [LEGACY TAPER]' if a.sgs_most_legacy else ''}: "
+              f"factor {fl['fac'].min():.2f}-{fl['fac'].max():.2f} over the column, "
+              f"{fl['fac'][kk]:.3f} at the receptor (d={d_r:.2f} m)")
+        if not a.sgs_most_legacy:
+            print(f"  floor active below z={fl['zl'][fl['kpk']]:.0f} m "
+                  f"(the model's own sigma_w^2 peak, {fl['base'][fl['kpk']]:.4f} m2/s2)")
+        print(f"  floor-induced turnovers in sigma_w^2 below the peak: {n_new} "
+              f"(worst {worst:+.2%}) -- must be 0")
+        # The profile itself, because "it failed" without the profile is not a diagnosis.
+        print(f"  {'z(m)':>8} {'resolved':>10} {'(2/3)e':>10} {'factor':>8} "
+              f"{'sigma_w^2':>10} {'d/dz':>10}")
+        sel = [i for i in range(len(fl["zl"])) if fl["zl"][i] <= max(2.0 * fl["zl"][fl["kpk"]], 150.0)]
+        dz = np.gradient(fl["sig2"], fl["zl"])
+        for i in sel[::max(1, len(sel) // 12)]:
+            print(f"  {fl['zl'][i]:8.1f} {fl['wwp'][i]:10.4f} {fl['have'][i]:10.4f} "
+                  f"{fl['fac'][i]:8.2f} {fl['sig2'][i]:10.4f} {dz[i]:+10.5f}")
     lp = LPDM(fs, c0=a.c0, z_touch=a.ztouch, sgs_scale=sgs)
     ok = True
+    verdict = {}
     for direction, label in ((-1, "BACKWARD (the mode footprints use)"),
                              (+1, "FORWARD (control)")):
         t0 = time.time()
@@ -79,7 +106,14 @@ def main():
                                  z_release_top=a.zrelease, t_limit=a.tlimit,
                                  direction=direction)
         ok &= wellmixed.report(out, label)
+        verdict["backward" if direction < 0 else "forward"] = out["metrics"]
         print(f"  ({out['iters']} integrator steps, {time.time()-t0:.0f} s)")
+    # A CORRECT LAGRANGIAN STOCHASTIC MODEL IN A STATIONARY FIELD IS WELL MIXED IN BOTH
+    # DIRECTIONS. Backward-only agreement is not a pass: the retired floor passed backward
+    # at 7.51% rms and failed forward at 1.258 in the lowest three bins, and the footprints
+    # only ever run backward, so a one-sided test could not have seen it.
+    print(f"\n  BOTH DIRECTIONS: {'PASS' if ok else 'FAIL'}"
+          f"  (asymmetry is the primary diagnostic; backward alone proves nothing)")
 
     # ---- second gate: backward transit time from the 30 m receptor to the surface
     print(f"\n  --- backward transit time from the {a.z_target:.0f} m receptor ---")
@@ -104,6 +138,20 @@ def main():
               f"z/sigma_w, so the 30 m receptor's 180-290 s should fall to ~60-95 s here; "
               f"this median is what sizes t_back and therefore the window.")
     print(f"\n  STAGE 4 GATE: {'PASS' if ok and frac > 0.5 else 'FAIL'}")
+    if a.tag:
+        import json
+        verdict["config"] = dict(sgs_most=bool(a.sgs_most), legacy=bool(a.sgs_most_legacy),
+                                 mode=a.sgs_most_mode, z_target=a.z_target,
+                                 outdir=a.outdir, transit_frac=float(frac))
+        if a.sgs_most:
+            verdict["floor"] = dict(
+                zl=[float(v) for v in fl["zl"]], fac=[float(v) for v in fl["fac"]],
+                sig2=[float(v) for v in fl["sig2"]], base=[float(v) for v in fl["base"]],
+                kpk=int(fl["kpk"]), n_new_turnovers=int(n_new))
+        verdict["pass"] = bool(ok and frac > 0.5)
+        with open(f"results/{a.tag}.json", "w") as f:
+            json.dump(verdict, f, indent=2, default=float)
+        print(f"  -> results/{a.tag}.json")
     return 0 if (ok and frac > 0.5) else 1
 
 
