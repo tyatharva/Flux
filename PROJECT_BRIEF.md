@@ -420,6 +420,18 @@ Backward LPDM, run offline on saved FastEddy output.
   magnitude** -- it was estimated from the integral overshoot, and the integrals barely
   move while the share moves 18 points.
 
+  **THE NEUTRAL-VS-CONVECTIVE COMPACTION IS CLOSURE-DEPENDENT AND ITS SIGN DOES NOT
+  SURVIVE.** Flat controls, 80% source area: floor OFF gives **0.57x (convective BROADER)**
+  and floor ON gives **1.33x (convective more compact)**. The flip is one-sided -- the
+  floor changes convective A80 by -56.4% and neutral A80 by +1.4% -- and the paired null
+  (the neutral row, where the floor is inert) is 0.051 ha against a convective effect of
+  3.712 ha, **72x**. Both closures PASS Gate D1, because well-mixedness tests
+  SELF-CONSISTENCY, not whether `sigma_w` has the right magnitude. **Quote the compaction
+  ratio with its closure and state the 0.57-1.33x band**; never quote "convection compacts
+  the footprint" as a bare physical result. `x80` does NOT flip (1.08 -> 1.94), because it
+  is 1-D and the no-floor convective footprint is broader crosswind too (A50 0.819 vs
+  0.461) -- **settle regime comparisons on AREA, not on x80.**
+
   **The floor itself is worth +8.40 points of convective array share** (floor on vs off,
   flat control) and shortens `x80` from 400 to 227 m. The near field is closure-dominated
   and that is now a number, not an assertion.

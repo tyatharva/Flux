@@ -196,3 +196,78 @@ complex terrain. The double rotation removes 95-96% of the model-frame mean `w`
 5. Real terrain reaches **~784 m**; land cover is real to the seam.
 6. Deep convective boundary layers are constrained — Phase E measured the cap as
    non-binding at a 10 m receptor (p ~ 0.54).
+
+---
+
+## 8. The compaction ratio is closure-dependent, and the sign does not survive
+
+Asked directly, because the floor is inert neutrally (receptor factor 1.000) and active
+convectively (1.595), so any statistic compared ACROSS the two regimes compares two
+different closures unless the floor is switched off on both sides. Flat controls, 80%
+source area, which is 2-D and therefore the metric to settle it on:
+
+| regime | closure | **A80 (ha)** | A50 (ha) | `x80` (m) | max factor |
+|---|---|---|---|---|---|
+| neutral | floor OFF | 3.763 | 0.461 | 433 | -- |
+| neutral | **floor ON** | **3.814** | 0.461 | 440 | 1.23 |
+| convective | floor OFF | **6.579** | 0.819 | 400 | -- |
+| convective | **floor ON** | **2.867** | 0.461 | 227 | 3.51 |
+
+| metric | floor OFF | floor ON | |
+|---|---|---|---|
+| **80% AREA** | **0.57x** (convective BROADER) | **1.33x** (convective more compact) | **SIGN FLIPS** |
+| `x80` | 1.08x | 1.94x | sign survives, magnitude 1.79x apart |
+
+**On area the sign flips. On `x80` it does not.** The two disagree because the no-floor
+convective footprint is broader CROSSWIND as well as long -- A50 0.819 against 0.461
+everywhere else -- and `x80`, being a one-dimensional along-wind statistic, cannot see it.
+
+**The flip is entirely one-sided, and that is what identifies it as the closure.** The
+floor changes the convective A80 by **-3.712 ha (-56.4%)** and the neutral A80 by
+**+0.051 ha (+1.4%)**.
+
+**The sampling floor to use here is the paired one, not the half-vs-half spread.** The two
+closures run on the same window, the same release times and positions, the same seed and
+the same field realisation, so sampling variance is common-mode. The half-vs-half spread
+(4.17 ha) is unpaired AND biased: every half's A80 exceeds its own full window's, because a
+noisier footprint spreads mass over more cells. The paired comparison has its own null and
+it is free -- **the neutral row, where the floor is inert, leaks 0.051 ha. The convective
+effect is 72x that.** The convective change is real; the neutral one is not distinguishable
+from zero.
+
+### Which closure is right, and why Gate D1 cannot say
+
+Both pass Gate D1 in both directions. **That is not a defect in the gate: well-mixedness
+tests a model's SELF-CONSISTENCY, not whether `sigma_w` has the right magnitude.** A model
+with uniformly too little vertical variance is perfectly well mixed and produces footprints
+that are uniformly too long.
+
+What separates them is the resolved fraction at the receptor:
+
+| regime | z | resolved `ww` | sgs | sub-grid fraction | floor factor | `sigma_w` repair |
+|---|---|---|---|---|---|---|
+| neutral | 10 m | 0.0055 | 0.1914 | 97.2% | 1.000 | **x1.000** |
+| convective | 10 m | 0.0329 | 0.2392 | 87.9% | 1.595 | **x1.234** |
+
+Neutrally the LES's total `sigma_w` at the receptor already meets surface-layer similarity,
+so the floor does nothing and floor-on and floor-off are the same model. Convectively it is
+**23% short**, and an under-resolved `sigma_w` makes particles descend too slowly and
+footprints too long -- which is the documented reason the floor exists at all. So the
+no-floor convective case is not a credible physical alternative; it is the under-resolution
+artifact, and 6.579 ha is what that artifact looks like in area.
+
+### What to quote
+
+**The compaction ratio must be quoted with its closure, and the band across the closure
+choice is 0.57x to 1.33x on the flat control** -- wider than the 46-66% shape-L1 anchor
+band already carried, and it changes the SIGN rather than the magnitude. The production
+values (**1.33x** flat, **1.88x** on the real surface) rest on the floor being right at the
+convective receptor, which is a `sigma_w` magnitude claim that the well-mixed gate cannot
+test.
+
+**Do not quote "convection compacts the footprint" as a bare physical result.** What is
+measured is that convection compacts the footprint *given a closure that supplies the 23%
+of `sigma_w` the LES does not resolve at 10 m*. Resolving that claim needs either a grid
+where the receptor is resolved (`Delta <~ 2.9 m`, ~22x this configuration, out of reach) or
+an independent constraint on `sigma_w` at 10 m -- eddy-covariance data from the tower
+itself being the obvious one.

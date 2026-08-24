@@ -1,0 +1,29 @@
+=== 80% SOURCE AREA, flat controls, floor ON vs OFF ===
+  regime      closure        A80   half1   half2 |d| halves     A50    x80  maxfac
+  neutral     nofloor      3.763   6.528   4.915      1.613   0.461    433      --
+  neutral     new          3.814   6.451   4.710      1.741   0.461    440    1.23
+  neutral     legacy       3.226   6.016   3.994      2.022   0.461    381    2.46
+  convective  nofloor      6.579   6.067  10.112      4.045   0.819    400      --
+  convective  new          2.867   3.507   7.680      4.173   0.461    227    3.51
+  convective  legacy       2.278   3.123   5.734      2.611   0.435    206   12.30
+
+=== the compaction ratio, both closures ===
+  closure     metric     neutral  convective   ratio   verdict
+  floor OFF   A80 ha       3.763       6.579    0.57   convective is BROADER
+  floor OFF   x80 m      433.090     400.463    1.08   convective is MORE COMPACT
+  floor ON    A80 ha       3.814       2.867    1.33   convective is MORE COMPACT
+  floor ON    x80 m      440.435     227.447    1.94   convective is MORE COMPACT
+
+=== does the sign survive removing the floor? ===
+  80% AREA   floor OFF 0.57x   floor ON 1.33x   -> SIGN FLIPS  (factor 2.33 between them)
+  x80        floor OFF 1.08x   floor ON 1.94x   -> sign survives  (factor 1.79 between them)
+
+=== the paired comparison, and its own null ===
+  neutral      A80  3.763 (off) ->  3.814 (on)   change +0.051 ha (  +1.4%)
+  convective   A80  6.579 (off) ->  2.867 (on)   change -3.712 ha ( -56.4%)
+
+  NULL (neutral, where the floor is inert): 0.051 ha -- an UPPER bound on what the pairing leaks
+  EFFECT (convective, where it is not):      3.712 ha = 72x the null
+  -> the convective change is real; the neutral one is not distinguishable from zero.
+
+  For contrast, the UNPAIRED half-vs-half spread is 4.173 ha -- but every half exceeds its own full window above, so it is measuring the bias of a half-sample, not the error of a full one.
