@@ -1,5 +1,11 @@
 # Staged Plan — Fifth Pass, 10 m receptor, 122^3 @ 16 m
 
+> **SIXTH PASS COMPLETE, 2026-08-24 — the sigma_w closure.** `SIXTH_PASS_RESULTS.md`.
+> The convective well-mixed gate passes in both directions for the first time; production
+> is regenerated on the corrected closure and on `--raise-topo`. The retired closure was
+> inflating the convective array share by up to 18.46 points. **The target pipeline is
+> done; the ML phase below is next.**
+
 > **STATUS: COMPLETE, 2026-08-22.** Every phase ran and every gate passed. Results in
 > `FIFTH_PASS_RESULTS.md`. Absolute distances from earlier passes do not carry over;
 > methodology, traps and closure findings do.

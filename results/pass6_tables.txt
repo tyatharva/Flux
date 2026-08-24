@@ -1,0 +1,41 @@
+============================================================================================
+1. PRODUCTION, REGENERATED  (weighted floor, eps-consistent, --raise-topo, receptor 8.5 m + exact-agl)
+============================================================================================
+
+  --- neutral ---
+  case         wdir   array%  d vs 5th  integral       d   A80 ha  A80 Kljun  ratio    x80
+  nbl_wN      319.5    54.98    +13.50     1.095  +0.090    2.202      1.562   1.41    302
+  nbl_wE       46.6    50.86    +14.20     0.905  +0.103    1.920      1.613   1.19    291
+  nbl_wS      147.2    55.96     +9.81     1.090  +0.190    2.227      1.562   1.43    285
+  nbl_wW      238.4    37.05    +17.96     1.032  +0.106    3.379      1.510   2.24    421
+  mean                 49.71    +13.87     1.030  +0.122    2.432
+
+  --- convective ---
+  case         wdir   array%  d vs 5th  integral       d   A80 ha  A80 Kljun  ratio    x80
+  cbl_wN      338.7    75.24     -6.25     1.193  +0.012    1.408      1.869   0.75    153
+  cbl_wE       70.0    64.18     +0.77     0.971  +0.193    1.152      1.997   0.58    118
+  cbl_wS      169.0    75.66     +1.57     1.080  +0.083    1.229      1.946   0.63    122
+  cbl_wW      257.9    47.08    +18.08     1.129  +0.361    1.382      1.792   0.77    149
+  mean                 65.54     +3.54     1.093  +0.163    1.293
+
+  NEUTRAL-vs-CONVECTIVE COMPACTION (mean 80% source area)
+    fifth pass  2.784 / 1.082 ha = 2.57x   [CONFOUNDED: the floor was active in the convective half only]
+    sixth pass  2.432 / 1.293 ha = 1.88x   [same closure in both]
+
+  CONVECTIVE INTEGRALS  fifth pass 0.768-1.180  ->  sixth pass 0.971-1.193
+  NEUTRAL    INTEGRALS  fifth pass 0.803-1.005  ->  sixth pass 0.905-1.095
+
+============================================================================================
+2. THE CLOSURE ALONE  (same fields, same releases, same seed; only the floor differs)
+============================================================================================
+  case          array% new  array% legacy  d (points)   d rel  integ new  integ legacy  x80 new  x80 leg
+  nbl_wN             54.98          53.81       -1.17   -2.1%      1.095         1.118      302      308
+  nbl_wE             50.86          51.26       +0.40   +0.8%      0.905         0.898      291      272
+  nbl_wS             55.96          56.76       +0.80   +1.4%      1.090         1.074      285      267
+  nbl_wW             37.05          38.44       +1.39   +3.8%      1.032         0.994      421      378
+  cbl_wN             75.24          77.50       +2.25   +3.0%      1.193         1.188      153      131
+  cbl_wE             64.18          82.64      +18.46  +28.8%      0.971         1.029      118       52
+  cbl_wS             75.66          87.46      +11.81  +15.6%      1.080         1.078      122       65
+  cbl_wW             47.08          49.38       +2.30   +4.9%      1.129         1.090      149      129
+  neutral: the retired closure was worth +0.35 points of array share on average (range -1.17 to +1.39)
+  convective: the retired closure was worth +8.71 points of array share on average (range +2.25 to +18.46)

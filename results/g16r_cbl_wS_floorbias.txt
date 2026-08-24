@@ -1,0 +1,15 @@
+
+=== sigma_w floor: what the closure was worth ===
+  reference closure: new (g16r_cbl_wS)
+  closure        <50    <100    <150    <250    <400    <600    <900     r50   array%  integral   peak     x80
+  new          48.95   74.34   83.20   90.31   93.65   95.93   99.03      51    75.66     1.080     48     122
+  legacy       68.47   86.94   91.96   95.46   97.24   98.19   99.42      32    87.46     1.078     32      65
+
+  differences from new (points of share, absolute for the rest):
+  legacy      +19.52  +12.60   +8.76   +5.15   +3.59   +2.26   +0.38     -19   +11.81    -0.001    -16     -57
+
+  closure profiles at the receptor:
+  new        factor  2.584 at the receptor, max   8.70 at z=   43 m; sigma_w^2 0.2894 -> 0.6673; 0 FLOOR-INDUCED turnover(s) below z=176 m (worst +0.00%)
+  legacy     factor  6.359 at the receptor, max 137.06 at z=   66 m; sigma_w^2 0.2894 -> 1.5681; 12 FLOOR-INDUCED turnover(s) below z=127 m (worst -42.88%)  [LEGACY TAPER]
+
+  ARRAY SHARE: legacy 87.46%  vs  new 75.66%  -> the retired closure was worth +11.81 points (+15.6% relative)

@@ -1,0 +1,8 @@
+
+=== FLAT / NEUTRAL REGRESSION ===
+  tolerance from this window's own half-vs-half floor: peak +0 m, centroid 40 m, 80% overlap 40%
+  peak_x          baseline    64.000   now    64.000   diff    +0.000   tol 48.000   ok
+  area80_ha       baseline     3.226   now     3.814   diff    +0.589   tol 5.000   ok
+  integral_les    baseline     0.914   now     0.880   diff    -0.034   tol 0.080   ok
+  overlap_kljun   baseline     0.333   now     0.268   diff    -0.065   tol 0.150   ok
+  RESULT: PASS -- inside the sampling floor

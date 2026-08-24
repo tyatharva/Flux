@@ -1,0 +1,85 @@
+  481 dumps: FE_WIN.0 .. FE_WIN.164160
+  field cache 10.65 GB, 122x122x122, dt_dump=5.00 s, window 0-2400 s (72 s to load)
+  MOST floor ON [LEGACY TAPER] [multiplicative, f_sgs-weighted, eps-consistent]: factor 1.00-2.45 over the column, 1.000 at the receptor (d=1.50 m)
+  floor-induced turnovers in sigma_w^2 below the peak: 9 (worst -5.02%) -- must be 0
+      z(m)   resolved     (2/3)e   factor  sigma_w^2       d/dz
+       2.0     0.0002     0.1931     1.04     0.2015   +0.00839
+      43.2     0.0760     0.0374     2.41     0.1663   -0.00185
+      91.5     0.1068     0.0158     1.00     0.1227   -0.00025
+     153.7     0.0839     0.0105     1.00     0.0945   -0.00052
+     236.3     0.0346     0.0082     1.00     0.0428   -0.00066
+     346.3     0.0764     0.0000     1.00     0.0764   -0.00136
+     490.3     0.0026     0.0000     1.00     0.0026   -0.00006
+     675.1     0.0001     0.0000     1.00     0.0001   -0.00000
+     907.4     0.0000     0.0000     1.00     0.0000   +0.00000
+    1194.0     0.0001     0.0000     1.00     0.0001   +0.00000
+    1541.6     0.0001     0.0000     1.00     0.0001   -0.00000
+    1956.9     0.0000     0.0000     1.00     0.0000   -0.00000
+    2446.7     0.0000     0.0000     1.00     0.0000   -0.00000
+
+  --- well-mixed test BACKWARD (the mode footprints use) ---
+  released uniformly over 2-1200 m; scored over 2-400 m
+      z (m)   final/initial
+       11.9           0.914   |##################
+       31.8           1.002   |####################
+       51.8           0.988   |###################
+       71.6           1.068   |#####################
+       91.5           0.969   |###################
+      111.4           1.050   |#####################
+      131.3           0.985   |###################
+      151.2           1.082   |#####################
+      171.1           1.009   |####################
+      191.1           1.044   |####################
+      210.9           0.926   |##################
+      230.8           0.923   |##################
+      250.8           0.985   |###################
+      270.6           0.991   |###################
+      290.5           1.060   |#####################
+      310.4           1.019   |####################
+      330.3           0.991   |###################
+      350.2           0.974   |###################
+      370.1           1.058   |#####################
+      390.0           0.927   |##################
+  ~666 particles per bin initially; 1-sigma counting noise 5.48%
+  max |ratio-1| = 8.55%   rms = 4.98%   lowest 3 bins = 0.967
+  GATE: PASS  (max deviation < max(10%, 4 sigma); lowest 3 bins within max(5%, 3 sigma))
+  (27366 integrator steps, 87 s)
+
+  --- well-mixed test FORWARD (control) ---
+  released uniformly over 2-1200 m; scored over 2-400 m
+      z (m)   final/initial
+       11.9           1.077   |#####################
+       31.8           1.060   |#####################
+       51.8           1.003   |####################
+       71.6           1.087   |#####################
+       91.5           1.075   |#####################
+      111.4           1.006   |####################
+      131.3           0.980   |###################
+      151.2           0.977   |###################
+      171.1           0.984   |###################
+      191.1           0.971   |###################
+      210.9           0.917   |##################
+      230.8           0.853   |#################
+      250.8           1.018   |####################
+      270.6           0.991   |###################
+      290.5           0.977   |###################
+      310.4           1.010   |####################
+      330.3           0.994   |###################
+      350.2           1.003   |####################
+      370.1           1.037   |####################
+      390.0           0.984   |###################
+  ~666 particles per bin initially; 1-sigma counting noise 5.48%
+  max |ratio-1| = 14.74%   rms = 5.30%   lowest 3 bins = 1.047
+  GATE: PASS  (max deviation < max(10%, 4 sigma); lowest 3 bins within max(5%, 3 sigma))
+  (27364 integrator steps, 100 s)
+
+  BOTH DIRECTIONS: PASS  (asymmetry is the primary diagnostic; backward alone proves nothing)
+
+  --- backward transit time from the 10 m receptor ---
+  receptor z = 10.00 m (level k=2)
+  reached the surface within 900 s: 77.5% of 20000 particles
+  transit time (s): p5=12  p25=26  p50=55  p75=129  p95=537
+  median 0.9 min at z = 10.0 m. Transit scales roughly as z/sigma_w, so the 30 m receptor's 180-290 s should fall to ~60-95 s here; this median is what sizes t_back and therefore the window.
+
+  STAGE 4 GATE: PASS
+  -> results/g16p6b_flat_wm_legacy.json

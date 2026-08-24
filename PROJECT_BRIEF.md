@@ -386,38 +386,43 @@ Backward LPDM, run offline on saved FastEddy output.
 - SGS component is a Langevin model driven by FastEddy's output SGS TKE (Weil et al. 2004).
 - **Well-mixed condition is the critical correctness test, and it MUST be run in the
   configuration footprints are actually computed in** (`stage4_wellmixed.py --sgs-most`).
-  **AND THE CONVECTIVE CONFIGURATION IS A DIFFERENT ONE.** Measured 2026-08-23: the
-  floor's factor at the receptor is **1.000 (inactive) neutrally** and **1.67
-  convectively**, reaching **10-12 over the column**. So a neutral PASS is a test of the
-  UNMODIFIED model and says nothing about the convective closure.
+  **AND THE CONVECTIVE CONFIGURATION IS A DIFFERENT ONE.** The floor's factor at the
+  receptor is **1.000 (inactive) neutrally** and **1.59 convectively**. A neutral PASS is
+  therefore a test of the UNMODIFIED model and says nothing about the convective closure --
+  the neutral gate passes the RETIRED closure, which carries nine turnovers and a factor of
+  2.45.
 
-  **THE CONVECTIVE GATE FAILS FOR EVERY FLOOR CONFIGURATION TRIED, AND THE CAUSE IS THE
-  MAGNITUDE OF THE INFLATION, NOT ITS SHAPE.** Sixth pass, one flat convective window,
-  identical fields (`SIXTH_PASS_RESULTS.md`):
+  **THE CLOSURE IS FIXED AND VALIDATED, 2026-08-24** (`SIXTH_PASS_RESULTS.md`). The floor
+  is **weighted by the sub-grid fraction**, `sc_eff = 1 + (sc - 1) f_sgs` with
+  `f_sgs = (2/3)e/(ww + (2/3)e)`, and **`eps` is scaled with `sigma^2`** so
+  `T_L = 2 sigma^2/(C0 eps)` is preserved. Gate D1, both regimes, both directions, three
+  closures on identical fields (counting noise 5.48%):
 
-  | closure | backward lo3 | forward lo3 | max factor |
-  |---|---|---|---|
-  | **no floor** | 1.013 PASS | 1.090 PASS | -- |
-  | **constant x1.673** | 0.974 PASS | 1.130 PASS | 1.67 |
-  | monotone floor | 1.014 PASS | **1.236 FAIL** | 10.24 |
-  | retired taper | **1.036 FAIL** | **1.260 FAIL** | 12.17 |
-  | **constant x10** | 1.069 PASS | **1.370 FAIL** | 10.0 |
+  | regime | closure | backward lo3 | forward lo3 | max fac | turnovers |
+  |---|---|---|---|---|---|
+  | neutral | no floor | 1.001 | 1.041 | -- | -- |
+  | neutral | **production** | 0.989 | 1.023 | 1.23 | **0** |
+  | convective | no floor | 1.027 | 1.091 | -- | -- |
+  | convective | **production** | 1.037 | 1.097 | 3.49 | **0** |
+  | convective | retired taper | **0.961 FAIL** | **1.226 FAIL** | 12.17 | 11 |
 
-  A CONSTANT x10 -- no taper, no turnover, `dsc/dz` exactly zero -- fails worse than any
-  shaped floor, and the unmodified model passes. **So every hypothesis about profile shape
-  is excluded.** The fifth pass blamed a spurious `sigma_w^2` maximum; that maximum is now
-  structurally impossible and the failure is unchanged (1.236 vs 1.260). The mechanism is
-  that inflating `sigma^2` without inflating `eps` inflates `T_L = 2 sigma^2/(C0 eps)` by
-  the same factor, so at `sc = 10` the sub-grid memory length grows tenfold and the
-  stochastic component stops being sub-grid. It is also unphysical: at 34-52 m the LES
-  already resolves **84-92%** of its own `ww`, so there is no sub-grid deficit to repair
-  there.
+  **The cause was the MAGNITUDE of the inflation, not its shape.** A constant x10 -- no
+  taper, no turnover, `dsc/dz` exactly zero -- failed forward at 1.370 while a constant
+  x1.673 passed at 1.130. Two earlier diagnoses (the spurious maximum; the drift's product
+  rule) were both wrong and both are recorded, because each cost a rebuild. The old floor
+  was largest where the LES resolved MOST: factor 10.1 at 52 m where 92% of `ww` is
+  resolved. It now peaks at 18-35 m where 44-84% is sub-grid.
 
-  **DO NOT compute or quote a convective footprint until the floor carries a magnitude
-  bound.** Bounding it is a decision about the science -- the anchor choice is worth
-  **46-66% shape L1** -- not a defect to repair. Neutral is unaffected: the restructured
-  floor is indistinguishable from the unmodified model in both directions (1.002 / 1.024
-  against 1.001 / 1.026) and the standing regression passes.
+  **What the retired closure was worth, measured on identical fields:** the convective
+  array share was inflated by **+8.71 points on average and +18.46 at worst** (cbl_wE,
+  64.18% -> 82.64%), against a neutral effect of +0.35. `x80` on that case was 52 m
+  against 118. **The fifth pass's "2-4%" systematic band was wrong by an order of
+  magnitude** -- it was estimated from the integral overshoot, and the integrals barely
+  move while the share moves 18 points.
+
+  **The floor itself is worth +8.40 points of convective array share** (floor on vs off,
+  flat control) and shortens `x80` from 400 to 227 m. The near field is closure-dominated
+  and that is now a number, not an assertion.
 
 ## ML model
 
