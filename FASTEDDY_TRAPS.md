@@ -182,3 +182,89 @@ tendency to `Frhs_HC[U_INDX]`, `[V_INDX]`, `[THETA_INDX]` and `Frhs_qv` -- there
 the slab-mean profile gradient, not a resolved vertical motion. Checking `w` would have
 "failed" a correct implementation. The real test is differential on the theta profile:
 `d<theta>/dt = -w_sub d<theta>/dz`.
+
+---
+
+## 11. A clip on one side of a ratio inflated `eps` a millionfold — and only the SLOWNESS showed
+
+**Ours, not FastEddy's.** Cost about an hour of CPU and produced one withdrawn result.
+
+### Symptom
+
+The neutral well-mixed battery ran **39 minutes** where the convective one took 10, on
+windows of identical size. No error, no warning, no obviously wrong number — the run would
+have completed and reported a plausible verdict.
+
+### Cause
+
+The `sigma_w` floor scales `eps` with `sigma^2` so `T_L = 2 sigma^2/(C0 eps)` is preserved.
+The ratio was written
+
+```python
+sig2 = np.maximum(sig2, 1e-6)                       # numerator CLIPPED
+eps  = eps * (sig2 / np.maximum(sig2_raw, 1e-12))   # denominator NOT
+```
+
+Above the boundary layer the sub-grid TKE goes to zero. **Measured on a neutral window:
+51.3% of cells carry `(2/3)e < 1e-6`**, and for those the ratio evaluates to `1e-6/1e-12`
+= **1e6**. `eps` was inflated by that factor through the free atmosphere, `T_L` collapsed,
+and every particle above `z_i` pinned at `dt_min` — wrong, and slow, and only the slow part
+was visible. The median ratio came out **6.29 where it should be 1.00**.
+
+### Fix
+
+Floor both sides at the same value, so the ratio is exactly 1 wherever the clip is what is
+being compared:
+
+```python
+eps = eps * np.maximum(sig2 / np.maximum(sig2_raw, 1e-6), 1.0)
+```
+
+Verified: ratio max **2.00** against 1e6, `T_L` 18.49 -> 14.77 s where the floor is active
+(the intended effect), **0%** of particles at `dt_min`. Pinned by `bin/test_sgs_floor.py`,
+which also asserts the retired denominator really did blow up.
+
+### What this changes about how we work
+
+**A guard on one side of a division is a bug on the other side.** Whenever a clipped
+quantity appears in a ratio, the other operand needs the same clip or the ratio is
+meaningless exactly where the clip binds — which is where the physics has gone quiet and
+nobody is looking.
+
+**And watch the wall clock as a diagnostic.** Two runs of the same size that differ 4x in
+duration are telling you something about the numerics. This one produced no wrong number
+anyone could see; the only signal it emitted was time.
+
+---
+
+## 12. Piping an analysis into `grep` hides its traceback, and the driver carries on
+
+**Ours.** A duplicate keyword argument in `bin/stage5_footprint.py` reached a running
+campaign and was launched **six times**, each after its own multi-minute field load.
+
+### Cause
+
+```bash
+./docker/pyrun.sh bin/stage5_footprint.py ... 2>&1 | grep -vE 'batch [0-9]+/' > out.txt
+```
+
+Bash reports the exit status of the LAST command in a pipeline, which is `grep`. Python
+died with a `SyntaxError`, the traceback went quietly into a redirected `.txt`, `grep`
+succeeded, and the driver moved on. `set -o pipefail` is set in these scripts and still
+does not help, because the redirect makes the failure invisible to the eye and the
+subsequent stages never look at the file.
+
+### Fix
+
+Two, both cheap:
+
+- **Check the PRODUCT, not the exit status.** Every analysis step now asserts its output
+  JSON exists and non-empty, and dumps the tail of the log if not.
+- **`bin/preflight.sh`** parses every python entry point and shell driver in about ten
+  seconds, and the campaign refuses to start without it. Ten seconds would have caught
+  this before any GPU time was spent.
+
+### What this changes about how we work
+
+**A gate that reads an exit status is reading whatever the shell last did, not whatever
+you meant.** Assert on the artifact the step was supposed to produce.

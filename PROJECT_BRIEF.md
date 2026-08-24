@@ -27,6 +27,7 @@ Flux/                          <- working dir, main project repo root
 ├── PROJECT_BRIEF.md
 ├── PLAN.md
 ├── FASTEDDY_TRAPS.md          <- every trap that has cost GPU time. Read before running.
+├── SIXTH_PASS_RESULTS.md      <- the sigma_w closure: fixed, validated, and what it cost
 ├── Dockerfile
 ├── inst.txt                   <- crude dependency/build notes, written for v4.0.1
 ├── data/raw/                  <- NOT in git. USGS 3DEP + ESA WorldCover.
@@ -482,6 +483,12 @@ Backward LPDM, run offline on saved FastEddy output.
   convective failure was localised in one run by scoring the SAME window with no floor at
   all -- the base model passed both directions, which is what proved the fault was the
   floor and not the model. A gate result without its control says only "a number came out".
+- **ASSERT ON THE ARTIFACT, NOT ON THE EXIT STATUS.** Analyses are piped into `grep`, so
+  bash reports GREP's status and a python traceback lands quietly in a redirected `.txt`
+  while the driver carries on -- a `SyntaxError` in `stage5_footprint.py` was launched six
+  times that way. Every step now checks the JSON it was supposed to write, and
+  **`bin/preflight.sh` parses every python entry point and shell driver before a campaign
+  starts** (about ten seconds; the drivers refuse without it). `FASTEDDY_TRAPS.md` §12.
 - **A TOLERANCE MEASURED FROM ONE DIFFERENCE IS NOT A TOLERANCE.** A gate that scores a
   result against a single half-vs-half difference is comparing against a statistic with
   ONE degree of freedom, whose own sampling error is of the same size as the thing it is
@@ -493,6 +500,25 @@ Backward LPDM, run offline on saved FastEddy output.
   many independent realisations went into it.
 - Any grid change re-checks the `(N + 6) % tB == 0` rule before running.
 - Commit at every verification gate in PLAN.md. Do not proceed past a failed gate.
+- **The LPDM is forked across cores.** The ensemble is always cut into
+  `LPDM.N_CHUNKS_DEFAULT = 16` chunks with per-CHUNK seeds derived from the ensemble seed
+  and the chunk index, so **worker count is a pure performance knob and cannot change a
+  result** -- `bin/test_parallel_lpdm.py` asserts bit-identity of every touchdown array
+  between 1 worker and 12. Set `LPDM_WORKERS` (forwarded into the container by
+  `docker/pyrun.sh`). **6.8x on 12 workers, measured.** Workers are FORKED, so the ~10.6 GB
+  field cache is shared copy-on-write and N workers cost no extra RAM for it; do not switch
+  the start method to spawn without re-checking that. At 62 GB the machine holds ~4
+  concurrent analyses, so the retired one-analysis-at-a-time rule (written for the 186^2
+  grid at 28 GB per cache) no longer binds.
+- **Sampling windows are resumable.** `bin/run_window.sh` stamps the exact configuration
+  (steps, dt, length, terrain file, forcing, restart file and size) into
+  `window/.window_complete` on success and reuses the window only on an exact match with
+  the right dump count. A kill during analysis no longer costs 42 minutes of GPU, and a
+  window can be computed ahead of the campaign that will consume it -- which is how the
+  GPU is kept busy through a CPU-only stage.
+- **Run the GPU and the CPU at once.** The LPDM is an offline analysis of saved output, so
+  validation needs no GPU at all. Campaign drivers start the LES chain in the background
+  and run analysis against it (`bin/run_pass6b.sh`), rather than after it.
 - **The analysis stack lives in the container.** The host python has no scipy; run analysis as
   `docker run --rm -v /home/atyagi/Flux:/w -w /w flux-fasteddy:cuda118 python3 ...`.
 
@@ -744,6 +770,15 @@ carrying it forward as a permanent FAIL communicates nothing. What replaces it:
 - **Over a slope the footprint integral is not 1, and that is physical.** The residual is `w_bar`
   times the concentration integral. At a receptor in mean subsidence the turbulent flux genuinely
   is not the surface flux — the advection non-closure that makes EC hard in complex terrain.
+- **A CLIP ON ONE SIDE OF A RATIO IS A BUG ON THE OTHER.** The floor scales `eps` with
+  `sigma^2` to hold `T_L`. `sigma^2` is clipped at 1e-6 for numerics; the denominator of
+  that ratio was not, and above the boundary layer where the sub-grid TKE goes to zero
+  (**51.3% of cells in a neutral window**) the ratio evaluated to **1e6**. `eps` was
+  inflated a millionfold in the free atmosphere, `T_L` collapsed and every particle above
+  `z_i` pinned at `dt_min`. **The only symptom was a 4x slowdown** -- no error, no wrong
+  number anyone could see. Floor both sides identically. `FASTEDDY_TRAPS.md` §11.
+- **Two runs of the same size that differ 4x in wall clock are telling you about the
+  numerics.** Watch the clock as a diagnostic; some bugs emit no other signal.
 - **The touchdown weight uses the surface-normal approach rate**, `|d(z-z_ground)/dt|`, not `|w|`.
   Over sloping ground a particle loses height-above-surface because the ground rises under it, and
   the `2/|w|` weight explodes. Flat ground hides this completely.

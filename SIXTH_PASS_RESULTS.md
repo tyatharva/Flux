@@ -271,3 +271,29 @@ of `sigma_w` the LES does not resolve at 10 m*. Resolving that claim needs eithe
 where the receptor is resolved (`Delta <~ 2.9 m`, ~22x this configuration, out of reach) or
 an independent constraint on `sigma_w` at 10 m -- eddy-covariance data from the tower
 itself being the obvious one.
+
+---
+
+## 9. What was built, and where it lives
+
+| file | what it is |
+|---|---|
+| `lpdm/sgs_floor.py` | **the floor, in one place.** `most_floor()` builds the target, weights it by the sub-grid fraction, bounds it by the resolved profile's peak and monotonises it; `check_monotone()` differences the result against the unmodified profile. The gate and the footprints both import it -- they used to carry drifting copies. |
+| `bin/test_sgs_floor.py` | structural tests on adversarial profiles: the floor never lowers the variance, never introduces a turnover, is inactive at and above the resolved peak, is exactly inert when nothing needs repair, and the two deliveries agree bit-for-bit on `sigma^2`. Also pins the `eps`-ratio clip. |
+| `bin/test_parallel_lpdm.py` | asserts the forked LPDM is **bit-identical** to the serial one, including that `td_particle` is offset into the full ensemble. |
+| `bin/preflight.sh` | parses every python entry point and shell driver in ~10 s; campaigns refuse to start without it. |
+| `bin/floor_bias.py` | differences the radial touchdown distribution and the cover shares between closures computed on the same fields. |
+| `bin/compaction_check.py` | settles the neutral-vs-convective compaction on 80% source AREA, with the paired null. |
+| `bin/window_stationarity.py` | slab-mean `w`, `z_i` trend and receptor `sigma_w` drift across a window -- the two things a forward/backward asymmetry could be blamed on before the closure is. |
+| `bin/pass6_tables.py` | the corpus tables: regenerated production against the frozen pre-fix record, and the closure attribution. |
+| `bin/run_pass6.sh`, `bin/run_pass6b.sh`, `bin/run_pass6b_production.sh` | the campaign, resumable and self-freezing; the production half is split out so it runs on the GPU while the batteries run on the CPU. |
+| `results/pass6_before.json` | the frozen pre-fix production numbers, so the change is measured against a record rather than a memory. |
+
+Changed in place: `lpdm/model.py` (fork pool, exact interpolant derivative, `eps`
+consistency, additive delivery), `lpdm/driver.py` (imports the shared floor, asserts
+monotonicity at runtime, persists the closure profiles), `bin/stage4_wellmixed.py` (both
+directions verdict, shared floor, diagnostic constant-scale switch),
+`bin/stage5_footprint.py` (closure flags, profiles persisted to JSON),
+`bin/run_window.sh` (configuration stamp), `bin/run_directions.sh` (worker pool, artifact
+assertion), `docker/pyrun.sh` (`LPDM_WORKERS` forwarding), `bin/regression_flat.sh`
+(`--compare-only`).

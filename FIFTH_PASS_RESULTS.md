@@ -560,6 +560,20 @@ is what the check exists to establish rather than assume.
 
 ## 5b. THE PRINCIPAL OPEN FINDING: the sigma_w floor is not well-mixed convectively
 
+> **SUPERSEDED, 2026-08-24 — AND THE DIAGNOSIS BELOW IS WRONG.** See
+> `SIXTH_PASS_RESULTS.md`. The observation is right: the floor is not well mixed
+> convectively. The *cause* named below -- a spurious `sigma_w^2` maximum at the taper's
+> inner edge -- is not it. The floor was rebuilt so that maximum is structurally
+> impossible, and the forward failure was unchanged (lowest three bins 1.236 against
+> 1.260). A CONSTANT x10 inflation, with no taper, no turnover and `dsc/dz` exactly zero,
+> fails worse than any shaped floor while the unmodified model passes both directions:
+> **the cause is the MAGNITUDE of the inflation, not its shape.** Fixed by weighting the
+> floor by the sub-grid fraction. Two further claims below are also wrong and are corrected
+> there: that neutral results are unaffected (the retired closure put NINE turnovers into
+> neutral `sigma_w^2` and passed anyway), and the "2-4%" systematic band on the convective
+> array shares (measured at **+8.71 points on average, +18.46 at worst**).
+
+
 Found at the end of this pass, by asking a question the plan did not ask.
 
 **The neutral well-mixed gate says nothing about the convective closure, because the floor
