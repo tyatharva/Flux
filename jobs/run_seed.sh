@@ -83,6 +83,30 @@ for s in $(seq "$S0" "$NSEG"); do
   # 0 for every other rung, so this is a no-op there.
   WTH_S="$WTH"
   if [ "${WARM:-0}" -gt 0 ] 2>/dev/null && [ "$s" -le "$WARM" ]; then WTH_S=0.0; fi
+  # AND THE .in ALONE CANNOT TURN THE COOLING ON. htFlux is IO-registered
+  # (hydro_core.c:1309), so the restart read OVERWRITES surflayer_wth with whatever the
+  # restart file holds -- trap 7, pointed at the flux instead of at the terrain. A warm-up
+  # segment writes htFlux = 0 into its final dump and every later segment then inherits it,
+  # silently, however its .in is written. Measured: segment 2's .in said -0.012 and its
+  # dumps came back +0.000000 for the whole segment.
+  #
+  # So the flux is injected into the restart FILE. Idempotent, and it runs on RESUME too,
+  # which an .in-only version could never have covered.
+  if [ -n "$IN" ] && [ "$WTH_S" != "0.0" ] && [ "${WARM:-0}" -gt 0 ] 2>/dev/null; then
+    ./docker/pyrun.sh - "$JOB_REL/output/$IN" "$WTH_S" <<'PYINJ' || die "htFlux injection"
+import sys, numpy as np
+from netCDF4 import Dataset
+path, want = sys.argv[1], float(sys.argv[2])
+with Dataset(path, "a") as ds:
+    h = ds["htFlux"]
+    cur = float(np.asarray(h[:]).mean())
+    if abs(cur - want) > 1e-9:
+        h[:] = np.full(np.asarray(h[:]).shape, want, dtype="f4")
+        print(f"      injected htFlux {cur:+.6f} -> {want:+.6f}")
+    else:
+        print(f"      htFlux already {cur:+.6f}")
+PYINJ
+  fi
   sed -e "s|^Nt = .*|Nt = $NT|" \
       -e "s|^inPath = .*|inPath = $IPATH|" -e "s|^inFile = .*|inFile = $IN|" \
       -e "s|^surflayer_wth = .*|surflayer_wth = $WTH_S|" \
@@ -95,6 +119,21 @@ for s in $(seq "$S0" "$NSEG"); do
   cat "$JOB/return/seg$s.log" >> "$LOG"
   LAST=$(ls -1 "$JOB/output/$OUTBASE".* | sort -t. -k2 -n | tail -1)
   [ -n "$LAST" ] || die "segment $s wrote no dump"
+  # ASSERT ON THE ARTIFACT: the flux the segment actually RAN with, not the one its .in
+  # asked for. Those two differed silently for a whole segment before the injection above
+  # existed, and nothing in the log said so.
+  ./docker/pyrun.sh - "${LAST#$ROOT/}" "$WTH_S" <<'PYCHK' || die "segment $s ran the wrong surface flux"
+import sys, numpy as np
+from netCDF4 import Dataset
+path, want = sys.argv[1], float(sys.argv[2])
+with Dataset(path) as ds:
+    got = float(np.asarray(ds["htFlux"][:]).mean())
+if abs(got - want) > 1e-6:
+    print(f"FATAL: the dump carries htFlux {got:+.6f}, the segment asked for {want:+.6f}",
+          file=sys.stderr)
+    raise SystemExit(1)
+print(f"      htFlux confirmed {got:+.6f}")
+PYCHK
   IN=$(basename "$LAST"); IPATH="./output/"
 done
 
