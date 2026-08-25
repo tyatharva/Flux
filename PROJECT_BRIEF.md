@@ -1045,9 +1045,20 @@ chosen for.
 Branch `library-states`; `LIBRARY_PLAN.md`. The target pipeline (passes 1-6) is done; this
 is what turns it into a corpus.
 
-The corpus is **~1825 HRRR-forced LES cases**, one per day over five years, walking the
-whole diurnal cycle. **18 seed states** (6 coupled rungs x 3 base angles) exist only to
-delete each case's 3 h spin-up: **52 GPU-h that buys back ~5250.**
+The corpus is **one HRRR-forced LES case per day over five years**, walking the whole
+diurnal cycle. **18 seed states** (6 coupled rungs x 3 base angles) exist only to delete
+each case's 3 h spin-up: **52 GPU-h that buys back ~5250.**
+
+**MEASURED: the domain accepts 70.6% of days**, so 1826 days give **~1289 usable cases**
+(~1459 GPU-h + 52). `z_i` outside **100-976 m** is refused rather than run and
+mis-labelled — too deep in summer afternoons (June 25%, August 20% acceptance), too
+shallow at dawn. `bin/corpus_coverage.py`, `results/corpus_coverage.txt`.
+
+**The deep exclusion is biased, and it is now measured on HRRR rather than inherited:**
+the rejected-as-too-deep days carry **3.56x** the virtual heat flux of the accepted set,
+and the rank correlation of `z_i` with flux is **+0.492** — independently reproducing the
+**+0.43** measured from CONUS404, on a different dataset and a different diagnostic. **The
+corpus is thinnest exactly where the array's flux enhancement is largest.**
 
 | stage / gate | result |
 |---|---|
