@@ -170,6 +170,7 @@ as `FLUX_ROOT`, which is why `docker/run_case.sh`, `docker/pyrun.sh`, `bin/spin_
 | 1 | HRRR pseudo-sounding at the tower | `bin/hrrr_sounding.py` | **built, validated** |
 | 2 | sounding -> FastEddy `.in` parameters | `bin/sounding_to_forcing.py` | **built, validated** |
 | 3 | the 18 portable seed jobs | `bin/make_seed_jobs.py`, `jobs/run_seed.sh` | **built**, awaiting GPU |
+| 3 | this case's surface heat-flux map | `bin/case_surface.py` | **built, validated** |
 | 4 | which seed does this case restart from | `bin/pick_seed.py` | **built, validated** |
 | 5 | restart + surface injection + adjust | `bin/prep_restart.py`, `bin/prep_stage6.py` | existing |
 | 6 | the sampling window | `bin/run_window.sh` | existing |
@@ -177,6 +178,9 @@ as `FLUX_ROOT`, which is why `docker/run_case.sh`, `docker/pyrun.sh`, `bin/spin_
 | 8 | assemble one (input, target) record | `bin/make_pair.py` | **built, validated** |
 | — | the stationarity gate, portable | `bin/seed_stationarity.py` | **built** |
 | — | offline validation of 1-2 across regimes | `bin/test_sounding.py` | **built** |
+| — | one case, end to end | `bin/run_corpus_case.sh` | **built** |
+| — | a short cold start per regime config | `bin/smoke_check.py` | **built, PASS x3** |
+| — | Gate B6 re-run convectively | `bin/b6_convective.sh` | **built** |
 
 ### 1. `bin/hrrr_sounding.py`
 
@@ -289,6 +293,43 @@ Ekman prediction per case. It is **+19.3 deg** on 2023-07-15 19Z -- the profile 
 can exceed the 10 deg convective Ekman angle outright.** Recorded per case so a corpus-wide
 bias is visible rather than assumed away. `--match-10m` rotates the forcing instead.
 
+### 3. `bin/case_surface.py` — and the trap that made it necessary
+
+`bin/prep_restart.py` injects `htFlux` into the restart file from the grid directory, and
+**the restart read overwrites the `.in`'s `surflayer_wth`** — the same Stage 6 mechanism
+PROJECT_BRIEF.md documents for terrain, pointed at the flux. `data/grid16` ships with `htFlux.npy`
+**all zeros** because it is a neutral build. The retired per-bin campaign never hit this
+because it built one fixed grid per regime (`data/grid16_cbl`, `data/grid16r_nbl`, …); a
+sounding-forced corpus has ~1825 different fluxes and cannot. Point a convective case at
+`data/grid16` and **it runs neutral, exits 0, and says nothing.**
+
+The per-cell map is `wth_reference x f`, where `f` is a class-ratio field that does not
+depend on the case at all — so the static geography is **hardlinked** and only
+`htFlux.npy` is written fresh. A case directory is ~116 kB and no copy.
+
+**Validated bit-for-bit against the campaign's own grid.** Given `data/grid16_cbl`'s
+cropland reference (0.12903676), the output is **bit-identical** to it. Given a 4-decimal
+rounding of that reference the difference is 5.060e-05, which the rounding times the
+array's 1.3764 ratio predicts as 5.0598e-05 — so the ratio field itself is exact, and the
+tables are read out of `prep_surface.py`'s **own source** rather than copied.
+
+**The three regimes are not the same problem, and the third one is a decision:**
+
+| flux | map | |
+|---|---|---|
+| `> 0` | per-class daytime ratios | array 1.376x the cropland reference (virtual) |
+| `~ 0` | zero everywhere | which is what neutral means |
+| `< 0` | **uniform** | the class table is a DAYTIME table; there is no nocturnal equivalent |
+
+> **A stable corpus case carries no array signal at all.** Not thermally — the map is
+> uniform, because applying daytime enhancement ratios to a negative flux would invent a
+> nocturnal contrast nothing measured. And not aerodynamically — `z0_array = 0.10 m` is
+> exactly WorldCover's cropland value, so the override changes nothing in any regime.
+> **The array signal this project exists to resolve is a DAYTIME signal.** Stable cases
+> are still real corpus points — they teach the flow, the terrain and the stability
+> dependence of the footprint — but the corpus must be described that way rather than as
+> uniformly array-sensitive.
+
 ### 4. `bin/pick_seed.py`
 
 **The metric is "what will 30 minutes fail to close", and nothing else.**
@@ -384,20 +425,50 @@ must additionally answer `--help`: a clean parse says nothing about a `NameError
 scope or an argparse definition that raises, and both look exactly like a working script
 until a campaign calls one.
 
-**Still to run, and none of it over 1 h wall (~40 min GPU total):**
+**A 5-minute cold start per regime config — `bin/smoke_check.py`, three of four PASS**
+(the fourth is the non-zero base angle, below). It cannot tell you a seed is converged;
+nothing at 5 minutes can. It tells you the configuration is not broken, which is the only
+question worth asking before committing 3.1 h of GPU per job:
 
-1. One 5-min cold start per new regime config (`sbl`, `nbl-shallow`, `cbl-mid`) -- launches,
-   no `CORRUPTED`, `k0/k1` OK-or-SKIP, writes a restart.
-2. One non-zero base angle (30 deg) -- confirm the rotated forcing reaches the solver and
+| | `sbl` | `nbl-shallow` | `cbl-mid` |
+|---|---|---|---|
+| every field finite | ok | ok | ok |
+| `k0/k1` (must be < 1; ~9 = `dt` past the accuracy boundary) | **0.124** | **0.132** | **0.144** |
+| receptor on cell centre `k = 2` | 10.000011 m | 10.000011 m | 10.000011 m |
+| **`z_i` vs the rung target** | **154 / 150 m** | **299 / 300 m** | 310 / 700 m (still growing) |
+| log clean of `CORRUPTED` / `outside limits` | ok | ok | ok |
+
+> **The strongest check is the base state, because it closes a loop nothing offline can.**
+> `bin/test_sounding.py` verifies the fit arithmetically, but "my formula reproduces my
+> formula" is not evidence that FastEddy read the six numbers, inverted `temp_grnd` into
+> `theta_grnd` with **its** gas constants, and integrated the hydrostatic profile the way
+> `hydro_core.c:1776-1810` says. The dump is: **max |theta_LES − theta_base| = 0.0001 K**
+> over 50-60 levels, on both rungs without subsidence.
+>
+> The convective rung scored 0.1596 K and that is subsidence *working*: 25 m/h for 300 s is
+> 2.08 m of descent, and through the 0.08 K/m capping inversion that is **0.167 K
+> predicted** — 4% from observed. The tolerance is now the predicted warming, so every
+> convective smoke run re-confirms Gate B7 rather than tripping over it.
+
+The receptor sits at 10.000011 m rather than 10.000000: `bin/vgrid.py` solves it in fp64,
+but FastEddy is hardwired fp32 and writes `zPos` as `NC_FLOAT`, so 1.1e-6 relative **is the
+file's own precision**. A tolerance tighter than that fails a correct grid.
+
+**Still to run (~30 min GPU, nothing over 1 h wall):**
+
+1. The non-zero base angle (30 deg) -- confirm the rotated forcing reaches the solver and
    the achieved direction is as predicted.
-3. One job-bundle round trip from a fresh directory with no repo paths, then restart the
-   returned file locally with `Nt` = the restart step and diff byte-for-byte (Gate C2 from
-   a single returned artifact).
-4. One short **convective** B6 -- the 90-degree equivariance check re-run convectively,
-   because PROJECT_BRIEF.md forbids inferring a regime from a gate that ran in another.
-5. One end-to-end case at a single timestamp: sounding -> forcing -> seed -> adjust ->
-   window -> LPDM -> pair. Short window; the product is a well-formed pair, not a converged
-   footprint.
+2. One job-bundle round trip from an unrelated checkout, then Gate C2 on the returned
+   artifact: restart from it with `Nt` = the restart step (trap 6 => zero timesteps, one
+   dump) and diff byte-for-byte. **The path-discovery half is already done** --
+   `jobs/run_seed.sh` runs correctly from a checkout at `/tmp/.../altroot/Flux` that knows
+   nothing about `/home/atyagi/Flux`.
+3. One short **convective** B6 (`bin/b6_convective.sh`) -- because PROJECT_BRIEF.md forbids
+   inferring a regime from a gate that ran in another, and the seed library leans on the
+   same rotation for convective rungs as for neutral ones. It adds the two profiles a
+   neutral run has nothing meaningful of: `sigma_w^2` and the buoyancy flux.
+4. One end-to-end case: sounding -> forcing -> surface -> seed -> adjust -> window -> LPDM
+   -> pair. Short window; the product is a well-formed pair, not a converged footprint.
 
 Acceptance throughout: **assert on the artifact, never the exit status**
 (`FASTEDDY_TRAPS.md` §12 -- analyses are piped into `grep`, so bash reports grep's status),
