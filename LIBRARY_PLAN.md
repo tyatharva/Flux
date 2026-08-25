@@ -165,22 +165,38 @@ as `FLUX_ROOT`, which is why `docker/run_case.sh`, `docker/pyrun.sh`, `bin/spin_
 
 ## The pipeline, stage by stage
 
+**Per case**, driven end to end by `bin/run_corpus_case.sh` (and per day by
+`bin/run_corpus.sh`):
+
 | # | stage | file | status |
 |---|---|---|---|
 | 1 | HRRR pseudo-sounding at the tower | `bin/hrrr_sounding.py` | **built, validated** |
 | 2 | sounding -> FastEddy `.in` parameters | `bin/sounding_to_forcing.py` | **built, validated** |
-| 3 | the 18 portable seed jobs | `bin/make_seed_jobs.py`, `jobs/run_seed.sh` | **built**, awaiting GPU |
 | 3 | this case's surface heat-flux map | `bin/case_surface.py` | **built, validated** |
-| 4 | which seed does this case restart from | `bin/pick_seed.py` | **built, validated** |
-| 5 | restart + surface injection + adjust | `bin/prep_restart.py`, `bin/prep_stage6.py` | existing |
-| 6 | the sampling window | `bin/run_window.sh` | existing |
-| 7 | LPDM -> footprint | `bin/stage5_footprint.py`, `lpdm/` | existing |
+| 4 | which seed, and which 90-degree rotation | `bin/pick_seed.py` | **built, validated** |
+| 5 | rotate the flow, inject the static surface | `bin/prep_restart.py` | existing |
+| 6a | ~30 min adjustment under this case's forcing | — | existing |
+| 6b | the (30 min + `t_back`) sampling window | `bin/run_window.sh` | existing |
+| 7 | backward LPDM -> the 122 x 122 footprint | `bin/stage5_footprint.py`, `lpdm/` | existing |
 | 8 | assemble one (input, target) record | `bin/make_pair.py` | **built, validated** |
-| — | the stationarity gate, portable | `bin/seed_stationarity.py` | **built** |
-| — | offline validation of 1-2 across regimes | `bin/test_sounding.py` | **built** |
-| — | one case, end to end | `bin/run_corpus_case.sh` | **built** |
-| — | a short cold start per regime config | `bin/smoke_check.py` | **built, PASS x3** |
-| — | Gate B6 re-run convectively | `bin/b6_convective.sh` | **built** |
+
+**The library**, built once and shipped to rented GPUs:
+
+| | file | status |
+|---|---|---|
+| generate the 18 portable jobs | `bin/make_seed_jobs.py` | **built** |
+| run one seed, gate it, return it | `jobs/run_seed.sh` | **built, round trip PASS** |
+| the stationarity gate, portable | `bin/seed_stationarity.py` | **built** |
+
+**Gates and validation**
+
+| | file | status |
+|---|---|---|
+| stages 1-2 across four regimes, offline | `bin/test_sounding.py` | **PASS 70/70** |
+| a short cold start per regime config | `bin/smoke_check.py` | **PASS x4** |
+| Gate B6, re-run convectively | `bin/b6_convective.sh` | **PASS** |
+| Gate C2, on a returned artifact | `bin/c2_restart_check.sh` | **PASS bit-for-bit** |
+| how many days the domain accepts | `bin/corpus_coverage.py` | **built** |
 
 ### 1. `bin/hrrr_sounding.py`
 
