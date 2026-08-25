@@ -456,17 +456,36 @@ file's own precision**. A tolerance tighter than that fails a correct grid.
 
 **Still to run (~30 min GPU, nothing over 1 h wall):**
 
-1. The non-zero base angle (30 deg) -- confirm the rotated forcing reaches the solver and
-   the achieved direction is as predicted.
+1. ~~The non-zero base angle (30 deg)~~ **DONE -- PASS.** `seed_cbl-mid_a000` forces the
+   geostrophic wind FROM **270.00 deg** aloft and `seed_cbl-mid_a030` FROM **240.00 deg**:
+   exactly 30.00 deg apart aloft and 30.03 at the receptor. The rotated forcing reaches
+   the solver. (The 10 m wind is backed only 0.6 deg after five simulated minutes -- the
+   Ekman spiral needs the full spin-up, so this validates the FORCING, not the turning.)
 2. One job-bundle round trip from an unrelated checkout, then Gate C2 on the returned
    artifact: restart from it with `Nt` = the restart step (trap 6 => zero timesteps, one
    dump) and diff byte-for-byte. **The path-discovery half is already done** --
    `jobs/run_seed.sh` runs correctly from a checkout at `/tmp/.../altroot/Flux` that knows
    nothing about `/home/atyagi/Flux`.
-3. One short **convective** B6 (`bin/b6_convective.sh`) -- because PROJECT_BRIEF.md forbids
-   inferring a regime from a gate that ran in another, and the seed library leans on the
-   same rotation for convective rungs as for neutral ones. It adds the two profiles a
-   neutral run has nothing meaningful of: `sigma_w^2` and the buoyancy flux.
+3. ~~One short **convective** B6~~ **DONE -- PASS** (`bin/b6_convective.sh`). PROJECT_BRIEF.md
+   forbids inferring a regime from a gate that ran in another, and the seed library leans
+   on the same rotation for convective rungs as for neutral ones.
+
+   | | rot0 vs rot1 | its own block SE | ratio |
+   |---|---|---|---|
+   | resolved TKE | 0.447% | 5.758% | **0.08** |
+   | `sigma_w^2` | 3.587% | 9.538% | **0.38** |
+   | buoyancy flux `w'theta'` | 1.566% | 16.729% | **0.09** |
+   | SGS TKE | 0.118% | 4.641% | **0.03** |
+
+   `z_i` identical at 428 m; mean wind 2.35e-05, mean theta 1.05e-07.
+
+   > The first version used a **fixed** 3e-2 on `sigma_w^2` and reported DIFFERS at
+   > 3.587e-2. Loosening it would have been exactly the mistake PROJECT_BRIEF.md records. Scoring
+   > against **how well one run agrees with itself** — 4x4 sub-blocks of 30 cells, near
+   > independent because the domain is 1952 m and the convective integral scale is
+   > `~z_i ~ 430 m` — showed the only offending level was `z = 2 m`, where `ww = 0.0013`
+   > and the field's own block SE is 8.1%. Everywhere else the two rotations agree to
+   > **0.001-0.015%**.
 4. One end-to-end case: sounding -> forcing -> surface -> seed -> adjust -> window -> LPDM
    -> pair. Short window; the product is a well-formed pair, not a converged footprint.
 

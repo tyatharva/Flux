@@ -554,6 +554,15 @@ Backward LPDM, run offline on saved FastEddy output.
   times that way. Every step now checks the JSON it was supposed to write, and
   **`bin/preflight.sh` parses every python entry point and shell driver before a campaign
   starts** (about ten seconds; the drivers refuse without it). `FASTEDDY_TRAPS.md` §12.
+- **SCORE A SECOND MOMENT AGAINST ITS OWN SAMPLING SPREAD, NOT AGAINST A NUMBER YOU
+  PICKED.** The convective B6 gate first used a fixed 3e-2 on `sigma_w^2` and reported
+  DIFFERS at 3.587e-2. Loosening the constant would have been the error below in its
+  purest form. Re-scored against the **block standard error of the same field** — 4x4
+  sub-blocks of 30 cells, near-independent because the domain is 1952 m and the convective
+  integral scale is `~z_i ~ 430 m` — the difference is **0.38x** one realisation's own
+  spread, and the only level that ever exceeded 3e-2 was `z = 2 m`, where `ww = 0.0013`
+  and the field's own block SE is **8.1%**. Everywhere else the two rotations agree to
+  **0.001-0.015%**. The reframing is not a loosening: it is what located the problem.
 - **A TOLERANCE MEASURED FROM ONE DIFFERENCE IS NOT A TOLERANCE.** A gate that scores a
   result against a single half-vs-half difference is comparing against a statistic with
   ONE degree of freedom, whose own sampling error is of the same size as the thing it is
@@ -1045,7 +1054,7 @@ complete and committed; Phase B smoke batch mostly complete.
 | **B3** flat `dt` | **PASS** — accuracy boundary **~1.51**, production `CFL_3d = 1.35` (`dt = 0.0146417`) |
 | **B4** terrain `dt` | pending — needs a developed terrain state |
 | **B5** restart injection | **PASS** — `topoPos` 9.5e-7, `z0m` 1.5e-9, `htFlux` exact, `zPos` 1.2e-4 against the terrain-following formula |
-| **B6** 90-deg equivariance | **PASS** — rotation exact to 1.2e-14; after 200 steps mean wind agrees to 1.7e-5, column TKE to 1.2e-3 |
+| **B6** 90-deg equivariance | **PASS** — rotation exact to 1.2e-14; after 200 steps mean wind agrees to 1.7e-5, column TKE to 1.2e-3. **Re-run CONVECTIVELY 2026-08-25** (`bin/b6_convective.sh`) because the seed library leans on the same rotation for convective rungs and this file forbids inferring a regime from a gate that ran in another: **PASS**, `z_i` identical at 428 m, mean wind 2.35e-5, mean theta 1.05e-7, and every second moment 0.03-0.38x its own block sampling spread. |
 | **B7** subsidence | **PASS**, after a FastEddy source fix — theta warms at 1.10x the prescribed `-w_sub dtheta/dz` |
 | **B8** halo check | **PASS** — `xIndex = yIndex = zIndex = 122`, interior only. **The CNF raster is 122 x 122.** |
 
