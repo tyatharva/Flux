@@ -593,8 +593,32 @@ file's own precision**. A tolerance tighter than that fails a correct grid.
    > `~z_i ~ 430 m` — showed the only offending level was `z = 2 m`, where `ww = 0.0013`
    > and the field's own block SE is 8.1%. Everywhere else the two rotations agree to
    > **0.001-0.015%**.
-4. One end-to-end case: sounding -> forcing -> surface -> seed -> adjust -> window -> LPDM
-   -> pair. Short window; the product is a well-formed pair, not a converged footprint.
+4. ~~One end-to-end case~~ **DONE -- PASS, exit 0.** 2023-01-18 18Z, all eight stages,
+   13 min of GPU: sounding -> forcing -> per-case surface -> seed -> adjust -> window ->
+   LPDM -> pair. `k0/k1` 0.515 on the adjustment and 0.483 on the window; the window wrote
+   121 dumps (2.2 GB) and was deleted afterwards, as designed.
+
+   The record it produced:
+
+   | | |
+   |---|---|
+   | `run_id` / `split_key` | `e2e_20230118` |
+   | target | 122 x 122, integral **0.858** (Kljun on the same box: 0.955) |
+   | inputs | `u_mean` 5.462, `u*` 0.5328, `sigma_v` 0.9446, `h` 399.5 m, `L` -71.04, `wdir` 59.67, `1/L` -0.0141 |
+   | receptor | 8.500 m above the raised surface = 10.000 m above bare ground |
+   | closure | `sgs_most`, weighted, `eps`-consistent -- the sixth pass's production closure |
+   | source area | **solar array 55.4%**, cropland 35.3%, tree 7.1%, water 0.0% |
+   | seed | `seed_cbl-mid_a030` rot 2, 14.1 deg away |
+
+   A north-easterly footprint putting more than half its flux on the array is what the
+   geometry says it should be — the array runs 250 m north of the tower.
+
+   **Deliberately not converged, and the numbers say so.** The seed was a five-minute cold
+   start and the adjustment 150 s rather than 1800. Achieved minus requested: `z_i`
+   **-184 m**, direction **+36.0 deg** — the achieved direction is essentially the *seed's*,
+   because 150 s closes about 0.2 deg of a -5.4 deg/h backing. That is the axis argument
+   arriving as a measurement: **direction is a seed axis precisely because adjustment does
+   not close it**, which is why there are 12 of them.
 
 Acceptance throughout: **assert on the artifact, never the exit status**
 (`FASTEDDY_TRAPS.md` §12 -- analyses are piped into `grep`, so bash reports grep's status),
