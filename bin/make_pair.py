@@ -1,0 +1,198 @@
+#!/usr/bin/env python3
+"""Assemble ONE (input, target) training record. Stage 8, the last of the pipeline.
+
+    input   Kljun's scalars, every one of them read off the LES window itself
+    target  the 122 x 122 LPDM flux footprint on that same window
+
+=== THE INPUTS COME FROM THE LES, NOT FROM THE SOUNDING ===
+
+This is the load-bearing decision of the whole corpus design and it is worth stating
+plainly. The sounding chooses which state to simulate; it does not describe the state that
+results. u*, U(z_m), sigma_v, L, z_i and the wind direction are all read back off the
+window by lpdm/les_stats.py:window_stats, so:
+
+  * an imperfectly-matched seed, or an adjustment that has not fully closed, moves where a
+    case LANDS in input space without making the pair wrong -- input and target are
+    measured on the same fields, so they are consistent by construction;
+  * the Ekman turning, the inertial oscillation and the entrainment growth are all
+    absorbed as LABELS rather than errors, which is what PROJECT_BRIEF.md already requires for
+    direction ("Achieved direction is not forcing direction");
+  * and the emulator is being taught the map the LES actually realises, which is the only
+    map the LPDM footprint corresponds to.
+
+The sounding's own numbers are still carried, as `forcing`, so the achieved-vs-requested
+gap is measurable across the corpus instead of assumed small.
+
+=== SPLIT BY RUN, NEVER BY SAMPLE ===
+
+`run_id` is written into every record and is the ONLY legitimate grouping key for a
+train/test split. The effective sample size for generalisation is the number of LES runs,
+not the number of footprint cells or sub-windows drawn from one run (PROJECT_BRIEF.md, ML model).
+
+=== WHAT IS NOT AN INPUT ===
+
+z_0 and the receptor height are properties of the site, identical in every case, so they
+are recorded as provenance rather than offered as features -- a constant column is not a
+predictor, and this is a single-tower emulator by design.
+
+usage: make_pair.py --tag <case> --footprint results/<case>.json
+                    [--forcing results/forcing/<case>.json] [--seed results/pick/<case>.json]
+                    [--outdir pairs]
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import sys
+
+import numpy as np
+
+# Kljun's scalar inputs, and nothing else. PROJECT_BRIEF.md: "Inputs are Kljun's scalars only."
+KLJUN_INPUTS = ("u_mean", "ustar", "sigma_v", "h", "L", "wdir")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--tag", required=True, help="the case id; becomes run_id")
+    ap.add_argument("--footprint", required=True,
+                    help="the .json stage5_footprint.py wrote (its .npz sits beside it)")
+    ap.add_argument("--forcing", default=None)
+    ap.add_argument("--seed", default=None, help="the pick_seed.py JSON")
+    ap.add_argument("--outdir", default="pairs")
+    ap.add_argument("--copy-npz", action="store_true",
+                    help="copy the footprint arrays into the pair rather than "
+                         "referencing them; the corpus is then self-contained")
+    a = ap.parse_args()
+
+    if not os.path.exists(a.footprint):
+        print(f"FATAL: {a.footprint} does not exist", file=sys.stderr)
+        return 2
+    fp = json.load(open(a.footprint))
+    npz_path = a.footprint[:-5] + ".npz"
+    if not os.path.exists(npz_path):
+        print(f"FATAL: {npz_path} does not exist; the footprint arrays are the TARGET",
+              file=sys.stderr)
+        return 2
+
+    st = fp.get("stats") or {}
+    missing = [k for k in KLJUN_INPUTS if st.get(k) is None]
+    if missing:
+        print(f"FATAL: the window stats carry no {missing}; without them there is no "
+              f"input vector and the record would be a target with no features",
+              file=sys.stderr)
+        return 2
+    inputs = {k: float(st[k]) for k in KLJUN_INPUTS}
+    # inf is a legitimate value of L (exactly neutral) and is NOT corruption -- but it
+    # cannot go into a model, so it is carried as 1/L, which is finite everywhere and is
+    # the form the similarity functions actually use.
+    inputs["inv_L"] = (1.0 / inputs["L"]) if np.isfinite(inputs["L"]) else 0.0
+    for k, v in inputs.items():
+        if k != "L" and not np.isfinite(v):
+            print(f"FATAL: input {k} = {v} is not finite", file=sys.stderr)
+            return 2
+
+    with np.load(npz_path) as z:
+        target = np.asarray(z["les"], dtype=np.float64)
+        kljun = np.asarray(z["kljun"], dtype=np.float64)
+        xc, yc = np.asarray(z["xc"]), np.asarray(z["yc"])
+    if not np.isfinite(target).all():
+        print("FATAL: the footprint target is not finite", file=sys.stderr)
+        return 2
+    if target.shape != (len(yc), len(xc)) and target.shape != (len(xc), len(yc)):
+        print(f"FATAL: target {target.shape} does not match the "
+              f"{len(yc)} x {len(xc)} raster", file=sys.stderr)
+        return 2
+
+    rec = {
+        "run_id": a.tag,
+        "split_key": a.tag,      # SPLIT BY RUN. Never by sample. PROJECT_BRIEF.md, ML model.
+        "inputs": inputs,
+        "target": {"file": os.path.basename(npz_path) if a.copy_npz else npz_path,
+                   "array": "les", "shape": list(target.shape),
+                   "units": "1/m^2, normalised so the raster integrates to "
+                            f"{float(fp.get('integral_les', float('nan'))):.4f}",
+                   "reference": "kljun"},
+        "site": {"z_recept_m": fp.get("zm"), "z_agl_m": fp.get("zm_agl"),
+                 "d_recept_m": fp.get("d_recept"), "z_target_m": fp.get("z_target"),
+                 "z0_geometric_m": 0.1435,
+                 "note": "constant across the corpus: a single-tower emulator"},
+        "closure": {"sgs_most": fp.get("sgs_most"), "mode": fp.get("sgs_most_mode"),
+                    "form": fp.get("sgs_most_form"),
+                    "subgrid_weight": fp.get("sgs_subgrid_weight"),
+                    "eps_consistent": fp.get("sgs_eps_consistent"),
+                    "tback_s": fp.get("tback"), "rel_seconds": fp.get("rel_seconds"),
+                    "note": "the near field is closure-dominated at z/Delta ~ 1; the "
+                            "sigma_w anchor is worth 46-66% shape L1 against a 38% "
+                            "sampling floor (PROJECT_BRIEF.md)"},
+        "diagnostics": {"integral_les": fp.get("integral_les"),
+                        "integral_kljun": fp.get("integral_kljun"),
+                        "overlap80_kljun": fp.get("overlap_kljun"),
+                        "cover_share": fp.get("cover_share", {}),
+                        "wind_angle": fp.get("wind_angle")},
+    }
+
+    if a.forcing and os.path.exists(a.forcing):
+        fc = json.load(open(a.forcing))
+        lab = fc["labels"]
+        rec["forcing"] = {
+            "valid_time": fc["provenance"].get("valid_time"),
+            "representable": fc.get("representable"),
+            "requested": {"zi_m": lab["zi_m"], "G": lab["G_speed"],
+                          "G_dir_from_deg": lab["G_dir_from_deg"],
+                          "predicted_10m_dir_deg": lab["predicted_10m_dir_deg"],
+                          "hrrr_10m_dir_deg": lab["hrrr_10m_dir_deg"],
+                          "wth_virtual": lab["wth_virtual"], "bowen": lab["bowen"]},
+            # ACHIEVED MINUS REQUESTED. Not an error term -- the achieved value is the
+            # input -- but the distribution of these across 1825 cases is the only way to
+            # see whether 30 minutes of adjustment is actually enough.
+            "achieved_minus_requested": {
+                "zi_m": (None if st.get("h") is None
+                         else round(float(st["h"]) - float(lab["zi_m"]), 2)),
+                "dir_deg": (None if st.get("wdir") is None else round(
+                    float(((float(st["wdir"]) - float(lab["predicted_10m_dir_deg"])
+                            + 180.0) % 360.0) - 180.0), 2))},
+        }
+        if fc.get("representable") is False:
+            rec.setdefault("warnings", []).append(
+                "the sounding's z_i exceeds what the domain supports; this pair is "
+                "domain-constrained and should be excluded or reported as such")
+
+    if a.seed and os.path.exists(a.seed):
+        pk = json.load(open(a.seed))
+        rec["seed"] = {"job": pk["chosen"]["job"], "rot": pk["chosen"]["rot"],
+                       "d_dir_deg": pk["chosen"]["d_dir_deg"],
+                       "seed_zi_m": pk["chosen"]["seed_zi_m"],
+                       "labelled_by": pk["chosen"]["labelled_by"],
+                       "regime_match": pk["chosen"]["regime_match"]}
+
+    os.makedirs(a.outdir, exist_ok=True)
+    if a.copy_npz:
+        shutil.copyfile(npz_path, os.path.join(a.outdir, os.path.basename(npz_path)))
+    out = os.path.join(a.outdir, f"{a.tag}.json")
+    json.dump(rec, open(out, "w"), indent=1, sort_keys=True)
+    # one line per case, so 1825 records are enumerable without opening 1825 files
+    with open(os.path.join(a.outdir, "index.jsonl"), "a") as f:
+        f.write(json.dumps({"run_id": a.tag, "record": os.path.basename(out),
+                            "target": rec["target"]["file"],
+                            "valid_time": rec.get("forcing", {}).get("valid_time"),
+                            "inputs": inputs}) + "\n")
+
+    print(out)
+    print(f"  run_id {a.tag}   target {target.shape}  "
+          f"integral {rec['diagnostics']['integral_les']}")
+    print(f"  inputs: " + "  ".join(f"{k} {v:.4g}" for k, v in inputs.items()))
+    if "forcing" in rec:
+        d = rec["forcing"]["achieved_minus_requested"]
+        print(f"  achieved - requested: z_i {d['zi_m']} m, direction {d['dir_deg']} deg")
+    if "seed" in rec:
+        print(f"  from seed {rec['seed']['job']} rot {rec['seed']['rot']} "
+              f"({rec['seed']['d_dir_deg']:.1f} deg away)")
+    for w in rec.get("warnings", []):
+        print(f"  WARNING: {w}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

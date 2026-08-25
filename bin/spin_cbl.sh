@@ -18,7 +18,7 @@
 # convective boundary layer has no stationary depth. The achieved z_i is measured and
 # reported per window rather than assumed.
 set -uo pipefail
-cd /home/atyagi/Flux
+cd "${FLUX_ROOT:-/home/atyagi/Flux}"
 # Parameterised so the same driver serves the neutral spin-up and BOTH convective targets
 # (z_i ~ 490 m at L = 4 z_i and z_i ~ 976 m at L = 2 z_i), which differ only in their
 # capping inversion -- the surface heat flux is deliberately identical, so the

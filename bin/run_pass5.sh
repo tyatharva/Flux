@@ -55,8 +55,12 @@ from lpdm import kljun
 # These thresholds are far TIGHTER in footprint terms than the u* test they replace.
 # ============================================================================
 SCORE_H = float("${SCORE_H:-1.5}")
-LIM = {"U/u* (Kljun Pi_4)": 1.0, "sigma_v/u*": 3.0, "sigma_w/u* at the receptor": 2.0,
-       "TKE/u*^2": 5.0, "z_i": 3.0, "Kljun x_peak": 1.0, "Kljun x90": 1.0}
+# The seven limits live in bin/seed_stationarity.py, which is the portable form of this
+# gate and the one the seed jobs run. Imported, not restated: a gate carrying its own copy
+# of a definition is exactly how stage4_wellmixed.py came to score a closure the
+# footprints did not compute (PROJECT_BRIEF.md, Conventions).
+sys.path.insert(0, "bin")
+from seed_stationarity import LIMITS as LIM
 ps = sorted(glob.glob('$SPIN/output/FE_G16.*'), key=lambda p:int(p.rsplit('.',1)[1]))
 t,us,tke,zi,sw,sv,Um,wd = [],[],[],[],[],[],[],[]
 for p in ps:

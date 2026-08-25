@@ -12,7 +12,7 @@
 #          ADJ_S=1200    adjustment length in seconds
 #          ONLY=wN       run a single direction
 set -uo pipefail
-cd /home/atyagi/Flux
+cd "${FLUX_ROOT:-/home/atyagi/Flux}"
 PRE="$1"; SPIN="$2"; GRID="$3"; DT="$4"; WIN="$5"; TBACK="$6"
 BASE="${BASE:-runs/g16_base/base.in}"
 L=/tmp/flux-logs

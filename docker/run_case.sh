@@ -4,6 +4,9 @@
 #
 # Always routes through check_run.sh, because FastEddy exits 0 on fully-NaN fields.
 set -uo pipefail
+# Repo root is a variable so a seed job can run on a rented GPU whose checkout is
+# somewhere else. Defaults to this machine, so nothing that already works changes.
+FLUX_ROOT="${FLUX_ROOT:-/home/atyagi/Flux}"
 # One GPU, one run. Two FastEddy containers writing the same output/ silently
 # interleave their dumps and corrupt both -- and it looks like a mysteriously stalled
 # run, not an error. Refuse rather than race.
@@ -26,11 +29,11 @@ fi
 # cell of every field is NaN -- while still exiting 0. That cost a 30-minute segment once.
 # Check the file exists before spending GPU time on it.
 CASE_DIR="$1"; CASE_FILE="$2"
-_cf="/home/atyagi/Flux/${CASE_DIR}/${CASE_FILE}"
+_cf="${FLUX_ROOT}/${CASE_DIR}/${CASE_FILE}"
 if [ -f "$_cf" ]; then
   _ip=$(grep -oP '^inPath\s*=\s*\K[^#[:space:]]*' "$_cf" || true)
   _if=$(grep -oP '^inFile\s*=\s*\K[^#[:space:]]*' "$_cf" || true)
-  if [ -n "${_if:-}" ] && [ ! -f "/home/atyagi/Flux/${CASE_DIR}/${_ip}${_if}" ]; then
+  if [ -n "${_if:-}" ] && [ ! -f "${FLUX_ROOT}/${CASE_DIR}/${_ip}${_if}" ]; then
     echo "  REFUSED: restart file ${_ip}${_if} not found relative to ${CASE_DIR}" >&2
     echo "           (FastEddy would run to completion and write only NaN)" >&2
     exit 3
@@ -39,7 +42,7 @@ fi
 LOG="${3:-/tmp/flux-logs/$(basename "$CASE_FILE" .in).log}"
 mkdir -p "$(dirname "$LOG")"
 docker run --gpus all --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
-  -v /home/atyagi/Flux:/work -w "/work/${CASE_DIR}" flux-fasteddy:cuda118 \
+  -v ${FLUX_ROOT}:/work -w "/work/${CASE_DIR}" flux-fasteddy:cuda118 \
   mpirun -np 1 /work/FastEddy-model-5.0.1/SRC/FEMAIN/FastEddy "./${CASE_FILE}" > "$LOG" 2>&1
 RC=$?
 # Score the log AND the newest dump (accuracy-CFL k0/k1 check) in one place.
@@ -48,6 +51,6 @@ RC=$?
 # instead -- so the standing accuracy check was passing on a file the run never touched.
 _op=$(grep -oP '^outPath\s*=\s*\K[^#[:space:]]*' "$_cf" 2>/dev/null || true)
 _op="${_op:-./output/}"
-LAST=$(ls -t "/home/atyagi/Flux/${CASE_DIR}/${_op}"/*.[0-9]* 2>/dev/null | head -1)
-LAST_REL="${LAST#/home/atyagi/Flux/}"
+LAST=$(ls -t "${FLUX_ROOT}/${CASE_DIR}/${_op}"/*.[0-9]* 2>/dev/null | head -1)
+LAST_REL="${LAST#${FLUX_ROOT}/}"
 exec "$(dirname "$0")/check_run.sh" "$LOG" "$RC" ${LAST_REL:+"$LAST_REL"}

@@ -95,6 +95,29 @@ RUN pip3 install --no-cache-dir \
         scikit-image \
         mpi4py
 
+# ---------------------------------------------------------------------------
+# Layer 3: HRRR pseudo-sounding retrieval (bin/hrrr_sounding.py).
+#
+# The per-case forcing comes from HRRR analyses rather than CONUS404, which
+# carries no atmospheric profiles at all (PROJECT_BRIEF.md). Herbie does the archive
+# lookup and GRIB byte-range subsetting; cfgrib/eccodes decode the messages.
+#
+# `eccodes` is the pip binary wheel, which ships its own libeccodes -- the apt
+# package is NOT installed, because the two disagree on definitions paths and
+# cfgrib then picks up whichever it finds first. One source of eccodes only.
+#
+# Pinned to a floor, not an exact version: Herbie's archive source list changes
+# as NOAA moves buckets, and an old pin silently loses access to date ranges.
+# ---------------------------------------------------------------------------
+RUN pip3 install --no-cache-dir \
+        "eccodes>=1.7" \
+        "cfgrib>=0.9.10" \
+        "herbie-data>=2024.3.0" \
+        "pyproj>=3.6" \
+        s3fs \
+        scikit-learn \
+    && python3 -c "import cfgrib, herbie; print('cfgrib', cfgrib.__version__, 'herbie', herbie.__version__)"
+
 # Consumed by docker/build_fasteddy.sh to supply the include/library paths that
 # FastEddy's Makefile expects NCAR's module wrapper to inject.
 #

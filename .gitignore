@@ -11,6 +11,10 @@ data/raw/
 data/grid/
 data/grid_cbl/
 data/conus404/
+data/hrrr/
+results/soundings/
+results/forcing/
+pairs/
 
 # --- LES output: regenerable, and far too large. Peak storage is one run. ---
 # The dumps are named FE_<TAG>.<step>, so they have NO extension a pattern can catch --
