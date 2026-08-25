@@ -148,6 +148,12 @@ def main():
     zc = les_levels(a.nz, a.zceiling, a.deform)
     dz_sfc = float(2.0 * zc[0])
     dt, frq5, cfl = derive_dt(a.dx, dz_sfc, a.cfl)
+    # ROUND ONCE, HERE. The .in can only carry what fits in a text field, and the manifest
+    # is what the stationarity gate uses to build its time axis -- so if the manifest keeps
+    # full precision and the .in gets 8 digits, the gate is scoring a slightly different
+    # clock than the run kept. It is 3 ms over 3 simulated hours and would never show up as
+    # anything; it is fixed because "the two files agree" is worth more than the 3 ms.
+    dt = float(f"{dt:.7g}")
     # the spin-up cadence, in steps; an integer because dt was chosen to make 5 s integral
     frq = int(round(CADENCE_SPINUP / dt))
     if abs(frq * dt - CADENCE_SPINUP) > 2e-4:
@@ -191,7 +197,7 @@ def main():
                 "thetaPerturbationSwitch": 1,
                 "thetaHeight": round(min(300.0, 0.8 * zi), 1),
                 "thetaAmplitude": 0.10 if regime == "stable" else 0.25,
-                "dt": float(f"{dt:.7g}"),
+                "dt": dt,
                 "Nt": seg, "NtBatch": frq, "frqOutput": frq,
                 "inPath": "", "inFile": "", "topoFile": "",
                 "outPath": "./output/", "outFileBase": "FE_SEED",

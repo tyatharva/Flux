@@ -84,19 +84,31 @@ def load_library(index_path, library_dir):
     that is reported per row and again on the chosen seed -- because a library matched on
     targets is a library whose spacing has never been measured.
     """
-    seeds, have = [], set()
+    seeds, have, rejected = [], set(), []
     if os.path.isdir(library_dir):
         for m in sorted(glob.glob(os.path.join(library_dir, "*", "return",
                                                "manifest.json"))):
             s = json.load(open(m))
+            # A SEED THAT FAILED ITS OWN STATIONARITY GATE IS NOT A SEED. It is a state
+            # still drifting in one of the footprint's controlling parameters, and
+            # restarting a case from it starts the case mid-transient -- which the 30
+            # minute adjustment is not there to absorb and would not announce.
+            if s.get("achieved", {}).get("pass") is False:
+                rejected.append(s["job"])
+                have.add(s["job"])          # and do NOT fall back to its index entry
+                continue
             seeds.append(s)
             have.add(s["job"])
     if os.path.exists(index_path):
         for s in json.load(open(index_path))["jobs"]:
             if s["job"] not in have:
                 seeds.append(s)
+    if rejected:
+        print(f"  EXCLUDED {len(rejected)} seed(s) that failed their own stationarity "
+              f"gate: {', '.join(sorted(rejected))}")
     if not seeds:
-        raise SystemExit(f"no seeds found under {library_dir} or in {index_path}")
+        raise SystemExit(f"no usable seeds under {library_dir} or in {index_path}"
+                         + (f" ({len(rejected)} failed their gate)" if rejected else ""))
     return seeds
 
 

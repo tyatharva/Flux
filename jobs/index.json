@@ -1,6 +1,6 @@
 {
  "n_jobs": 18,
- "sim_hours_each": 3.0,
+ "sim_hours_each": 2.9999993760000003,
  "gpu_hours_estimate": 52.4,
  "base_angles_deg": [
   0.0,
@@ -34,14 +34,14 @@
     "G_dir_from_deg": 270.0
    },
    "run": {
-    "dt": 0.014619883040935672,
+    "dt": 0.01461988,
     "CFL_3d": 1.3480022236752667,
     "frqOutput": 20520,
-    "cadence_s": 300.0,
+    "cadence_s": 299.9999376,
     "steps_total": 738720,
     "n_segments": 4,
     "steps_per_segment": 184680,
-    "sim_hours": 3.0,
+    "sim_hours": 2.9999993760000003,
     "projected_wall_min_per_segment": 45.9,
     "outFileBase": "FE_SEED"
    },
@@ -70,14 +70,14 @@
     "G_dir_from_deg": 240.0
    },
    "run": {
-    "dt": 0.014619883040935672,
+    "dt": 0.01461988,
     "CFL_3d": 1.3480022236752667,
     "frqOutput": 20520,
-    "cadence_s": 300.0,
+    "cadence_s": 299.9999376,
     "steps_total": 738720,
     "n_segments": 4,
     "steps_per_segment": 184680,
-    "sim_hours": 3.0,
+    "sim_hours": 2.9999993760000003,
     "projected_wall_min_per_segment": 45.9,
     "outFileBase": "FE_SEED"
    },
@@ -106,14 +106,14 @@
     "G_dir_from_deg": 210.0
    },
    "run": {
-    "dt": 0.014619883040935672,
+    "dt": 0.01461988,
     "CFL_3d": 1.3480022236752667,
     "frqOutput": 20520,
-    "cadence_s": 300.0,
+    "cadence_s": 299.9999376,
     "steps_total": 738720,
     "n_segments": 4,
     "steps_per_segment": 184680,
-    "sim_hours": 3.0,
+    "sim_hours": 2.9999993760000003,
     "projected_wall_min_per_segment": 45.9,
     "outFileBase": "FE_SEED"
    },
@@ -142,14 +142,14 @@
     "G_dir_from_deg": 270.0
    },
    "run": {
-    "dt": 0.014619883040935672,
+    "dt": 0.01461988,
     "CFL_3d": 1.3480022236752667,
     "frqOutput": 20520,
-    "cadence_s": 300.0,
+    "cadence_s": 299.9999376,
     "steps_total": 738720,
     "n_segments": 4,
     "steps_per_segment": 184680,
-    "sim_hours": 3.0,
+    "sim_hours": 2.9999993760000003,
     "projected_wall_min_per_segment": 45.9,
     "outFileBase": "FE_SEED"
    },
@@ -178,14 +178,14 @@
     "G_dir_from_deg": 240.0
    },
    "run": {
-    "dt": 0.014619883040935672,
+    "dt": 0.01461988,
     "CFL_3d": 1.3480022236752667,
     "frqOutput": 20520,
-    "cadence_s": 300.0,
+    "cadence_s": 299.9999376,
     "steps_total": 738720,
     "n_segments": 4,
     "steps_per_segment": 184680,
-    "sim_hours": 3.0,
+    "sim_hours": 2.9999993760000003,
     "projected_wall_min_per_segment": 45.9,
     "outFileBase": "FE_SEED"
    },
@@ -214,14 +214,14 @@
     "G_dir_from_deg": 210.0
    },
    "run": {
-    "dt": 0.014619883040935672,
+    "dt": 0.01461988,
     "CFL_3d": 1.3480022236752667,
     "frqOutput": 20520,
-    "cadence_s": 300.0,
+    "cadence_s": 299.9999376,
     "steps_total": 738720,
     "n_segments": 4,
     "steps_per_segment": 184680,
-    "sim_hours": 3.0,
+    "sim_hours": 2.9999993760000003,
     "projected_wall_min_per_segment": 45.9,
     "outFileBase": "FE_SEED"
    },
@@ -250,14 +250,14 @@
     "G_dir_from_deg": 270.0
    },
    "run": {
-    "dt": 0.014619883040935672,
+    "dt": 0.01461988,
     "CFL_3d": 1.3480022236752667,
     "frqOutput": 20520,
-    "cadence_s": 300.0,
+    "cadence_s": 299.9999376,
     "steps_total": 738720,
     "n_segments": 4,
     "steps_per_segment": 184680,
-    "sim_hours": 3.0,
+    "sim_hours": 2.9999993760000003,
     "projected_wall_min_per_segment": 45.9,
     "outFileBase": "FE_SEED"
    },
@@ -286,14 +286,14 @@
     "G_dir_from_deg": 240.0
    },
    "run": {
-    "dt": 0.014619883040935672,
+    "dt": 0.01461988,
     "CFL_3d": 1.3480022236752667,
     "frqOutput": 20520,
-    "cadence_s": 300.0,
+    "cadence_s": 299.9999376,
     "steps_total": 738720,
     "n_segments": 4,
     "steps_per_segment": 184680,
-    "sim_hours": 3.0,
+    "sim_hours": 2.9999993760000003,
     "projected_wall_min_per_segment": 45.9,
     "outFileBase": "FE_SEED"
    },
@@ -322,14 +322,14 @@
     "G_dir_from_deg": 210.0
    },
    "run": {
-    "dt": 0.014619883040935672,
+    "dt": 0.01461988,
     "CFL_3d": 1.3480022236752667,
     "frqOutput": 20520,
-    "cadence_s": 300.0,
+    "cadence_s": 299.9999376,
     "steps_total": 738720,
     "n_segments": 4,
     "steps_per_segment": 184680,
-    "sim_hours": 3.0,
+    "sim_hours": 2.9999993760000003,
     "projected_wall_min_per_segment": 45.9,
     "outFileBase": "FE_SEED"
    },
@@ -358,14 +358,14 @@
     "G_dir_from_deg": 270.0
    },
    "run": {
-    "dt": 0.014619883040935672,
+    "dt": 0.01461988,
     "CFL_3d": 1.3480022236752667,
     "frqOutput": 20520,
-    "cadence_s": 300.0,
+    "cadence_s": 299.9999376,
     "steps_total": 738720,
     "n_segments": 4,
     "steps_per_segment": 184680,
-    "sim_hours": 3.0,
+    "sim_hours": 2.9999993760000003,
     "projected_wall_min_per_segment": 45.9,
     "outFileBase": "FE_SEED"
    },
@@ -394,14 +394,14 @@
     "G_dir_from_deg": 240.0
    },
    "run": {
-    "dt": 0.014619883040935672,
+    "dt": 0.01461988,
     "CFL_3d": 1.3480022236752667,
     "frqOutput": 20520,
-    "cadence_s": 300.0,
+    "cadence_s": 299.9999376,
     "steps_total": 738720,
     "n_segments": 4,
     "steps_per_segment": 184680,
-    "sim_hours": 3.0,
+    "sim_hours": 2.9999993760000003,
     "projected_wall_min_per_segment": 45.9,
     "outFileBase": "FE_SEED"
    },
@@ -430,14 +430,14 @@
     "G_dir_from_deg": 210.0
    },
    "run": {
-    "dt": 0.014619883040935672,
+    "dt": 0.01461988,
     "CFL_3d": 1.3480022236752667,
     "frqOutput": 20520,
-    "cadence_s": 300.0,
+    "cadence_s": 299.9999376,
     "steps_total": 738720,
     "n_segments": 4,
     "steps_per_segment": 184680,
-    "sim_hours": 3.0,
+    "sim_hours": 2.9999993760000003,
     "projected_wall_min_per_segment": 45.9,
     "outFileBase": "FE_SEED"
    },
@@ -466,14 +466,14 @@
     "G_dir_from_deg": 270.0
    },
    "run": {
-    "dt": 0.014619883040935672,
+    "dt": 0.01461988,
     "CFL_3d": 1.3480022236752667,
     "frqOutput": 20520,
-    "cadence_s": 300.0,
+    "cadence_s": 299.9999376,
     "steps_total": 738720,
     "n_segments": 4,
     "steps_per_segment": 184680,
-    "sim_hours": 3.0,
+    "sim_hours": 2.9999993760000003,
     "projected_wall_min_per_segment": 45.9,
     "outFileBase": "FE_SEED"
    },
@@ -502,14 +502,14 @@
     "G_dir_from_deg": 240.0
    },
    "run": {
-    "dt": 0.014619883040935672,
+    "dt": 0.01461988,
     "CFL_3d": 1.3480022236752667,
     "frqOutput": 20520,
-    "cadence_s": 300.0,
+    "cadence_s": 299.9999376,
     "steps_total": 738720,
     "n_segments": 4,
     "steps_per_segment": 184680,
-    "sim_hours": 3.0,
+    "sim_hours": 2.9999993760000003,
     "projected_wall_min_per_segment": 45.9,
     "outFileBase": "FE_SEED"
    },
@@ -538,14 +538,14 @@
     "G_dir_from_deg": 210.0
    },
    "run": {
-    "dt": 0.014619883040935672,
+    "dt": 0.01461988,
     "CFL_3d": 1.3480022236752667,
     "frqOutput": 20520,
-    "cadence_s": 300.0,
+    "cadence_s": 299.9999376,
     "steps_total": 738720,
     "n_segments": 4,
     "steps_per_segment": 184680,
-    "sim_hours": 3.0,
+    "sim_hours": 2.9999993760000003,
     "projected_wall_min_per_segment": 45.9,
     "outFileBase": "FE_SEED"
    },
@@ -574,14 +574,14 @@
     "G_dir_from_deg": 270.0
    },
    "run": {
-    "dt": 0.014619883040935672,
+    "dt": 0.01461988,
     "CFL_3d": 1.3480022236752667,
     "frqOutput": 20520,
-    "cadence_s": 300.0,
+    "cadence_s": 299.9999376,
     "steps_total": 738720,
     "n_segments": 4,
     "steps_per_segment": 184680,
-    "sim_hours": 3.0,
+    "sim_hours": 2.9999993760000003,
     "projected_wall_min_per_segment": 45.9,
     "outFileBase": "FE_SEED"
    },
@@ -610,14 +610,14 @@
     "G_dir_from_deg": 240.0
    },
    "run": {
-    "dt": 0.014619883040935672,
+    "dt": 0.01461988,
     "CFL_3d": 1.3480022236752667,
     "frqOutput": 20520,
-    "cadence_s": 300.0,
+    "cadence_s": 299.9999376,
     "steps_total": 738720,
     "n_segments": 4,
     "steps_per_segment": 184680,
-    "sim_hours": 3.0,
+    "sim_hours": 2.9999993760000003,
     "projected_wall_min_per_segment": 45.9,
     "outFileBase": "FE_SEED"
    },
@@ -646,14 +646,14 @@
     "G_dir_from_deg": 210.0
    },
    "run": {
-    "dt": 0.014619883040935672,
+    "dt": 0.01461988,
     "CFL_3d": 1.3480022236752667,
     "frqOutput": 20520,
-    "cadence_s": 300.0,
+    "cadence_s": 299.9999376,
     "steps_total": 738720,
     "n_segments": 4,
     "steps_per_segment": 184680,
-    "sim_hours": 3.0,
+    "sim_hours": 2.9999993760000003,
     "projected_wall_min_per_segment": 45.9,
     "outFileBase": "FE_SEED"
    },

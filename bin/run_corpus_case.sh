@@ -4,6 +4,7 @@
 #   usage: bin/run_corpus_case.sh 2023-01-18T18:00 [tag]
 #   env:   WINDOW_S=2400  ADJ_S=1800  TBACK=600  KEEP_FIELDS=0  GRID=data/grid16
 #          SKIP_LES=1     stop after stage 4, for a dry run with no GPU
+#          SEED_LIB=jobs  where the spun-up seed library lives
 #
 # The eight stages, and which file owns each:
 #
@@ -81,11 +82,12 @@ print(p['U_g'], p['V_g'], p['dt'], d['labels']['wth_cropland_reference'])")
 # ---- 4. the seed -----------------------------------------------------------------
 say "$TAG  stage 4: pick a seed"
 PICK=results/pick/$TAG.json
-./docker/pyrun.sh bin/pick_seed.py "$FRC" --json "$PICK" || true
+./docker/pyrun.sh bin/pick_seed.py "$FRC" --json "$PICK" \
+    --library "${SEED_LIB:-jobs}" --index "${SEED_LIB:-jobs}/index.json" || true
 [ -s "$PICK" ] || die "stage 4 wrote no pick json"
 read -r JOB ROT < <(python3 -c "
 import json; c=json.load(open('$PICK'))['chosen']; print(c['job'], c['rot'])")
-SEED="jobs/$JOB/return/seed_restart.nc"
+SEED="${SEED_LIB:-jobs}/$JOB/return/seed_restart.nc"
 [ "${SKIP_LES:-0}" = "1" ] && { echo "  SKIP_LES=1: stopping after stage 4"; exit 0; }
 [ -f "$SEED" ] || die "seed $SEED has not been spun up yet; run jobs/run_seed.sh $JOB"
 
