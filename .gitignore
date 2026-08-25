@@ -56,3 +56,13 @@ data/case_grids/
 data/smokelib/
 results/corpus/
 results/pick/
+
+# --- generated per-case run directories: the corpus makes ~1825 of them ---
+# The .in files under runs/ are tracked for the retired passes, which are the record.
+# A corpus case's directory is regenerable from its sounding and is not.
+runs/case_*/
+runs/yr_*/
+runs/e2e_*/
+runs/c2_check/
+runs/c2_roundtrip/
+runs/g16_b6cbl/
