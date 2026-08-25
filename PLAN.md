@@ -1,5 +1,13 @@
 # Staged Plan — Fifth Pass, 10 m receptor, 122^3 @ 16 m
 
+> **THE CORPUS PHASE IS NOW `LIBRARY_PLAN.md`, 2026-08-25.** "After Phase F: corpus design,
+> wind-rose stratification with a directional floor" is answered there and answered
+> differently: the corpus is **~1825 HRRR-forced cases**, one per day over five years, not
+> a stratified sweep — so the wind rose enters through the weather itself rather than
+> through a sampling rule. The 18 **seed states** are pre-spun turbulence that exists only
+> to delete each case's 3 h spin-up. **The forcing source changed from CONUS404 to HRRR**;
+> see the section at the top of `PROJECT_BRIEF.md`.
+
 > **SIXTH PASS COMPLETE, 2026-08-24 — the sigma_w closure.** `SIXTH_PASS_RESULTS.md`.
 > The convective well-mixed gate passes in both directions for the first time; production
 > is regenerated on the corrected closure and on `--raise-topo`. The retired closure was
@@ -195,6 +203,11 @@ floor) alongside any near-field number.
 Only then: corpus design, wind-rose stratification with a directional floor, CNF
 implementation. **The CNF raster is `122 x 122`** — the LES interior, no halos, confirmed by
 `ncdump`.
+
+**Corpus design is done and is `LIBRARY_PLAN.md`.** It replaces wind-rose stratification
+with per-day HRRR forcing, which samples the rose by construction; the directional floor
+survives only as the seed library's uniform 30-degree spacing, which is a spacing of
+RESTART POINTS and not of corpus cases.
 
 Do not start ML work before Phase F passes. A trained model on a broken target pipeline looks
 exactly like a trained model on a correct one.

@@ -13,6 +13,52 @@ Training targets come from FastEddy LES + a backward Lagrangian particle dispers
 Scope is deliberately narrow: this is a **site-calibrated emulator for one tower**. It has
 zero transfer to other sites, and that is an accepted, stated limitation. Do not add scope.
 
+## THE CORPUS IS FORCED BY HRRR, NOT BY CONUS404 — changed 2026-08-25
+
+**This reverses a rule stated throughout this file, so read it before believing anything
+below about forcing.** CONUS404 keeps its role: it sets sweep ranges and sampling density,
+and it is the 45-year climatology this site is characterised by. What it cannot do is force
+a run, and the corpus now needs exactly that.
+
+The corpus is **~1825 LES cases, one per day over five years**, each forced by a real
+**HRRR pseudo-sounding** at the tower, each yielding one (input, target) pair. Inputs are
+Kljun's scalars read off the LES window itself; the target is the LPDM footprint on that
+same window. See `LIBRARY_PLAN.md` for the whole design.
+
+| | CONUS404 | **HRRR** |
+|---|---|---|
+| horizontal | 4 km | **3 km** |
+| atmospheric profiles | **none** — `conus404_hourly`'s only 4-D variables are soil and snow | **~50 hybrid levels** |
+| surface fluxes | — | `SHTFL`/`LHTFL`, giving a **per-case Bowen ratio** |
+| per-timestamp subsetting | — | Herbie |
+| record homogeneity | one configuration across WY1980-2024 | **v4 from 2020-12-02**, minor upgrades within the window |
+
+**The trade-off, stated: the corpus trades configuration homogeneity for resolution and
+per-case realism.** Pick a five-year span inside HRRR v4 to keep that trade small.
+
+Four things that follow, each of which contradicts something written further down:
+
+1. **"CONUS404 is a climatology, never a forcing" still holds — of CONUS404.** Per-case
+   HRRR soundings **do** force runs. What survives unchanged is that forcing is constant
+   *within* a run, so "one quasi-stationary state per averaging period" is intact.
+2. **"Fitting `stabilityScheme = 2` to a CONUS404 sounding" is still ruled out, but the
+   ruling was about a MEAN climatological profile** — and it was ruled out because
+   CONUS404 has no profiles at all and because a fitted mean `z_i` (~860 m) is a state the
+   box cannot hold. A **per-case** fit to a real HRRR profile is now the mechanism
+   (`bin/sounding_to_forcing.py`), and it reproduces the sounding to **0.04-0.27 K rms**
+   over the LES column on four cases spanning all three regimes.
+3. **The corpus structure below — "one spun-up state per (stability, wind speed) bin" — is
+   superseded by the seed library.** 18 seeds, 6 coupled rungs x 3 base angles, exist only
+   to delete each case's spin-up. They are never trained on.
+4. **`data/raw/H_and_sigma_w.csv` timestamps are UTC, and the convention is
+   period-ENDING.** The file runs `2025-05-01 00:30` -> `2026-05-01 00:00`, exactly
+   365 x 48 = 17,520 rows, so a record stamped `00:30` covers `00:00-00:30`. **A footprint
+   stamped 01:00 UTC is the average over 00:30-01:00 UTC**, and the forcing comes from the
+   **HRRR analysis whose valid time equals the footprint timestamp**. Corrected to local
+   midday the median H is **110 W/m2** with 85% of hours above 25 — not 0 W/m2 and 26.5%,
+   which is what reading the clock as local gives. That file is a sanity check, not
+   training data, but the constant is written down so it is not mis-read again.
+
 ## Hardware / environment
 
 - Single NVIDIA RTX 4080 (16 GB), Ada, `sm_89`
@@ -553,7 +599,9 @@ Evaluated and rejected. Re-proposing them wastes time.
   change to `t_back`, the weighting, or the closure would require re-running the LES rather than
   re-running 10 minutes of LPDM.
 - **Fitting `stabilityScheme = 2` to a CONUS404 mean sounding** — impossible, and it was
-  the wrong idea anyway. Checked in the store's own `.zmetadata` 2026-08-22: `conus404_hourly`
+  the wrong idea anyway. **Note the word MEAN, and the word CONUS404: a PER-CASE fit to a
+  real HRRR profile is now the corpus mechanism** (`bin/sounding_to_forcing.py`, 2026-08-25).
+  What was ruled out was fitting a climatological mean, for the two reasons below. Checked in the store's own `.zmetadata` 2026-08-22: `conus404_hourly`
   carries **no time-varying atmospheric profiles**. Its only 4-D variables are soil and snow
   (`SH2O`, `SMOIS`, `TSLB`, `SNICE`, `SNLIQ`, `TSNO`, `ZSNSO`); `PB` and `PHB` are static
   base-state fields with no time axis. And the fit would have been self-defeating: the fitted
@@ -842,9 +890,11 @@ Every other trap that has cost GPU time lives in **`FASTEDDY_TRAPS.md`**. Read i
 `bin/conus404_site.py` streams a stratified 45-year hourly sample at the tower cell off the USGS
 Open Storage Network pod over plain HTTPS. `bin/conus404_dist.py` summarises it.
 
-**It sets sweep ranges and sampling density. It never forces a run.** No per-case sounding, no
-projection matching, no time-varying boundary conditions. A 1.9 km doubly-periodic box cannot
-sustain mesoscale forcing anyway.
+**It sets sweep ranges and sampling density. CONUS404 itself never forces a run** — it has
+no atmospheric profiles to force one with. **Per-case HRRR pseudo-soundings DO**, as of
+2026-08-25; see the forcing-source section at the top of this file and `LIBRARY_PLAN.md`.
+What is unchanged either way: no time-varying boundary conditions, and forcing constant
+within a run. A 1.9 km doubly-periodic box cannot sustain mesoscale forcing anyway.
 
 Measured at the tower (39,456 hourly records, 1979-2024), QC'd at `u* >= 0.15 m/s` (65.2%):
 
@@ -923,6 +973,20 @@ from the 24 m domain (0.1006 vs 0.11), where 16% water pulled the mean DOWN. The
 gone; tree and built now pull it up. `prep_surface.py` prints it.
 
 ## Corpus structure
+
+> **SUPERSEDED 2026-08-25 by the seed library — `LIBRARY_PLAN.md`.** The corpus is ~1825
+> HRRR-forced cases, not a sweep over bins. The 18 seed states are pre-spun turbulence
+> whose only purpose is to delete each case's 3 h spin-up (52 GPU-h that buys back ~5500);
+> they are not corpus points and are never trained on. A case restarts from the nearest
+> seed, adjusts 30 min under its own sounding's forcing, then samples 30 min.
+> **Seed axes are sized by what 30 minutes CANNOT adjust** — direction (-5.4 deg/h),
+> `z_i` (+79 m/h) and regime (~1.2 h to turn over) get axes; `u*` and fine `z/L` do not,
+> because the surface layer re-equilibrates in ~2 min at a 10 m receptor. **`z_i` outside
+> 100-976 m is not a usable case**: below, the receptor leaves the surface layer; above,
+> the 1952 m box cannot hold it at `L >= 2 z_i`.
+>
+> The section below describes the retired per-bin design and is kept for the cost model,
+> which still applies per case.
 
 One spun-up **flat-terrain** state per `(stability, wind speed)` bin, **shared across all wind
 directions in that bin** by 90-degree re-indexing.

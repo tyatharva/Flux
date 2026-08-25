@@ -268,3 +268,79 @@ Two, both cheap:
 
 **A gate that reads an exit status is reading whatever the shell last did, not whatever
 you meant.** Assert on the artifact the step was supposed to produce.
+
+---
+
+## 13. An out-of-range parameter does NOT stop FastEddy — it silently uses the default
+
+Found 2026-08-25 while building the sounding-forced corpus, before it cost anything.
+
+### Symptom
+
+There is none. A run with an out-of-range parameter launches, integrates, exits 0, and
+produces perfectly finite fields — of a *different case* than the one in the `.in` file.
+
+### Cause
+
+`SRC/PARAMETERS/parameters.c:308-315`:
+
+```c
+/*Ensure the value is within the appropriate range limits*/
+if((val < min) || (val > max)){
+   entry->val->state = VALUE_STATE_INVALID;
+   retCode = PARAM_ERROR_INVALID_FLOAT;
+   numErrors++;
+   printf("ERROR: parameter '%s' value %g is outside limits [%g,%g].\n",
+           name, val, min, max);
+}else { ... *var = val; }
+```
+
+Note what does **not** happen: `*var` is never assigned. It keeps whatever the caller
+initialised it to a few lines earlier — the compiled-in default. And
+`SRC/FEMAIN/FastEddy.c:96` calls
+
+```c
+errorCode = hydro_coreGetParams();
+```
+
+and never tests `errorCode`. Neither does any other `*GetParams()` call site. `numErrors`
+is a file-static that nothing consults before the run starts.
+
+So the entire consequence of an out-of-range value is **one `printf` into a log that this
+project greps for `CORRUPTED`**, which it will not match.
+
+### Why it matters here more than it looks
+
+`stableGradient`, `stableGradient2` and `stableGradient3` are queried over
+`[FLT_MIN, FLT_MAX]` (`hydro_core.c:642,646,650`) — i.e. **strictly positive**; zero is
+rejected. Their compiled-in defaults are **0.1, 0.03 and 0.03 K/m**. So a per-case base
+state that asked for a 0.4 K/km free-atmosphere lapse and passed `0.0` would run with
+**0.1 K/m — a 250x stronger inversion** — and `z_i` would come out wrong in every window
+with nothing anywhere to say so.
+
+The same applies to `surflayer_wth` (range `[-5, 5]`, default 0.0 → a convective case
+would run **neutral**), `surflayer_z0` (`[1e-12, 1]`, default 0.1) and `thetaAmplitude`
+(`[0, 2]`).
+
+### Fix
+
+Guarantee the ranges upstream rather than hoping downstream.
+
+- `bin/sounding_to_forcing.py` clips every gradient into `[1e-4, 0.5]` K/m and **raises**
+  if a value is still out of range after rounding, or if the stable-layer bases come out
+  unordered (`b1 <= b2 <= b3`) — unordered bases make the middle branch of
+  `hydro_core.c:1786-1800` unreachable, which is its own silent wrong answer.
+- `bin/test_sounding.py` re-checks all ten written parameters against the limits **read
+  out of `hydro_core.c` itself**, not against remembered ones.
+- Any campaign that greps a log should grep for `outside limits` alongside `CORRUPTED`.
+
+### A numerical near-miss worth recording
+
+The hydrostatic pressure integral carries `(1/g)*log(1 + g*dz/theta)`, which looks like it
+would lose the neutral limit as `g -> 0` in fp32: at `g = FLT_MIN`, `1.0f + 1e-38f` rounds
+to `1.0f`, `log` gives 0, and the segment drops out of the integral entirely.
+
+It does not happen. The literal `1.0` in that expression is a **double**, so the whole
+subexpression promotes and `log` is the double version — accurate to ~1e-13 relative even
+at the 1e-4 K/m floor. **The positivity constraint is a parameter-range rule, not a
+numerical one.** Recorded because the fp32 reasoning is the obvious one and it is wrong.
