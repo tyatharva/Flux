@@ -146,18 +146,22 @@ BASE="$D/case.in" bin/run_window.sh "$D" "$ADJ" "$DT" "$WINDOW_S" ./topo.bin "$U
     || die "window"
 
 # ---- 7. the footprint ------------------------------------------------------------
+# INTO results/corpus/, WHICH IS GITIGNORED. The repo already tracks 72 footprint .npz
+# files at ~300 kB each; 1825 more would be ~550 MB of binaries in git history. The
+# retired passes' results stay where they are and stay tracked -- they are the record.
 say "$TAG  stage 7: backward LPDM"
+FPDIR="${FPDIR:-results/corpus}"; mkdir -p "$FPDIR"
 LPDM_WORKERS="${LPDM_WORKERS:-8}" \
 ./docker/pyrun.sh bin/stage5_footprint.py "$D/window" --dt "$DT" --tback "$TBACK" \
     --sgs-most --cover-dir "$GRID" --receptor-from "$GRID" --fp16-cache \
     --z-target "$ZTARGET" ${EXACT_AGL:+--exact-agl} --rel-seconds 1800 \
-    --tag "$TAG" 2>&1 | grep -vE 'batch [0-9]+/' > "results/$TAG.txt"
-[ -s "results/$TAG.json" ] || { tail -12 "results/$TAG.txt" >&2
+    --outdir "$FPDIR" --tag "$TAG" 2>&1 | grep -vE 'batch [0-9]+/' > "$FPDIR/$TAG.txt"
+[ -s "$FPDIR/$TAG.json" ] || { tail -12 "$FPDIR/$TAG.txt" >&2
   die "stage 7 produced no footprint json"; }
 
 # ---- 8. the training record ------------------------------------------------------
 say "$TAG  stage 8: assemble the pair"
-./docker/pyrun.sh bin/make_pair.py --tag "$TAG" --footprint "results/$TAG.json" \
+./docker/pyrun.sh bin/make_pair.py --tag "$TAG" --footprint "$FPDIR/$TAG.json" \
     --forcing "$FRC" --seed "$PICK" --outdir pairs || true
 [ -s "pairs/$TAG.json" ] || die "stage 8 wrote no pair"
 

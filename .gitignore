@@ -54,3 +54,4 @@ __pycache__/
 *.npy
 data/case_grids/
 data/smokelib/
+results/corpus/
