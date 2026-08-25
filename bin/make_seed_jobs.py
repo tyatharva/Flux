@@ -26,7 +26,33 @@ seed exists solely to be adjusted away:
                           deep, so it re-equilibrates in ~2 min.         no axis
   fine z/L         YES -- the surface flux is prescribed and the surface layer follows.  no axis
 
-=== A STABLE RUNG CANNOT BE COLD-STARTED, AND THIS WAS MEASURED THE HARD WAY ===
+=== A STABLE RUNG'S DEPTH IS EMERGENT, NOT SET -- AND THE FIRST SPEC WAS INCONSISTENT ===
+
+Every other rung sets z_i with a CAPPING INVERSION, which is a direct control: put
+`zStableBottom` at the target and the boundary layer stops there (measured: 154 m against a
+150 m target, 299 against 300). A STABLE rung has no such control. Its depth is an
+equilibrium of the forcing,
+
+    z_i = 0.4 sqrt(u* L / f)          (Zilitinkevich)
+
+so the depth, the wind and the cooling cannot be chosen independently -- one of them has to
+be solved for. The first spec chose all three (z_i = 150 m, G = 6 m/s, w'th' = -0.020) and
+they were mutually inconsistent: at G = 6 the neutral warm-up settles to u* ~ 0.17, which
+gives L ~ 20 m and **z_i ~ 76 m**, half the target -- and puts the 10 m receptor at
+z/z_i = 0.13, OUTSIDE the surface layer and inside the band the corpus filter itself
+rejects as too shallow.
+
+Solved instead of chosen: a 150 m stable layer needs u* = 0.218 at w'th' = -0.012, and
+u*/G ~ 0.027 in stable stratification puts G at **8 m/s**. That is GABLS1 (Beare et al.
+2006: G = 8 m/s, cooling 0.25 K/h ~ -0.012 K m/s, observed z_i 175-200 m), which is the
+canonical stable-LES benchmark and a reassuring place to land. The formula reproduces
+GABLS1's own depth to 186 m against an observed 175-200.
+
+-0.012 is also the more representative flux: CONUS404 at this tower puts w'th' p25 at
+-0.006 and p5 at -0.027, so the original -0.020 sat near the 10th percentile -- an
+unusually strong cooling night -- while -0.012 is an ordinary one.
+
+=== AND A STABLE RUNG CANNOT BE COLD-STARTED, WHICH WAS MEASURED THE HARD WAY ===
 
 `sbl` at G = 6 m/s with w'th' = -0.020 K m/s was cold-started for 1.25 simulated hours and
 COLLAPSED. Measured at the end: u* fell 0.219 -> 0.043 m/s, z_i 209 -> 61 m, the receptor
@@ -99,7 +125,7 @@ from sounding_to_forcing import derive_dt, les_levels, write_in
 # 0.129 virtual at the cropland Bowen ratio).
 # name, regime, z_i target (m), virtual w'th' (K m/s), G (m/s), warm-up segments
 RUNGS = [
-    ("sbl",         "stable",     150.0, -0.020,  6.0, 1),
+    ("sbl",         "stable",     150.0, -0.012,  8.0, 1),
     ("nbl-shallow", "neutral",    300.0,  0.000,  8.0, 0),
     ("nbl-deep",    "neutral",    550.0,  0.000, 12.0, 0),
     ("cbl-shallow", "convective", 450.0,  0.060,  7.0, 0),

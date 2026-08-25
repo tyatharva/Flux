@@ -77,7 +77,7 @@ dampingLayerDepth = 500.0 # 20% of the 2500 m domain depth; clean domain to 2000
 surflayerSelector = 1 # surfacelayer selector: 0= off, 1= surface kinematic heat flux (surflayer_wth), 2=sking temperature rate (surflayer_tr)
 surflayer_z0 = 0.1435  # geometric-mean z0 of the real 122^2 @ 16 m WorldCover map
 surflayer_z0t = 0.01 # roughness length (temperature) when surflayerSelector > 0
-surflayer_wth = -0.02  # prescribed VIRTUAL kinematic heat flux (stable); the first 1 segment(s) run NEUTRAL first -- a cold-started stable rung collapses
+surflayer_wth = -0.012  # prescribed VIRTUAL kinematic heat flux (stable); the first 1 segment(s) run NEUTRAL first -- a cold-started stable rung collapses
 surflayer_tr = -0.0 # temperature rate at the surface when surflayerSelector = 2 (>0 for warming; <0 for cooling)
 surflayer_wq = 0.0 # latent heat flux at the surface (kg/kg m s-1) when surflayerSelector = 1
 surflayer_qr = 0.0 # water vapor rate (kg/kg h-1) when surflayerSelector = 2
@@ -102,8 +102,8 @@ stableGradient3 = 0.004  # free-atmosphere lapse
 thetaPerturbationSwitch = 1  # Switch to include initial theta perturbations: 0=off, 1=on
 thetaHeight = 120.0  # seed the turbulence inside the mixed layer only
 thetaAmplitude = 0.1  # small: a strong perturbation would destroy the stratification that defines a stable BL
-U_g = 3.0  # G = 6.0 m/s at base angle 60 deg
-V_g = 5.196152  # geostrophic wind FROM 210 deg
+U_g = 4.0  # G = 8.0 m/s at base angle 60 deg
+V_g = 6.928203  # geostrophic wind FROM 210 deg
 z_Ug = 10000.0  # Height (m) above ground for linear geostrophic wind gradient (zonal component)
 z_Vg = 10000.0  # Height (m) above ground for linear geostrophic wind gradient (meridional component)
 Ug_grad = 0.0  # U_g gradient above z_Ug (ms-1/m)

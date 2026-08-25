@@ -5,8 +5,8 @@
  "base_angle_deg": 60.0,
  "target": {
   "zi_m": 150.0,
-  "wth_virtual": -0.02,
-  "G": 6.0,
+  "wth_virtual": -0.012,
+  "G": 8.0,
   "G_dir_from_deg": 210.0
  },
  "run": {
