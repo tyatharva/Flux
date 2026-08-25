@@ -266,7 +266,7 @@ def flux_split(grid_dir):
 
 
 def build(snd, grid_dir, nz, zceiling, c1, dx, cfl, match_10m, w_low, z_low,
-          nx=122):
+          nx=122, zi_l_ratio=2.0):
     z = np.asarray(snd["profile"]["z_agl_m"], float)
     th = np.asarray(snd["profile"]["theta_k"], float)
     sfc, geo = snd["surface"], snd["geostrophic"]
@@ -296,15 +296,16 @@ def build(snd, grid_dir, nz, zceiling, c1, dx, cfl, match_10m, w_low, z_low,
     wthv = float(sfc["wth_virtual"])
     zm_recept = 10.0
 
-    # WHAT THE BOX CAN HOLD. PROJECT_BRIEF.md: the domain is 1952 m and the corpus adopted
-    # L >= 2 z_i after Phase E measured that the stricter L >= 4 z_i rule is NOT binding
-    # for a 10 m footprint (p ~ 0.54). That caps z_i at 976 m and covers 60.9% of
-    # convective midday. A sounding above the cap is not a case this domain can represent,
+    # WHAT THE BOX CAN HOLD, AS A RATIO. The constraint is L >= R z_i, and R is the
+    # thing the evidence is about -- writing the cap as a height hides which experiment
+    # licences it. Phase E measured the 10 m footprint indistinguishable between
+    # L/z_i = 4.56 and 2.28 (p ~ 0.54), which licences R = 2 and a 976 m cap. Any smaller
+    # R is a claim beyond Phase E and needs its own run of Phase E's experiment. A sounding above the cap is not a case this domain can represent,
     # and it must be REJECTED at selection time rather than run and quietly mis-labelled --
     # the excluded hours are also the strongest ones (z_i and heat flux correlate at +0.43,
     # and the excluded hours carry 1.51x the flux), so the exclusion is a stated bias, not
     # a neutral trim.
-    zi_max = domain_l / 2.0
+    zi_max = domain_l / zi_l_ratio
     # AND A FLOOR, which is the mirror of the cap and just as real. The receptor must sit
     # in the surface layer for any of this to mean anything, and the surface layer is the
     # bottom ~10% of the boundary layer -- so a 10 m receptor needs z_i >= 100 m. Below
@@ -382,7 +383,7 @@ def build(snd, grid_dir, nz, zceiling, c1, dx, cfl, match_10m, w_low, z_low,
     if zi > zi_max:
         warn.append(
             f"z_i = {zi:.0f} m exceeds the {zi_max:.0f} m this {domain_l:.0f} m box "
-            f"supports at L >= 2 z_i. NOT a usable corpus case; skip the date or accept "
+            f"supports at L >= {zi_l_ratio:g} z_i. NOT a usable corpus case; skip the date or accept "
             f"a domain-constrained boundary layer and say so.")
     elif zi < zi_min:
         warn.append(
@@ -443,6 +444,7 @@ def build(snd, grid_dir, nz, zceiling, c1, dx, cfl, match_10m, w_low, z_low,
                    "L_estimate": (round(L_est, 2) if np.isfinite(L_est) else None),
                    "zi_over_L": round(float(zoL), 3),
                    "zi_max_m": round(zi_max, 1), "zi_min_m": round(zi_min, 1),
+                   "zi_l_ratio": zi_l_ratio,
                    "domain_length_m": domain_l},
         "warnings": warn,
     }
@@ -495,6 +497,10 @@ def main():
     ap.add_argument("--grid", default="data/grid16")
     ap.add_argument("--nz", type=int, default=122)
     ap.add_argument("--nx", type=int, default=122)
+    ap.add_argument("--zi-l-ratio", type=float, default=2.0,
+                    help="the domain constraint L >= R z_i. R = 2 caps z_i at 976 m and is "
+                         "what Phase E licences. Lowering R raises the cap and is a claim "
+                         "BEYOND Phase E until its experiment is re-run at the new R.")
     ap.add_argument("--zceiling", type=float, default=2500.0)
     ap.add_argument("--deform", type=float, default=0.194059)
     ap.add_argument("--dx", type=float, default=16.0)
@@ -510,7 +516,8 @@ def main():
 
     snd = json.load(open(a.sounding))
     rec = build(snd, a.grid, a.nz, a.zceiling, a.deform, a.dx, a.cfl,
-                a.match_10m, a.weight_factor, a.weight_below, a.nx)
+                a.match_10m, a.weight_factor, a.weight_below, a.nx,
+                a.zi_l_ratio)
 
     out = a.out or os.path.join("results/forcing",
                                 os.path.basename(a.sounding).replace(".json", "") + ".json")
