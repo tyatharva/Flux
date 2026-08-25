@@ -172,14 +172,43 @@ def main():
         shutil.copyfile(npz_path, os.path.join(a.outdir, os.path.basename(npz_path)))
     out = os.path.join(a.outdir, f"{a.tag}.json")
     json.dump(rec, open(out, "w"), indent=1, sort_keys=True)
-    # one line per case, so 1825 records are enumerable without opening 1825 files
-    with open(os.path.join(a.outdir, "index.jsonl"), "a") as f:
-        f.write(json.dumps({"run_id": a.tag, "record": os.path.basename(out),
-                            "target": rec["target"]["file"],
-                            "valid_time": rec.get("forcing", {}).get("valid_time"),
-                            "inputs": inputs}) + "\n")
+    # One line per case, so 1825 records are enumerable without opening 1825 files.
+    #
+    # REWRITTEN, NOT APPENDED. bin/run_corpus.sh is resumable and a case can legitimately
+    # be re-run -- a fixed seed, a corrected sounding, a killed analysis. A blind append
+    # would put the same run_id in the index twice with different inputs, and the second
+    # copy would be silently over-weighted by any consumer that iterates the file. The
+    # line for this run_id is replaced in place and every other line is preserved
+    # byte-for-byte, so a re-run costs nothing and concurrent cases do not clobber
+    # each other's rows.
+    idx = os.path.join(a.outdir, "index.jsonl")
+    row = json.dumps({"run_id": a.tag, "record": os.path.basename(out),
+                      "target": rec["target"]["file"],
+                      "valid_time": rec.get("forcing", {}).get("valid_time"),
+                      "inputs": inputs})
+    keep, replaced = [], False
+    if os.path.exists(idx):
+        for ln in open(idx):
+            ln = ln.rstrip("\n")
+            if not ln:
+                continue
+            try:
+                same = json.loads(ln).get("run_id") == a.tag
+            except json.JSONDecodeError:
+                same = False           # keep an unparseable line rather than lose it
+            if same:
+                replaced = True
+                continue
+            keep.append(ln)
+    keep.append(row)
+    tmp = idx + f".tmp.{os.getpid()}"
+    with open(tmp, "w") as f:
+        f.write("\n".join(keep) + "\n")
+    os.replace(tmp, idx)               # atomic, so a kill cannot truncate the index
 
     print(out)
+    print(f"  index {idx}: {len(keep)} record(s)"
+          f"{' (this run_id replaced)' if replaced else ''}")
     print(f"  run_id {a.tag}   target {target.shape}  "
           f"integral {rec['diagnostics']['integral_les']}")
     print(f"  inputs: " + "  ".join(f"{k} {v:.4g}" for k, v in inputs.items()))
