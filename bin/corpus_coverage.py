@@ -98,12 +98,12 @@ def main():
     p(f"  {365.25*5:.0f} days x {100*ok.mean():.1f}% = ~{n5} usable cases")
     p(f"  at 1.132 GPU-h each that is ~{n5*1.132:.0f} GPU-h, plus 52 for the seed library")
 
-    txt = "\\n".join(out)
+    txt = "\n".join(out)
     print(txt)
     if a.out:
         os.makedirs(os.path.dirname(a.out) or ".", exist_ok=True)
-        open(a.out, "w").write(txt + "\\n")
-        print(f"\\n  wrote {a.out}")
+        open(a.out, "w").write(txt + "\n")
+        print(f"\n  wrote {a.out}")
     return 0
 
 
