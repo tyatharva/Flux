@@ -1,0 +1,72 @@
+Time selection from 2208 candidate hours over 92 day(s)
+  screens: 100 m <= z_i <= 1200 m, |dz_i/dt| <= 15 %/h
+  candidate hours valid: 951/2208 = 43.1%
+    z_i out of range        :   579
+    z_i ok but drifting fast:   678   <-- the transition-bias screen; these would all be morning/evening
+
+  DAYS WITH A CASE : 85/92 = 92.4%
+  DAYS WITH NONE   : 7
+         7  z_i acceptable somewhere, but never stationary enough
+      e.g. 2023-05-29, 2023-06-02, 2023-06-30, 2023-08-01, 2023-09-10, 2023-09-14
+
+=== time of day chosen (UTC; local = UTC-6 CST / -5 CDT) ===
+  00Z    5 |#############################
+  01Z    2 |###########
+  02Z    1 |######
+  03Z    3 |#################
+  04Z    6 |##################################
+  05Z    5 |#############################
+  06Z    5 |#############################
+  07Z    4 |#######################
+  08Z    3 |#################
+  09Z    5 |#############################
+  10Z    4 |#######################
+  11Z    4 |#######################
+  12Z    1 |######
+  13Z    4 |#######################
+  14Z    2 |###########
+  15Z    1 |######
+  16Z    0 |
+  17Z    5 |#############################
+  18Z    6 |##################################
+  19Z    4 |#######################
+  20Z    1 |######
+  21Z    4 |#######################
+  22Z    7 |########################################
+  23Z    3 |#################
+
+=== coverage: direction x stability (cases) ===
+          v.unstable    unstable     neutral      stable    v.stable   total
+       N           0           2           2           2           1       7
+     NNE           1           2           1           1           0       5
+     ENE           2           2           2           2           0       8
+       E           1           0           1           3           0       5
+     ESE           1           1           0           3           0       5
+     SSE           1           2           1           3           0       7
+       S           1           2           3           5           0      11
+     SSW           1           2           3           4           0      10
+     WSW           0           2           1           3           0       6
+       W           0           2           1           4           1       8
+     WNW           0           2           1           2           0       5
+     NNW           1           2           2           3           0       8
+   total           9          21          18          35           2      85
+
+=== coverage: direction x z_i bin ===
+           shallow       mid      deep   total
+       N         3         2         2       7
+     NNE         1         4         0       5
+     ENE         2         4         2       8
+       E         2         2         1       5
+     ESE         2         2         1       5
+     SSE         1         4         2       7
+       S         3         6         2      11
+     SSW         2         4         4      10
+     WSW         1         4         1       6
+       W         3         3         2       8
+     WNW         0         3         2       5
+     NNW         1         3         4       8
+
+  74 of 180 cells occupied; thinnest occupied cell 1, fullest 2
+
+=== scaled to five years ===
+  92.4% of days carry a case -> 1687 cases from 1826 days

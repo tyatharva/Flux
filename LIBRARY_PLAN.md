@@ -649,6 +649,73 @@ passes every `>` comparison).
 
 ---
 
+## Time selection: enumerate, then fill the thinnest cell
+
+**MEASURED, and it overturns the premise it was built on.** The corpus took one midday
+per day and 70.6% of days survived. Two changes were proposed: raise the `z_i` cap
+976 -> 1200 m, and enumerate all hours instead of retrying. Ablated on 92 days of 2023
+(2208 candidate hours, `results/candidates.tsv`):
+
+| | `z_i <= 976 m` | `z_i <= 1200 m` |
+|---|---|---|
+| pick 18Z only | 65.2% | 70.7% |
+| **enumerate + stationarity screen** | **91.3%** | **92.4%** |
+| enumerate, no stationarity screen | 100% | 100% |
+
+> **The enumeration is worth +26 points. The cap raise is worth +1.1.** Once every hour is
+> a candidate, *every one of the 92 days had some hour with an acceptable `z_i`* — the
+> binding constraint stops being the domain and becomes stationarity. So the cap raise
+> buys almost nothing while stepping outside what Phase E measured, and **the corpus keeps
+> `R = 2` (976 m), inside licensed territory, and still gets 91.3%.**
+>
+> That is the opposite of the expected answer: the "clean lever" was supposed to be the
+> cap and the compromise was supposed to be time-shifting. Measured, time-shifting does
+> essentially all the work and the cap does essentially none.
+
+**dz_i/dt is screened separately from `z_i`, and that is the whole design.** Widening the
+acceptable band pushes selection towards morning and evening, because those are the hours
+when a day whose midday is too deep still has an acceptable depth — and they are exactly
+when `z_i` changes fastest. A naive widening trades a domain violation for a stationarity
+violation and reports neither. Measured median `|dz_i/dt|`: **15.9 %/h at 09 CST**
+(morning growth) and **14.8 %/h at 18 CST** (evening collapse) against **6-7 %/h**
+overnight. The threshold is 15 %/h — comparable to the LES's own entrainment drift over a
+window (~8 %/h at 500 m), so it does not demand more stationarity of the forcing than the
+simulation itself delivers. The result is insensitive to it: 89.1% at 8 %/h, 91.3% at 15,
+93.5% at 30.
+
+**All seven days with no case failed the stationarity screen, not the depth screen** —
+"`z_i` acceptable somewhere, but never stationary enough". Not one of the 92 days lacked an
+acceptable depth entirely.
+
+**Scaled: ~1670 cases from 1826 days**, against ~1289 for one-midday-per-day.
+
+At most one case per day: two times from one day share the synoptic state, the soil
+moisture and the morning's history, so they are not independent units and `run_id` would
+stop being the right split key. **Selection is deterministic** — days in date order, ties
+broken on (fewest in cell, most stationary, earliest hour) — so the same candidate table
+always yields the same corpus.
+
+**Coverage is what the surplus is spent on.** With ~24x more candidates than days, validity
+stops binding and the greedy fills the thinnest `direction x stability x z_i` cell. The
+rose is S/SW/W-heavy (S 16.0%, W 14.4% against N 10.6%, NE 10.2%), and direction is the
+dominant skill axis, so a northerly hour is worth more than a southerly one even though
+both are equally valid. On the 85-case sample the selected direction counts run N 7,
+NNE 5, ENE 8, E 5, ESE 5, SSE 7, S 11, SSW 10, WSW 6, W 8, WNW 5, NNW 8 — still
+S/SSW-leaning but far flatter than the rose, and the time-of-day histogram spans all 24
+hours rather than clustering at midday.
+
+**HRRR analyses are hourly, so a day holds 24 candidates and not 48.** The tower's
+averaging periods are half-hourly, but the forcing comes from the analysis whose valid time
+equals the footprint timestamp, and a :30 timestamp has no analysis behind it. HRRR's
+`subh` product is 15-minute FORECAST output; the `nat` hybrid-level profile the sounding
+needs is hourly-only regardless. A property of the data source, not a choice.
+
+**Cost of the full enumeration**: 4 screening fields x 24 h x 1826 days at ~7.5 MB per hour
+is **~330 GB over ~20 h**, run once, GRIB deleted as it goes. `--stride` samples it. The
+92-day sample here took 69 minutes.
+
+---
+
 ## The one gate the corpus needs that has never been run
 
 **Gate D1 (well-mixed) has never been run in STABLE conditions.** Checked against
