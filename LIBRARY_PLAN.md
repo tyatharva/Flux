@@ -369,6 +369,52 @@ instead of assumed.
 
 ---
 
+## Every file this added or changed
+
+**New — pipeline**
+
+| file | |
+|---|---|
+| `bin/hrrr_sounding.py` | stage 1: the pseudo-sounding at the tower |
+| `bin/sounding_to_forcing.py` | stage 2: sounding -> the FastEddy `.in` parameters |
+| `bin/case_surface.py` | stage 3: this case's per-cell surface heat flux |
+| `bin/make_seed_jobs.py` | generates the 18 seed jobs and `jobs/index.json` |
+| `bin/pick_seed.py` | stage 4: which seed, and which 90-degree rotation |
+| `bin/make_pair.py` | stage 8: assemble one (input, target) record |
+| `bin/run_corpus_case.sh` | one case end to end, timestamp -> training pair |
+| `bin/run_corpus.sh` | the corpus: one case per day, resumable, with a skip ledger |
+| `jobs/run_seed.sh` | the portable seed-job entrypoint |
+| `jobs/README.md` | what a rented machine needs, and what comes back |
+
+**New — gates and validation**
+
+| file | |
+|---|---|
+| `bin/seed_stationarity.py` | the portable Gate C1; **the single definition of the seven limits** |
+| `bin/smoke_check.py` | a short cold start per regime config, including the base-state closure |
+| `bin/b6_convective.sh` | Gate B6 re-run convectively, scored against block sampling spread |
+| `bin/test_sounding.py` | stages 1-2 across four regimes, offline |
+
+**Changed**
+
+| file | why |
+|---|---|
+| `docker/run_case.sh`, `docker/pyrun.sh` | repo root from `$FLUX_ROOT`, defaulting to the current value so nothing that already worked changes |
+| `bin/spin_cbl.sh`, `bin/run_directions.sh`, `bin/run_window.sh` | same |
+| `bin/preflight.sh` | discovers its own root; covers `jobs/*.sh`; every new entry point must answer `--help` |
+| `bin/run_pass5.sh` | imports the seven limits from `seed_stationarity.py` instead of restating them |
+| `Dockerfile` | `eccodes`, `cfgrib`, `herbie-data`, `pyproj`, `s3fs`, `scikit-learn` |
+| `.gitignore` | `data/hrrr/`, `results/soundings/`, `results/forcing/`, `pairs/`, `data/case_grids/`, `data/smokelib/` |
+| `PROJECT_BRIEF.md` | the forcing-source reversal and the four rules it contradicts; the stable-case array limitation; the sampling-spread tolerance rule; the convective B6 result |
+| `PLAN.md` | points the corpus phase here |
+| `FASTEDDY_TRAPS.md` | §13, an out-of-range parameter does not stop FastEddy |
+
+**Deviation from the original plan:** it listed `runs/seed_base/*.in`. Each job's `.in` is
+generated into `jobs/seed_*/seed.in` instead, so a job directory is self-contained and can
+be shipped to a rented machine on its own. There is no shared template to fall out of sync.
+
+---
+
 ## Two conventions, settled
 
 **Averaging is period-ENDING.** `data/raw/H_and_sigma_w.csv` runs `2025-05-01 00:30` ->
