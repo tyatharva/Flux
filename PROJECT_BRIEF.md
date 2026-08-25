@@ -995,9 +995,11 @@ gone; tree and built now pull it up. `prep_surface.py` prints it.
 
 > **SUPERSEDED 2026-08-25 by the seed library — `LIBRARY_PLAN.md`.** The corpus is ~1825
 > HRRR-forced cases, not a sweep over bins. The 18 seed states are pre-spun turbulence
-> whose only purpose is to delete each case's 3 h spin-up (52 GPU-h that buys back ~5500);
+> whose only purpose is to delete each case's 3 h spin-up (52 GPU-h that buys back ~5250);
 > they are not corpus points and are never trained on. A case restarts from the nearest
-> seed, adjusts 30 min under its own sounding's forcing, then samples 30 min.
+> seed, adjusts 30 min under its own sounding's forcing, then samples 30 min. Costed at
+> the MEASURED `t_back = 600 s`: 2065 GPU-h for the corpus plus 52 for the library,
+> against 7376 cold-started.
 > **Seed axes are sized by what 30 minutes CANNOT adjust** — direction (-5.4 deg/h),
 > `z_i` (+79 m/h) and regime (~1.2 h to turn over) get axes; `u*` and fine `z/L` do not,
 > because the surface layer re-equilibrates in ~2 min at a 10 m receptor. **`z_i` outside

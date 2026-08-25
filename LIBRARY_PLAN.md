@@ -27,15 +27,22 @@ doubly-periodic turbulence fields. A case restarts from the nearest seed, adjust
 30 minutes under its *own* sounding's forcing, then samples for 30 minutes. Seeds are never
 training data, and 18 of them are not a corpus.
 
+Costed at the **measured** `t_back = 600 s` (`results/tback_production.txt`), not the
+150-250 s PROJECT_BRIEF.md estimated before it was measured, so a case is
+`1800 + 1800 + 600 = 4200 s = 1.167` simulated hours at ~0.97 GPU-h per simulated hour:
+
 | | GPU-h |
 |---|---|
-| 1825 cases x (30 min adjust + 30 min window + `t_back`) ~ 1.07 sim-h | **1990** |
+| 1825 cases x (30 min adjust + 30 min window + 600 s `t_back`) = 1.167 sim-h | **2065** |
 | the seed library, 18 x 3.0 sim-h | **52** |
-| **total** | **2042** |
-| the same corpus, cold-started at 3 h of spin-up each | **7574** |
+| **total** | **2117** |
+| the same corpus, cold-started at 3 h of spin-up each | **7376** |
 
-**52 GPU-h buys back about 5500.** The corpus is the real cost; the library is rounding
+**52 GPU-h buys back about 5250.** The corpus is the real cost; the library is rounding
 error beside it.
+
+A case's window is 42 min of wall clock and its adjustment 31, so **both fit inside the
+1-hour cap as single segments** -- which is what makes 1825 of them schedulable at all.
 
 ---
 
