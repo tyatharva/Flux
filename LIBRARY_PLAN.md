@@ -604,6 +604,22 @@ passes every `>` comparison).
   exist, re-run the same spline reconstruction against the **measured LES** curve and
   confirm the error still sits under the sampling SE. Equally cheap once the pipeline is
   live.
+- **Which `z_i` the representability filter should use.** The corpus filters on HRRR's
+  **HPBL**, a TKE-threshold depth from HRRR's own PBL scheme. It is the right choice for
+  consistency — the same diagnostic in all ~1825 cases — and it is the closest analogue of
+  what the LES itself reports (`window_stats` takes the highest level with resolved TKE
+  above 5% of its maximum). But it runs systematically **higher** than a theta-based depth:
+  1648 m against a 1244 m parcel top on 2023-07-15 19Z, a factor of 1.33. Since the filter
+  is a hard cut at 976 m, that factor decides how many summer days survive. CONUS404's
+  `PBLH` is the same class of diagnostic, so PROJECT_BRIEF.md's 60.9% and this are comparable —
+  but the sensitivity is worth measuring once rather than assuming.
+
+- **`bin/prep_restart.py`'s "SET IN THE CASE FILE: U_g = -10.0000" line.** It reports what
+  the rotation implies for a 10 m/s spin-up, which is what the retired per-bin campaign
+  wanted. In the corpus the case file already carries the sounding's own forcing
+  (`U_g = -2.788` on the end-to-end case), so the line is advisory text that reads like an
+  instruction. Nothing acts on it; it should say so.
+
 - **Splitting `cbl-strong`.** If a 7th rung is ever wanted, the very-unstable class is the
   gap (`z/L` spans two decades there). Note `u*` is unidentifiable from `sigma_w` alone for
   19.7% of midday hours, so that tail is data-limited too.
