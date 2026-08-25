@@ -17,8 +17,9 @@ cases. See `../LIBRARY_PLAN.md`.
 | image | `flux-fasteddy:cuda118`, built by `docker/build_fasteddy.sh` |
 | repo | a checkout of this repository, **anywhere** — the entrypoint discovers its own root |
 | build | **FastEddy must be built inside the checkout** at `FastEddy-model-5.0.1/SRC/FEMAIN/FastEddy`. It is gitignored, so a fresh clone does not have it. |
-| disk | ~2.7 GB per job while running (36 dumps x 73 MB); ~74 MB comes home |
+| disk | ~2.7 GB per job while running (36 dumps x 73 MB); **~70 MB** comes home (measured) |
 | time | 4 segments of ~46 min wall = **~3.1 h per job** |
+| network | none during the run; the job is entirely local once the repo and image are present |
 
 ## Run one
 
