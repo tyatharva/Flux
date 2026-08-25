@@ -519,3 +519,56 @@ state is wrong". Half of that was a real measurement and half was an artifact, a
 were indistinguishable without looking at the profile. **When two diagnostics of the same
 state disagree, plot the profile before believing either** — the scalar that looks alarming
 is not automatically the informative one.
+
+---
+
+## 17. `surflayer_wth` in the .in is inert after a restart
+
+Found 2026-08-25, one segment after building a feature that depended on the opposite.
+
+### Symptom
+
+A segment's `.in` says `surflayer_wth = -0.012`. Every dump it writes carries
+`htFlux = +0.000000`. The run is clean by every other measure and nothing in the log
+mentions the flux at all.
+
+### Cause
+
+**Trap 7, pointed at the surface flux instead of at the terrain.** `htFlux` is
+IO-registered (`hydro_core.c:1309`), `hydro_coreInit()` runs before the restart read, and
+the restart read walks the whole registered variable list. So on any restart the file's
+`htFlux` wins and the `.in`'s `surflayer_wth` is discarded.
+
+This is already documented from the other direction — it is exactly the lever
+`bin/prep_stage6.py` and `bin/case_surface.py` use to give FastEddy a spatially varying
+surface, and PROJECT_BRIEF.md says so. What is easy to miss is the consequence for a CHAINED run:
+**a scalar flux written into segment 1's `.in` propagates through every later segment
+regardless of what their `.in` files say**, because each one restarts from the previous
+one's dump.
+
+That silently defeated a two-phase seed design whose entire point was to change the flux
+between segments.
+
+### Fix
+
+Change the restart FILE, not the `.in`:
+
+```python
+with Dataset(restart_path, "a") as ds:
+    ds["htFlux"][:] = np.full(shape, target, dtype="f4")
+```
+
+`jobs/run_seed.sh` does this before the first post-warm-up segment. It is idempotent, so it
+also covers the resume path — which an `.in`-only version never could, because a resumed
+chain reads its flux from a dump written long before.
+
+### What this changes about how we work
+
+**Assert on the flux the dump CARRIES, not the flux its `.in` requested.** Those two
+differed for an entire 45-minute segment here with no error, no warning and no difference
+in any other diagnostic. `jobs/run_seed.sh` now checks every segment's dump against the
+value that segment was supposed to run with, and fails the job if they disagree.
+
+The general form: **any FastEddy parameter that is also an IO-registered field is a
+restart-file property, not an `.in` property.** `z0m`, `z0t`, `tskin`, `topoPos` and
+`zPos` are in the same category.
