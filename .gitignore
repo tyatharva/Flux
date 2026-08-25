@@ -52,3 +52,4 @@ __pycache__/
 # --- Stage 6 preprocessing products: regenerable from the DEM ---
 *.bin
 *.npy
+data/case_grids/

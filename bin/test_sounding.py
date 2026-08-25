@@ -160,7 +160,10 @@ def check_forcing(path, snd, c, tag):
     th = np.asarray(snd["profile"]["theta_k"], float)
     zz = np.linspace(0.0, 1500.0, 200)
     ramp = lambda lo, hi: np.clip(zz, lo, hi) - lo
-    model = (p["temp_grnd"] * (1.0e5 / p["pres_grnd"]) ** (287.05 / 1004.5)
+    # FastEddy's own constants (hydro_core.c:1574-1580), because this check exists to
+    # reproduce what FastEddy will build, not what a textbook would.
+    fe_kappa = 287.04 / (287.04 + 718.0)
+    model = (p["temp_grnd"] * (1.0e5 / p["pres_grnd"]) ** fe_kappa
              + p["stableGradient"] * ramp(p["zStableBottom"], p["zStableBottom2"])
              + p["stableGradient2"] * ramp(p["zStableBottom2"], p["zStableBottom3"])
              + p["stableGradient3"] * np.maximum(zz - p["zStableBottom3"], 0.0))

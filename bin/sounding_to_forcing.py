@@ -69,6 +69,19 @@ RD = 287.05
 CP = 1004.5
 P0 = 100000.0
 KAPPA_P = RD / CP
+
+# FASTEDDY'S OWN GAS CONSTANTS, for quantities FastEddy will reconstruct.
+# hydro_core.c:1574-1580 -- R_gas = 287.04, cv_gas = 718.0, cp_gas = R + cv = 1005.04,
+# so R_cp = 0.285600 against the meteorological 287.05/1004.5 = 0.285765. The gap is
+# 0.06% in the exponent and 0.001 K on temp_grnd, so nothing here turns on it -- but
+# temp_grnd exists ONLY to be turned back into theta_grnd by
+# `theta_grnd = temp_grnd*pow(pres_grnd/refPressure, -R_cp)` (hydro_core.c:1759), and
+# inverting that with the model's own constants makes the round trip exact rather than
+# nearly exact. Theta itself is computed from HRRR with the meteorological values,
+# because that is a meteorological quantity, not a FastEddy one.
+FE_R = 287.04
+FE_CV = 718.0
+FE_KAPPA = FE_R / (FE_R + FE_CV)
 VONK = 0.4
 
 C_SOUND = 347.2          # bin/vgrid.py; the constant CFL_3d is defined with
@@ -273,7 +286,7 @@ def build(snd, grid_dir, nz, zceiling, c1, dx, cfl, match_10m, w_low, z_low,
     fit = fit_base_state(zf, thf, wts, zceiling)
 
     psfc = float(sfc["psfc_pa"])
-    temp_grnd = fit["theta_grnd"] * (psfc / P0) ** KAPPA_P
+    temp_grnd = fit["theta_grnd"] * (psfc / P0) ** FE_KAPPA
 
     ug, vg = float(geo["U_g"]), float(geo["V_g"])
     gspd = float(np.hypot(ug, vg))

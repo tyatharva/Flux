@@ -387,6 +387,25 @@ is ~5-7 m and the grid cannot resolve it.
 **`z0` for the array is 0.10 m at this receptor height**, not 0.1-0.3 — see the RSL section: the
 first model level is at 2.0 m and a larger `z0` leaves the surface-layer scheme no room.
 
+**STABLE CASES CARRY NO ARRAY SIGNAL AT ALL — thermal or aerodynamic.** Recorded
+2026-08-25, while building the per-case surface for the HRRR-forced corpus, because it is
+easy to miss and it bounds what the corpus can teach.
+
+- *Aerodynamically*, the array is already inert: `z0_array = 0.10 m` is exactly WorldCover's
+  cropland value, so the override changes nothing. This file says so above; the point here
+  is that it applies in **every** regime.
+- *Thermally*, the per-class flux table (array 1.60, water 0.12, built 1.50 …) is a
+  **DAYTIME sensible-flux enhancement** table taken from field studies. There is no
+  nocturnal equivalent in this project, and at night the physics inverts — water holds
+  heat, built surfaces release what they stored, vegetation cools fastest. Applying daytime
+  ratios to a negative flux would invent a contrast nothing measured, **so a stable case
+  gets a UNIFORM negative `htFlux`** (`bin/case_surface.py`).
+
+So the array signal this project exists to resolve is a **daytime** signal. Stable cases
+are still real corpus points — they teach the flow, the terrain and the stability
+dependence of the footprint — but they contain no array contrast, and the corpus must be
+described that way rather than as uniformly array-sensitive.
+
 **Albedo has no pathway, and that is not an omission.** FastEddy in this configuration has no
 radiation scheme — `surflayerSelector = 1` prescribes the kinematic surface heat flux directly —
 so what albedo would have controlled is subsumed by `htFlux`, which IS per-cell

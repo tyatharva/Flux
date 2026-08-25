@@ -10,6 +10,7 @@
 #
 #   1  HRRR pseudo-sounding at the tower        bin/hrrr_sounding.py
 #   2  sounding -> FastEddy .in parameters      bin/sounding_to_forcing.py
+#   3  this case's surface heat-flux map        bin/case_surface.py
 #   4  which seed, and which 90-degree rotation bin/pick_seed.py
 #   5  rotate the seed's FLOW, inject the       bin/prep_restart.py
 #      STATIC surface (terrain, z0, htFlux)
@@ -79,6 +80,19 @@ read -r UG VG DT WTHREF < <(python3 -c "
 import json; d=json.load(open('$FRC')); p=d['params']
 print(p['U_g'], p['V_g'], p['dt'], d['labels']['wth_cropland_reference'])")
 
+# ---- 3. this case's surface ------------------------------------------------------
+# NOT OPTIONAL, and its absence is silent. prep_restart.py injects htFlux from the grid
+# directory into the restart file, and the restart read OVERWRITES the .in's scalar
+# (PROJECT_BRIEF.md, the Stage 6 lever). data/grid16 ships with htFlux ALL ZEROS, so a convective
+# case pointed at it runs NEUTRAL, exits 0, and says nothing. The static geography is
+# hardlinked, so this costs ~116 kB and no copy.
+say "$TAG  stage 3: per-case surface flux map"
+CG="data/case_grids/$TAG"
+./docker/pyrun.sh bin/case_surface.py --grid "$GRID" --wth-ref "$WTHREF" --out "$CG" \
+    || die "case_surface"
+[ -s "$CG/htFlux.npy" ] || die "stage 3 wrote no htFlux map"
+GRID="$CG"
+
 # ---- 4. the seed -----------------------------------------------------------------
 say "$TAG  stage 4: pick a seed"
 PICK=results/pick/$TAG.json
@@ -136,5 +150,6 @@ say "$TAG  stage 8: assemble the pair"
     --forcing "$FRC" --seed "$PICK" --outdir pairs || true
 [ -s "pairs/$TAG.json" ] || die "stage 8 wrote no pair"
 
-[ "${KEEP_FIELDS:-0}" = "1" ] || { rm -f $D/window/*; echo "  window fields deleted"; }
+[ "${KEEP_FIELDS:-0}" = "1" ] || { rm -f $D/window/*; rm -rf "$CG"
+                                  echo "  window fields and the case grid deleted"; }
 say "$TAG COMPLETE"
