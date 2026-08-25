@@ -68,8 +68,16 @@ pr=lambda a: a-a.mean(axis=(-2,-1),keepdims=True)
 tk=0.5*((pr(u)**2+pr(v)**2+pr(w)**2).mean(axis=(-2,-1)))
 km=int(np.argmax(tk)); ab=np.where(tk[km:]<0.05*tk[km])[0]
 zi=float(z[km+ab[0]]) if len(ab) else float(z[-1])
-# round to something readable; hold z_release = 3 * z_score so the floor stays 5.48%
+# Hold z_release = 3 * z_score so the per-bin count, and therefore the counting-noise
+# floor, is identical to the neutral and convective rows. The release top is additionally
+# held inside the CLEAN domain: zCeiling is 2500 m with a 500 m damping layer, so
+# releasing above 2000 m would seed particles into the sponge. It does not bite for a
+# stable layer (3 x 150 m = 450 m) but a silently-clipped release would break the ratio
+# and with it the comparability of the row, which is the whole point.
 zs=max(60.0, round(zi/10.0)*10.0)
+CLEAN=2000.0
+if 3*zs > CLEAN:
+    zs = CLEAN/3.0
 print(f"{zi:.1f} {zs:.0f} {3*zs:.0f}")
 PY
 ) || die "could not size the scored layer"
