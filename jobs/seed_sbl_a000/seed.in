@@ -93,9 +93,9 @@ surflayer_offshore = 0 # offshore selector: 0=off, 1=on
 stabilityScheme = 2  # Scheme used to set hydrostatic, stability-dependent Base-State EOS fields
 temp_grnd = 298.0118  # theta_grnd = 300.0 K at 97700 Pa
 pres_grnd = 97700.0  # seed seed_sbl_a000
-zStableBottom = 0.0  # inversion starts at the ground (no neutral layer)
-stableGradient = 0.01  # nocturnal surface inversion
-zStableBottom2 = 150.0  # top of the stable layer
+zStableBottom = 150.0  # neutral to 150 m -- the layer the cooling turns into an SBL (GABLS1 shape)
+stableGradient = 0.01  # ambient stratification above the residual layer
+zStableBottom2 = 500.0  # top of the stratified layer
 stableGradient2 = 0.004  # free-atmosphere lapse
 zStableBottom3 = 20000.0  # above the domain; the third segment is unused
 stableGradient3 = 0.004  # free-atmosphere lapse

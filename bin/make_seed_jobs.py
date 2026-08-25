@@ -160,8 +160,21 @@ def base_state(regime, zi):
     compiled-in 0.1 K/m default. Every value here is a literal chosen inside the range.
     """
     if regime == "stable":
-        return dict(zStableBottom=0.0, stableGradient=SBL_GRADIENT,
-                    zStableBottom2=round(zi, 1), stableGradient2=FREE_LAPSE,
+        # NEUTRAL TO THE TARGET DEPTH, THEN STRATIFIED -- the same shape as every other
+        # rung, and GABLS1's own initial profile (neutral to 100 m, 0.01 K/m above).
+        #
+        # The first version stratified from z = 0 on the reasoning that "a stable rung has
+        # no neutral layer to give it". That confuses the INITIAL condition with the final
+        # state. A stable boundary layer forms by cooling a neutral or residual layer from
+        # below; it does not appear ready-made. Stratifying from the ground leaves nothing
+        # to cool INTO, and it was measured: with u* perfectly healthy at 0.225, the
+        # turbulent layer still fell 154 -> 76 m under neutral forcing, because the ambient
+        # stratification suppressed it from the first metre. Cooling then makes an SBL
+        # SHALLOWER, never deeper, so the run could never reach the 152 m its own forcing
+        # equilibrates to.
+        return dict(zStableBottom=round(zi, 1), stableGradient=SBL_GRADIENT,
+                    zStableBottom2=round(max(3.0 * zi, 500.0), 1),
+                    stableGradient2=FREE_LAPSE,
                     zStableBottom3=20000.0, stableGradient3=FREE_LAPSE)
     return dict(zStableBottom=round(zi, 1), stableGradient=CAP_GRADIENT,
                 zStableBottom2=round(zi + CAP_DEPTH, 1), stableGradient2=FREE_LAPSE,
@@ -259,9 +272,14 @@ def main():
                 "lsf_w_zlev2": round(min(max(2.0 * zi, 1000.0), 2000.0), 1),
             }
             cmt = {
-                "zStableBottom": (f"{'inversion starts at the ground (no neutral layer)' if regime=='stable' else f'mixed layer 0-{zi:.0f} m: the CONTROL on z_i'}"),
-                "stableGradient": (f"{'nocturnal surface inversion' if regime=='stable' else f'capping inversion, +{CAP_GRADIENT*CAP_DEPTH:.0f} K across {CAP_DEPTH:.0f} m'}"),
-                "zStableBottom2": ("top of the stable layer" if regime == "stable"
+                "zStableBottom": (f"neutral to {zi:.0f} m -- the layer the cooling turns "
+                                  f"into an SBL (GABLS1 shape)" if regime == 'stable'
+                                  else f"mixed layer 0-{zi:.0f} m: the CONTROL on z_i"),
+                "stableGradient": (f"ambient stratification above the residual layer"
+                                   if regime == 'stable'
+                                   else f"capping inversion, +{CAP_GRADIENT*CAP_DEPTH:.0f} K "
+                                        f"across {CAP_DEPTH:.0f} m"),
+                "zStableBottom2": ("top of the stratified layer" if regime == "stable"
                                    else "top of the capping inversion"),
                 "stableGradient2": "free-atmosphere lapse",
                 "zStableBottom3": "above the domain; the third segment is unused",
