@@ -166,12 +166,15 @@ def base_state(regime, zi):
         # The first version stratified from z = 0 on the reasoning that "a stable rung has
         # no neutral layer to give it". That confuses the INITIAL condition with the final
         # state. A stable boundary layer forms by cooling a neutral or residual layer from
-        # below; it does not appear ready-made. Stratifying from the ground leaves nothing
-        # to cool INTO, and it was measured: with u* perfectly healthy at 0.225, the
-        # turbulent layer still fell 154 -> 76 m under neutral forcing, because the ambient
-        # stratification suppressed it from the first metre. Cooling then makes an SBL
-        # SHALLOWER, never deeper, so the run could never reach the 152 m its own forcing
-        # equilibrates to.
+        # below; it does not appear ready-made, so there has to be something to cool INTO.
+        #
+        # CORRECTION, same day: this change was originally justified by a z_i that fell
+        # 154 -> 76 m under neutral forcing. That fall was a DIAGNOSTIC ARTIFACT -- z_i as
+        # "5% of the peak TKE" shrinks when the surface peak grows, and it grew 25x while
+        # the TKE at 150 m grew 8x (FASTEDDY_TRAPS.md 16). The layer was deepening. The
+        # change is kept anyway because a neutral-below-stratified-above initial profile is
+        # GABLS1's own shape and the right initial condition for a stable rung, but it was
+        # not the fix it was claimed to be. The fix was the forcing.
         return dict(zStableBottom=round(zi, 1), stableGradient=SBL_GRADIENT,
                     zStableBottom2=round(max(3.0 * zi, 500.0), 1),
                     stableGradient2=FREE_LAPSE,

@@ -464,3 +464,58 @@ column is the signature, because a coupled boundary layer always shows Ekman tur
 And **rising TKE is not evidence of turbulence in a stratified flow.** Check where it sits
 relative to the stress: variance that peaks well above the level where `|tau|` has vanished,
 at `Ri_g >> 0.25`, is wave motion.
+
+
+---
+
+## 16. z_i as "5% of the peak TKE" falls while the layer is growing
+
+Found 2026-08-25, after it had already caused one run to be killed for the wrong reason.
+
+### Symptom
+
+During spin-up, `z_i` diagnosed as *the highest level where resolved TKE exceeds 5% of its
+maximum* falls steadily — 154 -> 147 -> 120 -> 81 m over 20 simulated minutes — while `u*`
+stays perfectly healthy at 0.26-0.40. It reads as a boundary layer collapsing.
+
+### Cause
+
+The threshold is **relative to a peak that is itself growing**. Measured on the same dumps:
+
+| t (h) | peak TKE | TKE at 150 m | `z_i` (5% of peak) | `z_i` (absolute) |
+|---|---|---|---|---|
+| 0.08 | 0.0011 | 0.00005 | 154 m | 30 m |
+| 0.17 | 0.0056 | 0.00016 | 147 m | 61 m |
+| 0.25 | 0.0148 | 0.00033 | 120 m | 76 m |
+| 0.33 | 0.0276 | 0.00040 | **81 m** | **81 m** |
+
+The surface peak grew **25x** while the TKE at 150 m grew **8x**. Nothing shrank. Against a
+fixed absolute threshold the layer is monotonically *deepening*, which is what a spinning-up
+shear-driven boundary layer does.
+
+### Where this matters
+
+The same definition is used in `lpdm/les_stats.py:window_stats` (where it becomes the
+corpus INPUT `h`), in `bin/seed_stationarity.py` (where its trend is one of the seven gated
+quantities), and in `bin/pick_seed.py` via the achieved `z_i`.
+
+**In a converged state it is fine** — the peak is steady, so the threshold is steady, and
+that is the state all three of those actually consume. The gate scores the last 1.5 h of a
+3 h run, by which time the peak has stopped growing. **It is only unreliable while the
+turbulence is still organising**, which is exactly when someone is most likely to be
+watching it to decide whether a run is healthy.
+
+### Fix
+
+Not a redefinition — changing it would break comparability with every prior pass, and it is
+correct where it is used. **Watch `u*` and an absolute-threshold depth alongside it when
+judging a spinning-up run**, and do not conclude anything from the relative `z_i` alone
+before the peak has settled.
+
+### What this changes about how we work
+
+The judgement that killed a run here was "`u*` is healthy but `z_i` is collapsing, so the
+state is wrong". Half of that was a real measurement and half was an artifact, and the two
+were indistinguishable without looking at the profile. **When two diagnostics of the same
+state disagree, plot the profile before believing either** — the scalar that looks alarming
+is not automatically the informative one.
