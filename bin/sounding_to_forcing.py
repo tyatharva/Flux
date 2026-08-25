@@ -416,8 +416,12 @@ def build(snd, grid_dir, nz, zceiling, c1, dx, cfl, match_10m, w_low, z_low,
                    # which is therefore baroclinic shear. Measured +19.3 deg on
                    # 2023-07-15 19Z, where the profile backs 9 deg with height through a
                    # z_i/L = -38 boundary layer -- so at this site the thermal wind can
-                   # exceed the 10 deg convective Ekman angle outright. Recorded per case
-                   # so a corpus-wide bias is visible rather than assumed away.
+                   # exceed the 10 deg convective Ekman angle outright. And +18.7 deg on
+                   # 2023-01-18 18Z, a winter case with a quite different profile: the same
+                   # SIGN twice is suggestive, but two cases are not a pattern, which is
+                   # exactly why this is recorded per case rather than corrected for. If a
+                   # corpus-wide bias is real it will be visible in ~1825 of these; if it
+                   # is not, nothing has been baked in.
                    # The height-gradient geostrophic estimate is a DIAGNOSTIC, never the
                    # forcing -- but when it disagrees badly with the above-BL wind that is
                    # worth carrying per case rather than leaving in the sounding file. On
