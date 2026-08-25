@@ -7,11 +7,10 @@
 #          HOURS=...    comma-separated UTC hours to choose from (default 15,16,17,18,19,20)
 #          MAXCASES=N   stop after N successful cases
 #
-# ONE CASE PER DAY, at an hour drawn from the daylight window. The default hours are
-# 15-20 UTC = 09-14 local (CST) / 10-15 (CDT), which is where this site's convective
-# midday lives -- CONUS404 puts z_i p50 at 859 m and w'th' p50 at 0.109 K m/s over local
-# 10-16 h. `rotate` steps the hour with the day so the corpus samples the diurnal cycle
-# rather than one hour of it 1825 times; `fixed` pins the first hour.
+# ONE CASE PER DAY, at an hour that advances with the day so the corpus walks the whole
+# diurnal cycle rather than sampling one hour of it 1825 times. `fixed` pins the first hour
+# instead; HOURS= restricts the list (HOURS=15,16,17,18,19,20 is convective midday only,
+# which is 09-14 CST / 10-15 CDT).
 #
 # WHY ONE PER DAY RATHER THAN MANY. Consecutive hours of the same day are not independent
 # -- the same synoptic state, the same soil moisture, a boundary layer that remembers the
@@ -27,7 +26,15 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; export FLUX_ROOT="$ROOT
 START="${1:?usage: run_corpus.sh <start YYYY-MM-DD> <end YYYY-MM-DD> [rotate|fixed]}"
 END="${2:?usage: run_corpus.sh <start YYYY-MM-DD> <end YYYY-MM-DD> [rotate|fixed]}"
 POLICY="${3:-rotate}"
-IFS=',' read -r -a HRS <<< "${HOURS:-15,16,17,18,19,20}"
+# THE WHOLE DIURNAL CYCLE, not just the afternoon. The tower measures 24/7 and a stable
+# boundary layer on 1 February at 04 UTC is a different state from one on 2 September at
+# 11 UTC -- both belong in the corpus. With `rotate` the hour advances with the day, so a
+# 24-hour list walks the full cycle every 24 days and 1825 days give ~76 samples per hour.
+#
+# It also decides how many days SURVIVE. The 1952 m box holds z_i <= 976 m, and a summer
+# afternoon boundary layer routinely runs 1000-2600 m -- a 12-day June afternoon sample was
+# rejected 9 times out of 12. Nights and winter are shallow, and are accepted.
+IFS=',' read -r -a HRS <<< "${HOURS:-0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23}"
 LEDGER=results/corpus_skipped.tsv
 LOG=results/corpus_progress.tsv
 mkdir -p results pairs
