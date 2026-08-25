@@ -402,3 +402,65 @@ the restart read echoed back before any timestep touches it. That works too, and
 worth knowing there are two correct formulations and one seductive wrong one. When a
 restart check reports a difference far larger than the ~1e-4 non-reproducibility floor,
 **suspect the test's step bookkeeping before suspecting the restart**.
+
+---
+
+## 15. A cold-started stable boundary layer collapses under a prescribed heat flux
+
+Found 2026-08-25, by running it for 1.25 simulated hours and watching it happen.
+
+### Symptom
+
+The run completes, exits 0, greps clean for `CORRUPTED`, has finite fields everywhere and a
+perfectly respectable `k0/k1` of 0.72. The stationarity gate would score it. And it is not a
+boundary layer.
+
+| | t = 0.25 h | t = 1.25 h |
+|---|---|---|
+| `u*` | 0.219 m/s | **0.043 m/s** |
+| `z_i` | 209 m | **61 m** |
+| `z/L` at the 10 m receptor | ~0.3 | **+34.8** |
+| `dtheta/dz` at the first level | — | **2551 K/km** |
+
+Above 66 m the mean wind sat at **exactly** the geostrophic 6.000 m/s — no Ekman turning at
+all — with a gradient Richardson number of order **1e8**. The boundary layer had decoupled
+from the flow entirely. Column-integrated "TKE" was *rising* the whole time, which is what
+makes this look survivable: that variance is internal gravity waves, not turbulence, and it
+sits above the level where the stress has already gone to zero.
+
+### Cause
+
+Runaway surface cooling, and it is a property of the boundary condition rather than of
+FastEddy. `surflayerSelector = 1` prescribes a **fixed kinematic heat flux**. At `t = 0` a
+cold start has no turbulence — only the `thetaPerturbation` seeding — so the prescribed
+cooling has nothing to mix it away and builds a near-discontinuous inversion at the first
+model level within minutes. That stratification then suppresses the very turbulence that
+would have relieved it, and the feedback is positive: less mixing, stronger inversion, less
+mixing. It is why GABLS1 (Beare et al. 2006) prescribes a surface **cooling rate** rather
+than a flux.
+
+**The forcing is not the fault.** With turbulence already present, `u* ~ 0.30` at
+`G = 6 m/s` gives `L ~ 100 m` and `z/L ~ 0.10` at the receptor — weakly stable, and
+perfectly sustainable. The same forcing is fine; the cold start is not.
+
+### Fix
+
+Not a change of boundary condition — this project's whole surface treatment is built on the
+per-cell `htFlux` map, and `surflayer_tr` cannot carry it. **Remove the cold start
+instead**: a stable rung runs its first segment NEUTRAL (`surflayer_wth = 0`), so real
+turbulence exists before the cooling is switched on. `bin/make_seed_jobs.py` carries it as
+`warmup_segments`, `jobs/run_seed.sh` applies it, and it is 0 for every other rung.
+
+That is also how a stable boundary layer forms in nature — out of the evening transition of
+a neutral or convective one — so the seed is more physical rather than less.
+
+### What this changes about how we work
+
+**`k0/k1`, finiteness and a clean `CORRUPTED` grep do not establish that a run contains
+turbulence.** All three passed here. The diagnostics that caught it were `u*`, `z/L`, and
+the mean wind profile — a wind that equals the geostrophic value *exactly* over most of the
+column is the signature, because a coupled boundary layer always shows Ekman turning.
+
+And **rising TKE is not evidence of turbulence in a stratified flow.** Check where it sits
+relative to the stress: variance that peaks well above the level where `|tau|` has vanished,
+at `Ri_g >> 0.25`, is wave motion.
