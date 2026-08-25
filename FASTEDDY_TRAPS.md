@@ -344,3 +344,61 @@ It does not happen. The literal `1.0` in that expression is a **double**, so the
 subexpression promotes and `log` is the double version — accurate to ~1e-13 relative even
 at the 1e-4 K/m floor. **The positivity constraint is a parameter-range rule, not a
 numerical one.** Recorded because the fp32 reasoning is the obvious one and it is wrong.
+
+
+---
+
+## 14. Combining traps 4 and 6 turns a zero-timestep echo into a full integration
+
+Not a new FastEddy behaviour — a new way to get two documented ones wrong at once, found
+2026-08-25 while writing Gate C2 for the seed library.
+
+### Symptom
+
+A "restart and re-dump, then diff" check reported **10 of 23 variables differing**, `u` by
+**2.65 m/s** and `pressure` by 7.42. That is not fp32 roundoff and not the known
+non-reproducibility floor (~1e-4 relative); it is a real integration. The obvious reading
+is that restart is not bit-for-bit, which would contradict two earlier verifications at
+two different grids.
+
+### Cause
+
+The test did this:
+
+```bash
+cp returned_dump.nc  $D/FE_RST.0          # <-- trap 4
+sed -e 's|^Nt = .*|Nt = 20520|'  ...      # <-- trap 6
+```
+
+**Trap 4**: the restart step is `sscanf`'d from the characters after the first `.` in
+`inFile`, so `FE_RST.0` sets `simTime_itRestart = 0` — the counter is *reset*, which is
+normally the useful half of that trap.
+
+**Trap 6**: `Nt` is an absolute target step. From a counter at 0, `Nt = 20520` is
+**20520 real timesteps**, not the intended zero.
+
+Each trap is documented above and each is individually harmless here. Together they turn
+the intended no-op into a five-minute integration, and the diff faithfully reports it.
+
+### Fix
+
+Name the restart for the step it actually holds, and set `Nt` to that same step:
+
+```bash
+cp returned_dump.nc  $D/FE_RST.20520
+sed -e 's|^Nt = .*|Nt = 20520|' -e 's|^NtBatch = .*|NtBatch = 20520|' \
+    -e 's|^frqOutput = .*|frqOutput = 20520|'  ...
+```
+
+`frqOutput` must divide the step too, or **trap 5** eats the dump and the check reports
+"produced nothing". `bin/c2_restart_check.sh` takes the step as an explicit argument rather
+than inferring it, and re-scored the same returned artifact as **PASS, bit-for-bit, 0 of 23
+variables differing**.
+
+### What this changes about how we work
+
+The existing B5 test got this right by using `Nt = 1` and comparing the **step-0** dump —
+the restart read echoed back before any timestep touches it. That works too, and it is
+worth knowing there are two correct formulations and one seductive wrong one. When a
+restart check reports a difference far larger than the ~1e-4 non-reproducibility floor,
+**suspect the test's step bookkeeping before suspecting the restart**.
