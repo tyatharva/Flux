@@ -66,3 +66,9 @@ runs/e2e_*/
 runs/c2_check/
 runs/c2_roundtrip/
 runs/g16_b6cbl/
+
+# Seed-job scratch: the segment .in files the driver writes, and smoke-test copies.
+# A job bundle is seed.in + manifest.json + run_seed.sh and nothing else.
+jobs/*/smoke.in
+jobs/*/seg*.in
+jobs/*/return/
