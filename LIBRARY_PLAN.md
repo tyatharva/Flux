@@ -46,13 +46,34 @@ Costed at the **measured** `t_back = 600 s` (`results/tback_production.txt`), no
 **52 GPU-h buys back about 5250.** The corpus is the real cost; the library is rounding
 error beside it.
 
-> **1825 is the number of DAYS, not the number of usable cases.** Days whose `z_i` falls
-> outside `100-976 m` are refused rather than run and mis-labelled, and `z_i` is strongly
-> seasonal and diurnal: a 12-day June-afternoon sample was rejected **9 times out of 12**,
-> at `z_i` between 1037 and 2636 m. `bin/corpus_coverage.py` measures the real acceptance
-> rate on the diagnostic the filter actually uses, over the hours the corpus actually
-> draws. **Multiply the GPU-h above by that fraction**, and treat the exclusion as a
-> stated, non-neutral bias — see Deferred.
+> **1825 is the number of DAYS. MEASURED, 70.6% of them are usable — about 1289 cases,
+> ~1459 GPU-h plus 52 for the library.** Days whose `z_i` falls outside `100-976 m` are
+> refused rather than run and mis-labelled. `bin/corpus_coverage.py`, on a 51-case weekly
+> sample across 2023 walking the full diurnal cycle (`results/corpus_coverage.txt`):
+
+| | |
+|---|---|
+| accepted | **36/51 = 70.6%** |
+| rejected, **too deep** (`z_i > 976 m`) | 13.7% |
+| rejected, **too shallow** (`z_i < 100 m`) | 15.7% |
+
+Both bounds bite, at opposite ends of the year and of the day. Acceptance by month runs
+**100%** in January, March, September and October against **25%** in June and **20%** in
+August; by hour it is **100%** at 02-03 UTC (20-21 local) and **50%** at 06-07 UTC (dawn,
+where the boundary layer is too shallow) and at 16-17 UTC (mid-afternoon, where it is too
+deep).
+
+> **And the deep exclusion is not a neutral trim — now measured on HRRR rather than
+> inferred from CONUS404.** The days rejected as too deep carry **3.56x** the virtual heat
+> flux of the accepted set (0.0859 against 0.0241 K m/s), and the rank correlation of `z_i`
+> with flux over the sample is **+0.492** — independently reproducing the **+0.43**
+> PROJECT_BRIEF.md measured from CONUS404, on a different dataset and a different diagnostic. **The
+> corpus is thinnest exactly where the array's flux enhancement is largest.** State it
+> wherever the corpus is described.
+>
+> If ~1289 is not enough, the levers are a longer span (7 years gives ~1800) or more than
+> one hour per accepted day — the latter at the cost of within-day correlation, which is
+> the reason one-per-day was chosen. That is a design call, not a pipeline one.
 
 A case's window is 42 min of wall clock and its adjustment 31, so **both fit inside the
 1-hour cap as single segments** -- which is what makes 1825 of them schedulable at all.
