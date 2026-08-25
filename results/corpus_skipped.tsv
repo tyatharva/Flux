@@ -6,3 +6,5 @@ case_2023060519	2023-06-05T19:00	z_i = 1562 m exceeds the 976 m this 1952 m box 
 case_2023060620	2023-06-06T20:00	z_i = 1072 m exceeds the 976 m this 1952 m box supports at L >= 2 z_i. NOT a usable corpus case; skip the date or accept a domain-constrained boundary layer and
 case_2023060816	2023-06-08T16:00	z_i = 1389 m exceeds the 976 m this 1952 m box supports at L >= 2 z_i. NOT a usable corpus case; skip the date or accept a domain-constrained boundary layer and
 case_2023060917	2023-06-09T17:00	z_i = 1666 m exceeds the 976 m this 1952 m box supports at L >= 2 z_i. NOT a usable corpus case; skip the date or accept a domain-constrained boundary layer and
+case_2023061018	2023-06-10T18:00	z_i = 2292 m exceeds the 976 m this 1952 m box supports at L >= 2 z_i. NOT a usable corpus case; skip the date or accept a domain-constrained boundary layer and
+case_2023061220	2023-06-12T20:00	z_i = 2636 m exceeds the 976 m this 1952 m box supports at L >= 2 z_i. NOT a usable corpus case; skip the date or accept a domain-constrained boundary layer and
