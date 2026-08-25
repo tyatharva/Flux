@@ -18,6 +18,7 @@
   "n_segments": 4,
   "steps_per_segment": 184680,
   "sim_hours": 2.9999993760000003,
+  "warmup_segments": 0,
   "projected_wall_min_per_segment": 45.9,
   "outFileBase": "FE_SEED"
  },

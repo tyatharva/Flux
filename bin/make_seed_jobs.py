@@ -26,6 +26,29 @@ seed exists solely to be adjusted away:
                           deep, so it re-equilibrates in ~2 min.         no axis
   fine z/L         YES -- the surface flux is prescribed and the surface layer follows.  no axis
 
+=== A STABLE RUNG CANNOT BE COLD-STARTED, AND THIS WAS MEASURED THE HARD WAY ===
+
+`sbl` at G = 6 m/s with w'th' = -0.020 K m/s was cold-started for 1.25 simulated hours and
+COLLAPSED. Measured at the end: u* fell 0.219 -> 0.043 m/s, z_i 209 -> 61 m, the receptor
+reached **z/L = +34.8**, dtheta/dz at the first level hit **2551 K/km**, and above 66 m the
+mean wind sat at EXACTLY the geostrophic 6.000 m/s with a gradient Richardson number of
+~1e8 -- the boundary layer had decoupled from the flow entirely.
+
+The forcing is not the fault. With turbulence already present, u* ~ 0.30 gives L ~ 100 m
+and z/L ~ 0.10 at the receptor, which is weakly stable and perfectly sustainable. **The
+COLD START is the fault**: at t = 0 there is no turbulence, so the prescribed cooling
+builds a near-discontinuous surface inversion before any can develop, and the resulting
+stratification then prevents it developing at all. Runaway surface cooling is a documented
+LES failure mode and it is why GABLS1 prescribes a cooling RATE rather than a flux.
+
+The fix keeps the flux boundary condition -- the corpus's whole surface treatment is built
+on per-cell `htFlux` -- and removes the cold start instead: **a stable rung runs its first
+segment NEUTRAL, so real turbulence exists before the cooling is switched on.** That is
+also how a stable boundary layer forms in nature, out of the evening transition of a
+neutral or convective one, so the seed is more physical rather than less. `warmup_segments`
+carries it, it is 0 for every other rung, and the job stays self-contained -- no
+cross-rung dependency and nothing shared between jobs.
+
 THE RUNGS ARE COUPLED, not a product. A 150 m stable boundary layer cannot carry a 12 m/s
 geostrophic wind -- shear that strong destroys the stratification that defines it -- so G
 belongs to the rung rather than to an axis of its own. Six rungs walk the site's real joint
@@ -74,13 +97,14 @@ from sounding_to_forcing import derive_dt, les_levels, write_in
 # 3.9/5.2/6.8 m/s, and the site is unstable more than half the time. The convective rungs
 # straddle the convective-midday reference (z_i p50 859 m, w'th' p50 0.109 sensible ->
 # 0.129 virtual at the cropland Bowen ratio).
+# name, regime, z_i target (m), virtual w'th' (K m/s), G (m/s), warm-up segments
 RUNGS = [
-    ("sbl",         "stable",     150.0, -0.020,  6.0),
-    ("nbl-shallow", "neutral",    300.0,  0.000,  8.0),
-    ("nbl-deep",    "neutral",    550.0,  0.000, 12.0),
-    ("cbl-shallow", "convective", 450.0,  0.060,  7.0),
-    ("cbl-mid",     "convective", 700.0,  0.110,  9.0),
-    ("cbl-deep",    "convective", 950.0,  0.160, 11.0),
+    ("sbl",         "stable",     150.0, -0.020,  6.0, 1),
+    ("nbl-shallow", "neutral",    300.0,  0.000,  8.0, 0),
+    ("nbl-deep",    "neutral",    550.0,  0.000, 12.0, 0),
+    ("cbl-shallow", "convective", 450.0,  0.060,  7.0, 0),
+    ("cbl-mid",     "convective", 700.0,  0.110,  9.0, 0),
+    ("cbl-deep",    "convective", 950.0,  0.160, 11.0, 0),
 ]
 BASE_ANGLES = (0.0, 30.0, 60.0)
 
@@ -169,9 +193,9 @@ def main():
     if seg * SPS > WALLCAP:
         raise SystemExit(f"FATAL: segment projects {seg*SPS/60:.1f} min, over the cap")
     print(f"\n{'job':<22}{'regime':>12}{'z_i tgt':>9}{'wth_v':>9}{'G':>7}"
-          f"{'angle':>7}{'U_g':>9}{'V_g':>9}")
+          f"{'angle':>7}{'U_g':>9}{'V_g':>9}{'warm':>6}")
 
-    for name, regime, zi, wth, gmag in RUNGS:
+    for name, regime, zi, wth, gmag, warm in RUNGS:
         for ang in BASE_ANGLES:
             job = f"seed_{name}_a{int(ang):03d}"
             d = os.path.join(a.outdir, job)
@@ -191,6 +215,9 @@ def main():
                 **{k: v for k, v in bs.items()},
                 "U_g": round(float(ug), 6), "V_g": round(float(vg), 6),
                 "z_Ug": 10000.0, "z_Vg": 10000.0, "Ug_grad": 0.0, "Vg_grad": 0.0,
+                # The .in carries the TARGET flux; jobs/run_seed.sh forces it to 0 for
+                # the first `warmup_segments` segments so turbulence exists before the
+                # cooling starts. See the docstring: a cold-started stable rung collapses.
                 "surflayer_wth": wth, "surflayer_z0": Z0,
                 "surflayer_idealsine": 0,
                 "coriolisLatitude": 42.957160,
@@ -213,7 +240,9 @@ def main():
                 "stableGradient2": "free-atmosphere lapse",
                 "zStableBottom3": "above the domain; the third segment is unused",
                 "stableGradient3": "free-atmosphere lapse",
-                "surflayer_wth": f"prescribed VIRTUAL kinematic heat flux ({regime})",
+                "surflayer_wth": (f"prescribed VIRTUAL kinematic heat flux ({regime})"
+                                  + (f"; the first {warm} segment(s) run NEUTRAL first -- a "
+                                     f"cold-started stable rung collapses" if warm else "")),
                 "U_g": f"G = {gmag:.1f} m/s at base angle {ang:.0f} deg",
                 "V_g": f"geostrophic wind FROM {(270.0-ang)%360.0:.0f} deg",
                 "dt": f"= {CADENCE_SPINUP:.0f}/{frq} s; CFL_3d = {cfl:.4f}",
@@ -242,6 +271,7 @@ def main():
                         "cadence_s": frq * dt, "steps_total": total,
                         "n_segments": nseg, "steps_per_segment": seg,
                         "sim_hours": total * dt / 3600.0,
+                        "warmup_segments": warm,
                         "projected_wall_min_per_segment": round(seg * SPS / 60.0, 1),
                         "outFileBase": "FE_SEED"},
                 "requires": {"compute_capability": "8.9", "vram_gb": 1.6,
@@ -256,7 +286,7 @@ def main():
             json.dump(man, open(os.path.join(d, "manifest.json"), "w"), indent=1)
             index.append(man)
             print(f"{job:<22}{regime:>12}{zi:>9.0f}{wth:>9.3f}{gmag:>7.1f}"
-                  f"{ang:>7.0f}{ug:>9.3f}{vg:>9.3f}")
+                  f"{ang:>7.0f}{ug:>9.3f}{vg:>9.3f}{warm:>6d}")
 
     ent = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "jobs",
                        "run_seed.sh")

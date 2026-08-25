@@ -30,18 +30,22 @@ die(){ echo "FATAL: $*" >&2; exit 1; }
 [ -f "$JOB/manifest.json" ] || die "no manifest.json in $JOB"
 [ -f "$JOB/seed.in" ] || die "no seed.in in $JOB"
 
-read -r NAME DT FRQ NSEG SEG TOTAL WTH OUTBASE WALLMIN < <(python3 - "$JOB/manifest.json" <<'PY'
+read -r NAME DT FRQ NSEG SEG TOTAL WTH OUTBASE WALLMIN WARM < <(python3 - "$JOB/manifest.json" <<'PY'
 import json,sys
 m=json.load(open(sys.argv[1])); r=m["run"]
 print(m["job"], r["dt"], r["frqOutput"], r["n_segments"], r["steps_per_segment"],
       r["steps_total"], m["target"]["wth_virtual"], r["outFileBase"],
-      r["projected_wall_min_per_segment"])
+      r["projected_wall_min_per_segment"], r.get("warmup_segments", 0))
 PY
 ) || die "manifest.json unreadable"
 
 echo "########## seed $NAME ##########"
 date '+%F %H:%M:%S'
 echo "  dt $DT, dump every $FRQ steps, $NSEG x $SEG steps (proj ${WALLMIN} min wall each)"
+[ "${WARM:-0}" -gt 0 ] 2>/dev/null && echo \
+  "  the first $WARM segment(s) run NEUTRAL (surflayer_wth = 0) before the target $WTH:" && echo \
+  "  a cold-started stable rung collapses -- u* 0.219 -> 0.043, z/L +34.8, the flow above" && echo \
+  "  66 m exactly geostrophic with Ri_g ~ 1e8. Turbulence must exist before the cooling."
 
 # ---- preflight: the GPU, before any GPU time is spent -----------------------------
 CC=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -1 | tr -d ' ')
@@ -74,10 +78,17 @@ fi
 for s in $(seq "$S0" "$NSEG"); do
   NT=$((s * SEG))
   [ "$NT" -gt "$TOTAL" ] && NT=$TOTAL
+  # WARM-UP: force the surface flux to zero for the first WARM segments, so a stable
+  # rung develops turbulence under neutral forcing before the cooling is switched on.
+  # 0 for every other rung, so this is a no-op there.
+  WTH_S="$WTH"
+  if [ "${WARM:-0}" -gt 0 ] 2>/dev/null && [ "$s" -le "$WARM" ]; then WTH_S=0.0; fi
   sed -e "s|^Nt = .*|Nt = $NT|" \
       -e "s|^inPath = .*|inPath = $IPATH|" -e "s|^inFile = .*|inFile = $IN|" \
+      -e "s|^surflayer_wth = .*|surflayer_wth = $WTH_S|" \
       "$JOB/seed.in" > "$JOB/seg$s.in"
   echo "  --- segment $s/$NSEG -> step $NT ($(python3 -c "print(f'{$NT*$DT/60:.0f}')") min simulated)"
+  [ "$WTH_S" != "$WTH" ] && echo "      WARM-UP: surflayer_wth = $WTH_S (target $WTH)"
   date '+%F %H:%M:%S'
   ./docker/run_case.sh "$JOB_REL" "seg$s.in" "$JOB/return/seg$s.log" \
       || die "segment $s"
@@ -90,6 +101,8 @@ done
 # ---- the gate, HERE, so the 300 s dumps never travel -------------------------------
 # ASSERT ON THE ARTIFACT, NOT THE EXIT STATUS (FASTEDDY_TRAPS.md 12): the gate's stdout is
 # tee'd, so $? would be tee's. The verdict is read back out of the JSON it wrote.
+# The gate scores the LAST 1.5 h, which is past the warm-up, so the flux it needs for the
+# Kljun terms is the TARGET one and not the zero the first segment ran under.
 ./docker/pyrun.sh bin/seed_stationarity.py "$JOB_REL/output" --dt "$DT" --wth "$WTH" \
     --json "$JOB_REL/return/stationarity.json" --label "$NAME" \
     2>&1 | tee "$JOB/return/stationarity.txt"
