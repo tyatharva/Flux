@@ -1041,6 +1041,32 @@ chosen for.
 
 ## Status
 
+**SEED LIBRARY AND SOUNDING-FORCED CORPUS — PIPELINE BUILT AND VALIDATED, 2026-08-25.**
+Branch `library-states`; `LIBRARY_PLAN.md`. The target pipeline (passes 1-6) is done; this
+is what turns it into a corpus.
+
+The corpus is **~1825 HRRR-forced LES cases**, one per day over five years, walking the
+whole diurnal cycle. **18 seed states** (6 coupled rungs x 3 base angles) exist only to
+delete each case's 3 h spin-up: **52 GPU-h that buys back ~5250.**
+
+| stage / gate | result |
+|---|---|
+| 1-2 across four regimes, offline | **PASS 70/70** (`bin/test_sounding.py`): summer convective midday, summer nocturnal stable, winter midday, autumn transition |
+| base-state fit | **0.04-0.27 K rms** over the LES column; and FastEddy's own built base state matches the `.in` to **0.0001 K** over 50-60 levels |
+| smoke, one cold start per regime config | **PASS x4**: `k0/k1` 0.124-0.150, `z_i` 154/150 m and 299/300 m against target |
+| non-zero base angle | **PASS** — 270.00 vs 240.00 deg aloft, exactly 30 deg apart |
+| **B6 convective** | **PASS** — every second moment 0.03-0.38x its own block sampling spread |
+| job round trip from an unrelated checkout | **PASS** — six artifacts returned, 70 MB |
+| **C2** on the returned artifact | **PASS** — bit-for-bit, 0 of 23 variables differ |
+
+Three traps found while building it, each of which produced a plausible wrong number
+rather than an error: HRRR winds are **grid-relative** (5.11 deg here, invisible in the
+speed); an **out-of-range parameter does not stop FastEddy** (`FASTEDDY_TRAPS.md` §13);
+and `data/grid16`'s `htFlux` is **all zeros**, so a convective case pointed at it would
+have run neutral and said nothing (`bin/case_surface.py`).
+
+---
+
 **FIFTH PASS IN PROGRESS, 2026-08-22.** Rebuilt around a **10 m receptor on a
 `122 x 122 x 122` @ 16 m grid** (1952 m domain), chosen for corpus economics. Phase A
 complete and committed; Phase B smoke batch mostly complete.
