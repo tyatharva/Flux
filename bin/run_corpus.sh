@@ -64,6 +64,9 @@ while [ "$(date -d "$d" +%Y%m%d)" -le "$(date -d "$END" +%Y%m%d)" ]; do
 import json;print('; '.join(json.load(open('results/forcing/$TAG.json'))['warnings'])[:160])" 2>/dev/null || echo "not representable")
       printf '%s\t%s\t%s\n' "$TAG" "$TS" "$R" >> "$LEDGER"; skip=$((skip+1))
     elif [ "$rc" = "0" ]; then ok=$((ok+1)); else fail=$((fail+1)); fi
+    # MAXCASES has to be honoured on this path too, or DRY=1 silently ignores it and
+    # walks the whole range -- which for a five-year span is 1825 HRRR fetches.
+    [ -n "${MAXCASES:-}" ] && [ "$ok" -ge "$MAXCASES" ] && break
     continue
   fi
 
