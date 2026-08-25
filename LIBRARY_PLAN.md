@@ -530,11 +530,20 @@ file's own precision**. A tolerance tighter than that fails a correct grid.
    exactly 30.00 deg apart aloft and 30.03 at the receptor. The rotated forcing reaches
    the solver. (The 10 m wind is backed only 0.6 deg after five simulated minutes -- the
    Ekman spiral needs the full spin-up, so this validates the FORCING, not the turning.)
-2. One job-bundle round trip from an unrelated checkout, then Gate C2 on the returned
-   artifact: restart from it with `Nt` = the restart step (trap 6 => zero timesteps, one
-   dump) and diff byte-for-byte. **The path-discovery half is already done** --
-   `jobs/run_seed.sh` runs correctly from a checkout at `/tmp/.../altroot/Flux` that knows
-   nothing about `/home/atyagi/Flux`.
+2. ~~One job-bundle round trip from an unrelated checkout~~ **DONE -- PASS.**
+   `jobs/run_seed.sh` ran a seed from a checkout at `/tmp/.../altroot/Flux` that knows
+   nothing about `/home/atyagi/Flux`, returned all six artifacts (70 MB), and correctly
+   exited 1 because a five-minute cold start fails the stationarity gate -- which is the
+   gate working, not the job failing. **Gate C2 on the returned file: PASS, bit-for-bit,
+   0 of 23 variables differ.**
+
+   > The first run of that gate reported **10 of 23 differing, `u` by 2.65 m/s** -- not
+   > roundoff, a full integration. The pipeline was fine; the *test* combined two traps
+   > backwards. **Trap 4**: the restart step is parsed from the FILENAME
+   > (`time_integration.c:104`), so naming the returned dump `FE_RST.0` reset the counter
+   > to zero. **Trap 6**: `Nt` is an ABSOLUTE target step, so `Nt = 20520` from a counter
+   > at 0 ran 20520 real steps rather than the intended zero. `bin/c2_restart_check.sh`
+   > now takes the step as an explicit argument and names the file for it.
 3. ~~One short **convective** B6~~ **DONE -- PASS** (`bin/b6_convective.sh`). PROJECT_BRIEF.md
    forbids inferring a regime from a gate that ran in another, and the seed library leans
    on the same rotation for convective rungs as for neutral ones.

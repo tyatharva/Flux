@@ -7,11 +7,11 @@ tBx = 1 # kStride=1, so a warp must run along z; tBx>1 breaks coalescing (measur
 tBy = 2 # 1x2x64 = 128 threads, fastest of 9 legal shapes swept on this grid
 tBz = 64 # CUDA caps blockDim.z at 64; 128 is rejected by the device
 #--IO
-inPath = ./
-inFile = FE_RST.0
+inPath = # Path where initial/restart file is read in from
+inFile = # name of the input file for coordinate system and initial or restart conditions
 outPath = ./output/ # Path where output files are to be written
-outFileBase = FE_ADJ
-frqOutput = 2565
+outFileBase = FE_G16 # Base name of the output file series as in (outFileBase).element-in-series
+frqOutput = 18960 # 300 s between dumps during spin-up
 ioOutputMode = 0 # 0: N-to-1 gather and write to a netcdf file, 1:N-to-N writes of FastEddy binary files
 #--GRID
 Nx = 122 # 122 x 16 m = 1952 m
@@ -22,15 +22,15 @@ d_xi = 16.0 # 16 m
 d_eta = 16.0 # 16 m
 d_zeta = 20.576132 # zCeiling = d_zeta*(Nz-0.5) = 2500 m (bin/vgrid.py)
 coordHorizHalos = 1 # switch to setup coordiante halos as periodic=1 or gradient-following=0
-topoFile = ./topo.bin
+topoFile = # A file containing topography (surface elevation in meters ASL)
 verticalDeformSwitch = 1 # switch to use vertical coordinate deformation 0=off, 1=on
 verticalDeformFactor = 0.194059 # dz_sfc = 3.9933 m; cell centre k=2 at EXACTLY 10.000000000 m
 verticalDeformQuadCoeff = 0.0 # pure cubic
 #--TIME_INTEGRATION
 timeMethod = 0 # Selector for time integration method. [0=RK3-WS2002 (default)]
-Nt = 10260
+Nt = 232000 # ~1.02 simulated hours, the 1-hour wall cap. Set per segment by the drivers.
 dt = 0.01461988  # set per case
-NtBatch = 2565
+NtBatch = 316
 #--HYDRO_CORE
 ##------------: HYDRO_CORE Submodule Selectors ---
 #----------: Boundary Conditions Set ---
@@ -77,7 +77,7 @@ dampingLayerDepth = 500.0 # 20% of the 2500 m domain depth; clean domain to 2000
 surflayerSelector = 1 # surfacelayer selector: 0= off, 1= surface kinematic heat flux (surflayer_wth), 2=sking temperature rate (surflayer_tr)
 surflayer_z0 = 0.1435  # geometric-mean z0 of the real 122^2 @ 16 m WorldCover map
 surflayer_z0t = 0.01 # roughness length (temperature) when surflayerSelector > 0
-surflayer_wth = 0.0439649  # set per case
+surflayer_wth = 0.00531187  # set per case
 surflayer_tr = -0.0 # temperature rate at the surface when surflayerSelector = 2 (>0 for warming; <0 for cooling)
 surflayer_wq = 0.0 # latent heat flux at the surface (kg/kg m s-1) when surflayerSelector = 1
 surflayer_qr = 0.0 # water vapor rate (kg/kg h-1) when surflayerSelector = 2
@@ -91,19 +91,19 @@ surflayer_ideal_qamp = 2.0 # maximum amplitude of the idealized sinusoidal surfa
 surflayer_offshore = 0 # offshore selector: 0=off, 1=on
 #------------: BASE-STATE ---
 stabilityScheme = 2  # Scheme used to set hydrostatic, stability-dependent Base-State EOS fields
-temp_grnd = 275.1978  # set per case
-pres_grnd = 98160.0  # set per case
-zStableBottom = 450.27  # set per case
-stableGradient = 0.00652225  # set per case
-zStableBottom2 = 871.47  # set per case
-stableGradient2 = 0.0176696  # set per case
-zStableBottom3 = 1676.36  # set per case
-stableGradient3 = 0.00610749  # set per case
+temp_grnd = 270.7221  # set per case
+pres_grnd = 99030.0  # set per case
+zStableBottom = 6.25  # set per case
+stableGradient = 0.0305868  # set per case
+zStableBottom2 = 295.92  # set per case
+stableGradient2 = 0.00713627  # set per case
+zStableBottom3 = 1657.61  # set per case
+stableGradient3 = 0.00872496  # set per case
 thetaPerturbationSwitch = 1 # Switch to include initial theta perturbations: 0=off, 1=on
 thetaHeight = 300.0 # Height below which to include initial theta perturbations: (meters)
 thetaAmplitude = 0.25 # Maximum amplitude for theta perturbations: thetaAmplitude*[-1,+1] K
-U_g = -2.788442  # set per case
-V_g = -3.447871  # set per case
+U_g = 2.706261  # set per case
+V_g = -1.544185  # set per case
 z_Ug = 10000.0  # Height (m) above ground for linear geostrophic wind gradient (zonal component)
 z_Vg = 10000.0  # Height (m) above ground for linear geostrophic wind gradient (meridional component)
 Ug_grad = 0.0  # U_g gradient above z_Ug (ms-1/m)
@@ -115,8 +115,8 @@ lsf_freq = 1.0 # large-scale forcing frequency (seconds)
 lsf_w_surf = 0.0  # m/h; the kernel divides by 3600 (cuda_largeScaleForcingsDevice.cu:229)
 lsf_w_lev1 = -25.0  # -0.0069 m/s at 500 m: fair-weather subsidence, 0.005-0.01 m/s
 lsf_w_lev2 = 0.0  # set per case
-lsf_w_zlev1 = 583.3  # set per case
-lsf_w_zlev2 = 1166.7  # set per case
+lsf_w_zlev1 = 200.0  # set per case
+lsf_w_zlev2 = 1000.0  # set per case
 lsf_th_surf = 0.0 # no imposed cooling: the inversion, not an LSF, sets the equilibrium
 lsf_th_lev1 = 0.0
 lsf_th_lev2 = 0.0
