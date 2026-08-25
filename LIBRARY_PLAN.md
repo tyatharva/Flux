@@ -627,12 +627,6 @@ passes every `>` comparison).
   `PBLH` is the same class of diagnostic, so PROJECT_BRIEF.md's 60.9% and this are comparable —
   but the sensitivity is worth measuring once rather than assuming.
 
-- **`bin/prep_restart.py`'s "SET IN THE CASE FILE: U_g = -10.0000" line.** It reports what
-  the rotation implies for a 10 m/s spin-up, which is what the retired per-bin campaign
-  wanted. In the corpus the case file already carries the sounding's own forcing
-  (`U_g = -2.788` on the end-to-end case), so the line is advisory text that reads like an
-  instruction. Nothing acts on it; it should say so.
-
 - **Splitting `cbl-strong`.** If a 7th rung is ever wanted, the very-unstable class is the
   gap (`z/L` spans two decades there). Note `u*` is unidentifiable from `sigma_w` alone for
   19.7% of midday hours, so that tail is data-limited too.

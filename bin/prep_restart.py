@@ -122,9 +122,17 @@ def main():
     for _ in range(m):
         ug, vg = -vg, ug
     frm = (np.degrees(np.arctan2(-ug, -vg)) % 360)
-    print(f"  SET IN THE CASE FILE:  U_g = {ug:.4f}   V_g = {vg:.4f}")
-    print(f"    geostrophic wind is FROM {frm:.0f} deg; the SURFACE wind will be backed "
-          f"from that by the Ekman turning angle (measured ~12-19 deg here)")
+    # ADVISORY, NOT AN INSTRUCTION -- and it used to read like one. This is where the
+    # ROTATION puts a --ug spin-up's forcing, which is what the retired per-bin campaign
+    # needed: it rotated one flat state into four directions and had to be told the matching
+    # U_g/V_g. A sounding-forced corpus case already carries its own forcing in the .in that
+    # bin/sounding_to_forcing.py wrote (U_g = -2.788 on the first end-to-end case, against
+    # the -10.0000 this line reports), and nothing acts on what is printed here.
+    print(f"  the rotation puts a {a.ug:.1f} m/s spin-up's forcing at "
+          f"U_g = {ug:.4f}, V_g = {vg:.4f}  (FROM {frm:.0f} deg)")
+    print(f"    ADVISORY: a corpus case keeps the forcing already in its own .in. Only a "
+          f"re-indexed spin-up needs these; the surface wind is then backed from that "
+          f"direction by the Ekman angle (measured ~12-19 deg here).")
     print(f"  wrote {a.dst}")
     return 0
 
