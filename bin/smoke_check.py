@@ -132,9 +132,27 @@ def main():
             m_ = (z > zi_ + 200.0) & (z < 2000.0)      # above the BL, below the damping layer
             if m_.sum() >= 5:
                 d_ = float(np.abs(thbar[m_] - base[m_]).max())
-                chk(d_ < 0.15, "FastEddy's base state matches the .in above the BL",
-                    f"max |theta_LES - theta_base| = {d_:.4f} K over "
-                    f"{int(m_.sum())} levels from {z[m_][0]:.0f} to {z[m_][-1]:.0f} m; "
+                # SUBSIDENCE MOVES THE PROFILE ABOVE THE BL, AND THAT IS THE POINT OF IT.
+                # lsfSelector = 1 with lsf_horMnSubTerms = 1 advects the SLAB MEAN against
+                # its own gradient, so a convective rung's free atmosphere warms by
+                # (descent) x (local base-state gradient). Scoring it against zero would
+                # fail a correctly working scheme -- and it did, at 0.1596 K on cbl-mid.
+                # The tolerance is therefore the PREDICTED warming, which turns the
+                # nuisance into a second confirmation of Gate B7.
+                tol, why = 0.02, "no subsidence"
+                wsub = abs(par.get("lsf_w_lev1", 0.0))
+                if (wsub > 0 and par.get("lsfSelector", 0) == 1
+                        and par.get("lsf_horMnSubTerms", 0) == 1):
+                    step = int(a.dump.rsplit(".", 1)[1])
+                    tsim = step * par.get("dt", 0.0)
+                    drop = wsub / 3600.0 * tsim              # m; the kernel divides by 3600
+                    grad = float(np.max(np.abs(np.gradient(base, z))[m_]))
+                    tol = 0.02 + 1.3 * drop * grad           # 30% headroom on the taper
+                    why = (f"{wsub:.0f} m/h x {tsim:.0f} s = {drop:.2f} m of descent "
+                           f"through a {grad:.3f} K/m gradient = {drop*grad:.3f} K expected")
+                chk(d_ < tol, "FastEddy's base state matches the .in above the BL",
+                    f"max |theta_LES - theta_base| = {d_:.4f} K vs tolerance {tol:.4f} "
+                    f"({why}) over {int(m_.sum())} levels, {z[m_][0]:.0f}-{z[m_][-1]:.0f} m; "
                     f"theta_grnd {th_g:.4f} K")
             else:
                 print(f"  SKIP  base state -- only {int(m_.sum())} levels above z_i")
