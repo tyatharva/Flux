@@ -55,3 +55,4 @@ __pycache__/
 data/case_grids/
 data/smokelib/
 results/corpus/
+results/pick/
