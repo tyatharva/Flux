@@ -184,9 +184,32 @@ as `FLUX_ROOT`, which is why `docker/run_case.sh`, `docker/pyrun.sh`, `bin/spin_
 
 ### 1. `bin/hrrr_sounding.py`
 
-Herbie, HRRR `nat` product (**~50 hybrid levels**, against `prs`'s 40 pressure levels which
-put 3-4 levels in the whole boundary layer), `fxx=0` analysis, plus `sfc` for `HPBL`,
-`SHTFL`, `LHTFL`, `PRES` and the 10 m wind.
+Herbie, HRRR `nat` product (**hybrid levels**, against `prs`'s 40 pressure levels which put
+3-4 levels in the whole boundary layer), `fxx=0` analysis, plus `sfc` for `HPBL`, `SHTFL`,
+`LHTFL`, `PRES` and the 10 m wind.
+
+**The download is the corpus's largest data cost, and it was going to be 561 GB.** GRIB
+byte-range subsetting works per **message**, not per area, so 6 variables x 50 hybrid
+levels is 300 full CONUS fields — **measured at 315 MB per timestamp** on the first six
+cached subsets. Three changes, each verified rather than assumed:
+
+| | | per case |
+|---|---|---|
+| as first written | 6 vars x 50 levels | 315 MB, cached |
+| drop `SPFH` | nothing reads it: the run is dry and buoyancy comes from the virtual `htFlux` | 228 MB |
+| **lowest 20 hybrid levels only** | verified against the file's own inventory: HRRR numbers level 1 at the **model bottom** (level 1 at 289 m ASL here, level 20 at 6413 m, level 50 at 27176 m), so 1-20 reaches ~6.1 km AGL | **~91 MB** |
+| delete the GRIB after extraction | the durable artifact is the 8 kB sounding | **8 kB at rest** |
+
+~6.1 km contains everything downstream needs: the 2500 m LES column, the 4 km ceiling on
+the `z_i` searches, and the above-BL geostrophic layer, which tops out at `z_i + 550
+<= 1526 m` for the deepest representable case. **Checked, not asserted:** fetching one
+timestamp at 20 and at 50 levels gives bit-identical `z_i` (all three diagnostics),
+surface fluxes, Bowen ratio, 10 m wind, `U_g`, `V_g`, geostrophic speed and direction, and
+a shared profile matching to **0.000e+00** in both `z` and `theta`. The restriction is
+exactly free.
+
+Together: ~416 GB of transfer becomes ~166 GB, and cache-at-rest goes from 561 GB to
+15 MB.
 
 **Two traps, both of which produce plausible wrong numbers rather than errors:**
 
