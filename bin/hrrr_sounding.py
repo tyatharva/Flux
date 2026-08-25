@@ -201,7 +201,7 @@ def _pick(ds, lat, lon, k=1):
     return ds.herbie.pick_points(pts, method="nearest", k=k)
 
 
-def fetch(ts, box_km, level_mb, save_dir=None):
+def fetch(ts, box_km, level_mb, save_dir=None, keep_grib=False, nlev=20):
     from herbie import Herbie
 
     out = {"provenance": {"model": "hrrr", "fxx": 0,
@@ -216,9 +216,30 @@ def fetch(ts, box_km, level_mb, save_dir=None):
     out["tower"] = {"lat": lat0, "lon": lon0}
 
     # ---- native (hybrid) levels: the profile ------------------------------------
+    # SPFH IS NOT REQUESTED, because nothing downstream reads it: the run is dry, the
+    # profile carries only z/theta/u/v/p/T, and the ONE thing moisture would change --
+    # buoyancy -- is absorbed by prescribing htFlux as the VIRTUAL flux (PROJECT_BRIEF.md). It is
+    # a sixth of the download for a field that is thrown away.
+    #
+    # AND THE GRIB IS DELETED AFTER EXTRACTION unless --keep-grib. GRIB byte-range
+    # subsetting works by MESSAGE, not by area, so 5 variables x ~50 hybrid levels is 300
+    # full CONUS fields = ~263 MB per timestamp -- and this project wants ~1825 of them,
+    # which is 470 GB of cache for 15 MB of JSON. Measured, not estimated: the first six
+    # cached `nat` subsets averaged 315 MB each. The durable artifact is the 8 kB sounding.
+    # ONLY THE LOWEST `nlev` HYBRID LEVELS. Verified against the file's own inventory
+    # rather than assumed: HRRR numbers hybrid level 1 at the MODEL BOTTOM (level 1 sits at
+    # 289 m ASL over this tower, level 20 at 6413 m, level 50 at 27176 m). Levels 1-20
+    # therefore reach ~6.1 km AGL, which contains everything downstream needs -- the
+    # 2500 m LES column, the 4 km ceiling on the z_i searches, and the above-BL
+    # geostrophic layer, which tops out at z_i + 550 <= 1526 m for the deepest
+    # representable case. The remaining 30 levels are stratosphere the LES never sees.
+    #
+    # This is 40% of the messages, and it is the corpus's largest data cost: 228 MB per
+    # case becomes ~91 MB, and 1825 cases go from ~416 GB of transfer to ~166 GB.
+    lv = "|".join(str(i) for i in range(1, int(nlev) + 1))
     Hn = Herbie(ts, model="hrrr", product="nat", fxx=0, save_dir=save_dir)
-    dsn = _flatten(Hn.xarray(r":(?:TMP|UGRD|VGRD|HGT|PRES|SPFH):[0-9]+ hybrid level:",
-                             remove_grib=False))
+    dsn = _flatten(Hn.xarray(rf":(?:TMP|UGRD|VGRD|HGT|PRES):(?:{lv}) hybrid level:",
+                             remove_grib=not keep_grib))
     prof = {}
     crs = None
     for d in dsn:
@@ -232,7 +253,7 @@ def fetch(ts, box_km, level_mb, save_dir=None):
             if name in pt.variables:
                 prof[name] = np.asarray(pt[name].values).ravel()
         # cfgrib sometimes names them by their GRIB shortName instead
-        for name in ("TMP", "UGRD", "VGRD", "HGT", "PRES", "SPFH"):
+        for name in ("TMP", "UGRD", "VGRD", "HGT", "PRES"):
             if name in pt.variables:
                 prof[name.lower()] = np.asarray(pt[name].values).ravel()
         if "hybrid" in pt.coords:
@@ -253,7 +274,7 @@ def fetch(ts, box_km, level_mb, save_dir=None):
                      (r":UGRD:10 m above ground:", "u10"),
                      (r":VGRD:10 m above ground:", "v10")):
         try:
-            for d in _flatten(Hs.xarray(pat, remove_grib=False)):
+            for d in _flatten(Hs.xarray(pat, remove_grib=not keep_grib)):
                 pt = _pick(d, lat0, lon0)
                 for vn in pt.data_vars:
                     val = np.asarray(pt[vn].values).ravel()
@@ -270,7 +291,8 @@ def fetch(ts, box_km, level_mb, save_dir=None):
     Hp = Herbie(ts, model="hrrr", product="prs", fxx=0, save_dir=save_dir)
     box = {}
     try:
-        for d in _flatten(Hp.xarray(rf":HGT:{level_mb} mb:", remove_grib=False)):
+        for d in _flatten(Hp.xarray(rf":HGT:{level_mb} mb:",
+                                    remove_grib=not keep_grib)):
             lat = np.asarray(d["latitude"].values)
             lon = norm_lon(d["longitude"].values)
             gh = np.asarray(d["gh"].values) if "gh" in d.variables else \
@@ -510,11 +532,21 @@ def main():
     ap.add_argument("--box-km", type=float, default=45.0)
     ap.add_argument("--level", type=int, default=850, help="pressure level (mb) for dZ/dx")
     ap.add_argument("--cache", default="data/hrrr")
+    ap.add_argument("--nlev", type=int, default=20,
+                    help="how many hybrid levels from the MODEL BOTTOM to fetch. 20 "
+                         "reaches ~6.1 km AGL and is 40%% of the download; the rest is "
+                         "stratosphere the LES never sees.")
+    ap.add_argument("--keep-grib", action="store_true",
+                    help="keep the downloaded GRIB. OFF by default: GRIB byte-range "
+                         "subsetting works per MESSAGE, not per area, so a `nat` subset "
+                         "is ~263 MB (measured 315 MB with SPFH) and a 1825-case corpus "
+                         "would cache ~470 GB for 15 MB of JSON.")
     a = ap.parse_args()
 
     ts = dt.datetime.fromisoformat(a.timestamp.replace("Z", ""))
     os.makedirs(a.cache, exist_ok=True)
-    raw = fetch(ts, a.box_km, a.level, save_dir=a.cache)
+    raw = fetch(ts, a.box_km, a.level, save_dir=a.cache, keep_grib=a.keep_grib,
+                nlev=a.nlev)
     rec = build(raw, a.level)
 
     out = a.out or os.path.join("results", "soundings",

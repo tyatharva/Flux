@@ -418,6 +418,17 @@ def build(snd, grid_dir, nz, zceiling, c1, dx, cfl, match_10m, w_low, z_low,
                    # z_i/L = -38 boundary layer -- so at this site the thermal wind can
                    # exceed the 10 deg convective Ekman angle outright. Recorded per case
                    # so a corpus-wide bias is visible rather than assumed away.
+                   # The height-gradient geostrophic estimate is a DIAGNOSTIC, never the
+                   # forcing -- but when it disagrees badly with the above-BL wind that is
+                   # worth carrying per case rather than leaving in the sounding file. On
+                   # 2023-01-18 18Z the two differ by 140 deg at a speed ratio of 1.01:
+                   # a weak height gradient has a poorly determined DIRECTION, which is
+                   # exactly the regime where a plane fit says least.
+                   "geo_cross_check_deg": (
+                       round(float(geo["cross_check"]["dir_diff_deg"]), 2)
+                       if "cross_check" in geo else None),
+                   "geo_cross_check_flag": (bool(geo["cross_check"]["flag"])
+                                            if "cross_check" in geo else None),
                    "dir10_residual_deg": (
                        round(float(((float(sfc["wdir10_from_deg"]) - pred10 + 180.0)
                                     % 360.0) - 180.0), 3)
