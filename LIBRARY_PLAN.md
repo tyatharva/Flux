@@ -41,6 +41,14 @@ Costed at the **measured** `t_back = 600 s` (`results/tback_production.txt`), no
 **52 GPU-h buys back about 5250.** The corpus is the real cost; the library is rounding
 error beside it.
 
+> **1825 is the number of DAYS, not the number of usable cases.** Days whose `z_i` falls
+> outside `100-976 m` are refused rather than run and mis-labelled, and `z_i` is strongly
+> seasonal and diurnal: a 12-day June-afternoon sample was rejected **9 times out of 12**,
+> at `z_i` between 1037 and 2636 m. `bin/corpus_coverage.py` measures the real acceptance
+> rate on the diagnostic the filter actually uses, over the hours the corpus actually
+> draws. **Multiply the GPU-h above by that fraction**, and treat the exclusion as a
+> stated, non-neutral bias — see Deferred.
+
 A case's window is 42 min of wall clock and its adjustment 31, so **both fit inside the
 1-hour cap as single segments** -- which is what makes 1825 of them schedulable at all.
 
