@@ -387,24 +387,33 @@ is ~5-7 m and the grid cannot resolve it.
 **`z0` for the array is 0.10 m at this receptor height**, not 0.1-0.3 — see the RSL section: the
 first model level is at 2.0 m and a larger `z0` leaves the surface-layer scheme no room.
 
-**STABLE CASES CARRY NO ARRAY SIGNAL AT ALL — thermal or aerodynamic.** Recorded
-2026-08-25, while building the per-case surface for the HRRR-forced corpus, because it is
-easy to miss and it bounds what the corpus can teach.
+**A STABLE CASE IS A ROUGHNESS-ONLY ARRAY CASE: the thermal contrast is absent and the
+aerodynamic one is all that is left.** Recorded 2026-08-25 while building the per-case
+surface for the HRRR-forced corpus. **Corrected the same day** — the first version of this
+entry said stable cases carried *no* array signal at all, which is true of the retired
+BASELINE surface and false of the one production actually uses.
 
-- *Aerodynamically*, the array is already inert: `z0_array = 0.10 m` is exactly WorldCover's
-  cropland value, so the override changes nothing. This file says so above; the point here
-  is that it applies in **every** regime.
-- *Thermally*, the per-class flux table (array 1.60, water 0.12, built 1.50 …) is a
-  **DAYTIME sensible-flux enhancement** table taken from field studies. There is no
-  nocturnal equivalent in this project, and at night the physics inverts — water holds
-  heat, built surfaces release what they stored, vegetation cools fastest. Applying daytime
-  ratios to a negative flux would invent a contrast nothing measured, **so a stable case
-  gets a UNIFORM negative `htFlux`** (`bin/case_surface.py`).
+- *Thermally, there is no contrast.* The per-class flux table (array 1.60, water 0.12,
+  built 1.50 …) is a **DAYTIME sensible-flux enhancement** table from field studies. There
+  is no nocturnal equivalent in this project, and at night the physics inverts — water
+  holds heat, built surfaces release what they stored, vegetation cools fastest. Applying
+  daytime ratios to a negative flux would invent a contrast nothing measured, **so a stable
+  case gets a UNIFORM negative `htFlux`** (`bin/case_surface.py`).
+- *Aerodynamically, it depends on the surface treatment, and only one of the two is
+  production.* Measured on the grids themselves:
 
-So the array signal this project exists to resolve is a **daytime** signal. Stable cases
-are still real corpus points — they teach the flow, the terrain and the stability
-dependence of the footprint — but they contain no array contrast, and the corpus must be
-described that way rather than as uniformly array-sensitive.
+  | grid | `z0` array / cropland | array signal in a stable case |
+  |---|---|---|
+  | `data/grid16` (baseline, flat) | 0.10 / 0.10 = **1.00x** | **none** — WorldCover calls the array cropland and `z0_array = 0.10` IS cropland's value |
+  | **`data/grid16_raised`** (production) | **0.25 / 0.10 = 2.50x** | **a real roughness contrast** |
+
+  The corpus runs on the raised surface (`SIXTH_PASS_RESULTS.md`), so **stable corpus cases
+  do carry an array signal — a purely aerodynamic one.**
+
+That makes stable cases *more* interesting than a nuisance, not less: they are the only
+part of the corpus where the array's roughness effect is **isolated from its heat-flux
+effect**, which convective cases confound. What must not be claimed is a thermal array
+response at night. Convective cases carry both channels; stable cases carry one.
 
 **Albedo has no pathway, and that is not an omission.** FastEddy in this configuration has no
 radiation scheme — `surflayerSelector = 1` prescribes the kinematic surface heat flux directly —
@@ -615,6 +624,16 @@ Evaluated and rejected. Re-proposing them wastes time.
 - **A neutral well-mixed PASS as evidence about the convective closure** — the floor
   is nearly inert neutrally, so the neutral gate tests a different model. It passed a
   closure carrying NINE turnovers. Run the gate convectively or do not claim it.
+- **AND THE SAME NOW APPLIES TO STABLE, WHERE THE GATE HAS NEVER BEEN RUN AT ALL.**
+  Checked 2026-08-25: `bin/run_pass6.sh` ran the well-mixed battery on `g16_flat`
+  (neutral) and `g16_flatcbl` (convective) and on nothing else. The HRRR-forced corpus
+  walks the whole diurnal cycle and this site is stable ~29% of QC'd hours, so **the
+  corpus contains a regime the closure has no evidence in** — which is exactly the
+  situation this file already forbids claiming past. Stable is the hardest case of the
+  three: the eddies are smallest, so `z/Delta` is worst; `phi_w` differs, so the MOST
+  anchor differs; and the SBL is where an LES most easily laminarises. **Gate D1 must be
+  run on an `sbl` window before stable corpus cases are trusted**, and its verdict is
+  currently unknown rather than assumed good.
 - **24 m vs 12 m convergence test** — dropped; the grid is changing anyway.
 - **Online footprint calculation inside FastEddy** — rejected 2026-08-21. Two reasons, both
   measured. **(i) It solves a problem we do not have**: IO is ~3% of compute and a window is

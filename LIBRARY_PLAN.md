@@ -649,6 +649,40 @@ passes every `>` comparison).
 
 ---
 
+## The one gate the corpus needs that has never been run
+
+**Gate D1 (well-mixed) has never been run in STABLE conditions.** Checked against
+`bin/run_pass6.sh`: the battery ran on `g16_flat` (neutral) and `g16_flatcbl` (convective),
+and on nothing else. The sixth pass's table has a neutral row and a convective row and no
+third one.
+
+That was fine for a corpus of eight convective and neutral directions. It is not fine for a
+corpus that walks the whole diurnal cycle — this site is **stable in ~29% of QC'd hours**
+(PROJECT_BRIEF.md's climatology: 20.4% stable, 8.8% very stable), the `sbl` rung exists precisely
+to serve them, and PROJECT_BRIEF.md's own convention says to **treat a regime the gate has not run
+in as no evidence at all**. It is the same mistake the fifth pass made when it recorded the
+convective closure as "inherited" from a neutral PASS.
+
+Stable is also the hardest of the three, for three separate reasons:
+
+- **`z/Delta` is worst there.** The energy-containing eddy scale shrinks with stability
+  while `Delta` does not, and the receptor already sits at `z/Delta = 0.99`.
+- **The MOST anchor is a different function.** The floor is anchored to
+  `sigma_w/u* = 1.25 phi_w`, and `phi_w` in stable stratification is not the neutral or
+  convective branch — so the floor's factor at the receptor is a third number, not the
+  1.000 (neutral) or 1.59 (convective) already measured.
+- **A stable LES can laminarise.** At `z_i ~ 150 m` the whole boundary layer is ~38 model
+  levels and the turbulence is weak and intermittent; there is no guarantee the state stays
+  turbulent at all, which is a question the stationarity gate can answer but has not been
+  asked.
+
+**This is cheap to close** — one `sbl` window and one `stage4_wellmixed.py --sgs-most` run,
+the same battery `bin/run_pass6.sh` already applies to the other two regimes — and it
+should be closed before any stable corpus case is trusted. It is listed here rather than in
+Deferred because it is a **gate**, not a refinement.
+
+---
+
 ## Deferred, with reasons
 
 - **The 30-minute adjustment study.** How far adjustment carries each axis, which is what

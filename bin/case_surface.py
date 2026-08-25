@@ -25,11 +25,13 @@ written fresh. A case directory is ~116 kB of real data.
             enhancements from field studies, converted to virtual with each class's own
             Bowen ratio. This is the case the array signal lives in.
 
-  wth ~ 0   NEUTRAL. Zero everywhere, which is what neutral means. The array still has an
-            aerodynamic signal in principle -- except that at `z0_array = 0.10` it is
-            aerodynamically IDENTICAL to the cropland WorldCover labels it as, so in
-            practice a neutral case carries no array signal either (PROJECT_BRIEF.md says this
-            outright and prep_surface.py warns about it).
+  wth ~ 0   NEUTRAL. Zero everywhere, which is what neutral means. The array's signal is
+            then purely aerodynamic, and whether it exists at all depends on the grid:
+            data/grid16 has z0_array = 0.10, which is EXACTLY WorldCover's cropland value,
+            so the override changes nothing and the signal is zero. data/grid16_raised --
+            which is production -- has z0_array = 0.25 against cropland's 0.10, a 2.5x
+            contrast. Point a neutral or stable case at the baseline grid and the array
+            disappears entirely.
 
   wth < 0   STABLE, and this one is a DECISION, not a formula. The class table is a
             DAYTIME table. At night the physics inverts -- water holds heat, built-up
@@ -39,13 +41,13 @@ written fresh. A case directory is ~116 kB of real data.
             nothing measured. **So a stable case gets a UNIFORM negative flux**, and the
             absence of nocturnal per-class contrast is recorded rather than fabricated.
 
-            The consequence, stated because it is easy to miss: **a stable corpus case
-            carries no array contrast at all.** Not thermally (the map is uniform) and not
-            aerodynamically (`z0_array = 0.10` equals cropland's). Stable cases are still
-            real corpus points -- they teach the flow, the terrain and the stability
-            dependence of the footprint -- but the array-specific signal this project
-            exists to resolve is a DAYTIME signal, and the corpus should be described that
-            way.
+            The consequence, stated because it is easy to get backwards: on the
+            PRODUCTION surface a stable case is a ROUGHNESS-ONLY array case. The thermal
+            contrast is gone but the 2.5x z0 contrast remains, so stable cases are the one
+            place in the corpus where the array's aerodynamic effect is ISOLATED from its
+            heat-flux effect -- which every convective case confounds. On the retired flat
+            baseline (z0_array = 0.10 = cropland) there would be no array signal at all,
+            which is a reason not to build a corpus on that grid.
 
 usage: case_surface.py --grid data/grid16 --wth-ref 0.1290 --out data/grid16_case_<tag>
 """
@@ -124,7 +126,8 @@ def main():
         wth = np.full(f.shape, w)
         regime = "stable"
         note = ("UNIFORM: the class table is a daytime table and there is no nocturnal "
-                "equivalent. This case carries NO array contrast, thermal or aerodynamic.")
+                "equivalent, so there is no THERMAL array contrast. The aerodynamic one "
+                "survives via z0 -- check it below.")
     else:
         wth = np.zeros_like(f)
         regime, note = "neutral", "zero everywhere"
@@ -139,8 +142,16 @@ def main():
         print(f"  array cells {int(array.sum())}: {wth[array].mean():+.4f} K m/s "
               f"({wth[array].mean()/max(w,1e-12):.3f}x the cropland reference)")
     else:
-        print(f"  array cells {int(array.sum())}: {wth[array].mean():+.4f} K m/s "
-              f"-- IDENTICAL to every other cell, so this case has no array signal")
+        z0 = np.load(os.path.join(a.out, "z0m.npy"))
+        cls = np.load(os.path.join(a.out, "lcclass.npy"))
+        crop = (cls == 40) & ~array
+        r = float(z0[array].mean() / max(z0[crop].mean(), 1e-12)) if crop.any() else float("nan")
+        print(f"  array cells {int(array.sum())}: {wth[array].mean():+.4f} K m/s -- the "
+              f"same as every other cell, so NO thermal array signal")
+        print(f"  the array's remaining signal is aerodynamic: z0 {z0[array].mean():.3f} m "
+              f"vs cropland {z0[crop].mean():.3f} m = {r:.2f}x"
+              + ("  <-- 1.00x means NO array signal at all on this grid; use the raised one"
+                 if r < 1.01 else ""))
     return 0
 
 
