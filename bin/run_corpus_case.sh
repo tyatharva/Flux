@@ -58,7 +58,7 @@ ADJ_S="${ADJ_S:-1800}"
 WINDOW_S="${WINDOW_S:-2400}"
 TBACK="${TBACK:-$(cat results/tback_production.txt 2>/dev/null || echo 600)}"
 D="runs/$TAG"
-L=/tmp/flux-logs
+L="${LOGDIR:-${TMPDIR:-/tmp}/flux-logs}"; mkdir -p "$L"
 die(){ echo "FATAL: $*" >&2; exit 1; }
 say(){ echo; echo "########## $* ##########"; date '+%F %H:%M:%S'; }
 

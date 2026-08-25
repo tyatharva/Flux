@@ -37,7 +37,8 @@ sed -e "s|^Nt = .*|Nt = $STEP|" -e "s|^NtBatch = .*|NtBatch = $STEP|" \
     -e 's|^outFileBase = .*|outFileBase = FE_C2|' -e 's|^topoFile = .*|topoFile = |' \
     "$TMPL" > $D/c2.in
 echo "########## GATE C2: restart $(basename "$RST") at step $STEP, re-dump, diff ##########"
-./docker/run_case.sh $D c2.in /tmp/flux-logs/c2.log || echo "  (run_case reported non-zero; scoring the artifact anyway)"
+L="${LOGDIR:-${TMPDIR:-/tmp}/flux-logs}"; mkdir -p "$L"
+./docker/run_case.sh $D c2.in "$L/c2.log" || echo "  (run_case reported non-zero; scoring the artifact anyway)"
 
 ./docker/pyrun.sh - "$D" "$STEP" <<'PY'
 import glob, sys, numpy as np

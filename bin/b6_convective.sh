@@ -26,6 +26,7 @@ BASE="${BASE:-runs/g16_base/base_cbl_shallow.in}"
 DT="${DT:-0.0146199}"
 NT="${NT:-200}"
 D=runs/g16_b6cbl
+L="${LOGDIR:-${TMPDIR:-/tmp}/flux-logs}"; mkdir -p "$L"
 die(){ echo "FATAL: $*" >&2; exit 1; }
 WTH=$(grep -oP '^surflayer_wth\s*=\s*\K[^#[:space:]]*' "$BASE")
 echo "########## B6 CONVECTIVE: 90-deg equivariance, w'th_v' = $WTH ##########"
@@ -46,7 +47,7 @@ for c in a b; do
       -e 's|^lsfSelector = .*|lsfSelector = 0|' -e 's|^lsf_horMnSubTerms = .*|lsf_horMnSubTerms = 0|' \
       "$BASE" > $D/$c/eq.in
   rm -f $D/$c/output/*
-  ./docker/run_case.sh $D/$c eq.in /tmp/flux-logs/g16_b6cbl_$c.log >/dev/null || die "run $c"
+  ./docker/run_case.sh $D/$c eq.in "$L/g16_b6cbl_$c.log" >/dev/null || die "run $c"
   echo "  rot=$ROT complete"
 done
 

@@ -35,6 +35,9 @@ POLICY="${3:-rotate}"
 # afternoon boundary layer routinely runs 1000-2600 m -- a 12-day June afternoon sample was
 # rejected 9 times out of 12. Nights and winter are shallow, and are accepted.
 IFS=',' read -r -a HRS <<< "${HOURS:-0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23}"
+# LOGDIR is discovered, not hardcoded: /tmp/flux-logs exists on this machine and
+# nowhere else, and these scripts are meant to run on rented ones.
+LOGDIR="${LOGDIR:-${TMPDIR:-/tmp}/flux-logs}"; mkdir -p "$LOGDIR"
 LEDGER=results/corpus_skipped.tsv
 LOG=results/corpus_progress.tsv
 mkdir -p results pairs
@@ -54,7 +57,7 @@ while [ "$(date -d "$d" +%Y%m%d)" -le "$(date -d "$END" +%Y%m%d)" ]; do
   if grep -q "^$TAG	" "$LEDGER" 2>/dev/null; then skip=$((skip+1)); continue; fi
 
   if [ "${DRY:-0}" = "1" ]; then
-    SKIP_LES=1 bin/run_corpus_case.sh "$TS" "$TAG" >/tmp/flux-logs/corpus_dry.log 2>&1
+    SKIP_LES=1 bin/run_corpus_case.sh "$TS" "$TAG" >"$LOGDIR/corpus_dry.log" 2>&1
     rc=$?
     if [ "$rc" = "3" ]; then
       R=$(python3 -c "
