@@ -1,9 +1,14 @@
 # The seed library and the sounding-forced corpus
 
-> **Status, 2026-08-25.** The pipeline is BUILT and validated offline on branch
-> `library-states`. Stages 1, 2, 4 and 8 run end to end; stage 3 generates 18 portable
-> jobs. What remains is GPU time: spin the 18 seeds, then run the corpus.
-> `main` is untouched.
+> **Status, 2026-08-25.** The pipeline is **built and validated end to end** on branch
+> `library-states`; `main` is untouched. All eight stages run, `bin/make_seed_jobs.py`
+> generates the 18 portable jobs, and every gate that could be run without spinning the
+> library has been run and passed — stages 1-2 across four regimes (70/70), a cold start
+> per regime config, the non-zero base angle, **Gate B6 convectively**, a job round trip
+> from an unrelated checkout, and **Gate C2 bit-for-bit on the returned artifact**.
+>
+> **What remains is GPU time**: spin the 18 seeds (~52 GPU-h, shippable to rented
+> machines — see `jobs/README.md`), then run the corpus.
 
 ---
 
