@@ -510,18 +510,18 @@ must additionally answer `--help`: a clean parse says nothing about a `NameError
 scope or an argparse definition that raises, and both look exactly like a working script
 until a campaign calls one.
 
-**A 5-minute cold start per regime config — `bin/smoke_check.py`, three of four PASS**
-(the fourth is the non-zero base angle, below). It cannot tell you a seed is converged;
-nothing at 5 minutes can. It tells you the configuration is not broken, which is the only
-question worth asking before committing 3.1 h of GPU per job:
+**A 5-minute cold start per regime config — `bin/smoke_check.py`, all four PASS.** It
+cannot tell you a seed is converged; nothing at 5 minutes can. It tells you the
+configuration is not broken, which is the only question worth asking before committing
+3.1 h of GPU per job:
 
-| | `sbl` | `nbl-shallow` | `cbl-mid` |
-|---|---|---|---|
-| every field finite | ok | ok | ok |
-| `k0/k1` (must be < 1; ~9 = `dt` past the accuracy boundary) | **0.124** | **0.132** | **0.144** |
-| receptor on cell centre `k = 2` | 10.000011 m | 10.000011 m | 10.000011 m |
-| **`z_i` vs the rung target** | **154 / 150 m** | **299 / 300 m** | 310 / 700 m (still growing) |
-| log clean of `CORRUPTED` / `outside limits` | ok | ok | ok |
+| | `sbl` | `nbl-shallow` | `cbl-mid` | `cbl-mid_a030` |
+|---|---|---|---|---|
+| every field finite | ok | ok | ok | ok |
+| `k0/k1` (must be < 1; ~9 = `dt` past the accuracy boundary) | **0.124** | **0.132** | **0.144** | **0.150** |
+| receptor on cell centre `k = 2` | 10.000011 m | 10.000011 m | 10.000011 m | 10.000011 m |
+| **`z_i` vs the rung target** | **154 / 150 m** | **299 / 300 m** | 310 / 700 m (still growing) | 322 / 700 m |
+| log clean of `CORRUPTED` / `outside limits` | ok | ok | ok | ok |
 
 > **The strongest check is the base state, because it closes a loop nothing offline can.**
 > `bin/test_sounding.py` verifies the fit arithmetically, but "my formula reproduces my
