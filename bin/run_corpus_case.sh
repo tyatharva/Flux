@@ -2,9 +2,10 @@
 # ONE corpus case, end to end: a timestamp in, an (input, target) training pair out.
 #
 #   usage: bin/run_corpus_case.sh 2023-01-18T18:00 [tag]
-#   env:   WINDOW_S=2400  ADJ_S=1800  TBACK=600  KEEP_FIELDS=0  GRID=data/grid16
+#   env:   WINDOW_S=2400  ADJ_S=1800  TBACK=600  KEEP_FIELDS=0
 #          SKIP_LES=1     stop after stage 4, for a dry run with no GPU
 #          SEED_LIB=jobs  where the spun-up seed library lives
+#          GRID=data/grid16_raised  ZTARGET=8.5  EXACT_AGL=1   (production; see below)
 #
 # The eight stages, and which file owns each:
 #
@@ -42,7 +43,17 @@ TAG="${2:-case_${_t:0:10}}"
 [[ "$TAG" =~ ^[A-Za-z0-9_]+$ ]] || { echo "FATAL: bad tag '$TAG' from '$TS'" >&2; exit 65; }
 [ "${#TAG}" -ge 8 ] || { echo "FATAL: tag '$TAG' too short; is '$TS' a valid timestamp?" >&2
                          exit 65; }
-GRID="${GRID:-data/grid16}"
+# THE RAISED SURFACE IS PRODUCTION, settled by the sixth pass (SIXTH_PASS_RESULTS.md):
+# topoPos is raised by the displacement height over the array so the first model level
+# clears panel top, z0_array goes 0.10 -> 0.25 (which is the only thing that gives the
+# array ANY neutral signal -- at 0.10 it is aerodynamically identical to the cropland
+# WorldCover labels it as), and the receptor is released at a FRACTIONAL level 8.500 m
+# above the RAISED surface = 10.000 m above bare ground. Snapping to the nearest level
+# there would put the receptor 10 m above the PANELS, an 11.5 m receptor and a 15% error
+# in exactly the quantity this pass exists to get right.
+GRID="${GRID:-data/grid16_raised}"
+ZTARGET="${ZTARGET:-8.5}"
+EXACT_AGL="${EXACT_AGL:-1}"
 ADJ_S="${ADJ_S:-1800}"
 WINDOW_S="${WINDOW_S:-2400}"
 TBACK="${TBACK:-$(cat results/tback_production.txt 2>/dev/null || echo 600)}"
@@ -139,7 +150,7 @@ say "$TAG  stage 7: backward LPDM"
 LPDM_WORKERS="${LPDM_WORKERS:-8}" \
 ./docker/pyrun.sh bin/stage5_footprint.py "$D/window" --dt "$DT" --tback "$TBACK" \
     --sgs-most --cover-dir "$GRID" --receptor-from "$GRID" --fp16-cache \
-    --z-target "${ZTARGET:-10.0}" --rel-seconds 1800 \
+    --z-target "$ZTARGET" ${EXACT_AGL:+--exact-agl} --rel-seconds 1800 \
     --tag "$TAG" 2>&1 | grep -vE 'batch [0-9]+/' > "results/$TAG.txt"
 [ -s "results/$TAG.json" ] || { tail -12 "results/$TAG.txt" >&2
   die "stage 7 produced no footprint json"; }
