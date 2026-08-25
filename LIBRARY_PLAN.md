@@ -552,7 +552,7 @@ The receptor sits at 10.000011 m rather than 10.000000: `bin/vgrid.py` solves it
 but FastEddy is hardwired fp32 and writes `zPos` as `NC_FLOAT`, so 1.1e-6 relative **is the
 file's own precision**. A tolerance tighter than that fails a correct grid.
 
-**Still to run (~30 min GPU, nothing over 1 h wall):**
+**The GPU validations — all four run, all four pass (~25 min of GPU in total):**
 
 1. ~~The non-zero base angle (30 deg)~~ **DONE -- PASS.** `seed_cbl-mid_a000` forces the
    geostrophic wind FROM **270.00 deg** aloft and `seed_cbl-mid_a030` FROM **240.00 deg**:
@@ -593,6 +593,7 @@ file's own precision**. A tolerance tighter than that fails a correct grid.
    > `~z_i ~ 430 m` — showed the only offending level was `z = 2 m`, where `ww = 0.0013`
    > and the field's own block SE is 8.1%. Everywhere else the two rotations agree to
    > **0.001-0.015%**.
+
 4. ~~One end-to-end case~~ **DONE -- PASS, exit 0.** 2023-01-18 18Z, all eight stages,
    13 min of GPU: sounding -> forcing -> per-case surface -> seed -> adjust -> window ->
    LPDM -> pair. `k0/k1` 0.515 on the adjustment and 0.483 on the window; the window wrote
