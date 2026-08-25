@@ -84,6 +84,15 @@ def load_library(index_path, library_dir):
     that is reported per row and again on the chosen seed -- because a library matched on
     targets is a library whose spacing has never been measured.
     """
+    # NAME THE ACTUAL CAUSE. The analysis runs inside a container that mounts ONLY the
+    # repo root, so a library under /tmp is simply not there -- and the symptom was
+    # "no usable seeds", which points at the library's contents rather than at its path.
+    if not os.path.isdir(library_dir) and not os.path.exists(index_path):
+        raise SystemExit(
+            f"neither {library_dir} nor {index_path} exists from in here. If this is "
+            f"running in the container, remember it mounts only the repo root -- a seed "
+            f"library outside it is invisible. Put it under the repo and pass a relative "
+            f"path.")
     seeds, have, rejected = [], set(), []
     if os.path.isdir(library_dir):
         for m in sorted(glob.glob(os.path.join(library_dir, "*", "return",

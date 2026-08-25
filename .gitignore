@@ -53,3 +53,4 @@ __pycache__/
 *.bin
 *.npy
 data/case_grids/
+data/smokelib/
