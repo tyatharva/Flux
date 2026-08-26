@@ -69,6 +69,12 @@ walks from healthy to dead inside ONE run and therefore separates the two by its
                        falls at 16 %/h, so this must NOT be tightened toward it -- it would
                        start failing healthy spin-ups, and this is not the stationarity gate.
 
+AND THERE ARE TWO COLLAPSED RUNS, NOT ONE. The other is the cold-started rung of
+FASTEDDY_TRAPS.md 15 (G = 6, w'th' = -0.020): u* 0.219 -> 0.043, z_i 209 -> 61 m,
+z/L +34.8 -- and it scored **k0/k1 = 0.72**, also a pass. So the accuracy check has now
+waved through a dead boundary layer twice, at two different values, which is what makes
+the point structural rather than a coincidence of one number.
+
 Note what g16_flatsbl is and is NOT: it is a 2400 s sampling window launched from the
 collapsed seed's own restart, so its death is INHERITED, not independent evidence. It is
 kept in the table for a different reason -- it shows the check firing on a WINDOW (lean

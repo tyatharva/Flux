@@ -209,3 +209,81 @@ site's stable hours survive it.
   stability-corrected log law rather than the neutral one, because neutral inversion
   overstates `u*` and would wave through the very hours the screen exists to reject.
 
+### The test, and what each outcome means
+
+One run, `seed_sbl-weak_a030` — deliberately the same base angle as the collapsed one, so
+the comparison is direct. 3.0 simulated hours, four chained segments under the 1 h wall cap.
+
+- **Holds with turbulence alive** → weakly stable enters the library, and the corpus states
+  its stable coverage as **bounded at `z/L <= 0.10`** rather than complete.
+- **Collapses too** → stable is excluded outright, and that is the result. No fourth respec.
+
+**Judged on `docker/turb_alive.py`, not on the stationarity gate alone.** The two ask
+different questions and the stable case is exactly where they diverge: a layer can be
+drifting (gate FAIL) while perfectly turbulent, which is a usable seed run for longer, and
+it can be dead while `k0/k1` passes, which is not usable at all.
+
+<!-- RESULT -->
+
+---
+
+## 7. Limitations text, ready to use
+
+> **Stable coverage is bounded.** The corpus contains stable cases only where `z/L <= 0.10`
+> at the 10 m receptor. At stronger stratification the Ozmidov scale falls to a few times
+> the LES filter width (`L_O/Delta = 3.6` at `z/L ~ 0.2`, against 318 neutrally), there is
+> no resolved turbulent band at the receptor, and the boundary layer laminarises within
+> about two simulated hours. The standard stable benchmark, GABLS1, runs that regime at
+> `dx = 6.25 m` — 17× the cells for this domain, which the corpus economics do not permit.
+>
+> Measured over three independent sources, **61–66% of this site's quality-controlled
+> stable hours fall inside the retained band**, so the exclusion removes **14–15% of the
+> whole QC'd record**. The excluded hours are the strongly stratified, low-`u*` nights;
+> the emulator is undefined there and should not be extrapolated into them.
+>
+> This compounds with, and is separate from, the two standing near-field limitations: the
+> receptor may sit inside the roughness sublayer over the array, and the resolved fraction
+> of `sigma_w^2` at `z/Delta ~ 1` is small in every regime (0.2% stable, 2.7% neutral,
+> 12.1% convective), which is why the sub-grid gate was retired and the closure's influence
+> is quoted as a band rather than a correction.
+
+---
+
+## 8. Reproduce it
+
+```bash
+# the resolution diagnosis, all three regimes
+./docker/pyrun.sh bin/ozmidov.py jobs/seed_sbl_a030/output/FE_SEED.225720 --top 120
+./docker/pyrun.sh bin/ozmidov.py runs/g16_spin/output/FE_G16.1540000    --top 120
+./docker/pyrun.sh bin/ozmidov.py runs/g16_cbl_shallow/output/FE_CBL.440000 --top 120
+
+# what k0/k1 says about the same dumps, and what the physics check says
+./docker/pyrun.sh docker/k0k1_check.py  jobs/seed_sbl_a030/output/FE_SEED.738720
+./docker/pyrun.sh docker/turb_alive.py --calibrate "jobs/seed_sbl_a030/output/FE_SEED.*"
+
+# how much of the site is weakly stable, three sources
+./docker/pyrun.sh bin/stable_fraction.py
+
+# the case-selection consequence
+./docker/pyrun.sh bin/select_times.py --zi-max 976 --max-zol 0.10
+```
+
+Artifacts: `results/ozmidov_regimes.txt`, `results/stable_fraction.txt`,
+`results/time_selection.txt`, `results/retired_sbl_gabls1/`.
+
+---
+
+## 9. What this changes about how we work
+
+1. **`k0/k1` is a `dt` check and was being read as a health check.** Two collapsed runs
+   scored 0.442 and 0.72 on it. `docker/turb_alive.py` now runs beside it everywhere,
+   through `docker/check_run.sh`.
+2. **A ratio between two quantities that die together cannot detect the death.** That is
+   true of `k0/k1` (two levels) and of `e_res/u*^2` (resolved TKE and `u*`), and it is why
+   the alive check scales against the forcing instead.
+3. **Score a profile where the answer is needed, not where it averages well.** The column
+   median of `L_O/Delta` reads 8.97; the receptor reads 3.57.
+4. **Diagnose the grid at the HEALTHY dump.** Every number in §2 was available an hour
+   before the collapse, at zero extra cost.
+5. **A regime a gate has never run in is unknown, not fine.** Convection has no Ozmidov
+   constraint at all; a convective pass is silent about stable by construction.

@@ -63,8 +63,14 @@ def diagnose(path):
     print("  k0/k1 ratio: " + "  ".join(
         f"{v}={var[v][0] / max(var[v][1], 1e-30):.2f}" for v in FIELDS)
         + "\n  (healthy: w ratio < 1, others ~1. A w ratio near 9 means dt exceeds the\n"
-        "   ACCURACY CFL limit ~1.64 -- see PROJECT_BRIEF.md. Not a stability failure: the run\n"
-        "   will still exit 0 with no CORRUPTED report.)")
+        "   ACCURACY CFL limit -- ~1.51 at 122^3 @ 16 m, ~1.64 at the retired 24-30 m\n"
+        "   grids. THE BOUNDARY IS NOT THE SAME NUMBER AT EVERY GRID: it moves with grid\n"
+        "   ANISOTROPY, so re-measure it whenever dx/dz_sfc changes. See PROJECT_BRIEF.md.\n"
+        "   Not a stability failure: the run will still exit 0 with no CORRUPTED report.\n"
+        "\n"
+        "   AND A HEALTHY RATIO HERE IS NOT A HEALTHY BOUNDARY LAYER. This is a dt check.\n"
+        "   Two collapsed stable runs scored 0.442 and 0.72 on it while their turbulence\n"
+        "   was gone. Run docker/turb_alive.py for the physics question.)")
 
     print(f"\n  lag-1 spatial autocorrelation of w"
           f"  (+1 = resolved turbulence, 0 = grid noise, <0 = checkerboard)")
