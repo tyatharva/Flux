@@ -29,7 +29,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; export FLUX_ROOT="$ROOT
 L="${LOGDIR:-${TMPDIR:-/tmp}/flux-logs}"; mkdir -p "$L" results
 R=results
 DT_WIN=0.0146199; WIN=2400; NPART=40000; TB=600
-SEED=jobs/seed_sbl_a030/return/seed_restart.nc
+SEED=jobs/seed_sbl-weak_a030/return/seed_restart.nc
 die(){ echo "FATAL: $*" >&2; exit 1; }
 say(){ echo; echo "########## $* ##########"; date '+%F %H:%M:%S'; }
 
@@ -38,13 +38,20 @@ bash bin/preflight.sh || die "preflight"
 # =====================================================================================
 say "1. the STABLE flat control window"
 # =====================================================================================
-[ -f "$SEED" ] || die "no sbl seed at $SEED -- run jobs/run_seed.sh jobs/seed_sbl_a030"
+[ -f "$SEED" ] || die "no sbl seed at $SEED -- run jobs/run_seed.sh jobs/seed_sbl-weak_a030"
+# AND THE SEED MUST BE ALIVE, NOT MERELY PRESENT. The retired GABLS1-regime sbl seed
+# produced a perfectly well-formed 73 MB restart whose boundary layer was dead: u* at 25%
+# of its own peak, k0/k1 a comfortable 0.442. Gate D1 scored on that would have been a
+# well-mixed test of a laminar flow, which is a number, not a result.
+./docker/pyrun.sh docker/turb_alive.py "jobs/seed_sbl-weak_a030/output" >/dev/null 2>&1 || true
+./docker/pyrun.sh docker/turb_alive.py "$(ls -t jobs/seed_sbl-weak_a030/output/*.[0-9]* 2>/dev/null | head -1)" \
+  || die "the sbl-weak seed's turbulence is not alive -- see STABLE_REGIME_RESULT.md"
 read -r UG VG < <(python3 -c "
 import re
-s=open('jobs/seed_sbl_a030/seed.in').read()
+s=open('jobs/seed_sbl-weak_a030/seed.in').read()
 g=lambda k: re.search(rf'^{k}\s*=\s*([^#\s]+)', s, re.M).group(1)
 print(g('U_g'), g('V_g'))")
-BASE=jobs/seed_sbl_a030/seed.in bin/run_window.sh runs/g16_flatsbl "$SEED" \
+BASE=jobs/seed_sbl-weak_a030/seed.in bin/run_window.sh runs/g16_flatsbl "$SEED" \
     $DT_WIN $WIN - "$UG" "$VG" || die "sbl window"
 # ASSERT ON THE ARTIFACT: run_window.sh stamps .window_complete only on success, and the
 # dump count is the thing the gate actually consumes.
