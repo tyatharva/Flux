@@ -77,7 +77,7 @@ def regime_of(wth):
     return "neutral"
 
 
-def load_library(index_path, library_dir):
+def load_library(index_path, library_dir, available_only=False):
     """Prefer each job's RETURNED manifest (it carries `achieved`); fall back to the index.
 
     The fallback is not silent. A seed with no achieved block is matched on its TARGET, and
@@ -93,28 +93,82 @@ def load_library(index_path, library_dir):
             f"running in the container, remember it mounts only the repo root -- a seed "
             f"library outside it is invisible. Put it under the repo and pass a relative "
             f"path.")
-    seeds, have, rejected = [], set(), []
+    seeds, have, rejected, unbuilt, incomplete = [], set(), [], [], []
     if os.path.isdir(library_dir):
         for m in sorted(glob.glob(os.path.join(library_dir, "*", "return",
                                                "manifest.json"))):
             s = json.load(open(m))
+            ret = os.path.dirname(m)
             # A SEED THAT FAILED ITS OWN STATIONARITY GATE IS NOT A SEED. It is a state
             # still drifting in one of the footprint's controlling parameters, and
             # restarting a case from it starts the case mid-transient -- which the 30
             # minute adjustment is not there to absorb and would not announce.
-            if s.get("achieved", {}).get("pass") is False:
+            #
+            # AND THE VERDICT IS READ FROM THE GATE'S OWN JSON, NOT ONLY FROM THE
+            # MANIFEST. jobs/run_seed.sh stamps `achieved` into the manifest as its LAST
+            # step, so a job that died after the gate and before the stamp leaves a
+            # manifest with no verdict at all -- and testing only `achieved.pass is False`
+            # then reads a FAILED seed as an unjudged one and ranks it. Observed on
+            # seed_sbl-weak_a030, whose stationarity.json says pass=false, whose manifest
+            # says nothing, and which this function happily returned as the best available
+            # seed in the library.
+            gate = None
+            gp = os.path.join(ret, "stationarity.json")
+            if os.path.exists(gp):
+                try:
+                    gate = bool(json.load(open(gp)).get("pass"))
+                except (ValueError, OSError):
+                    gate = None
+            ach = s.get("achieved") or {}
+            if ach.get("pass") is False or gate is False:
                 rejected.append(s["job"])
                 have.add(s["job"])          # and do NOT fall back to its index entry
+                continue
+            # NO VERDICT AND NO ARTIFACT IS AN UNFINISHED JOB, not a seed and not an
+            # unbuilt one. Falling back to its index entry would present a run that got
+            # part way and stopped as though it had never started.
+            if not ach and gate is None and not os.path.exists(
+                    os.path.join(ret, "seed_restart.nc")):
+                incomplete.append(s["job"])
+                have.add(s["job"])
+                continue
+            if available_only and not os.path.exists(
+                    os.path.join(ret, "seed_restart.nc")):
+                unbuilt.append(s["job"])
+                have.add(s["job"])
                 continue
             seeds.append(s)
             have.add(s["job"])
     if os.path.exists(index_path):
         for s in json.load(open(index_path))["jobs"]:
-            if s["job"] not in have:
-                seeds.append(s)
+            if s["job"] in have:
+                continue
+            # A SEED THAT HAS NOT BEEN SPUN UP CANNOT BE RESTARTED FROM, and while the
+            # library is being built most of it has not. Two separate problems follow, and
+            # --available-only answers both:
+            #
+            #   (i)  bin/run_corpus_case.sh refuses a pick whose return/seed_restart.nc
+            #        does not exist, so a case matched to an unbuilt seed simply stops.
+            #   (ii) an unspun seed's heading is an ESTIMATE -- its geostrophic angle minus
+            #        a nominal Ekman backing -- while a spun one reports what it achieved.
+            #        Ranking the two together compares a measurement against a guess, and
+            #        the guess is only as good as the nominal angle. That is fine for
+            #        planning the library and wrong for choosing a restart point.
+            #
+            # Default stays OFF so the full library can be costed before it exists.
+            if available_only:
+                unbuilt.append(s["job"])
+                continue
+            seeds.append(s)
     if rejected:
         print(f"  EXCLUDED {len(rejected)} seed(s) that failed their own stationarity "
               f"gate: {', '.join(sorted(rejected))}")
+    if incomplete:
+        print(f"  EXCLUDED {len(incomplete)} unfinished job(s) -- a return/ directory with "
+              f"neither a gate verdict nor a restart: {', '.join(sorted(incomplete))}")
+    if unbuilt:
+        print(f"  --available-only: EXCLUDED {len(unbuilt)} seed(s) with no returned "
+              f"artifact; ranking only the {len(seeds)} that have actually been spun up")
     if not seeds:
         raise SystemExit(f"no usable seeds under {library_dir} or in {index_path}"
                          + (f" ({len(rejected)} failed their gate)" if rejected else ""))
@@ -151,6 +205,12 @@ def main():
     ap.add_argument("--library", default="jobs")
     ap.add_argument("--zm", type=float, default=10.0)
     ap.add_argument("--json", default=None)
+    ap.add_argument("--available-only", action="store_true",
+                    help="rank only seeds that have a returned artifact on disk. Use "
+                         "while the library is partially built: an unbuilt seed cannot be "
+                         "restarted from, and its heading is an estimate rather than a "
+                         "measurement, so ranking it against a spun seed compares a guess "
+                         "with a number.")
     a = ap.parse_args()
 
     fc = json.load(open(a.forcing))
@@ -163,7 +223,7 @@ def main():
     L_c = lab.get("L_estimate")
     zoL_c = (a.zm / float(L_c)) if L_c not in (None, 0) else float("nan")
 
-    seeds = load_library(a.index, a.library)
+    seeds = load_library(a.index, a.library, available_only=a.available_only)
     rows = []
     for s, st in ((s, seed_state(s, a.zm)) for s in seeds):
         zi_s, dir_s, zoL_s, src = st
