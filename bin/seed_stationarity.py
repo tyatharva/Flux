@@ -93,11 +93,16 @@ VONK = 0.4
 ZI_ABS = 0.01            # m2/s2 of resolved TKE; the gated depth's fixed threshold
 
 
+# THE SEARCH IS BOUNDED BY THE DECAY MINIMUM, and that lives in lpdm/les_stats.py because
+# the corpus input `h` is computed there and the two must not drift apart. Imported, never
+# reimplemented -- the rule this project already paid for twice (stage4_wellmixed.py's copy
+# of the sigma_w floor; bin/run_pass5.sh's copy of this very estimator).
+from lpdm.les_stats import bl_depth                                        # noqa: E402
+
+
 def zi_fixed(tk, z, thresh=ZI_ABS):
     """Depth from a FIXED resolved-TKE threshold. The gated definition."""
-    k = int(np.argmax(tk))
-    ab = np.where(tk[k:] < thresh)[0]
-    return float(z[k + ab[0]]) if len(ab) else float(z[-1])
+    return bl_depth(tk, z, thresh=thresh)
 
 
 def zi_peak_fraction(tk, z, frac=0.05):
@@ -107,9 +112,7 @@ def zi_peak_fraction(tk, z, frac=0.05):
     library's depth axis stays commensurable with it. FASTEDDY_TRAPS.md 16 is the whole
     story of why it must not be trended.
     """
-    k = int(np.argmax(tk))
-    ab = np.where(tk[k:] < frac * tk[k])[0]
-    return float(z[k + ab[0]]) if len(ab) else float(z[-1])
+    return bl_depth(tk, z, frac=frac)
 
 
 # Percent-per-hour trend limits, scored over the last SCORE_H hours. Single definition;

@@ -26,6 +26,61 @@ KAPPA = 0.4
 G = 9.81
 
 
+# THE PROFILE DOES NOT DECAY MONOTONICALLY, AND BOTH THRESHOLD DEFINITIONS ASSUMED IT DID.
+#
+# z_i was "search upward from the TKE peak for the first level below a threshold". On the
+# first real corpus case that returned **2500 m -- the domain top** -- and the corpus input
+# `h` went into the training record as the fallback rather than as a measurement. The
+# profile is why (results/corpus/case_2023031014.json:profiles):
+#
+#     z (m)      2     18     52    236    428    559    907   1395   1699   2447
+#     TKE     0.279  0.515  0.343  0.141  0.067  0.058  0.105  0.293  0.327  0.286
+#     ww      0.007  0.033  0.095  0.044  0.019  0.053  0.103  0.284  0.329  0.031
+#     e_sgs   0.221  0.168  0.032  0.009  0.001  0.000  0.000  0.012  0.017  0.045
+#
+# The layer decays to a clean minimum at ~560 m and then the variance RISES AGAIN to 0.33
+# at 1700 m -- and that variance is essentially all RESOLVED w with no sub-grid part, i.e.
+# internal-wave activity in the stable free atmosphere, not boundary-layer turbulence. A
+# first-crossing search walks straight through the boundary layer, fails to cross before
+# the wave layer lifts the profile back above the threshold, and falls through to z[-1].
+# bin/seed_report.py already had the observation in a comment -- "that integral is
+# dominated by gravity-wave variance aloft, which GROWS as the turbulence dies" -- but no
+# estimator acted on it.
+#
+# THE FIX IS TO BOUND THE SEARCH BY THE DECAY MINIMUM, which is the classical definition of
+# a boundary-layer top when there is wave activity above it: the depth is where the
+# turbulence stops decaying, and a threshold crossing only counts if it happens on the way
+# down. Everything above the minimum is a different fluid.
+DAMP_FRAC = 0.8    # search below this fraction of the column; the production configuration
+                   # is zCeiling 2500 m with dampingLayerDepth 500 m, so 0.8 IS the sponge
+                   # base, and a sponge's variance is a numerical boundary condition.
+
+
+def bl_depth(tk, z, thresh=None, frac=0.05, damp_frac=DAMP_FRAC):
+    """Boundary-layer depth from a TKE profile that need not decay monotonically.
+
+    `thresh` -- an absolute TKE threshold, m2/s2. If None, `frac` x the profile's own peak
+    is used instead (the definition lpdm/les_stats.py has always produced as the corpus
+    input `h`, and the one bin/pick_seed.py matches seeds in).
+
+    The search runs from the peak DOWNWARD in TKE and stops at the decay minimum. Returns
+    the crossing height if the threshold is met on the way down, and the minimum's height
+    if it is not -- never the top of the domain, which is not a measurement.
+    """
+    tk = np.asarray(tk, dtype=np.float64)
+    z = np.asarray(z, dtype=np.float64)
+    top = np.searchsorted(z, damp_frac * z[-1])
+    top = int(np.clip(top, 3, len(z)))
+    k_pk = int(np.argmax(tk[:top]))
+    k_min = k_pk + int(np.argmin(tk[k_pk:top]))
+    if k_min <= k_pk:
+        return float(z[k_pk])
+    t = float(thresh) if thresh is not None else float(frac) * float(tk[k_pk])
+    seg = tk[k_pk:k_min + 1]
+    ab = np.where(seg < t)[0]
+    return float(z[k_pk + ab[0]]) if len(ab) else float(z[k_min])
+
+
 def window_stats(paths, k_recept):
     """Ensemble statistics over a series of dumps, at the receptor level.
 
@@ -128,9 +183,22 @@ def window_stats(paths, k_recept):
     sig_v_res = max(sa * sa * uu - 2.0 * sa * ca * uv + ca * ca * vv, 0.0)
     sig_v = float(np.sqrt(sig_v_res + sgs))
     # boundary-layer height: highest level with resolved TKE above 5% of its maximum
-    kmax = int(np.argmax(tke_prof))
-    above = np.where(tke_prof[kmax:] < 0.05 * tke_prof[kmax])[0]
-    h = float(z[kmax + above[0]]) if len(above) else float(z[-1])
+    # 5% of the profile's own peak, bounded by the decay minimum -- see bl_depth above for
+    # why the bound is not optional. This is the corpus input `h` and the currency
+    # bin/pick_seed.py matches seeds in; the seed GATE uses a fixed threshold instead,
+    # because it scores a trend and a peak-normalised threshold moves with the peak
+    # (FASTEDDY_TRAPS.md 16).
+    h = bl_depth(tke_prof, z, frac=0.05)
+    # AND IT MUST NEVER BE THE TOP OF THE COLUMN. `h` is a corpus INPUT and it also sets
+    # the sigma_w floor's mixed-layer blend, so a fallback value does not announce itself
+    # anywhere downstream -- it just makes a plausible footprint out of the wrong closure.
+    # bl_depth cannot return z[-1] any more; this asserts that it did not.
+    if h >= 0.98 * float(z[-1]):
+        raise ValueError(
+            f"h came out {h:.0f} m against a column top of {z[-1]:.0f} m. That is the "
+            f"estimator failing to find a boundary layer, not a 2.5 km one: it would go "
+            f"into the training record as a feature and into the sigma_w floor as the "
+            f"mixed-layer blend height. See lpdm/les_stats.py:bl_depth.")
     L = (-ust ** 3 * th0 / (KAPPA * G * hfx)) if abs(hfx) > 1e-6 else np.inf
     return dict(z=z, z_recept=float(lev(z)), k_recept=kf, u_mean=spd, wdir=float(wdir),
                 sigma_u=float(np.sqrt(uu + sgs)), sigma_v=sig_v,

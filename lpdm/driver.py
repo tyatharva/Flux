@@ -305,6 +305,16 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
                   f"active below z={zl[fl['kpk']]:.0f} m (the model's own sigma_w^2 peak); "
                   f"sigma_w/u* {np.sqrt(fl['base'][kk])/fl['ustar']:.2f} -> "
                   f"{np.sqrt(fl['sig2'][kk])/fl['ustar']:.2f} (surface-layer target 1.25)")
+            _fmax = float(np.nanmax(fac))
+            if _fmax > 100.0:
+                print(f"\n  *** WARNING: the sigma_w floor reaches {_fmax:.3g} somewhere in "
+                      f"the column. A floor is a CORRECTION to a sub-grid variance, so a "
+                      f"factor of order 100+ means its target has been computed from a "
+                      f"broken input -- most often h. On the first corpus case h fell "
+                      f"through to the domain top (2500 m) and the floor ran at 3-20x "
+                      f"between 35 and 200 m where it should have been 1.0, peaking at "
+                      f"9e4. The receptor factor was 1.000 throughout and said nothing. "
+                      f"Check st['h'] before trusting this footprint.\n")
             print(f"  monotonicity: {n_new} floor-induced turnover(s) in sigma_w^2 below "
                   f"the peak (must be 0); sub-grid weighting "
                   f"{'ON' if sgs_subgrid_weight and not sgs_most_legacy else 'off'}, "
