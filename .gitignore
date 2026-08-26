@@ -76,3 +76,6 @@ jobs/*/return/
 # retired stable seed jobs -- kept on disk as evidence, archived under results/
 jobs/seed_sbl_*/
 jobs/seed_sbl-weak_*/
+runs/dryrun_test/
+runs/skiptest/
+runs/unchain_test/
