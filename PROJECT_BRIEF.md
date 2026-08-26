@@ -1216,6 +1216,36 @@ chosen for.
 
 ## Status
 
+**FIRST ACCEPTED SEED AND FIRST CORPUS PAIR — 2026-08-26.** `SEED_NBL_SHALLOW_RESULT.md`,
+`TARGET_CASE_RESULT.md`. `seed_nbl-shallow_a000` passed all seven limits once the gated
+`z_i` was moved to a fixed threshold (below), and **2023-03-10 14:00 UTC** ran end to end
+off it at rot 3: 4200 s in one invocation, ~69 min against a 74.2 min class, `k0/k1` 0.502,
+`turb_alive` OK, the window's own `z0m`/`htFlux` asserted against the case grid to 1.5e-09 /
+3.3e-08. Footprint **peak 48 m, A80 1.0 ha, centroid 134 m at 320.1 deg, integral 1.040**
+(saturating, over a receptor sitting 5.43 m below the mean terrain), **array share 68.4%**
+against 1.03% of the box by area — a **66x enrichment**, se 3.66 over 10 release groups.
+Kljun on identical cells: peak 64 m, A80 1.6 ha, integral 0.952.
+
+**AND `h` FELL THROUGH TO THE DOMAIN TOP ON THE FIRST ATTEMPT, WHICH POISONED THE CLOSURE.**
+The depth estimator searched upward from the TKE peak for a first crossing — monotone decay
+assumed. This window decays to 0.058 at 560 m and **rises again to 0.33 at 1700 m**, almost
+all resolved `w`: internal waves, not turbulence. `h` came out **2500 m**, and `h` sets the
+`sigma_w` floor's mixed-layer blend, so the floor ran at **3-20x between 35 and 200 m** where
+it should be 1.0, peaking at 9e4. **The receptor factor was 1.000 either way and nothing
+complained.** Re-run corrected: peak 64 -> **48 m**, A80 1.2 -> **1.0 ha**, array share
+67.7 -> 68.4% (0.8 points against a 3.66-point SE) — the near field is closure-dominated and
+the shares are comparatively robust, exactly as this file already says.
+`lpdm/les_stats.py:bl_depth` now bounds every depth search by the **decay minimum**; `h` is
+refused if it reaches the column top; the driver warns above a 100x floor factor.
+
+**THE 30-MINUTE ADJUSTMENT, MEASURED FOR THE FIRST TIME ON A REAL CASE.** Direction did
+**not** close — it **widened from 11.3 to 21.8 deg**, because the seed was still backing at
+~-8 deg/h when frozen and 30 min is 2.8% of an inertial period. `z_i` **over**-closed: a
+146 m gap shut and overshot by +49 m, **292 m/h** against the +79 m/h `pick_seed` budgets,
+because the case's own lid (2.61 K/km) is far weaker than the seed's (+8 K/100 m). Neither
+makes a pair wrong — inputs come from the LES window — but the library buys less convergence
+in direction and more in depth than the design assumed.
+
 **THE FIRST FULL-LENGTH SEED RAN, AND FAILED ITS GATE ON ONE LIMIT — 2026-08-26.**
 `SEED_NBL_SHALLOW_RESULT.md`. `nbl-shallow` base angle 0, 738,720 steps in ONE invocation:
 **2.869 h wall, 0.956 GPU-h per simulated hour, +0.4% against the sanctioned seed class**;
