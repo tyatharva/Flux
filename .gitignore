@@ -72,3 +72,7 @@ runs/g16_b6cbl/
 jobs/*/smoke.in
 jobs/*/seg*.in
 jobs/*/return/
+
+# retired stable seed jobs -- kept on disk as evidence, archived under results/
+jobs/seed_sbl_*/
+jobs/seed_sbl-weak_*/
