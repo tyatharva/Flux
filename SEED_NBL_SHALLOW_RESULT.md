@@ -78,10 +78,22 @@ Six of seven limits pass with enormous margin. Scored on the last 1.5 h:
 | diagnostic | mean | trend |
 |---|---|---|
 | `z_i`, 5% of the INSTANTANEOUS peak (**the gated one**) | 364.4 m | **+11.67 %/h** |
-| `z_i`, 5% of the run's own SETTLED peak (absolute threshold) | 370.8 m | **+1.71 %/h** |
+| `z_i`, fixed threshold 0.01 m2/s2 | 389.3 m | **+1.87 %/h** |
+| `z_i`, 5% of the run's own SETTLED peak | 370.8 m | **+1.71 %/h** |
 | `z_i` from the theta gradient (inversion base) | 336.5 m | **+2.33 %/h** |
-| peak resolved TKE | 0.3308 m2/s2 | **-15.67 %/h** |
+| peak resolved TKE (*the normaliser*) | 0.3308 m2/s2 | **-15.67 %/h** |
 | `u*` | 0.2936 | **-9.61 %/h** |
+
+`bin/zi_diagnose.py` (`results/nbl_a000_zi_diagnosis.txt`) settles which of the two the
+gated number is tracking: **the gated depth is -0.885 correlated with the peak it is
+normalised by**, the fixed-threshold depth only -0.379. It is also a **staircase** -- the
+peak-normalised depth takes **4 distinct values** over the last 2 h, because it can only
+land on a model level, and a straight line fitted through a staircase reports a trend
+whatever the layer does.
+
+**Three independent depths, three different thresholds, one answer**: 1.71, 1.87 and
+2.33 %/h, all inside the 3 %/h limit. Only the peak-normalised one is outside, and it is
+outside by 4x.
 
 The peak is falling because `u*` is falling, and `TKE ~ u*^2` predicts **-19.2 %/h** against
 the -15.7 measured. A falling peak lowers the 5%-of-peak threshold, which pushes the

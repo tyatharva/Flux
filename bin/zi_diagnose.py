@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import glob
+import os
 import sys
 
 import numpy as np
@@ -43,7 +44,17 @@ def main():
                     help="a FIXED TKE threshold, m2/s2, for the comparison diagnosis")
     a = ap.parse_args()
 
-    ps = sorted(glob.glob(f"{a.d}/*.[0-9]*"), key=lambda q: int(q.rsplit(".", 1)[1]))
+    # ONE RUN PER DIRECTORY (PROJECT_BRIEF.md). FastEddy names a dump <outFileBase>.<step>, so a
+    # directory that has held two runs holds two families with overlapping step numbers,
+    # and sorting the union on the step interleaves two different states into one series.
+    _all = [q for q in glob.glob(f"{a.d}/*.[0-9]*") if q.rsplit(".", 1)[-1].isdigit()]
+    _fams = sorted({os.path.basename(q).rsplit(".", 1)[0] for q in _all})
+    if len(_fams) > 1:
+        print(f"FATAL: {len(_fams)} dump families in {a.d}: {', '.join(_fams)}. Move the "
+              f"others aside; interleaving two runs by step number is silently wrong.",
+              file=sys.stderr)
+        return 2
+    ps = sorted(_all, key=lambda q: int(q.rsplit(".", 1)[1]))
     T, Z5, ZA, PK, US = [], [], [], [], []
     for q in ps:
         st = int(q.rsplit(".", 1)[1])
