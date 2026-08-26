@@ -117,14 +117,28 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
     # is the only place that can see it.
     if rel_seconds is not None:
         got = t_last - t_first
-        if got < float(rel_seconds) - 1e-6:
+        # THE TOLERANCE MUST BE THE SCALE OF THE FAILURE, NOT MACHINE EPSILON. What this
+        # guard exists to catch is losing a DUMP off the head of the window -- 5 s at the
+        # production cadence. What it must not trip on is the rounding slack in dt: the
+        # .in carries dt to 8 decimals (0.01461988), so frqOutput*dt is 5 s only to
+        # 1.04e-6, and over 840 dumps that accumulates to a 4.99e-4 s shortfall in a
+        # release period that is otherwise EXACTLY 1800 s. A 1e-6 tolerance therefore
+        # failed the production configuration on half a millisecond -- after 74 minutes of
+        # GPU, at stage 7, with the fields already on disk. One lost dump exceeds that
+        # deficit by a factor of 10,016, so a tolerance of one tenth of an output interval
+        # separates the two cleanly and leaves the guard as sharp as it was meant to be.
+        cad = float(np.median(np.diff(fs.t))) if len(fs.t) > 2 else 0.0
+        tol = max(1e-6, 0.1 * cad)
+        if got < float(rel_seconds) - tol:
             msg = (
                 f"the release period came out {got:.1f} s, not the {float(rel_seconds):.0f} s "
                 f"asked for: the window has only {fs.t[0]:.1f}-{t_last:.1f} s of fields and "
                 f"t_back is {t_back:.0f} s, so releases cannot start before "
                 f"{fs.t[0]+t_back:.1f} s. Lengthen the window or shorten t_back -- do NOT "
                 f"accept a short averaging period, it is compared against 30-minute "
-                f"eddy-covariance observations.")
+                f"eddy-covariance observations. (Scored against a {tol:.4g} s tolerance, "
+                f"one tenth of the {cad:.3g} s output interval -- this is a missing dump, "
+                f"not rounding.)")
             # STRICT FOR THE CORPUS, LOUD EVERYWHERE ELSE. Five retired fourth-pass
             # windows legitimately released for 900 s against the 1800 s default, and
             # raising on those would break drivers that are the historical record rather
@@ -134,6 +148,13 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
             if require_rel_seconds:
                 raise ValueError(msg)
             print("\n  *** WARNING: " + msg + "\n")
+        elif verbose:
+            # REPORT THE MARGIN ON SUCCESS TOO. A guard that only speaks when it fires
+            # leaves no evidence of how close the run came, and this configuration is
+            # designed to sit at zero margin.
+            print(f"  release period {got:.4f} s against {float(rel_seconds):.0f} s asked "
+                  f"for (margin {got - float(rel_seconds):+.2e} s, tolerance {tol:.4g} s "
+                  f"= 0.1 x the {cad:.3g} s output interval)")
     times = np.arange(t_first, t_last + 1e-9, dt_release)
     tmid = 0.5 * (times[0] + times[-1])
     if verbose:

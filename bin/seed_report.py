@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""What one seed job actually cost and achieved. The numbers the other 17 get rented on.
+"""What one seed job actually cost and achieved. The numbers the other 14 get rented on.
 
 A seed job is projected before it runs -- 0.0149 s/step, ~1.02 GPU-h per simulated hour,
 73.3 MB home, all seven stationarity limits passing by 3.0 h. This measures each of those
@@ -57,7 +57,7 @@ def main():
     # ---- cost --------------------------------------------------------------------
     steps = run["steps_total"]
     sim_h = steps * run["dt"] / 3600.0
-    p(f"\n--- cost, against the projection the other 17 are budgeted on ---")
+    p(f"\n--- cost, against the projection the other 14 are budgeted on ---")
     p(f"  {steps} steps x dt {run['dt']} = {sim_h:.3f} simulated hours")
     # MEASURE THE RATE OFF THE ARTIFACTS, NOT OFF A NUMBER PASSED IN BY HAND.
     #
@@ -97,13 +97,21 @@ def main():
           f"   ({100*(sps_meas/a.sps_planned-1):+.1f}%)")
         wall_h = sps_meas * steps / 3600.0
         p(f"  implied wall for the whole chain {wall_h:.3f} h")
-        p(f"  wall-to-sim ratio {wall_h/sim_h:.3f} GPU-h per simulated hour"
-          f"   (projection 1.02, i.e. {100*(wall_h/sim_h/1.02-1):+.1f}%)")
+        # TWO REFERENCES, because they are different numbers and quoting one hides the
+        # other. The manifest's own projection is a CONSERVATIVE 0.0149 s/step (ratio
+        # 1.019); the SANCTIONED RUN CLASS is 3.0 sim-h in ~2.86 h wall, ratio 0.953. A
+        # run is in class when it lands at or under the class figure with margin, and the
+        # planner is simply pessimistic by design.
+        p(f"  wall-to-sim ratio {wall_h/sim_h:.3f} GPU-h per simulated hour")
+        p(f"    vs the manifest projection 1.019  ({100*(wall_h/sim_h/1.019-1):+.1f}%)")
+        p(f"    vs the sanctioned SEED CLASS 0.953 ({100*(wall_h/sim_h/0.953-1):+.1f}%)"
+          f"  -> {'IN CLASS' if wall_h <= 3.15 else 'OUT OF CLASS'}"
+          f"  ({wall_h:.2f} h against a 3.0 sim-h class of ~2.86 h)")
         p(f"  ONE invocation, {sps_meas*steps/60:.1f} min wall "
           f"(planner projected {run.get('projected_wall_min', 0):.1f}; chaining is retired, "
           f"there is no per-run cap)")
         p(f"  the library at this rate: 15 x {wall_h:.2f} h = "
-          f"{15*wall_h:.1f} GPU-h  (projected 44)")
+          f"{15*wall_h:.1f} GPU-h  (projected 43)")
     elif not a.wall_seconds:
         p("  (fewer than 3 dumps on disk; cost not measurable)")
 

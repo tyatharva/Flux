@@ -55,8 +55,11 @@ def _zpos(path):
     with Dataset(path) as ds:
         if "zPos" in ds.variables:
             return np.squeeze(np.asarray(ds["zPos"][:], dtype=np.float64))[:, 0, 0]
-    sibs = sorted(glob.glob(os.path.join(os.path.dirname(path) or ".", "*.[0-9]*")),
-                  key=lambda q: int(q.split(".")[-1]))
+    fam = os.path.basename(path).rsplit(".", 1)[0]   # the anchor's OWN run, not the dir's
+    sibs = sorted((q for q in glob.glob(os.path.join(os.path.dirname(path) or ".",
+                                                     "*.[0-9]*"))
+                   if os.path.basename(q).rsplit(".", 1)[0] == fam),
+                  key=lambda q: int(q.rsplit(".", 1)[1]))
     for q in sibs:
         with Dataset(q) as ds:
             if "zPos" in ds.variables:

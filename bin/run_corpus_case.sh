@@ -2,7 +2,14 @@
 # ONE corpus case, end to end: a timestamp in, an (input, target) training pair out.
 #
 #   usage: bin/run_corpus_case.sh 2023-01-18T18:00 [tag]
-#   env:   WINDOW_S=2400  ADJ_S=1800  TBACK=600  KEEP_FIELDS=0
+#   env:   WINDOW_S=2400  ADJ_S=1800  TBACK=600  KEEP_FIELDS=0  COVER_GROUPS=10
+#          -- COVER_GROUPS is the number of independent release groups the array-share
+#             standard error is estimated from. The default in stage5_footprint.py is 2,
+#             which is ONE difference and therefore ~one degree of freedom; PROJECT_BRIEF.md's
+#             standing rule is N >= 8 wherever a share or a shape is being tested, and
+#             Phase E measured a FACTOR OF 5 in the estimated floor between a 2-group and a
+#             10-group split. The split costs nothing -- the touchdowns are already
+#             labelled by release time -- so the corpus takes 10.
 #          -- ADJ_S + WINDOW_S = 4200 s = 1.167 sim-h is the class length, and TBACK is
 #             MEASURED (results/g16_tback.txt: converged at 500 s, x1.25, rounded to 600).
 #          SKIP_LES=1     stop after stage 4, for a dry run with no GPU
@@ -161,6 +168,55 @@ SKIP_S="$ADJ_S" BASE="$D/case.in" bin/run_window.sh "$D" "$D/FE_RST.0" "$DT" "$R
     ./topo.bin "$UG" "$VG" || die "adjustment+window"
 rm -f "$D/FE_RST.0"
 
+# ---- 6b. ASSERT ON THE STATE THE DUMPS CARRY, NOT ON THE .in ----------------------
+# The surface reaches FastEddy only through the restart file, and the restart READ
+# overwrites whatever the .in said (PROJECT_BRIEF.md, the Stage 6 lever). prep_restart.py now
+# reads back what it injected, but that scores the file, not the RUN -- and this project
+# has four separate instances of a configured value that the model never actually used.
+# The window dumps carry z0m, so the question "did the run use this case's surface?" is
+# answerable directly, for the price of opening one file.
+#
+# For a NEUTRAL case this is the whole ballgame: htFlux is zero everywhere, so the array's
+# entire signal is the z0 contrast, and a run that silently fell back to a uniform z0 would
+# produce a clean, complete, perfectly plausible case with no array in it.
+EARLY=$(ls -1 "$D"/window/FE_WIN.[0-9]* 2>/dev/null | sed 's/.*\.//' | sort -n | head -1)
+[ -n "$EARLY" ] || die "stage 6 left no window dumps"
+./docker/pyrun.sh - "$D/window/FE_WIN.$EARLY" "$GRID" <<'PYSURF' || die "the window ran on the wrong surface"
+import sys, os
+import numpy as np
+from netCDF4 import Dataset
+dump, grid = sys.argv[1], sys.argv[2]
+with Dataset(dump) as ds:
+    have = {v: np.squeeze(np.asarray(ds[v][:], dtype=np.float64))
+            for v in ("z0m", "htFlux") if v in ds.variables}
+if "z0m" not in have:
+    print(f"FATAL: {dump} carries no z0m; the run's surface cannot be verified",
+          file=sys.stderr)
+    raise SystemExit(1)
+bad = []
+for nm, fn in (("z0m", "z0m.npy"), ("htFlux", "htFlux.npy")):
+    if nm not in have:
+        continue
+    want = np.load(os.path.join(grid, fn)).astype(np.float64).reshape(have[nm].shape)
+    sc = max(float(np.abs(want).max()), 1e-30)
+    rel = float(np.abs(have[nm] - want).max()) / sc
+    print(f"  the window's {nm} matches {grid}/{fn} to {rel:.2e} relative")
+    if rel > 1e-5:
+        bad.append(f"{nm} differs by {rel:.2e}")
+am = os.path.join(grid, "array.npy")
+if os.path.exists(am):
+    a = np.load(am).astype(bool).reshape(have["z0m"].shape)
+    if a.any():
+        za, zo = float(np.median(have["z0m"][a])), float(np.median(have["z0m"][~a]))
+        print(f"  the run saw the array at z0 = {za:.3f} m against a domain median "
+              f"{zo:.3f} m ({za/max(zo,1e-12):.2f}x)")
+        if za <= zo * 1.001:
+            print("  WARNING: no aerodynamic array contrast in the state the RUN used")
+if bad:
+    print("FATAL: " + "; ".join(bad), file=sys.stderr)
+    raise SystemExit(1)
+PYSURF
+
 # ---- 7. the footprint ------------------------------------------------------------
 # INTO results/corpus/, WHICH IS GITIGNORED. The repo already tracks 72 footprint .npz
 # files at ~300 kB each; 1825 more would be ~550 MB of binaries in git history. The
@@ -171,6 +227,7 @@ LPDM_WORKERS="${LPDM_WORKERS:-8}" \
 ./docker/pyrun.sh bin/stage5_footprint.py "$D/window" --dt "$DT" --tback "$TBACK" \
     --sgs-most --cover-dir "$GRID" --receptor-from "$GRID" --fp16-cache \
     --z-target "$ZTARGET" ${EXACT_AGL:+--exact-agl} --rel-seconds 1800 --strict-rel \
+    --cover-groups "${COVER_GROUPS:-10}" \
     --t-min "$(python3 -c "print(f'{$A_NT*$DT:.3f}')")" \
     --outdir "$FPDIR" --tag "$TAG" 2>&1 | grep -vE 'batch [0-9]+/' > "$FPDIR/$TAG.txt"
 [ -s "$FPDIR/$TAG.json" ] || { tail -12 "$FPDIR/$TAG.txt" >&2

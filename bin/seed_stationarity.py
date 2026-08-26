@@ -171,6 +171,19 @@ def main():
         pat = os.path.join(pat, "*.[0-9]*")
     paths = sorted((p for p in glob.glob(pat) if p.rsplit(".", 1)[-1].isdigit()),
                    key=lambda p: int(p.rsplit(".", 1)[1]))
+    # ONE RUN PER DIRECTORY, OR THIS IS NOT A SERIES. FastEddy names a dump
+    # <outFileBase>.<step>, so a directory that has held two runs holds two families with
+    # OVERLAPPING step numbers -- and sorting on the step alone interleaves them into a
+    # series that has two different states at the same time and announces nothing. It is
+    # the same shape as every other failure in this project that produced a plausible wrong
+    # number rather than an error, so it is refused here rather than diagnosed later.
+    fams = sorted({os.path.basename(p).rsplit(".", 1)[0] for p in paths})
+    if len(fams) > 1:
+        print(f"FATAL: {len(fams)} dump families matched {pat}: {', '.join(fams)}. "
+              f"Pass one family's glob (e.g. '<dir>/{fams[0]}.*'), or move the others "
+              f"aside; interleaving two runs by step number is silently wrong.",
+              file=sys.stderr)
+        return 2
     if len(paths) < 6:
         print(f"FATAL: {len(paths)} dumps matched {pat}; need at least 6", file=sys.stderr)
         return 2

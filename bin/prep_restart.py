@@ -116,6 +116,64 @@ def main():
             print(f"  injected the static surface: terrain {topo.min():.1f}..{topo.max():.1f} m, "
                   f"z0 {z0.min():.0e}..{z0.max():.2f} m  (NOT rotated -- it is the geography)")
 
+    # ---- READ IT BACK. PROJECT_BRIEF.md's standing rule, applied where it is load-bearing ----
+    #
+    # The surface is injected by OVERWRITING the restart file, because that is the only way
+    # to give FastEddy v5.0.1 a spatially varying surface -- and a write that silently does
+    # not land produces a case that runs to completion on the WRONG surface and says
+    # nothing. That is not hypothetical here: for a NEUTRAL corpus case the array's entire
+    # signal is z0m (0.25 against cropland's 0.10 on grid16_raised); there is no thermal
+    # contrast at all, so a failed z0m injection is a case with no array in it, reported as
+    # a clean run. Gate B5 measured this once, on one file, in a separate script; the
+    # corpus runs 1370 of them and the check belongs in the writer.
+    if not a.flat:
+        with Dataset(a.dst) as ds:
+            g = lambda v: np.squeeze(np.asarray(ds[v][:], dtype=np.float64))
+            got_t, got_z0, got_zp = g("topoPos"), g("z0m"), g("zPos")
+            got_h = g("htFlux") if "htFlux" in ds.variables else None
+        checks = [("topoPos", got_t, topo),
+                  ("z0m", got_z0, z0),
+                  ("zPos", got_zp,
+                   (np.squeeze(new).astype(np.float32).astype(np.float64)))]
+        if got_h is not None:
+            checks.append(("htFlux", got_h, wth))
+        worst = []
+        for nm, got, want in checks:
+            want = np.asarray(want, dtype=np.float64).reshape(got.shape)
+            if not np.isfinite(got).all():
+                raise SystemExit(f"FATAL: {nm} in {a.dst} is not finite after injection")
+            sc = max(float(np.abs(want).max()), 1e-30)
+            rel = float(np.abs(got - want).max()) / sc
+            worst.append((nm, rel))
+            # float32 storage, so ~1e-7 relative is the floor; anything above 1e-5 means
+            # the write did not land, not that it rounded.
+            if rel > 1e-5:
+                raise SystemExit(
+                    f"FATAL: {nm} read back from {a.dst} differs from what was injected by "
+                    f"{rel:.2e} relative -- the write did not land. The run would have used "
+                    f"the spin-up's surface and reported nothing.")
+        print("  read back: " + ", ".join(f"{n} {r:.1e}" for n, r in worst)
+              + "   (float32 storage, so ~1e-7 is the floor)")
+        # AND SAY WHAT THE ARRAY ITSELF GOT, not what the whole roughness map looks like.
+        # 29% of this domain is rougher than 0.2 m -- tree and built cells -- so a
+        # threshold count says nothing about the array. Read the array mask.
+        amask = os.path.join(a.grid, "array.npy")
+        if os.path.exists(amask):
+            am = np.load(amask).astype(bool).reshape(got_z0.shape)
+            if am.any():
+                z0a = float(np.median(got_z0[am]))
+                z0o = float(np.median(got_z0[~am]))
+                print(f"    the array's {int(am.sum())} cells read back at z0 = "
+                      f"{z0a:.3f} m against a domain median of {z0o:.3f} m "
+                      f"({z0a/max(z0o,1e-12):.2f}x)"
+                      + ("  -- for a NEUTRAL case this ratio IS the array's entire signal"
+                         if got_h is not None and float(np.abs(got_h).max()) < 1e-6
+                         else ""))
+                if z0a <= z0o * 1.001:
+                    print("    WARNING: the array is aerodynamically identical to the "
+                          "surface around it; a neutral case built on this grid carries "
+                          "NO array signal at all (bin/prep_surface.py --raise-topo)")
+
     # The forcing must turn with the flow, or the state and the forcing disagree and the
     # run spends its adjustment budget turning back.
     ug, vg = a.ug, 0.0

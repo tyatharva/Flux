@@ -71,6 +71,9 @@ runs/g16_b6cbl/
 # A job bundle is seed.in + manifest.json + run_seed.sh and nothing else.
 jobs/*/smoke.in
 jobs/*/seg*.in
+# run.in is generated per invocation by jobs/run_seed.sh (Nt, inPath/inFile and
+# surflayer_wth substituted into seed.in); seed.in is the tracked source of truth.
+jobs/*/run.in
 jobs/*/return/
 
 # retired stable seed jobs -- kept on disk as evidence, archived under results/

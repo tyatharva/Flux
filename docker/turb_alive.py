@@ -181,7 +181,13 @@ def expand(paths, siblings=10):
     """
     if len(paths) != 1 or siblings <= 0:
         return paths
-    sibs = glob.glob(os.path.join(os.path.dirname(paths[0]) or ".", "*.[0-9]*"))
+    # SAME FAMILY ONLY. FastEddy names a dump <outFileBase>.<step>, so a directory that has
+    # held two runs holds two families whose step numbers OVERLAP -- and an expansion that
+    # mixed them would interleave two different states at the same time and call it a
+    # history. Restrict to the anchor's own base name, which is what "its own run" means.
+    _fam = os.path.basename(paths[0]).rsplit(".", 1)[0]
+    sibs = [q for q in glob.glob(os.path.join(os.path.dirname(paths[0]) or ".", "*.[0-9]*"))
+            if os.path.basename(q).rsplit(".", 1)[0] == _fam]
     # TOLERANT PARSE, not a try/except around the whole sort. The previous version keyed
     # the sort on int(q.split(".")[-1]) inside one try block, so a SINGLE unparseable name
     # anywhere in the directory aborted the whole expansion and fell back to one dump --

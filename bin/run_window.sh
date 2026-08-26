@@ -74,8 +74,20 @@ if [ -f "$D/window/.window_complete" ] && \
   exit 0
 fi
 
-rm -f "$D"/window/* "$D"/FE_RST.*
-cp -f "$RST" "$D/FE_RST.0" || die "copy restart"
+rm -f "$D"/window/*
+# THE RESTART MAY ALREADY BE THE FILE WE ARE ABOUT TO WRITE. bin/run_corpus_case.sh stages
+# the seed-derived restart at $D/FE_RST.0 and then passes that path in, so the stale-clean
+# below would delete the very file the copy then reads -- `cp -f X X` with X already gone.
+# It exits 1, the die fires, and the case dies before FastEddy is ever launched. This is a
+# consequence of retiring the chain: the restart used to be the adjustment run's final
+# dump, in another directory, and could not collide with the destination.
+if [ "$(readlink -f "$RST")" = "$(readlink -f "$D/FE_RST.0")" ]; then
+  echo "--- restart is already $D/FE_RST.0; staging is a no-op"
+else
+  rm -f "$D"/FE_RST.*
+  cp -f "$RST" "$D/FE_RST.0" || die "copy restart"
+fi
+[ -s "$D/FE_RST.0" ] || die "no restart at $D/FE_RST.0 after staging"
 sed -e "s|^dt = .*|dt = $DT|" -e "s|^Nt = .*|Nt = $TOT|" \
     -e "s|^NtBatch = .*|NtBatch = $FRQ|" -e "s|^frqOutput = .*|frqOutput = $FRQ|" \
     -e "s|^inPath = .*|inPath = ./|" -e "s|^inFile = .*|inFile = FE_RST.0|" \
@@ -101,6 +113,21 @@ sed -e "s|^dt = .*|dt = $DT|" -e "s|^Nt = .*|Nt = $TOT|" \
 #
 # With no SKIP (a plain window) the first file is kept, so TOT is enough: one full dump at
 # the end, which is all that a restartable final state needs.
+# AND CHECK THE SED ACTUALLY LANDED. `sed s|^key = .*|key = v|` on a template that has no
+# such key is a silent no-op: the .in keeps whatever the template said, FastEddy runs, and
+# the run is simply a different run than the one asked for. That is the same shape as every
+# other failure this project has paid for -- a plausible wrong number instead of an error --
+# so the written file is scored against the values it was supposed to receive.
+TOPOVAL="$([ "$TOPO" = "-" ] && echo "" || echo "$TOPO")"
+for kv in "dt|$DT" "Nt|$TOT" "NtBatch|$FRQ" "frqOutput|$FRQ" "inPath|./" \
+          "inFile|FE_RST.0" "U_g|$UG" "V_g|$VG" "outPath|./window/" \
+          "outFileBase|FE_WIN" "topoFile|$TOPOVAL"; do
+  k="${kv%%|*}"; v="${kv#*|}"
+  n=$(grep -c "^$k = " "$D/win1.in")
+  [ "$n" -eq 1 ] || die "win1.in carries $n '$k' lines, wanted exactly 1 -- does $BASE define it?"
+  got=$(grep -m1 "^$k = " "$D/win1.in" | sed "s|^$k = ||")
+  [ "$got" = "$v" ] || die "win1.in has $k = '$got', asked for '$v' (the sed did not land)"
+done
 FULLFRQ="$TOT"; [ "$SKIP_NT" -gt 0 ] && FULLFRQ="$SKIP_NT"
 printf 'ioLPDMmode = 1\nioLPDMfullFrq = %d\n' "$FULLFRQ" >> "$D/win1.in"
 [ -n "$EXTRA" ] && cat "$EXTRA" >> "$D/win1.in"

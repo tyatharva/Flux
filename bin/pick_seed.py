@@ -176,6 +176,7 @@ def main():
             c_zi = abs(np.log(max(zi_s, 1.0) / max(zi_c, 1.0))) / ZI_SCALE
             cost = float(np.hypot(c_zi, dd / DIR_SCALE))
             rows.append({"job": s["job"], "rung": s["rung"], "rot": rot,
+                         "seed_G": float(s["target"].get("G", float("nan"))),
                          "regime": s["regime"], "regime_match": bool(same),
                          "seed_dir_deg": round(d, 2), "d_dir_deg": round(dd, 2),
                          "seed_zi_m": round(zi_s, 1),
@@ -205,6 +206,33 @@ def main():
           f"(gap {best['d_dir_deg']:.1f}, and 30 min of backing closes ~2.7)")
     print(f"    z_i {best['seed_zi_m']:.0f} vs {zi_c:.0f} m "
           f"(gap {best['seed_zi_m']-zi_c:+.0f}, and 30 min of entrainment closes ~+40)")
+    # === THE GEOSTROPHIC SPEED IS REPORTED, NOT COSTED -- AND HERE IS WHY, WITH THE
+    # === NUMBER THAT SAYS WHEN TO STOP BELIEVING IT.
+    #
+    # Everything Kljun sees is a RATIO. U(z_m) and u* both scale with G, so Pi_4 = U/u*
+    # is nearly invariant under a speed mismatch -- measured on g16_spin, u* moved 18%
+    # over five windows while U/u* moved 0.6%. That is exactly why this file costs
+    # direction and depth and not speed.
+    #
+    # What 30 minutes does NOT do is close the gap. The mean flow accelerates at
+    # f*(G_case - G_seed), so it closes f*dt = 9.94e-5 * 1800 = 17.9% of it, whatever the
+    # gap is. A case therefore samples a flow somewhere between the two forcings, and the
+    # window is labelled by what it ACHIEVED (lpdm/les_stats.py) rather than by either.
+    # That is sound for a modest gap and an extrapolation for a large one, so the ratio is
+    # printed and a factor of 2 is called out rather than left for someone to notice.
+    G_s = float(best.get("seed_G", float("nan")))
+    G_c = float(lab.get("G_speed", float("nan")))
+    if np.isfinite(G_s) and np.isfinite(G_c) and G_s > 0:
+        r = G_c / G_s
+        print(f"    G {G_s:.1f} -> {G_c:.1f} m/s ({r:.2f}x): REPORTED, never costed -- "
+              f"U and u* scale together so Kljun's U/u* is nearly invariant, and 30 min "
+              f"closes only f*dt = 17.9% of a geostrophic gap whatever its size")
+        if r > 2.0 or r < 0.5:
+            print(f"  WARNING: the case is forced {r:.2f}x the seed's geostrophic wind. "
+                  f"The ratio argument above is an extrapolation at this size: the window "
+                  f"will be sampled mid-acceleration and its mean flow is a transient, "
+                  f"not a state. The pair stays self-consistent (inputs are read off the "
+                  f"LES) but do not quote this case as quasi-stationary in U.")
     if not best["regime_match"]:
         print(f"  WARNING: no {reg_c} seed in the library; fell back to "
               f"{best['regime']}. 30 min will NOT convert one regime into the other.")
@@ -216,6 +244,8 @@ def main():
               f"spacing; a base angle is missing or a seed drifted off its own.")
 
     out = {"forcing": os.path.abspath(a.forcing),
+           "G_seed": G_s, "G_case": G_c,
+           "G_ratio": (G_c / G_s if (np.isfinite(G_s) and G_s > 0) else None),
            "case": {"zi_m": zi_c, "wth_virtual": wth_c, "regime": reg_c,
                     "heading_deg": dir_c,
                     "zm_over_L": None if not np.isfinite(zoL_c) else zoL_c},
