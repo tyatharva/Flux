@@ -1,0 +1,25 @@
+=== 90-degree rotation check on seed_restart.nc ===
+  fields present: u, v, w, theta, TKE_0, rho, pressure   shape (122, 122, 122)
+
+  1. four 90-deg turns == identity, bit-for-bit: PASS
+
+  rot 1  (90 deg CCW of the flow)
+    2. file == rotate_stack(src), bit-for-bit: PASS
+    3. slab-mean wind vector: max relative departure from the exact turn 1.01e-20
+       the FROM bearing moved +270.000000 deg; pick_seed.py subtracts 90 -> want 270: PASS
+    4. scalar slab moments invariant: worst relative change 7.85e-16   (TKE_0.mean 3.3e-17, TKE_0.var 1.5e-16, theta.mean 0.0e+00, theta.var 1.1e-16, w.mean 7.8e-16, w.var 1.9e-16)
+
+  rot 2  (180 deg CCW of the flow)
+    2. file == rotate_stack(src), bit-for-bit: PASS
+    3. slab-mean wind vector: max relative departure from the exact turn 0.00e+00
+       the FROM bearing moved +180.000000 deg; pick_seed.py subtracts 180 -> want 180: PASS
+    4. scalar slab moments invariant: worst relative change 1.92e-16   (TKE_0.mean 1.7e-17, TKE_0.var 1.5e-16, theta.mean 0.0e+00, theta.var 1.1e-16, w.mean 0.0e+00, w.var 1.9e-16)
+
+  rot 3  (270 deg CCW of the flow)
+    2. file == rotate_stack(src), bit-for-bit: PASS
+    3. slab-mean wind vector: max relative departure from the exact turn 1.01e-20
+       the FROM bearing moved +90.000000 deg; pick_seed.py subtracts 270 -> want 90: PASS
+    4. scalar slab moments invariant: worst relative change 7.85e-16   (TKE_0.mean 1.7e-17, TKE_0.var 1.5e-16, theta.mean 0.0e+00, theta.var 1.1e-16, w.mean 7.8e-16, w.var 1.9e-16)
+
+  ROTATION CHECK: PASS
+  wrote results/seed_rotation_check.json

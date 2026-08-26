@@ -1,0 +1,51 @@
+=== seed seed_nbl-shallow_a000: nbl-shallow (neutral), base angle 0 deg ===
+
+--- cost, against the projection the other 14 are budgeted on ---
+  738720 steps x dt 0.01461988 = 3.000 simulated hours
+  MEASURED off the dumps: 13.982 ms/step
+  from 37 dump mtimes, no pauses
+  planned                 14.900 ms/step   (-6.2%)
+  implied wall for the whole chain 2.869 h
+  wall-to-sim ratio 0.956 GPU-h per simulated hour
+    vs the manifest projection 1.019  (-6.1%)
+    vs the sanctioned SEED CLASS 0.953 (+0.4%)  -> IN CLASS  (2.87 h against a 3.0 sim-h class of ~2.86 h)
+  ONE invocation, 172.1 min wall (planner projected 183.4; chaining is retired, there is no per-run cap)
+  the library at this rate: 15 x 2.87 h = 43.0 GPU-h  (projected 43)
+
+--- the seven stationarity limits, scored on the last 1.5 h ---
+  quantity                            mean      trend   limit    used  verdict
+  z_i                             364.4322    +11.67%     3.0    389%  DRIFTING
+  TKE/u*^2                          0.7955     +4.32%     5.0     86%  ok
+  sigma_v/u*                        2.0486     +1.01%     3.0     34%  ok
+  Kljun x_peak                     38.2729     -0.21%     1.0     21%  ok
+  Kljun x90                       521.2624     -0.17%     1.0     17%  ok
+  U/u* (Kljun Pi_4)                10.6929     +0.14%     1.0     14%  ok
+  sigma_w/u* at the receptor        1.2219     +0.07%     2.0      4%  ok
+  ALL SEVEN: FAIL
+  BINDS LAST: z_i at 389% of its limit (+11.67 %/h against 3.0)
+  reported, not gated: u* -9.61 %/h, U(10 m) -9.46 %/h, wind direction -3.15 %/h, domain TKE -14.55 %/h
+
+--- is the stable boundary layer still turbulent? ---
+  column-integrated TKE 0.000 -> 45.128 m3/s2; trend over the last half -12.5 %/h
+  u* 0.0000 -> 0.2815 m/s   (min over the run 0.0000)
+  turb-alive OK: max e_res/U_ref^2=4.70e-03 at k=5  u*=0.2815  U_ref=8.02  (e_res/u*^2=3.82, reported only)  u* trend -9.6 %/h, final/peak 71%
+  TURBULENCE ALIVE: OK
+  k0/k1 at the last dump 0.119   (must be < 1; ~9 means dt too large)
+    ^ note this passed at 0.442 on a FULLY COLLAPSED SBL. k0/k1 is a dt check;
+      the line above it is the physics check. Read both.
+
+--- achieved vs asked ---
+  geostrophic forcing FROM 270.0 deg (base angle 0)
+  achieved receptor wind FROM 251.7 deg  ->  Ekman backing +18.3 deg  (measured 12-24 deg neutrally, 7-13 convectively)
+  z_i 364 m against a 300 m target
+  u* 0.2815,  U 3.005 m/s,  sigma_w 0.3414
+
+--- what comes home ---
+  manifest.json                  0.00 MB
+  run.log                        0.08 MB
+  seed.log                       0.08 MB
+  seed_restart.nc               73.27 MB
+  stationarity.json              0.00 MB
+  stationarity.txt               0.00 MB
+  restart 73.3 MB against the 73.3 MB estimate (-0.0%)
+  return/ total 73.4 MB

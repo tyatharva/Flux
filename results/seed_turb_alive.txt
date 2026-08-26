@@ -1,0 +1,1 @@
+  turb-alive OK: max e_res/U_ref^2=4.70e-03 at k=5  u*=0.2815  U_ref=8.02  (e_res/u*^2=3.82, reported only)  u* trend -9.6 %/h, final/peak 71%

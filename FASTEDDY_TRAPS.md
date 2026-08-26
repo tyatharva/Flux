@@ -470,6 +470,34 @@ at `Ri_g >> 0.25`, is wave motion.
 
 ## 16. z_i as "5% of the peak TKE" falls while the layer is growing
 
+> **SECOND INSTANCE, MIRROR IMAGE, 2026-08-26 — and this one FAILED a run rather than
+> killing one.** `seed_nbl-shallow_a000` (neutral, 3.0 sim-h, the first seed ever to reach
+> its gate healthy) was rejected on `z_i` at **+11.67 %/h against a limit of 3**, while the
+> other six limits passed with margins of 0.05-2.9% per window. Measured with
+> `bin/zi_diagnose.py` (`results/nbl_a000_zi_diagnosis.txt`):
+>
+> | quantity, last 1.5 h | mean | trend |
+> |---|---|---|
+> | `z_i`, 5% of the RUNNING PEAK — **gated** | 364.4 m | **+11.67 %/h** |
+> | `z_i`, fixed threshold 0.01 m²/s² | 389.3 m | +1.87 %/h |
+> | peak resolved TKE — *the normaliser* | 0.3308 | **−15.67 %/h** |
+> | `u*` | 0.2936 | −9.61 %/h |
+>
+> The gated depth is **−0.885 correlated with the peak it is normalised by**; the
+> fixed-threshold depth is −0.379. The peak is falling because `u*` is falling, and `u*`
+> falls for the first quarter of the 17.6 h inertial period — which PROJECT_BRIEF.md already
+> records as *not* a stationarity failure ("Neutral stationarity is a statement about
+> `u(z_m)/u*`, not about `u*`"). The layer's own depth is flat at 386-399 m from t = 1.0 h.
+>
+> It is also a **staircase**: the peak-normalised depth takes 4 distinct values over the
+> last 2 h, and a straight line fitted through a staircase reports a trend whatever the
+> layer does.
+>
+> **NO CHANGE HAS BEEN MADE TO THE GATE.** The seed FAILED and that is the recorded
+> result. Whether `z_i` should be defined on a fixed threshold is a decision about what
+> stationarity means for this project, and changing a gate immediately after it fails is
+> how a gate stops meaning anything.
+
 Found 2026-08-25, after it had already caused one run to be killed for the wrong reason.
 
 ### Symptom
