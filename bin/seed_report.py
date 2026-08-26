@@ -59,17 +59,52 @@ def main():
     sim_h = steps * run["dt"] / 3600.0
     p(f"\n--- cost, against the projection the other 17 are budgeted on ---")
     p(f"  {steps} steps x dt {run['dt']} = {sim_h:.3f} simulated hours")
+    # MEASURE THE RATE OFF THE ARTIFACTS, NOT OFF A NUMBER PASSED IN BY HAND.
+    #
+    # This block used to depend entirely on --wall-seconds, and on a RESUMED job that is
+    # wrong: the elapsed time between the log's first and last timestamps covers only the
+    # segments this invocation ran, while `steps` is the whole chain. It reported
+    # 10.115 ms/step against a planned 14.9, i.e. "32% faster than projection", and the
+    # library was costed at 37.4 GPU-h instead of 52 on the strength of it. The dumps
+    # themselves say otherwise, and they cannot be mis-passed.
+    #
+    # The MEDIAN inter-dump interval is what is used, not the total span, so a pause or a
+    # resume gap cannot contaminate it -- and any interval more than 3x the median is
+    # reported as exactly that, a pause, rather than silently averaged in.
+    dumpz = sorted(glob.glob(os.path.join(a.job, "output", "*.[0-9]*")),
+                   key=lambda q: int(q.rsplit(".", 1)[1]))
+    sps_meas, note = None, ""
+    if len(dumpz) >= 3:
+        stp = np.array([int(q.rsplit(".", 1)[1]) for q in dumpz], dtype=np.float64)
+        mt = np.array([os.path.getmtime(q) for q in dumpz], dtype=np.float64)
+        dstep, dt_s = np.diff(stp), np.diff(mt)
+        good = dstep > 0
+        per = dt_s[good] / dstep[good]
+        med = float(np.median(per))
+        npause = int((per > 3.0 * med).sum())
+        sps_meas = med
+        note = (f"  from {len(dumpz)} dump mtimes; median inter-dump rate, "
+                f"{npause} pause(s) excluded" if npause else
+                f"  from {len(dumpz)} dump mtimes, no pauses")
     if a.wall_seconds:
         sps = a.wall_seconds / steps
-        p(f"  measured wall {a.wall_seconds/3600:.3f} h  ->  {sps*1000:.3f} ms/step")
-        p(f"  planned                              {a.sps_planned*1000:.3f} ms/step"
-          f"   ({100*(sps/a.sps_planned-1):+.1f}%)")
-        p(f"  wall-to-sim ratio {a.wall_seconds/3600/sim_h:.3f} GPU-h per simulated hour"
-          f"   (projection 1.02, i.e. {100*(a.wall_seconds/3600/sim_h/1.02-1):+.1f}%)")
-        p(f"  the library at this rate: 18 x {a.wall_seconds/3600:.2f} h = "
-          f"{18*a.wall_seconds/3600:.1f} GPU-h  (projected 52)")
-    else:
-        p("  (no --wall-seconds given; cost not measured)")
+        p(f"  --wall-seconds {a.wall_seconds/3600:.3f} h  ->  {sps*1000:.3f} ms/step "
+          f"(HAND-PASSED; trust the artifact line below instead)")
+    if sps_meas is not None:
+        p(f"  MEASURED off the dumps: {sps_meas*1000:.3f} ms/step")
+        p(f"{note}")
+        p(f"  planned                 {a.sps_planned*1000:.3f} ms/step"
+          f"   ({100*(sps_meas/a.sps_planned-1):+.1f}%)")
+        wall_h = sps_meas * steps / 3600.0
+        p(f"  implied wall for the whole chain {wall_h:.3f} h")
+        p(f"  wall-to-sim ratio {wall_h/sim_h:.3f} GPU-h per simulated hour"
+          f"   (projection 1.02, i.e. {100*(wall_h/sim_h/1.02-1):+.1f}%)")
+        p(f"  per segment {sps_meas*run['steps_per_segment']/60:.1f} min "
+          f"(cap 60; planner projected {run.get('projected_wall_min_per_segment', 0):.1f})")
+        p(f"  the library at this rate: 18 x {wall_h:.2f} h = "
+          f"{18*wall_h:.1f} GPU-h  (projected 52)")
+    elif not a.wall_seconds:
+        p("  (fewer than 3 dumps on disk; cost not measurable)")
 
     # ---- the seven limits --------------------------------------------------------
     p(f"\n--- the seven stationarity limits, scored on the last {st['score_h']} h ---")

@@ -58,6 +58,12 @@ walks from healthy to dead inside ONE run and therefore separates the two by its
                        of 6.5 gap. 2.0e-3 is its geometric midpoint (1.81e-3), so the floor
                        sits 2.8x above the dead state and 2.3x below the weakest healthy one.
   UST_FRAC  = 0.50     healthy 66-77%, dead 25%.
+  E_DECAY   = 0.25     final e_res / peak e_res: healthy 0.87 and 0.88, collapsed 0.076.
+                       This one exists to close the SKIP hole: k0k1_check.py returns SKIP
+                       below its floor and check_run.sh counts SKIP as a pass, so a layer
+                       dead enough to fall under a floor escapes with no verdict at all.
+                       A single dump cannot tell "not yet developed" from "already dead";
+                       a series can, and this is how.
   UST_TREND = -35 %/h  healthy worst -16.0, dead -75.5 and -388.5; -35 is the geometric
                        midpoint of -16.0 and -75.5. A cold-start transient legitimately
                        falls at 16 %/h, so this must NOT be tightened toward it -- it would
@@ -94,6 +100,7 @@ E_FLOOR = 2.0e-3         # max e_res/U_ref^2 below which the layer is not turbul
 UST_FRAC = 0.50          # final u* must exceed this fraction of the run's own maximum
 UST_TREND = -35.0        # %/h over the scored half; see the calibration below
 LAMINAR = 1.0e-4         # m2/s2; below this e_res carries no information -> SKIP
+E_DECAY = 0.25           # final e_res as a fraction of the run's own peak
 SCORE_FRAC = 0.5         # score u* over the last half of the series
 
 
@@ -167,9 +174,23 @@ def verdict(rows):
     tag = (f"max e_res/U_ref^2={last['e_over_uref2']:.2e} at k={last['k_max']}  "
            f"u*={last['ustar']:.4f}  U_ref={last['u_ref']:.2f}  "
            f"(e_res/u*^2={last['e_over_ust2']:.2f}, reported only)")
-    if last["e_max"] < LAMINAR:
+    emax = np.array([r["e_max"] for r in rows], dtype=np.float64)
+    # DECAY FRACTION, and it is what closes the hole SKIP would otherwise leave.
+    # docker/k0k1_check.py returns SKIP below its variance floor, and check_run.sh treats
+    # SKIP as a pass -- so a boundary layer dead enough to fall under the floor gets NO
+    # VERDICT rather than a failure. The same shape of hole exists here, and a single dump
+    # genuinely cannot tell "not yet developed" from "already dead". A SERIES can: e_res
+    # rising is developing, e_res collapsed off its own peak is dying. Measured, final/peak
+    # e_res: healthy 0.87 (neutral) and 0.88 (convective), collapsed 0.076.
+    decayed = (len(rows) >= 3 and emax.max() > LAMINAR
+               and emax[-1] < E_DECAY * emax.max())
+    if last["e_max"] < LAMINAR and not decayed:
         return "SKIP", f"  turb-alive SKIP (undeveloped, e_res < {LAMINAR:g}): {tag}"
     msgs = []
+    if decayed:
+        msgs.append(f"resolved TKE has fallen to {100*emax[-1]/emax.max():.0f}% of the "
+                    f"run's own peak, under {100*E_DECAY:.0f}% -- the turbulence is dying, "
+                    f"not developing")
     if last["e_over_uref2"] < E_FLOOR:
         msgs.append(f"resolved TKE {last['e_over_uref2']:.2e} U_ref^2 is below the "
                     f"{E_FLOOR:.1e} floor -- the layer is not turbulent")
