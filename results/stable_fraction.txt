@@ -1,0 +1,115 @@
+======================================================================================
+HOW MUCH OF THIS SITE'S STABLE RECORD IS WEAKLY STABLE?   z_m = 10.0 m AGL
+======================================================================================
+
+The grid can run stable cases only where stratification is weak enough that the
+Ozmidov scale stays above Delta = 10.09 m. Measured on the collapsed seed, that
+fails at z/L ~ 0.2. The band being tested is 0.03 < z/L <= 0.10, and everything
+BELOW it is more runnable still, so the operative figure is z/L <= 0.10.
+
+--- 1. THE TOWER'S OWN RECORD  (H_and_sigma_w.csv, 1 y of half-hours) ---------
+    15,155 records; 1,383 (9.1%) have NO consistent MOST state
+    (those are strongly stable by construction -- counted, never clipped into a band)
+
+  [ALL hours]  13,772 usable + 1,383 non-MOST; STABLE = 7,616 (50.3% of the record)
+      band                                             n  % of stable  % of all
+      near-neutral stable  0    < z/L <= 0.03       1776        23.3%     11.7%
+      WEAKLY stable        0.03 < z/L <= 0.10       1665        21.9%     11.0%
+      moderately stable    0.10 < z/L <= 0.50       2009        26.4%     13.3%
+      strongly stable      0.50 < z/L               2166        28.4%     14.3%
+      ------------------------------------------ ------- ------------ ---------
+      RUNNABLE at this grid (z/L <= 0.10)           3441        45.2%     22.7%
+      z/L over the stable set: p10 0.007  p25 0.025  p50 0.081  p75 0.258  p90 0.583
+
+  [u* >= 0.15 (the standing QC)]  11,572 usable + 0 non-MOST; STABLE = 5,131 (44.3% of the record)
+      band                                             n  % of stable  % of all
+      near-neutral stable  0    < z/L <= 0.03       1763        34.4%     15.2%
+      WEAKLY stable        0.03 < z/L <= 0.10       1611        31.4%     13.9%
+      moderately stable    0.10 < z/L <= 0.50       1603        31.2%     13.9%
+      strongly stable      0.50 < z/L                154         3.0%      1.3%
+      ------------------------------------------ ------- ------------ ---------
+      RUNNABLE at this grid (z/L <= 0.10)           3374        65.8%     29.2%
+      z/L over the stable set: p10 0.006  p25 0.019  p50 0.056  p75 0.150  p90 0.304
+
+      crosswalk to PROJECT_BRIEF.md's own class edges, evaluated HERE at 10 m:
+        very unstable  z/L < -0.5              537    4.6%
+        unstable       -0.5 .. -0.05          3712   32.1%
+        near-neutral   -0.05 .. +0.05         4612   39.9%
+        stable         +0.05 .. +0.5          2557   22.1%
+        very stable    z/L > +0.5              154    1.3%
+
+--- 2. HRRR  (candidates.tsv, the corpus's own forcing source) ----------------
+    2,208 records; 2 (0.1%) have NO consistent MOST state
+    (those are strongly stable by construction -- counted, never clipped into a band)
+
+  [ALL hours]  2,206 usable + 2 non-MOST; STABLE = 1,121 (50.8% of the record)
+      band                                             n  % of stable  % of all
+      near-neutral stable  0    < z/L <= 0.03        244        21.8%     11.1%
+      WEAKLY stable        0.03 < z/L <= 0.10        247        22.0%     11.2%
+      moderately stable    0.10 < z/L <= 0.50        386        34.4%     17.5%
+      strongly stable      0.50 < z/L                244        21.8%     11.1%
+      ------------------------------------------ ------- ------------ ---------
+      RUNNABLE at this grid (z/L <= 0.10)            491        43.8%     22.2%
+      z/L over the stable set: p10 0.012  p25 0.038  p50 0.126  p75 0.289  p90 2274.026
+
+  [u* >= 0.15 (the standing QC)]  1,691 usable + 0 non-MOST; STABLE = 741 (43.8% of the record)
+      band                                             n  % of stable  % of all
+      near-neutral stable  0    < z/L <= 0.03        244        32.9%     14.4%
+      WEAKLY stable        0.03 < z/L <= 0.10        237        32.0%     14.0%
+      moderately stable    0.10 < z/L <= 0.50        259        35.0%     15.3%
+      strongly stable      0.50 < z/L                  1         0.1%      0.1%
+      ------------------------------------------ ------- ------------ ---------
+      RUNNABLE at this grid (z/L <= 0.10)            481        64.9%     28.4%
+      z/L over the stable set: p10 0.008  p25 0.022  p50 0.063  p75 0.134  p90 0.213
+
+      crosswalk to PROJECT_BRIEF.md's own class edges, evaluated HERE at 10 m:
+        very unstable  z/L < -0.5              141    8.3%
+        unstable       -0.5 .. -0.05           442   26.1%
+        near-neutral   -0.05 .. +0.05          696   41.2%
+        stable         +0.05 .. +0.5           411   24.3%
+        very stable    z/L > +0.5                1    0.1%
+
+--- 3. CONUS404  (45 y hourly, u* carried directly -- no inversion) -----------
+    39,456 records; 0 (0.0%) have NO consistent MOST state
+    (those are strongly stable by construction -- counted, never clipped into a band)
+
+  [ALL hours]  39,456 usable + 0 non-MOST; STABLE = 21,080 (53.4% of the record)
+      band                                             n  % of stable  % of all
+      near-neutral stable  0    < z/L <= 0.03       2647        12.6%      6.7%
+      WEAKLY stable        0.03 < z/L <= 0.10       3177        15.1%      8.1%
+      moderately stable    0.10 < z/L <= 0.50       3965        18.8%     10.0%
+      strongly stable      0.50 < z/L              11291        53.6%     28.6%
+      ------------------------------------------ ------- ------------ ---------
+      RUNNABLE at this grid (z/L <= 0.10)           5824        27.6%     14.8%
+      z/L over the stable set: p10 0.022  p25 0.084  p50 1.279  p75 2.323  p90 3.823
+
+  [u* >= 0.15 (the standing QC)]  25,736 usable + 0 non-MOST; STABLE = 9,151 (35.6% of the record)
+      band                                             n  % of stable  % of all
+      near-neutral stable  0    < z/L <= 0.03       2576        28.1%     10.0%
+      WEAKLY stable        0.03 < z/L <= 0.10       2982        32.6%     11.6%
+      moderately stable    0.10 < z/L <= 0.50       3313        36.2%     12.9%
+      strongly stable      0.50 < z/L                280         3.1%      1.1%
+      ------------------------------------------ ------- ------------ ---------
+      RUNNABLE at this grid (z/L <= 0.10)           5558        60.7%     21.6%
+      z/L over the stable set: p10 0.007  p25 0.025  p50 0.071  p75 0.159  p90 0.287
+
+      crosswalk to PROJECT_BRIEF.md's own class edges, evaluated HERE at 10 m:
+        very unstable  z/L < -0.5             2836   11.0%
+        unstable       -0.5 .. -0.05          9034   35.1%
+        near-neutral   -0.05 .. +0.05         8347   32.4%
+        stable         +0.05 .. +0.5          5239   20.4%
+        very stable    z/L > +0.5              280    1.1%
+
+======================================================================================
+WHAT RESTRICTING THE LIBRARY TO WEAK STABILITY COSTS  (u* >= 0.15 throughout)
+======================================================================================
+  source                               stable     kept  kept/stable  LOST/record
+  tower H + sigma_w (1 y, 30 min)       44.3%    29.2%        65.8%        15.2%
+  HRRR (corpus forcing, hourly)         43.8%    28.4%        64.9%        15.4%
+  CONUS404 (45 y, u* direct)            35.6%    21.6%        60.7%        14.0%
+
+  'stable'      = z/L > 0 at 10 m, as a share of the QC'd record
+  'kept'        = z/L <= 0.10, the band the grid can carry
+  'LOST/record' = stable but too strongly stratified to run: the exclusion's cost
+
+======================================================================================
