@@ -56,7 +56,8 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
                       receptor_ij=None, tback_marks=(), rel_seconds=None, sgs_most_mode="surface",
                       exact_agl=False, n_cover_groups=2, sgs_most_legacy=False,
                       sgs_most_form="multiplicative", sgs_subgrid_weight=True,
-                      sgs_eps_consistent=True, verbose=True):
+                      sgs_eps_consistent=True, require_rel_seconds=False,
+                      verbose=True):
     """Release, integrate backward, accumulate on the STATIC north-up raster.
 
     THE RASTER IS THE LES GRID. Touchdowns are binned by their LES column index, folded
@@ -107,6 +108,32 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
     if t_last <= t_first:
         raise ValueError(f"window too short: need > {t_back:.0f} s of history before the "
                          f"first release (have {fs.t[-1]-fs.t[0]:.0f} s)")
+    # A SHORT WINDOW DOES NOT FAIL, IT SILENTLY SHORTENS THE AVERAGING PERIOD, and the
+    # production configuration sits at exactly zero margin. With a 4200 s case the two
+    # terms of the max() above are EQUAL to the microsecond -- fs.t[0] + t_back = 1800 +
+    # 600 = 2400 and t_last - rel_seconds = 4200 - 1800 = 2400 -- so anything that shortens
+    # the head by one dump moves t_first up and produces a 29-minute footprint that is then
+    # compared against 30-minute observations, with nothing in the output to say so. This
+    # is the only place that can see it.
+    if rel_seconds is not None:
+        got = t_last - t_first
+        if got < float(rel_seconds) - 1e-6:
+            msg = (
+                f"the release period came out {got:.1f} s, not the {float(rel_seconds):.0f} s "
+                f"asked for: the window has only {fs.t[0]:.1f}-{t_last:.1f} s of fields and "
+                f"t_back is {t_back:.0f} s, so releases cannot start before "
+                f"{fs.t[0]+t_back:.1f} s. Lengthen the window or shorten t_back -- do NOT "
+                f"accept a short averaging period, it is compared against 30-minute "
+                f"eddy-covariance observations.")
+            # STRICT FOR THE CORPUS, LOUD EVERYWHERE ELSE. Five retired fourth-pass
+            # windows legitimately released for 900 s against the 1800 s default, and
+            # raising on those would break drivers that are the historical record rather
+            # than production. What must never happen again is a SHORT averaging period
+            # going unremarked, so the warning is unmissable and bin/run_corpus_case.sh
+            # passes --strict-rel.
+            if require_rel_seconds:
+                raise ValueError(msg)
+            print("\n  *** WARNING: " + msg + "\n")
     times = np.arange(t_first, t_last + 1e-9, dt_release)
     tmid = 0.5 * (times[0] + times[-1])
     if verbose:

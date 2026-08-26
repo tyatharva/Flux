@@ -50,9 +50,13 @@ carry a case rather than 100%, and the s/step is measured rather than assumed
 | the same corpus cold-started (3 h spin-up per case) | 4.167 | | **~5420** |
 
 **43 GPU-h buys back about 3700.** The corpus is the real cost; the library is rounding
-error beside it. Each case is now ONE FastEddy invocation of 287,280 steps — 840 dumps at
-a 5 s cadence, ~11.9 GB peak, of which the 360 adjustment dumps (5.1 GB) are deleted and
-the 481 window dumps (6.8 GB) survive.
+error beside it. Each case is now ONE FastEddy invocation of 287,280 steps — 841 dumps at a 5 s cadence
+(measured 18.4 MB lean, 73.3 MB full), **15.3 GB peak**, of which the 360 adjustment dumps
+(6.5 GB) are deleted and the 481 window dumps (8.7 GB) survive. Three dumps are full-form
+(steps 0, 123120, 246240) because `ioLPDMfullFrq = SKIP_NT`: under `ioLPDMmode` the static
+geometry is written to the first file of the run ONLY, and that file is an adjustment dump
+that gets deleted — so the first SURVIVING dump has to be full-form or nothing downstream
+can build a field cache.
 
 > **1825 is the number of DAYS. Superseded twice: `z_i` outside `100-976 m` was already
 > refused, and stable hours (`z/L > 0`) are now refused too — 75.0% of days carry a case,

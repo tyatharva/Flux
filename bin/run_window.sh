@@ -84,11 +84,25 @@ sed -e "s|^dt = .*|dt = $DT|" -e "s|^Nt = .*|Nt = $TOT|" \
     -e "s|^outPath = .*|outPath = ./window/|" \
     -e "s|^outFileBase = .*|outFileBase = FE_WIN|" \
     "$BASE" > "$D/win1.in"
-# ioLPDMfullFrq = TOT: exactly one FULL upstream dump, the last one. It existed to make a
-# CHAIN seamless (a lean dump has no rho or pressure and cannot be restarted from); with
-# no chain the only thing it still buys is that the run ends on a restartable dump, which
-# is what a target case hands to nothing and a seed hands to its cases.
-printf 'ioLPDMmode = 1\nioLPDMfullFrq = %d\n' "$TOT" >> "$D/win1.in"
+# ioLPDMfullFrq, AND IT IS LOAD-BEARING WHEN SKIP_S IS SET.
+#
+# Under ioLPDMmode the STATIC GEOMETRY -- xPos, yPos, zPos, topoPos, lat, lon -- is written
+# to the FIRST FILE OF THE RUN ONLY (io_netcdf.c lpdmSkipWrite: `lpdmIsGeometry(n) &&
+# lpdmFileCount > 0` -> skip). lpdm/fields.py reads geometry from paths[0]. So if the first
+# file of the run is an ADJUSTMENT dump and SKIP_S deletes it, the surviving series has no
+# zPos at all and FieldSet cannot be built. That is a pipeline-stopping bug and it is
+# created by unchaining, not by anything older.
+#
+# The escape is in the same function, one line earlier: `if(ioLPDMmode == 0 ||
+# lpdmFullThisFile){ return 0; }` -- a FULL file writes everything, geometry included,
+# whatever lpdmFileCount says. So setting ioLPDMfullFrq = SKIP_NT makes every multiple of
+# SKIP_NT full-form, and the first surviving dump IS step SKIP_NT. Costs two extra 73 MB
+# dumps in a 4200 s case against 18 MB lean ones; the assertion below is what proves it.
+#
+# With no SKIP (a plain window) the first file is kept, so TOT is enough: one full dump at
+# the end, which is all that a restartable final state needs.
+FULLFRQ="$TOT"; [ "$SKIP_NT" -gt 0 ] && FULLFRQ="$SKIP_NT"
+printf 'ioLPDMmode = 1\nioLPDMfullFrq = %d\n' "$FULLFRQ" >> "$D/win1.in"
 [ -n "$EXTRA" ] && cat "$EXTRA" >> "$D/win1.in"
 echo "--- single invocation: 0 -> $TOT"
 ./docker/run_case.sh "$D" "win1.in" "$L/$(basename $D)_win1.log" \
@@ -108,6 +122,21 @@ if [ "$SKIP_NT" -gt 0 ]; then
   done
   EARLIEST=$(ls -1 "$D"/window/FE_WIN.[0-9]* 2>/dev/null | sed 's/.*\.//' | sort -n | head -1)
   [ "$EARLIEST" = "$SKIP_NT" ] || die "earliest surviving dump is step ${EARLIEST:-none}, wanted $SKIP_NT -- a backward trajectory could reach into the adjustment"
+  # AND IT MUST CARRY THE GEOMETRY, or nothing downstream can build a field cache. Under
+  # ioLPDMmode only the first file of the run and the ioLPDMfullFrq multiples have zPos,
+  # and the first file of the run was just deleted. Assert on the artifact.
+  ./docker/pyrun.sh - "$D/window/FE_WIN.$EARLIEST" <<'PYGEO' || die "the earliest surviving dump has no geometry -- lpdm/fields.py cannot build a FieldSet from it"
+import sys
+from netCDF4 import Dataset
+with Dataset(sys.argv[1]) as ds:
+    have = [v for v in ("xPos", "yPos", "zPos", "topoPos") if v in ds.variables]
+if len(have) < 4:
+    print(f"FATAL: {sys.argv[1]} carries only {have}; ioLPDMfullFrq must make this dump "
+          f"full-form (io_netcdf.c writes geometry to the first file of the run only)",
+          file=sys.stderr)
+    raise SystemExit(1)
+print(f"      geometry confirmed in the earliest surviving dump ({len(have)} of 4)")
+PYGEO
   echo "--- discarded $(python3 -c "print($SKIP_NT//$FRQ)") adjustment dumps; earliest field is now step $EARLIEST = $(python3 -c "print(f'{$SKIP_NT*$DT:.0f}')") s"
 fi
 NW=$(ls -1 "$D"/window/*.[0-9]* | wc -l)

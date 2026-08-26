@@ -90,7 +90,7 @@ if ! have adequacy; then
     # deep window under the shallow profile would apply the wrong subsidence to the
     # inversion -- and this pair exists precisely to differ in nothing but z_i.
     CBASE=runs/g16_base/base_cbl_$CASE.in
-    WALLCAP=3600 BASE=$CBASE bin/run_window.sh $D $D/output/FE_ADJ.0 $DT_WIN 2400 - \
+    BASE=$CBASE bin/run_window.sh $D $D/output/FE_ADJ.0 $DT_WIN 2400 - \
       10.000000 0.000000 || die "adequacy window $CASE"
     # 10 release groups, not 2 halves. The effect being tested is ~1 point of array
     # share; two halves give ONE difference and cannot put a standard error on that.

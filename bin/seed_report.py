@@ -99,10 +99,11 @@ def main():
         p(f"  implied wall for the whole chain {wall_h:.3f} h")
         p(f"  wall-to-sim ratio {wall_h/sim_h:.3f} GPU-h per simulated hour"
           f"   (projection 1.02, i.e. {100*(wall_h/sim_h/1.02-1):+.1f}%)")
-        p(f"  per segment {sps_meas*run['steps_per_segment']/60:.1f} min "
-          f"(cap 60; planner projected {run.get('projected_wall_min_per_segment', 0):.1f})")
-        p(f"  the library at this rate: 18 x {wall_h:.2f} h = "
-          f"{18*wall_h:.1f} GPU-h  (projected 52)")
+        p(f"  ONE invocation, {sps_meas*steps/60:.1f} min wall "
+          f"(planner projected {run.get('projected_wall_min', 0):.1f}; chaining is retired, "
+          f"there is no per-run cap)")
+        p(f"  the library at this rate: 15 x {wall_h:.2f} h = "
+          f"{15*wall_h:.1f} GPU-h  (projected 44)")
     elif not a.wall_seconds:
         p("  (fewer than 3 dumps on disk; cost not measurable)")
 

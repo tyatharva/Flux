@@ -88,6 +88,15 @@ def main():
     ap.add_argument("--outdir", default="results")
     ap.add_argument("--rel-seconds", type=float, default=1800.0,
                     help="release period in seconds; 1800 = the 30-min EC averaging period")
+    ap.add_argument("--strict-rel", action="store_true",
+                    help="FAIL rather than warn if the window is too short to deliver the "
+                         "full release period. A short window does not error on its own -- "
+                         "it silently shortens the averaging period, and the production "
+                         "4200 s case sits at EXACTLY zero margin, so one dump of "
+                         "shortening would produce a 29.9-minute footprint compared "
+                         "against 30-minute observations. bin/run_corpus_case.sh passes "
+                         "this; the retired fourth-pass drivers, which legitimately "
+                         "released for 900 s, do not.")
     ap.add_argument("--tback-marks", default="",
                     help="comma-separated shorter t_back values to also score, e.g. "
                          "300,450,600,750 -- free, and it is what sizes a window")
@@ -195,6 +204,7 @@ def main():
                               aniso=SURFACE_LAYER_ANISO if a.aniso else None,
                               sgs_scale=a.sgs_scale, sgs_most=a.sgs_most,
                               tback_marks=marks, rel_seconds=a.rel_seconds,
+                              require_rel_seconds=bool(a.strict_rel),
                               sgs_most_mode=a.sgs_most_mode, receptor_ij=rij,
                               sgs_most_legacy=a.sgs_most_legacy,
                               sgs_most_form=a.sgs_most_form,

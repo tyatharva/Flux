@@ -258,7 +258,7 @@ targets are needed in quantity and per-target precision is secondary.
 | **`dt`, terrain** | *to be bisected* | `dx/dz = 4.007`, worse than any previous grid |
 | cost | **0.0149 s/step measured** -> **0.94-0.99 GPU-h per simulated hour** | |
 | `Delta` / `z/Delta` | **10.09 m / 0.99** | at 24 m it was 17.02 / 1.76 |
-| storage (`ioLPDMmode`) | 14.5 MB/dump | a 2400 s window at 5 s = **7.0 GB** |
+| storage (`ioLPDMmode`) | **18.4 MB/dump measured** (14.5 was an estimate) | a 2400 s window at 5 s = **8.7 GB**; a 4200 s target case peaks at **15.3 GB** before the adjustment's 6.5 GB is deleted |
 | wall cap | **retired 2026-08-26** | chaining is gone; a seed is ~2.9 h wall, a target case ~74 min |
 
 **`bin/vgrid.py` solves this grid from FastEddy's own `zDeform`** (`grid.c:1114-1127`), so it

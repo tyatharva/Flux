@@ -170,7 +170,7 @@ FPDIR="${FPDIR:-results/corpus}"; mkdir -p "$FPDIR"
 LPDM_WORKERS="${LPDM_WORKERS:-8}" \
 ./docker/pyrun.sh bin/stage5_footprint.py "$D/window" --dt "$DT" --tback "$TBACK" \
     --sgs-most --cover-dir "$GRID" --receptor-from "$GRID" --fp16-cache \
-    --z-target "$ZTARGET" ${EXACT_AGL:+--exact-agl} --rel-seconds 1800 \
+    --z-target "$ZTARGET" ${EXACT_AGL:+--exact-agl} --rel-seconds 1800 --strict-rel \
     --t-min "$(python3 -c "print(f'{$A_NT*$DT:.3f}')")" \
     --outdir "$FPDIR" --tag "$TAG" 2>&1 | grep -vE 'batch [0-9]+/' > "$FPDIR/$TAG.txt"
 [ -s "$FPDIR/$TAG.json" ] || { tail -12 "$FPDIR/$TAG.txt" >&2

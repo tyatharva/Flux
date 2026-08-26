@@ -76,7 +76,26 @@ class FieldSet:
         self.dt_dump = float(np.diff(self.t).mean()) if len(self.t) > 1 else 0.0
         nt = len(self.paths)
 
-        with Dataset(self.paths[0]) as ds:
+        # GEOMETRY IS NOT NECESSARILY IN paths[0]. Under ioLPDMmode the static geometry
+        # (xPos/yPos/zPos/topoPos) is written to the FIRST FILE OF THE RUN and to any
+        # ioLPDMfullFrq multiple (io_netcdf.c: lpdmSkipWrite returns 0 for a full file
+        # before it ever tests lpdmFileCount). A target case now runs the adjustment and
+        # the window as ONE invocation and DELETES the adjustment dumps, so the run's
+        # first file is routinely gone by the time this reads. Search the series rather
+        # than assuming; bin/domain_adequacy.py already had to learn this.
+        geom = None
+        for _p in self.paths:
+            with Dataset(_p) as _ds:
+                if "zPos" in _ds.variables and "xPos" in _ds.variables:
+                    geom = _p
+                    break
+        if geom is None:
+            raise KeyError(
+                "no dump in this series carries xPos/zPos. Under ioLPDMmode only the "
+                "first file of a run and the ioLPDMfullFrq multiples do -- see "
+                "bin/run_window.sh, which sets ioLPDMfullFrq so the first SURVIVING "
+                "dump is full-form when the adjustment period is discarded.")
+        with Dataset(geom) as ds:
             zpos = np.squeeze(np.asarray(ds["zPos"][:], dtype=np.float64))
             xpos = np.squeeze(np.asarray(ds["xPos"][:], dtype=np.float64))
             ypos = np.squeeze(np.asarray(ds["yPos"][:], dtype=np.float64))

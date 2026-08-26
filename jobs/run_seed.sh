@@ -3,6 +3,7 @@
 #
 #   usage: jobs/run_seed.sh jobs/seed_cbl-mid_a030
 #          jobs/run_seed.sh jobs/seed_cbl-mid_a030 --dry-run
+#          jobs/run_seed.sh jobs/seed_cbl-mid_a030 --restart-over   discard a partial run
 #
 # NO ABSOLUTE PATHS. The repo root is discovered from this script's own location, so a
 # rented GPU can check the repo out anywhere; FLUX_ROOT is exported for docker/run_case.sh
@@ -27,7 +28,14 @@ set -uo pipefail
 
 JOB_ARG="${1:-}"
 [ -n "$JOB_ARG" ] || { echo "usage: run_seed.sh <job_dir> [--dry-run]" >&2; exit 64; }
-DRY=0; [ "${2:-}" = "--dry-run" ] && DRY=1
+DRY=0; OVER=0
+for f in "${@:2}"; do
+  case "$f" in
+    --dry-run)      DRY=1;;
+    --restart-over) OVER=1;;
+    *) echo "unknown flag $f" >&2; exit 64;;
+  esac
+done
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 JOB="$(cd "$JOB_ARG" && pwd)" || { echo "FATAL: no job dir $JOB_ARG" >&2; exit 66; }
@@ -77,9 +85,20 @@ FINAL_DUMP="$JOB/output/$OUTBASE.$TOTAL"
 if [ -f "$FINAL_DUMP" ]; then
   echo "  $OUTBASE.$TOTAL already on disk; skipping the LES and re-scoring the gate"
 else
-  ls -1 "$JOB/output/$OUTBASE".* >/dev/null 2>&1 && {
-    echo "  partial output present and a seed cannot be resumed -- clearing and starting over"
-    rm -f "$JOB/output/$OUTBASE".*; }
+  # A PARTIAL RUN IS REFUSED, NOT SILENTLY WIPED. It cannot be resumed -- resuming is the
+  # restart this design retires -- but it is also up to ~3 h of GPU that someone may want
+  # to look at, and deleting it on their behalf is not this script's call to make.
+  if ls -1 "$JOB/output/$OUTBASE".* >/dev/null 2>&1; then
+    if [ "$OVER" = "1" ]; then
+      echo "  --restart-over: discarding the partial run in $JOB/output/"
+      rm -f "$JOB/output/$OUTBASE".*
+    else
+      P=$(ls -1 "$JOB/output/$OUTBASE".* | sort -t. -k2 -n | tail -1)
+      die "a PARTIAL run is on disk (newest ${P##*/}, wanted step $TOTAL). A seed is one
+      continuous invocation and cannot resume -- that restart is exactly what was retired.
+      Re-run with --restart-over to discard it and start from step 0, or move it aside."
+    fi
+  fi
   # A COLD START, so inPath/inFile are empty and surflayer_wth is whatever the .in says.
   # With no restart to read, htFlux CANNOT be inherited -- which is the point of retiring
   # the chain. The assertion below is kept anyway: it costs seconds once per run, and
