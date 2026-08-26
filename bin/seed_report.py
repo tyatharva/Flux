@@ -114,19 +114,28 @@ def main():
         p(f"  column-integrated TKE {tkes[0]:.3f} -> {tkes[-1]:.3f} m3/s2;"
           f" trend over the last half {100*sl/max(abs(tkes[half].mean()),1e-30):+.1f} %/h")
         p(f"  u* {usts[0]:.4f} -> {usts[-1]:.4f} m/s   (min over the run {usts.min():.4f})")
-        # u* IS THE TEST, NOT TKE. The first version keyed on column TKE and said "no"
-        # on a run whose u* had fallen 58% and whose z/L had reached 2.67 -- because the
-        # TKE integral is dominated by gravity-wave variance aloft, which GROWS as the
-        # turbulence dies (FASTEDDY_TRAPS.md 15). u* is a genuine turbulent flux and it
-        # cannot be faked by waves.
-        u_slope = np.polyfit(ts[half], usts[half], 1)[0]
-        u_rel = 100 * u_slope / max(abs(usts[half].mean()), 1e-30)
-        p(f"  u* trend over the last half {u_rel:+.1f} %/h; peak-to-final "
-          f"{100*(usts[-1]/max(usts.max(), 1e-30) - 1):+.0f}%")
-        lam = usts[-1] < 0.6 * usts.max() or usts[-1] < 0.05 or u_rel < -20.0
-        p(f"  DECAYING TURBULENCE: "
-          f"{'YES -- u* is collapsing; this state is not a usable seed' if lam else 'no'}")
+        # u* IS THE TEST, NOT COLUMN TKE. The first version keyed on the TKE integral and
+        # said "no" on a run whose u* had fallen 58% and whose z/L had reached 2.67 --
+        # because that integral is dominated by gravity-wave variance aloft, which GROWS
+        # as the turbulence dies (FASTEDDY_TRAPS.md 15). It is kept as a REPORTED line for
+        # exactly that reason: seeing it rise while u* falls is the diagnosis.
+        #
+        # THE VERDICT ITSELF IS docker/turb_alive.py's, imported rather than reimplemented.
+        # This function used to carry its own copy of the collapse test, which is the same
+        # shape of mistake as stage4_wellmixed.py carrying its own copy of the sigma_w
+        # floor -- the gate drifts from the thing it is supposed to be scoring. PROJECT_BRIEF.md
+        # is explicit: gates import the production function.
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                        "..", "docker"))
+        import turb_alive                                          # noqa: E402
+        status, msg = turb_alive.verdict(turb_alive.scan(dumps))
+        for ln in msg.rstrip("\n").split("\n"):
+            p("  " + ln.strip())
+        p(f"  TURBULENCE ALIVE: {status}"
+          + ("" if status == "OK" else "  -- this state is not a usable seed"))
         p(f"  k0/k1 at the last dump {ww0[-1]:.3f}   (must be < 1; ~9 means dt too large)")
+        p(f"    ^ note this passed at 0.442 on a FULLY COLLAPSED SBL. k0/k1 is a dt check;")
+        p(f"      the line above it is the physics check. Read both.")
 
     # ---- achieved vs asked -------------------------------------------------------
     ach = man.get("achieved", {})

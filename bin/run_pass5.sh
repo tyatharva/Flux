@@ -227,6 +227,10 @@ echo
 echo "The domain-mean k0/k1 above is NOT sufficient over terrain: the amplification is"
 echo "local, and 1.7% of cells carry the steep slopes. Condition on slope:"
 ./docker/pyrun.sh bin/k0k1_by_slope.py runs/g16_terr/output/FE_TDT.$TNT --grid "$GRID"
+echo
+echo "And k0/k1 -- by slope or domain-mean -- is a dt check, not a physics check. It read"
+echo "0.442 on a boundary layer whose turbulence had entirely collapsed. Ask separately:"
+./docker/pyrun.sh docker/turb_alive.py --calibrate "runs/g16_terr/output/FE_TDT.*"
 } 2>&1 | tee $R/g16_terrain_dt.txt
 
 # ---------------------------------------------------------------- Phase D: the control

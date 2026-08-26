@@ -6,10 +6,19 @@
 # is NaN still exits 0. Exit code alone is therefore not a correctness test.
 # Nothing in this project may trust a run without going through this script.
 #
-# It also runs the standing near-surface accuracy-CFL check (k0/k1 < 1) on any dumps
-# passed as extra arguments. That failure mode is even quieter than NaN: the run
-# completes, prints nothing, and the near-surface resolved w is grid-scale acoustic
-# noise instead of turbulence. See docker/k0k1_check.py.
+# It also runs TWO standing checks on any dumps passed as extra arguments:
+#
+#   k0/k1 < 1        docker/k0k1_check.py -- the accuracy-CFL check. Quieter than NaN:
+#                    the run completes, prints nothing, and the near-surface resolved w
+#                    is grid-scale acoustic noise instead of turbulence.
+#
+#   turbulence alive docker/turb_alive.py -- and it is here because k0/k1 IS NOT ENOUGH.
+#                    k0/k1 read 0.442, a comfortable pass, on a stable boundary layer
+#                    whose turbulence had entirely collapsed (u* 0.236 -> 0.098, the flow
+#                    above 66 m exactly geostrophic). It is a ratio between two levels,
+#                    so it survives both levels going quiet together. It is a dt check,
+#                    not a physics check, and this project had nothing that asked whether
+#                    a boundary layer still existed.
 set -uo pipefail
 LOG="$1"; RC="${2:-0}"; shift 2 2>/dev/null || shift $#
 fail=0
@@ -30,13 +39,14 @@ done_ok=$(count "simulation is complete")
 [ "${errs:-0}" -ne 0 ]    && { echo "  FAIL: $errs error string(s)"; fail=1; }
 [ "${done_ok:-0}" -eq 0 ] && { echo "  FAIL: no 'simulation is complete' banner"; fail=1; }
 
-# Standing accuracy-CFL check on any dumps handed to us.
+# Standing checks on any dumps handed to us. BOTH run; neither substitutes for the other.
 if [ "$#" -gt 0 ]; then
   "$(dirname "$0")/pyrun.sh" docker/k0k1_check.py "$@" || fail=1
+  "$(dirname "$0")/pyrun.sh" docker/turb_alive.py "$@" || fail=1
 fi
 
 if [ "$fail" -eq 0 ]; then
-  echo "  RUN OK (exit 0, no CORRUPTED, no NaN/Inf, completion banner, k0/k1 < 1)"
+  echo "  RUN OK (exit 0, no CORRUPTED, no NaN/Inf, completion banner, k0/k1 < 1, turbulence alive)"
 else
   echo "  >>> RUN REJECTED: $LOG"
 fi

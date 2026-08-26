@@ -10,6 +10,11 @@ before committing 3.1 h of GPU per job to it:
   k0/k1 < 1       the accuracy-CFL check. ~0.27 is right, ~9 means dt is past the accuracy
                   boundary and the lowest levels are grid-scale acoustic noise rather than
                   turbulence -- which otherwise looks completely fine (PROJECT_BRIEF.md).
+  turbulence      AND k0/k1 IS NOT THAT CHECK. It read 0.442 -- a pass -- on a boundary
+     alive        layer whose turbulence had entirely collapsed, because it is a ratio
+                  between two levels and both went quiet together. docker/turb_alive.py
+                  asks the separate question, and this imports it rather than
+                  reimplementing it (PROJECT_BRIEF.md: gates import the production function).
   the receptor    k = 2 must sit at 10.000 m, or every footprint is computed at the wrong
                   height with nothing in the output to say so.
   z_i in range    the capping inversion is the CONTROL on z_i; if the achieved depth is
@@ -76,6 +81,21 @@ def main():
     else:
         chk(ratio < 1.0, "k0/k1 resolved w variance ratio < 1",
             f"{ratio:.3f}  (~0.27 is right, ~9 means dt past the accuracy boundary)")
+
+    # The physics companion. One dump, so only the resolved-TKE half of turb_alive can
+    # fire here -- the u* series tests need a series and belong in the seed report.
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                    "..", "docker"))
+    import turb_alive                                              # noqa: E402
+    tr = turb_alive.scan([a.dump])[0]
+    if tr["e_max"] < turb_alive.LAMINAR:
+        print(f"  SKIP  turbulence alive -- e_res = {tr['e_max']:.2e} is below the laminar "
+              f"floor; a 5 min cold start is legitimately still developing")
+    else:
+        chk(tr["e_over_uref2"] >= turb_alive.E_FLOOR, "turbulence alive",
+            f"max e_res/U_ref^2 = {tr['e_over_uref2']:.2e} vs floor "
+            f"{turb_alive.E_FLOOR:.1e}  (e_res/u*^2 = {tr['e_over_ust2']:.2f}, which is "
+            f"the metric that CANNOT see a collapse -- reported, never gated)")
 
     # TOLERANCE 1e-4 m, NOT ZERO, and the reason is the file rather than the grid.
     # bin/vgrid.py solves the receptor onto k=2 at 10.000000000 m in fp64, but FastEddy is

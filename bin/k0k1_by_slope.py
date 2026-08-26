@@ -16,6 +16,11 @@ affected bins; a monotone rise from ~0.4 to ~0.7 with slope is not that -- it is
 vertical motion over topography, which is real.
 
 usage: k0k1_by_slope.py <dump.nc> [--grid data/grid16] [--box 3]
+
+NOTE WHAT THIS CANNOT SEE. Conditioning k0/k1 on slope makes it terrain-aware; it does not
+make it a physics check. The ratio is between two levels, so it stays healthy when both go
+quiet together -- it read 0.442 on a fully collapsed stable boundary layer. Run
+docker/turb_alive.py alongside it, always. bin/run_pass5.sh does.
 """
 import argparse
 import os
