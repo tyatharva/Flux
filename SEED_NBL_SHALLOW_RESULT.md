@@ -1,4 +1,21 @@
-# The first seed: `nbl-shallow`, base angle 0 — FAIL on one limit, and the limit is an artifact
+# The first seed: `nbl-shallow`, base angle 0 — ACCEPTED, after the failing limit turned out to be the estimator
+
+> **RESOLVED 2026-08-26.** The gated `z_i` was switched from *5% of its own running peak* to
+> a **fixed 0.01 m2/s2 threshold**, and **the same 37 dumps were re-scored — no re-run, same
+> seven limits, one estimator changed.** The seed **PASSES**: `z_i` **389.3 m at +1.87 %/h**
+> against the 3.0 limit, and `x_peak`/`x90` moved from -0.21/-0.17 to **+0.09/+0.08 %/h**,
+> both further inside a limit ten times tighter. `seed_nbl-shallow_a000` is the library's
+> **first accepted seed**, and the target case below then ran on it.
+>
+> The passing number carries its own caveat, now printed by the gate: **+1.87 %/h sits on 2
+> distinct model levels spanning 14 m.** A least-squares slope through two levels reports
+> which two levels were visited as much as any drift. The **span** — 14 m on a 389 m depth
+> over 1.5 h, 3.6% — is the evidence that the layer is steady; the trend alone is nearly
+> uninformative whichever side of the limit it falls on.
+>
+> Everything below is the run as it was measured, and is unchanged.
+
+# The run, and the failure that was diagnosed
 
 **2026-08-26.** The first full-length seed the library has ever produced. It ran clean, it
 is bit-for-bit restartable, it rotates exactly, its turbulence is alive, and it came in on
@@ -137,14 +154,13 @@ of array share over `h = 200-1200 m`.
   with more simulated hours — and more hours would make this worse, not better: `u*` keeps
   falling until ~4.4 h.
 - **The regime was not re-specified.**
-- **The gate was not changed.** Whether the `z_i` limit should be scored against an absolute
-  threshold, or dropped in favour of the theta-gradient depth, or kept as it is because a
-  seed that trips it deserves a second look, is a **design decision and belongs to the
-  user**. The numbers needed to make it are all above.
-- **The target case was not run.** `bin/pick_seed.py` refuses a seed whose gate says FAIL,
-  and this seed's `return/stationarity.json` says exactly that. The case that was selected
-  for it — **2023-03-10 14:00 UTC**, chosen and staged offline — is described in the report
-  and is ready to run against whatever seed the user decides to accept.
+- **The gate was not changed** *by me, on the day it failed*. Whether the `z_i` limit should
+  be scored against an absolute threshold was a **design decision and belonged to the
+  user**; the numbers needed to make it are all above, and the user made it the same day —
+  see the box at the top of this file.
+- **The target case was not run at the time**, because `bin/pick_seed.py` refuses a seed
+  whose gate says FAIL. Once the estimator was corrected and the seed passed, it ran —
+  **2023-03-10 14:00 UTC**, on this seed at rot 3.
 
 ---
 
