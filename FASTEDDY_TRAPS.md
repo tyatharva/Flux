@@ -516,12 +516,38 @@ at `Ri_g >> 0.25`, is wave motion.
 > is not a ratio, so it inherits the oscillation anyway, through the threshold instead of
 > through the value.
 >
-> **NO CHANGE HAS BEEN MADE TO THE GATE.** The seed FAILED and that is the recorded
-> result. Whether `z_i` should be defined on a fixed threshold is a decision about what
-> stationarity means for this project, and changing a gate immediately after it fails is
-> how a gate stops meaning anything. What IS recorded is that a PASS on this quantity means
-> less than it looks and a FAIL on it means less than it looks, and neither should be read
-> without a fixed-threshold depth beside it -- `bin/zi_diagnose.py` prints both.
+> ~~**NO CHANGE HAS BEEN MADE TO THE GATE.**~~ **RESOLVED THE SAME DAY, BY THE USER:** the
+> gated `z_i` is now the **fixed 0.01 m2/s2 threshold** (`bin/seed_stationarity.py:ZI_ABS`),
+> the peak-fraction depth is reported beside it, and `bin/pick_seed.py` keeps MATCHING on
+> the peak fraction because that is the currency `lpdm/les_stats.py:window_stats` produces
+> the corpus input `h` in. The gate measures a trend and needs a threshold that does not
+> move; the matcher compares a value and needs the definition the corpus inputs use.
+>
+> **The same dumps were re-scored — no re-run, same seven limits, one estimator changed —
+> and the seed PASSED**: `z_i` 389.3 m at **+1.87 %/h** against the 3.0 limit, and
+> `x_peak`/`x90` moved from -0.21/-0.17 to **+0.09/+0.08 %/h**, both further inside a limit
+> ten times tighter. `seed_nbl-shallow_a000` is the library's first accepted seed.
+>
+> **And the staircase is now printed, because the passing number needs it too.** That
+> +1.87 %/h sits on **2 distinct model levels spanning 14 m**. A least-squares slope through
+> two levels reports which two levels were visited as much as any drift, so the gate prints
+> the level count and the span alongside the trend and flags any count <= 4. The span --
+> 14 m on a 389 m depth over 1.5 h, 3.6% — is the evidence that the layer is steady; the
+> trend alone is nearly uninformative in either direction, whichever side of the limit it
+> falls on.
+>
+> **Checked across regimes before adopting**, because a fixed threshold is not scale-free:
+>
+> | rung | peak TKE | 0.01 as % of peak | `z_i` 5%-peak | `z_i` fixed | domain top |
+> |---|---|---|---|---|---|
+> | `nbl-shallow` | 0.331 | 3.02% | 364 m | 389 m | 2500 m |
+> | neutral `g16_spin` | 0.487 | 2.05% | 414 m | 455 m | 2500 m |
+> | `cbl-shallow` | 1.084 | 0.92% | 508 m | 598 m | 2500 m |
+> | `cbl-deep` | 1.430 | 0.70% | 976 m | 1186 m | 2500 m |
+>
+> It runs **7-21% deeper** and the offset **grows with regime intensity**, so the two
+> definitions are not interchangeable — which is exactly why both are recorded and why the
+> matcher was left on the old one. It reaches the domain top in none of them.
 
 Found 2026-08-25, after it had already caused one run to be killed for the wrong reason.
 

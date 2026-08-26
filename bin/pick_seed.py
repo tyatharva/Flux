@@ -175,7 +175,35 @@ def load_library(index_path, library_dir, available_only=False):
     return seeds
 
 
-def seed_state(s, zm):
+def measured_backing(seeds):
+    """Ekman backing measured off the library itself, per rung and overall.
+
+    THE NOMINAL IS AN ESTIMATE AND THE LIBRARY CAN NOW MEASURE IT. An unspun seed's
+    heading is `G_dir_from - ekman_backing_deg(z_i/L)`, and every one of the 60
+    (state, direction) options in the library is placed by that number -- direction is the
+    dominant skill axis, so an error there is an error in the axis that matters most. The
+    first spun seed put it at **18.3 deg against a nominal 23.5**, i.e. 5.2 deg, about a
+    sixth of a library direction bin.
+
+    So: as seeds are spun, use what THEY measured. Per rung first, because the backing
+    depends on stability and depth and the rungs are exactly that axis; then the library
+    mean; then the nominal. One spun seed is one sample and is reported as such -- this
+    replaces a guess with a small sample, and says which it is.
+    """
+    per, allv = {}, []
+    for s in seeds:
+        ach = s.get("achieved") or {}
+        wd = ach.get("wdir")
+        if wd is None or not np.isfinite(wd):
+            continue
+        b = ((float(s["target"]["G_dir_from_deg"]) - float(wd) + 180.0) % 360.0) - 180.0
+        per.setdefault(s["rung"], []).append(b)
+        allv.append(b)
+    return ({k: (float(np.mean(v)), len(v)) for k, v in per.items()},
+            (float(np.mean(allv)), len(allv)) if allv else None)
+
+
+def seed_state(s, zm, meas=None):
     """(z_i, receptor heading, z_m/L, source) for one seed.
 
     Both headings compared here must be RECEPTOR-LEVEL. An achieved seed reports one
@@ -189,13 +217,30 @@ def seed_state(s, zm):
     if ach and np.isfinite(ach.get("zi", np.nan)):
         ust, th0 = float(ach["ustar"]), float(ach["theta0"])
         L = (-ust ** 3 * th0 / (VONK * G * wth)) if abs(wth) > 1e-6 else np.inf
-        return (float(ach["zi"]), float(ach["wdir"]),
+        # MATCH IN THE CORPUS'S OWN CURRENCY. The stationarity gate switched its z_i to a
+        # FIXED TKE threshold in 2026-08 because it scores a TREND and a peak-normalised
+        # threshold moves with the peak. This function does something different: it
+        # compares a VALUE against the case's requested depth, and the depth a case is
+        # finally LABELLED with is lpdm/les_stats.py:window_stats's `h`, which is still the
+        # 5%-of-peak fraction. The two definitions differ by 7-21% and the gap grows with
+        # regime intensity, so mixing them would put a systematic offset into seed
+        # selection that nothing downstream could see. Prefer the peak-fraction depth when
+        # the seed reports it; fall back to the gated one for seeds spun before the split.
+        zi_a = ach.get("zi_peakfrac", ach["zi"])
+        return (float(zi_a), float(ach["wdir"]),
                 (zm / L if np.isfinite(L) else 0.0), "achieved")
     zi = float(s["target"]["zi_m"])
     # zi/L only to choose the Ekman angle; it never enters the cost
     zoL_bulk = -1.0 if wth > WTH_NEUTRAL else 0.0
-    hdg = (float(s["target"]["G_dir_from_deg"]) - ekman_backing_deg(zoL_bulk)) % 360.0
-    return zi, hdg, float("nan"), "target"
+    back, src = ekman_backing_deg(zoL_bulk), "target"
+    if meas:
+        per, overall = meas
+        if s["rung"] in per:
+            back, src = per[s["rung"]][0], f"target/backing:rung(n={per[s['rung']][1]})"
+        elif overall:
+            back, src = overall[0], f"target/backing:library(n={overall[1]})"
+    hdg = (float(s["target"]["G_dir_from_deg"]) - back) % 360.0
+    return zi, hdg, float("nan"), src
 
 
 def main():
@@ -224,8 +269,16 @@ def main():
     zoL_c = (a.zm / float(L_c)) if L_c not in (None, 0) else float("nan")
 
     seeds = load_library(a.index, a.library, available_only=a.available_only)
+    meas = measured_backing(seeds)
+    per, overall = meas
+    if overall:
+        print(f"  Ekman backing MEASURED off the library: "
+              + ", ".join(f"{k} {v:.1f} deg (n={n})" for k, (v, n) in sorted(per.items()))
+              + f"; library mean {overall[0]:.1f} deg (n={overall[1]}) "
+              f"against a nominal {ekman_backing_deg(0.0):.1f}. Unspun seeds' headings "
+              f"use the measured value for their own rung where one exists.")
     rows = []
-    for s, st in ((s, seed_state(s, a.zm)) for s in seeds):
+    for s, st in ((s, seed_state(s, a.zm, meas)) for s in seeds):
         zi_s, dir_s, zoL_s, src = st
         same = regime_of(float(s["target"]["wth_virtual"])) == reg_c
         for rot in range(4):
@@ -304,6 +357,10 @@ def main():
               f"spacing; a base angle is missing or a seed drifted off its own.")
 
     out = {"forcing": os.path.abspath(a.forcing),
+           "ekman_backing_measured": {k: {"deg": v, "n": n} for k, (v, n) in per.items()},
+           "ekman_backing_library": (None if not overall else
+                                     {"deg": overall[0], "n": overall[1]}),
+           "ekman_backing_nominal": float(ekman_backing_deg(0.0)),
            "G_seed": G_s, "G_case": G_c,
            "G_ratio": (G_c / G_s if (np.isfinite(G_s) and G_s > 0) else None),
            "case": {"zi_m": zi_c, "wth_virtual": wth_c, "regime": reg_c,

@@ -10,7 +10,13 @@ a reason that was not a modelling error, and PROJECT_BRIEF.md now records why.
 
 Kljun's Pi_4 = U(z_m)/u* is the only channel through which the wind enters the streamwise
 footprint shape, and both of its terms ride the oscillation together -- so the RATIO is
-stationary while its numerator and denominator each move at +6.3 %/h. The seven limits
+stationary while its numerator and denominator each move at +6.3 %/h.
+
+AND z_i IS THE ONE GATED QUANTITY THAT IS NOT A RATIO, which is why it needed a fix the
+others did not. Diagnosed as a fraction of its own TKE peak it inherited the oscillation
+through the THRESHOLD instead of through the value, and failed the first full-length seed
+at +11.67 %/h while three independent depths put the layer at +1.71 to +2.33. It is now a
+FIXED threshold (ZI_ABS). See the block above LIMITS for the measurements. The seven limits
 below score the footprint's controlling parameters, and they are far tighter in footprint
 terms than the u* test they replace.
 
@@ -44,6 +50,68 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 G = 9.81
 VONK = 0.4
 
+# THE GATED z_i IS A FIXED TKE THRESHOLD, NOT A FRACTION OF THE RUNNING PEAK -- changed
+# 2026-08-26 after the first full-length seed failed on this quantity alone.
+#
+# The old definition was "the height where resolved TKE falls below 5% of its own peak".
+# That threshold MOVES WITH THE PEAK, and in a neutral Ekman layer the peak is not steady:
+# u* falls through the first quarter of the 17.6 h inertial period, TKE ~ u*^2 goes with
+# it, and a falling threshold pushes the crossing height up while the layer holds still.
+# Measured on seed_nbl-shallow_a000 over its scored window (SEED_NBL_SHALLOW_RESULT.md):
+#
+#   z_i, 5% of the running peak   364.4 m   +11.67 %/h   <- FAILED a 3 %/h limit
+#   z_i, fixed 0.01 m2/s2         389.3 m    +1.87 %/h
+#   z_i, 5% of the settled peak   370.8 m    +1.71 %/h
+#   z_i, theta-gradient           336.5 m    +2.33 %/h
+#   peak resolved TKE             0.3308     -15.67 %/h  <- the normaliser
+#
+# The gated depth correlated -0.885 with the peak it was normalised by; the fixed-threshold
+# depth, -0.379. And Kljun's x_peak and x90 CONSUME z_i and are gated ten times tighter --
+# they read -0.21 and -0.17 %/h, which a layer moving at 11.67 %/h cannot produce.
+#
+# THIS IS THE ONE EXCEPTION TO THE RATIO RULE, AND THAT IS WHY IT NEEDED FIXING. Every
+# other limit here is a RATIO whose numerator and denominator ride the inertial oscillation
+# together, which is the whole design of this gate. z_i is not a ratio -- so with a
+# peak-normalised threshold it inherited the oscillation anyway, through the threshold
+# rather than through the value. A fixed threshold is what makes it behave like the others.
+#
+# Checked across regimes before adopting, on this project's own runs (the value must not
+# run off the top of the column, and it does not):
+#
+#   rung          peak TKE   0.01 as % of peak   z_i 5%-peak   z_i fixed   domain top
+#   nbl-shallow      0.331         3.02%             364 m       389 m       2500 m
+#   neutral spin     0.487         2.05%             414 m       455 m       2500 m
+#   cbl-shallow      1.084         0.92%             508 m       598 m       2500 m
+#   cbl-deep         1.430         0.70%             976 m      1186 m       2500 m
+#
+# It runs 7-21% deeper than the peak fraction and the offset grows with regime intensity.
+# That is a change of DEFINITION, not an error, and it is why the peak-fraction depth is
+# still computed and still reported -- lpdm/les_stats.py:window_stats produces the corpus
+# input `h` on the peak fraction, and bin/pick_seed.py matches seeds against cases in that
+# same currency. The gate measures a TREND and needs a threshold that does not move; the
+# matcher compares a VALUE and needs the definition the corpus inputs use.
+ZI_ABS = 0.01            # m2/s2 of resolved TKE; the gated depth's fixed threshold
+
+
+def zi_fixed(tk, z, thresh=ZI_ABS):
+    """Depth from a FIXED resolved-TKE threshold. The gated definition."""
+    k = int(np.argmax(tk))
+    ab = np.where(tk[k:] < thresh)[0]
+    return float(z[k + ab[0]]) if len(ab) else float(z[-1])
+
+
+def zi_peak_fraction(tk, z, frac=0.05):
+    """Depth from a fraction of the profile's OWN peak. Reported, never gated.
+
+    This is what lpdm/les_stats.py:window_stats produces as the corpus input `h`, so the
+    library's depth axis stays commensurable with it. FASTEDDY_TRAPS.md 16 is the whole
+    story of why it must not be trended.
+    """
+    k = int(np.argmax(tk))
+    ab = np.where(tk[k:] < frac * tk[k])[0]
+    return float(z[k + ab[0]]) if len(ab) else float(z[-1])
+
+
 # Percent-per-hour trend limits, scored over the last SCORE_H hours. Single definition;
 # bin/run_pass5.sh imports this dict rather than restating it.
 LIMITS = {
@@ -60,7 +128,8 @@ LIMITS = {
 def series(paths, dt, k):
     """Per-dump receptor-level moments and the derived Kljun geometry inputs."""
     from netCDF4 import Dataset
-    out = {n: [] for n in ("t", "ustar", "tke", "zi", "sw", "sv", "U", "wdir", "th0")}
+    out = {n: [] for n in ("t", "ustar", "tke", "zi", "zi_peakfrac", "sw", "sv", "U",
+                          "wdir", "th0", "tkepeak")}
     for p in paths:
         with Dataset(p) as ds:
             g = lambda v: np.squeeze(np.asarray(ds[v][:], dtype=np.float64))
@@ -77,9 +146,9 @@ def series(paths, dt, k):
         pr = lambda a: a - a.mean(axis=(-2, -1), keepdims=True)
         tk = 0.5 * ((pr(u) ** 2 + pr(v) ** 2 + pr(w) ** 2).mean(axis=(-2, -1)))
         out["tke"].append(float(tk.mean()))
-        kmax = int(np.argmax(tk))
-        ab = np.where(tk[kmax:] < 0.05 * tk[kmax])[0]
-        out["zi"].append(float(z[kmax + ab[0]]) if len(ab) else float(z[-1]))
+        out["tkepeak"].append(float(tk[int(np.argmax(tk))]))
+        out["zi"].append(zi_fixed(tk, z))                 # GATED: fixed threshold
+        out["zi_peakfrac"].append(zi_peak_fraction(tk, z))  # reported; the corpus currency
         out["sw"].append(float(np.sqrt((pr(w)[k] ** 2).mean() + (2 / 3) * e[k].mean())))
         out["sv"].append(float(np.sqrt(((pr(u)[k] ** 2 + pr(v)[k] ** 2).mean()) / 2
                                        + (2 / 3) * e[k].mean())))
@@ -143,12 +212,23 @@ def score(s, xp, x90, score_h):
         v = trend(y)
         g_ = bool(abs(v) < LIMITS[nm])
         ok &= g_
-        rows.append({"name": nm, "mean": float(y[sel].mean()),
-                     "trend_pct_per_h": float(v), "limit": LIMITS[nm], "ok": g_})
+        r = {"name": nm, "mean": float(y[sel].mean()),
+             "trend_pct_per_h": float(v), "limit": LIMITS[nm], "ok": g_}
+        # A LINEAR TREND THROUGH A STAIRCASE REPORTS THE STAIRCASE. z_i can only land on a
+        # model level, so over a short window it takes a handful of discrete values and a
+        # least-squares slope through them is as much an artifact of WHICH levels were
+        # visited as of any drift. The count is reported with the trend so the number can
+        # be read correctly -- two or three levels is a staircase, not a rate.
+        if nm == "z_i":
+            r["n_levels"] = int(np.unique(np.round(y[sel], 6)).size)
+            r["level_span_m"] = float(y[sel].max() - y[sel].min())
+        rows.append(r)
     reported = [{"name": nm, "mean": float(y[sel].mean()),
                  "trend_pct_per_h": float(trend(y))}
                 for nm, y in (("u*", us), ("U(10 m)", s["U"]),
-                              ("wind direction", s["wdir"]), ("domain TKE", s["tke"]))]
+                              ("wind direction", s["wdir"]), ("domain TKE", s["tke"]),
+                              ("peak resolved TKE", s["tkepeak"]),
+                              ("z_i, 5% of the running peak", s["zi_peakfrac"]))]
     return bool(ok), rows, reported, sel
 
 
@@ -197,6 +277,9 @@ def main():
     print(f"  {a.label or os.path.basename(os.path.dirname(paths[0]))}: {len(paths)} dumps "
           f"to {s['t'][-1]:.2f} simulated hours = {s['t'][-1]/period:.2f} inertial periods "
           f"(2pi/f = {period:.1f} h)")
+    print(f"\n  z_i is the height where resolved TKE falls below a FIXED "
+          f"{ZI_ABS} m2/s2 (gated); the 5%-of-running-peak depth is reported beside it "
+          f"and is the currency lpdm/les_stats.py:window_stats uses for the corpus input.")
     print(f"\n  {'window':>12}{'u*':>9}{'U(10)':>8}{'U/u*':>8}{'sw/u*':>8}"
           f"{'TKE/u*^2':>10}{'z_i':>7}{'dir':>7}")
     t = s["t"]
@@ -213,6 +296,12 @@ def main():
         print(f"  {r['name']:<28}{r['mean']:10.4f}{r['trend_pct_per_h']:+9.2f} %/h  "
               f"(limit {r['limit']:.0f})   {abs(r['trend_pct_per_h'])*40/60:5.2f}% per "
               f"40-min window   {'ok' if r['ok'] else 'DRIFTING'}")
+        if "n_levels" in r:
+            print(f"    ^ on {r['n_levels']} distinct model level(s) spanning "
+                  f"{r['level_span_m']:.0f} m across the window"
+                  + ("  -- A STAIRCASE: a linear trend through this many levels reports "
+                     "the staircase as much as any drift"
+                     if r["n_levels"] <= 4 else ""))
     print(f"\n  === REPORTED, not gated: the mean flow rides the inertial oscillation ===")
     for r in reported:
         print(f"  {r['name']:<28}{r['mean']:10.4f}{r['trend_pct_per_h']:+9.2f} %/h")
@@ -229,6 +318,10 @@ def main():
                    "t_end_h": float(s["t"][-1]), "gated": rows, "reported": reported,
                    "final": {"ustar": float(s["ustar"][-1]), "U": float(s["U"][-1]),
                              "zi": float(s["zi"][sel].mean()),
+                             "zi_definition": f"fixed resolved-TKE threshold "
+                                              f"{ZI_ABS} m2/s2 (gated)",
+                             "zi_peakfrac": float(s["zi_peakfrac"][sel].mean()),
+                             "tke_peak": float(s["tkepeak"][sel].mean()),
                              "wdir": float(s["wdir"][-1]),
                              "sigma_v": float(s["sv"][-1]),
                              "sigma_w": float(s["sw"][-1]),

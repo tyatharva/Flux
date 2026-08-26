@@ -60,7 +60,7 @@ SCORE_H = float("${SCORE_H:-1.5}")
 # of a definition is exactly how stage4_wellmixed.py came to score a closure the
 # footprints did not compute (PROJECT_BRIEF.md, Conventions).
 sys.path.insert(0, "bin")
-from seed_stationarity import LIMITS as LIM
+from seed_stationarity import LIMITS as LIM, zi_fixed
 ps = sorted(glob.glob('$SPIN/output/FE_G16.*'), key=lambda p:int(p.rsplit('.',1)[1]))
 t,us,tke,zi,sw,sv,Um,wd = [],[],[],[],[],[],[],[]
 for p in ps:
@@ -71,8 +71,11 @@ for p in ps:
     pr=lambda a:a-a.mean(axis=(-2,-1),keepdims=True)
     tk=0.5*((pr(u)**2+pr(v)**2+pr(w)**2).mean(axis=(-2,-1)))
     tke.append(float(tk.mean()))
-    kmax=int(np.argmax(tk)); ab=np.where(tk[kmax:]<0.05*tk[kmax])[0]
-    zi.append(float(z[kmax+ab[0]]) if len(ab) else float(z[-1]))
+    # IMPORTED, NOT RESTATED -- and this line was the counter-example to its own comment
+    # four lines up: it carried an inline 5%-of-peak copy while the gate it imports LIMITS
+    # from moved to a fixed threshold. Same shape as stage4_wellmixed.py's private copy of
+    # the sigma_w floor.
+    zi.append(zi_fixed(tk, z))
     k=2
     sw.append(float(np.sqrt((pr(w)[k]**2).mean()+(2/3)*e[k].mean())))
     sv.append(float(np.sqrt(((pr(u)[k]**2+pr(v)[k]**2).mean())/2+(2/3)*e[k].mean())))

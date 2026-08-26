@@ -1,0 +1,18 @@
+=== Ekman backing, MEASURED off the seed library ===
+  geostrophic FROM-bearing minus the achieved receptor FROM-bearing, per spun seed.
+  bin/pick_seed.py places every UNSPUN seed's heading with this number, so it is
+  the axis the corpus's dominant skill axis rests on. The nominal it replaces is
+  bin/sounding_to_forcing.py:ekman_backing_deg -> 23.5 deg
+  neutral, 10.0 convective (z_i/L <= -10), interpolated between.
+
+  rung          job                       G from  achieved  backing      regime  zi tgt  zi ach
+  nbl-shallow   seed_nbl-shallow_a000      270.0    251.72   +18.28     neutral     300     389
+
+  nbl-shallow    mean +18.28 deg  (n=1)  -- ONE SAMPLE
+  LIBRARY        mean +18.28 deg  (n=1)
+
+  against the nominal 23.5 deg: -5.22 deg, 17% of a 30 deg library bin
+
+  REPLACE THE NOMINAL WHEN THERE ARE ENOUGH SAMPLES, NOT BEFORE. pick_seed.py
+  already prefers a rung's own measured value over the nominal and says which it
+  used; with n=1 that is a sample, not a climatology, and it is labelled as such.

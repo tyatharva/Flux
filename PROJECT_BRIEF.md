@@ -911,6 +911,34 @@ enters the streamwise footprint shape, and both of its terms ride the oscillatio
 **38.0-38.3 m against a 16 m raster cell**. The turbulence is in equilibrium with the
 instantaneous shear; only the mean flow is turning.
 
+**THE RATIO RULE HAS EXACTLY ONE EXCEPTION, AND IT IS `z_i`. Corrected 2026-08-26.**
+Every other gated quantity is a ratio whose numerator and denominator ride the oscillation
+together -- `U/u*`, `sigma_v/u*`, `sigma_w/u*`, `TKE/u*^2` -- and Kljun's `x_peak` and
+`x90` inherit that immunity because their inputs do. `z_i` is a length. It has no `u*` in
+it to cancel, so it can only be made immune by the way it is MEASURED, and it was not:
+diagnosed as *the height where resolved TKE falls below 5% of its own peak*, its threshold
+moved with the peak, the peak moved with `u*^2`, and the oscillation came back in through
+the threshold instead of through the value. **It failed the first full-length seed at
++11.67 %/h while three independent depths put the layer at +1.71 to +2.33.**
+
+The gated definition is now a **FIXED threshold, 0.01 m2/s2 of resolved TKE**
+(`bin/seed_stationarity.py:ZI_ABS`), which is 0.7-3.0% of the peak across the five rungs
+and reaches the domain top in none of them. The peak-fraction depth is still computed and
+still reported, because `lpdm/les_stats.py:window_stats` produces the corpus input `h` that
+way and `bin/pick_seed.py` matches seeds against cases in that same currency -- **the gate
+measures a TREND and needs a threshold that does not move; the matcher compares a VALUE and
+needs the definition the corpus inputs use.** The two differ by 7-21%, widening with regime
+intensity, so they are not interchangeable and both are recorded.
+
+**AND A LINEAR TREND THROUGH A STAIRCASE REPORTS THE STAIRCASE.** `z_i` can only land on a
+model level, so over a 1.5 h window it takes a handful of discrete values and a
+least-squares slope through them is as much an artifact of which levels were visited as of
+any drift. The gate now prints the **distinct-level count and the span** beside the `z_i`
+trend and says so when the count is <= 4. On the re-scored seed the passing +1.87 %/h sits
+on **2 levels spanning 14 m** -- the span, 3.6% of a 389 m depth over 1.5 h, is the real
+evidence that the layer is steady, and the trend on its own is nearly uninformative in
+either direction. `FASTEDDY_TRAPS.md` §16.
+
 **So the mean-flow drift is carried as a per-case LABEL, not treated as an error.**
 `window_stats` reads the achieved `u*`, `U`, direction and `L` off the LES itself, so a
 slowly backing wind is a different point in the corpus's input space — which is the same
