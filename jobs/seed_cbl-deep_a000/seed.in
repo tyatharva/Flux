@@ -28,7 +28,7 @@ verticalDeformFactor = 0.194059 # dz_sfc = 3.9933 m; cell centre k=2 at EXACTLY 
 verticalDeformQuadCoeff = 0.0 # pure cubic
 #--TIME_INTEGRATION
 timeMethod = 0 # Selector for time integration method. [0=RK3-WS2002 (default)]
-Nt = 184680  # one segment; the driver chains 4 of them to 738720 steps
+Nt = 738720  # the whole run: 738720 steps in ONE invocation, no chaining
 dt = 0.01461988  # = 300/20520 s; CFL_3d = 1.3480
 NtBatch = 20520  # one 300 s dump per batch
 #--HYDRO_CORE

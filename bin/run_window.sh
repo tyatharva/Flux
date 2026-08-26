@@ -1,34 +1,43 @@
 #!/usr/bin/env bash
-# Run ONE sampling window as an automatically chained series of sub-45-minute segments.
+# Run ONE sampling window as a SINGLE CONTINUOUS FastEddy invocation. No chaining.
+#
+# CHAINING IS RETIRED (2026-08-26). A window used to be an automatically chained series of
+# sub-wall-cap segments, each restarting from the last. That is gone, and with it the
+# entire class of failure FASTEDDY_TRAPS.md 17 describes: a restart READ overwrites every
+# IO-registered field -- htFlux, z0m, z0t, tskin, topoPos, zPos -- with whatever the
+# restart file holds, so a chained run silently inherits state its own .in does not
+# describe. It cost a whole segment of a stable seed running at zero surface flux while
+# its .in asked for -0.012. The assertion that caught it is kept; the mechanism that
+# needed it is now absent by construction. THE ONLY RESTART LEFT IN THE PROJECT IS
+# SEED -> TARGET.
+#
+# What that costs, stated: a run is now as long as it needs to be, and the one-hour wall
+# cap no longer applies to it. At 122^3 @ 16 m a target case is 4200 s simulated
+# (30 min adjustment + 600 s t_back + 30 min releases) = 287,280 steps = ~74 min wall, and
+# a seed is 3.0 simulated hours = ~2.9 h wall. Both exceed the old cap; neither can be
+# split any more. That is the trade this change makes and it is deliberate.
 #
 # A production window is (averaging period + t_back) long, because a backward trajectory
 # needs t_back seconds of history behind it before it can be released -- the first t_back
-# of any window yields no releases at all. At this grid that is 45 minutes of simulated
-# time, which is about 60 minutes of wall clock: past the 45-minute ceiling this project
-# runs under, and there was no way to split it, because lean ioLPDMmode output is not
-# restartable (rho and pressure are absent by construction).
+# of any window yields no releases at all. t_back = 600 s here, MEASURED
+# (results/g16_tback.txt: converged at 500 s, x1.25 margin, rounded to 50 s).
 #
-# At 122^3 @ 16 m a whole (30 min + t_back) window is ~35 min wall and fits in ONE segment,
-# so the chain below usually has length 1. It is kept because it costs nothing when NSEG=1
-# and it is the only thing that makes a longer window or a slower grid possible at all.
-#
-# ioLPDMfullFrq on the kegonsa fork fixes exactly that: it writes one FULL upstream dump at
-# each segment boundary while every other dump stays lean and 16-bit packed. The chain
-# below is therefore seamless -- FastEddy restart is bit-for-bit, so the joined window is
-# the same trajectory a single long run would have produced.
+# SKIP_S -- discard the first SKIP_S seconds of output after the run. This is what lets the
+# 30-minute adjustment and the sampling window be ONE invocation: FastEddy has a single
+# frqOutput and writes from step 0, so the adjustment-period dumps are produced and then
+# DELETED, and the earliest surviving field is asserted to be exactly the adjustment end.
+# Without that, lpdm/fields.py:dump_series globs the whole directory and compute_footprint
+# starts releasing at t[0] + t_back -- which would put the entire 30-minute averaging
+# period inside the adjustment, using fields that were still settling.
 #
 # usage: run_window.sh <dir> <restart> <dt> <window_s> <topofile|-> <Ug> <Vg> [extra.in]
+#        env: SKIP_S=0  seconds of leading adjustment to run and then discard
 set -uo pipefail
 cd "${FLUX_ROOT:-/home/atyagi/Flux}"
 D="$1"; RST="$2"; DT="$3"; WIN="$4"; TOPO="$5"; UG="$6"; VG="$7"; EXTRA="${8:-}"
 BASE="${BASE:-runs/g16_base/base.in}"
 L=/tmp/flux-logs
-# ONE wall cap, and the planner and the refusal both derive from it. They used to be two
-# independent constants (2350 and 2700) that happened to agree; a cap raised in one place
-# and not the other is a silent way to blow the limit this project runs under.
-WALLCAP="${WALLCAP:-3600}"      # s of wall clock per segment -- the hard rule
-MARGIN="${MARGIN:-0.93}"        # plan to this fraction of it, so a slow segment still fits
-MAXWALL=$(python3 -c "print(int($WALLCAP*$MARGIN))")
+SKIP_S="${SKIP_S:-0}"           # leading seconds to run and then discard (the adjustment)
 SPS="${SPS:-0.0155}"            # measured s/step at 122x122x122, block 1x2x64, with IO
 CAD="${CAD:-5.0}"               # output cadence, s
 
@@ -36,21 +45,17 @@ die(){ echo "FATAL: $*" >&2; exit 1; }
 [ -f "$RST" ] || die "restart $RST not found"
 mkdir -p "$D/window" || die "cannot make $D/window"
 
-read -r FRQ NSEG SEGS TOT < <(python3 -c "
-import math
-dt=$DT; win=$WIN; cad=$CAD
+read -r FRQ TOT SKIP_NT < <(python3 -c "
+dt=$DT; win=$WIN; cad=$CAD; skip=$SKIP_S
 frq=int(round(cad/dt));            assert abs(frq*dt-cad)<2e-4, 'cadence not an integer step count'
-tot=int(round(win/dt/frq))*frq     # window rounded to a whole number of dumps
-maxsteps=int($MAXWALL/$SPS)
-nseg=max(1, math.ceil(tot/ (maxsteps//frq*frq) ))
-segs=math.ceil(tot/nseg/frq)*frq   # segment length, a whole number of dumps
-nseg=math.ceil(tot/segs)
-print(frq, nseg, segs, nseg*segs)")
-echo "### window $D: ${TOT} steps = $(python3 -c "print(f'{$TOT*$DT:.0f}')") s"
-echo "###   $NSEG segment(s) of $SEGS steps = $(python3 -c "print(f'{$SEGS*$SPS/60:.1f}')") min wall each (cap $(python3 -c "print(f'{$WALLCAP/60:.0f}')") min)"
-echo "###   frqOutput = $FRQ ($CAD s), ioLPDMfullFrq = $SEGS"
-[ "$(python3 -c "print(int($SEGS*$SPS>$WALLCAP))")" = "1" ] \
-  && die "segment projects $(python3 -c "print(f'{$SEGS*$SPS/60:.1f}')") min, over the ${WALLCAP}s cap"
+tot=int(round(win/dt/frq))*frq     # rounded to a whole number of dumps
+skip_nt=int(round(skip/dt/frq))*frq
+assert skip_nt < tot, 'SKIP_S covers the whole run'
+print(frq, tot, skip_nt)")
+echo "### window $D: ${TOT} steps = $(python3 -c "print(f'{$TOT*$DT:.0f}')") s, ONE continuous invocation"
+echo "###   projected $(python3 -c "print(f'{$TOT*$SPS/60:.1f}')") min wall (no cap: chaining is retired)"
+echo "###   frqOutput = $FRQ ($CAD s), $(python3 -c "print($TOT//$FRQ+1)") dumps"
+[ "$SKIP_NT" -gt 0 ] && echo "###   discarding the first $SKIP_NT steps = $(python3 -c "print(f'{$SKIP_NT*$DT:.0f}')") s (adjustment)"
 
 # RESUMABILITY, and the reason it earns its keep. A window is 42 minutes of GPU; a crash
 # or a kill anywhere in the analysis that follows used to mean recomputing all of it, and
@@ -60,10 +65,10 @@ echo "###   frqOutput = $FRQ ($CAD s), ioLPDMfullFrq = $SEGS"
 # by hand ahead of a campaign and one produced by the campaign are only ever reused when
 # they are the same window -- a different dt, length, restart, terrain or forcing does not
 # match and the LES runs.
-STAMP="$TOT|$DT|$WIN|$TOPO|$UG|$VG|$(basename "$RST")|$(stat -c%s "$RST")"
+STAMP="$TOT|$DT|$WIN|$TOPO|$UG|$VG|$SKIP_NT|$(basename "$RST")|$(stat -c%s "$RST")"
 if [ -f "$D/window/.window_complete" ] && \
    [ "$(cat "$D/window/.window_complete")" = "$STAMP" ] && \
-   [ "$(ls -1 "$D"/window/*.[0-9]* 2>/dev/null | wc -l)" -eq "$((TOT/FRQ + 1))" ]; then
+   [ "$(ls -1 "$D"/window/*.[0-9]* 2>/dev/null | wc -l)" -eq "$(((TOT-SKIP_NT)/FRQ + 1))" ]; then
   echo "--- window already complete and identically configured; reusing $(ls -1 $D/window/*.[0-9]* | wc -l) dumps"
   echo "---   ($D/window/.window_complete matches; delete it to force a re-run)"
   exit 0
@@ -71,30 +76,42 @@ fi
 
 rm -f "$D"/window/* "$D"/FE_RST.*
 cp -f "$RST" "$D/FE_RST.0" || die "copy restart"
-IN="FE_RST.0"; IPATH="./"; PREV=0
-for s in $(seq 1 "$NSEG"); do
-  NT=$((s * SEGS))
-  sed -e "s|^dt = .*|dt = $DT|" -e "s|^Nt = .*|Nt = $NT|" \
-      -e "s|^NtBatch = .*|NtBatch = $FRQ|" -e "s|^frqOutput = .*|frqOutput = $FRQ|" \
-      -e "s|^inPath = .*|inPath = $IPATH|" -e "s|^inFile = .*|inFile = $IN|" \
-      -e "s|^topoFile = .*|topoFile = $([ "$TOPO" = "-" ] && echo "" || echo "$TOPO")|" \
-      -e "s|^U_g = .*|U_g = $UG|" -e "s|^V_g = .*|V_g = $VG|" \
-      -e "s|^outPath = .*|outPath = ./window/|" \
-      -e "s|^outFileBase = .*|outFileBase = FE_WIN|" \
-      "$BASE" > "$D/win$s.in"
-  printf 'ioLPDMmode = 1\nioLPDMfullFrq = %d\n' "$SEGS" >> "$D/win$s.in"
-  [ -n "$EXTRA" ] && cat "$EXTRA" >> "$D/win$s.in"
-  echo "--- segment $s/$NSEG: $PREV -> $NT"
-  ./docker/run_case.sh "$D" "win$s.in" "$L/$(basename $D)_win$s.log" \
-      || die "segment $s failed (see $L/$(basename $D)_win$s.log)"
-  # Preserve the boundary dump OUTSIDE window/ before the next segment overwrites it with
-  # its own lean copy. Without this a failed segment s+1 would take the chain point with it.
-  if [ "$s" -lt "$NSEG" ]; then
-    cp -f "$D/window/FE_WIN.$NT" "$D/FE_RST.$NT" || die "checkpoint copy"
-    IN="FE_RST.$NT"; IPATH="./"
-  fi
-  PREV=$NT
-done
+sed -e "s|^dt = .*|dt = $DT|" -e "s|^Nt = .*|Nt = $TOT|" \
+    -e "s|^NtBatch = .*|NtBatch = $FRQ|" -e "s|^frqOutput = .*|frqOutput = $FRQ|" \
+    -e "s|^inPath = .*|inPath = ./|" -e "s|^inFile = .*|inFile = FE_RST.0|" \
+    -e "s|^topoFile = .*|topoFile = $([ "$TOPO" = "-" ] && echo "" || echo "$TOPO")|" \
+    -e "s|^U_g = .*|U_g = $UG|" -e "s|^V_g = .*|V_g = $VG|" \
+    -e "s|^outPath = .*|outPath = ./window/|" \
+    -e "s|^outFileBase = .*|outFileBase = FE_WIN|" \
+    "$BASE" > "$D/win1.in"
+# ioLPDMfullFrq = TOT: exactly one FULL upstream dump, the last one. It existed to make a
+# CHAIN seamless (a lean dump has no rho or pressure and cannot be restarted from); with
+# no chain the only thing it still buys is that the run ends on a restartable dump, which
+# is what a target case hands to nothing and a seed hands to its cases.
+printf 'ioLPDMmode = 1\nioLPDMfullFrq = %d\n' "$TOT" >> "$D/win1.in"
+[ -n "$EXTRA" ] && cat "$EXTRA" >> "$D/win1.in"
+echo "--- single invocation: 0 -> $TOT"
+./docker/run_case.sh "$D" "win1.in" "$L/$(basename $D)_win1.log" \
+    || die "window failed (see $L/$(basename $D)_win1.log)"
 rm -f "$D"/FE_RST.*
+
+# ---- discard the adjustment period, STRUCTURALLY ----------------------------------
+# lpdm/fields.py:dump_series globs the whole directory and compute_footprint releases from
+# t[0] + t_back, so a field written while the flow was still settling is indistinguishable
+# from one written after. Deleting them is the guarantee; asserting on what SURVIVED is
+# how we know the deletion happened.
+if [ "$SKIP_NT" -gt 0 ]; then
+  for f in "$D"/window/FE_WIN.*; do
+    n="${f##*.}"
+    case "$n" in (*[!0-9]*) continue;; esac
+    [ "$n" -lt "$SKIP_NT" ] && rm -f "$f"
+  done
+  EARLIEST=$(ls -1 "$D"/window/FE_WIN.[0-9]* 2>/dev/null | sed 's/.*\.//' | sort -n | head -1)
+  [ "$EARLIEST" = "$SKIP_NT" ] || die "earliest surviving dump is step ${EARLIEST:-none}, wanted $SKIP_NT -- a backward trajectory could reach into the adjustment"
+  echo "--- discarded $(python3 -c "print($SKIP_NT//$FRQ)") adjustment dumps; earliest field is now step $EARLIEST = $(python3 -c "print(f'{$SKIP_NT*$DT:.0f}')") s"
+fi
+NW=$(ls -1 "$D"/window/*.[0-9]* | wc -l)
+[ "$NW" -eq "$(((TOT-SKIP_NT)/FRQ + 1))" ] \
+  || die "window holds $NW dumps, expected $(((TOT-SKIP_NT)/FRQ + 1))"
 printf '%s' "$STAMP" > "$D/window/.window_complete"
-echo "--- window complete: $(ls $D/window/*.[0-9]* | wc -l) dumps, $(du -sh $D/window | cut -f1)"
+echo "--- window complete: $NW dumps, $(du -sh $D/window | cut -f1)"

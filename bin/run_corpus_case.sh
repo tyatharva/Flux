@@ -3,6 +3,8 @@
 #
 #   usage: bin/run_corpus_case.sh 2023-01-18T18:00 [tag]
 #   env:   WINDOW_S=2400  ADJ_S=1800  TBACK=600  KEEP_FIELDS=0
+#          -- ADJ_S + WINDOW_S = 4200 s = 1.167 sim-h is the class length, and TBACK is
+#             MEASURED (results/g16_tback.txt: converged at 500 s, x1.25, rounded to 600).
 #          SKIP_LES=1     stop after stage 4, for a dry run with no GPU
 #          SEED_LIB=jobs  where the spun-up seed library lives
 #          GRID=data/grid16_raised  ZTARGET=8.5  EXACT_AGL=1   (production; see below)
@@ -15,8 +17,8 @@
 #   4  which seed, and which 90-degree rotation bin/pick_seed.py
 #   5  rotate the seed's FLOW, inject the       bin/prep_restart.py
 #      STATIC surface (terrain, z0, htFlux)
-#   6a ~30 min adjustment under THIS case's forcing
-#   6b the (30 min + t_back) sampling window    bin/run_window.sh
+#   6  30 min adjustment + (30 min + t_back) window,
+#      as ONE continuous invocation                bin/run_window.sh
 #   7  backward LPDM -> 122 x 122 footprint     bin/stage5_footprint.py
 #   8  assemble the training record             bin/make_pair.py
 #
@@ -123,27 +125,41 @@ say "$TAG  stage 5: seed $JOB rot $ROT -> restart"
 [ -s "$D/FE_RST.0" ] || die "prep_restart wrote no restart"
 cp -f "$GRID/topo.bin" "$D/topo.bin" || die "topo.bin"
 
-# ---- 6a. adjustment --------------------------------------------------------------
-say "$TAG  stage 6a: ${ADJ_S}s adjustment under this case's forcing"
+# ---- 6. adjustment AND window, ONE CONTINUOUS INVOCATION --------------------------
+#
+# These were two FastEddy runs -- an adjustment, then a restart from its final dump into
+# the window. That restart is gone. CHAINING IS RETIRED (2026-08-26) and the only restart
+# left in the project is seed -> target, which happens at stage 5 above. What it buys is
+# FASTEDDY_TRAPS.md 17 removed structurally rather than by assertion: a restart READ
+# overwrites every IO-registered field, so each restart is an opportunity to silently
+# inherit state the .in does not describe.
+#
+# THE SCHEDULE, which is what makes the timeline correct rather than merely shorter. For a
+# footprint stamped 01:00 UTC, covering 00:30-01:00:
+#
+#     23:50  restart from the seed; adjustment begins       step 0
+#     00:20  adjustment complete (ADJ_S = 1800 s)           step A_NT = 123120
+#     00:30  first release (needs history back to 00:20)    step A_NT + t_back
+#     01:00  last release; window closes                    step TOT = 287280
+#
+# so the run is ADJ_S + t_back + 1800 = 1800 + 600 + 1800 = 4200 s = 1.167 sim-h, and the
+# earliest field a backward trajectory can reach is EXACTLY the adjustment end.
+#
+# FastEddy has a single frqOutput and writes from step 0, so the adjustment's 360 dumps
+# are produced and then deleted; run_window.sh does the deleting and then ASSERTS that the
+# earliest surviving dump is step A_NT. Without that, lpdm/fields.py:dump_series would glob
+# the whole directory and compute_footprint would release from t[0] + t_back -- putting the
+# entire 30-minute averaging period inside the adjustment, on fields still settling, with
+# nothing in the output to say so.
+say "$TAG  stage 6: ${ADJ_S}s adjustment + ${WINDOW_S}s window, one invocation"
 A_NT=$(python3 -c "
 frq=int(round(5.0/$DT)); print(int(round($ADJ_S/$DT/frq))*frq)")
 [ "$A_NT" -gt 0 ] 2>/dev/null || die "adjustment step count did not compute"
-sed -e "s|^Nt = .*|Nt = $A_NT|" -e "s|^NtBatch = .*|NtBatch = $((A_NT/4))|" \
-    -e "s|^frqOutput = .*|frqOutput = $((A_NT/4))|" \
-    -e "s|^inPath = .*|inPath = ./|" -e "s|^inFile = .*|inFile = FE_RST.0|" \
-    -e "s|^topoFile = .*|topoFile = ./topo.bin|" \
-    -e "s|^outFileBase = .*|outFileBase = FE_ADJ|" \
-    "$D/case.in" > "$D/adj.in"
-rm -f $D/output/FE_ADJ.*
-./docker/run_case.sh "$D" adj.in "$L/${TAG}_adj.log" || die "adjustment"
-ADJ=$(ls -1 $D/output/FE_ADJ.* 2>/dev/null | sort -t. -k2 -n | tail -1)
-[ -n "$ADJ" ] || die "the adjustment wrote no dump"
+RUN_S=$(python3 -c "print($ADJ_S + $WINDOW_S)")
+echo "  ${RUN_S}s total = ${ADJ_S}s adjust + ${TBACK}s t_back + $(python3 -c "print($WINDOW_S-$TBACK)")s releases"
+SKIP_S="$ADJ_S" BASE="$D/case.in" bin/run_window.sh "$D" "$D/FE_RST.0" "$DT" "$RUN_S" \
+    ./topo.bin "$UG" "$VG" || die "adjustment+window"
 rm -f "$D/FE_RST.0"
-
-# ---- 6b. the sampling window -----------------------------------------------------
-say "$TAG  stage 6b: ${WINDOW_S}s window (30 min averaging + ${TBACK}s t_back)"
-BASE="$D/case.in" bin/run_window.sh "$D" "$ADJ" "$DT" "$WINDOW_S" ./topo.bin "$UG" "$VG" \
-    || die "window"
 
 # ---- 7. the footprint ------------------------------------------------------------
 # INTO results/corpus/, WHICH IS GITIGNORED. The repo already tracks 72 footprint .npz
@@ -155,6 +171,7 @@ LPDM_WORKERS="${LPDM_WORKERS:-8}" \
 ./docker/pyrun.sh bin/stage5_footprint.py "$D/window" --dt "$DT" --tback "$TBACK" \
     --sgs-most --cover-dir "$GRID" --receptor-from "$GRID" --fp16-cache \
     --z-target "$ZTARGET" ${EXACT_AGL:+--exact-agl} --rel-seconds 1800 \
+    --t-min "$(python3 -c "print(f'{$A_NT*$DT:.3f}')")" \
     --outdir "$FPDIR" --tag "$TAG" 2>&1 | grep -vE 'batch [0-9]+/' > "$FPDIR/$TAG.txt"
 [ -s "$FPDIR/$TAG.json" ] || { tail -12 "$FPDIR/$TAG.txt" >&2
   die "stage 7 produced no footprint json"; }

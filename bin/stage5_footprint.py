@@ -30,7 +30,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lpdm import kljun
 from lpdm.driver import compute_footprint
-from lpdm.fields import FieldSet, dump_series
+from lpdm.fields import FieldSet, dump_series, _step_of
 from lpdm.footprint import source_area_overlap
 
 
@@ -61,6 +61,16 @@ def main():
     ap.add_argument("dirs", nargs="+")
     ap.add_argument("--dt", type=float, default=0.0158228)
     ap.add_argument("--tback", type=float, default=900.0)
+    ap.add_argument("--t-min", type=float, default=None,
+                    help="refuse any field written before this model time, in seconds. "
+                         "The adjustment and the sampling window are ONE FastEddy "
+                         "invocation now (chaining is retired), so both write into the "
+                         "same directory and dump_series() cannot tell them apart. "
+                         "bin/run_window.sh DELETES the adjustment dumps and asserts on "
+                         "what survived; this is the second, independent guard, because a "
+                         "backward trajectory that walks into the adjustment is served "
+                         "fields that were still settling and NOTHING in the output would "
+                         "say so.")
     ap.add_argument("--z-target", type=float, default=10.0,
                     help="receptor height in m AGL. THE DEFAULT USED TO BE 30.0 AND WAS "
                          "NEVER PASSED FROM HERE, so every footprint silently landed on "
@@ -128,6 +138,16 @@ def main():
     runs = []
     for d in a.dirs:
         paths = dump_series(d)
+        if a.t_min is not None:
+            keep = [p for p in paths if _step_of(p) * a.dt >= a.t_min - 0.5 * a.dt]
+            if len(keep) != len(paths):
+                print(f"  --t-min {a.t_min:.0f} s dropped {len(paths)-len(keep)} of "
+                      f"{len(paths)} dumps written before the adjustment completed")
+            if not keep:
+                print(f"FATAL: --t-min {a.t_min:.0f} s leaves no fields in {d}",
+                      file=sys.stderr)
+                return 2
+            paths = keep
         print(f"\n=== {d}: {len(paths)} dumps ===")
         t0 = time.time()
         fs = FieldSet(paths, a.dt, verbose=False,

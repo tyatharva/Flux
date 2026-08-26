@@ -191,7 +191,13 @@ from sounding_to_forcing import derive_dt, les_levels, write_in
 # 3.9/5.2/6.8 m/s, and the site is unstable more than half the time. The convective rungs
 # straddle the convective-midday reference (z_i p50 859 m, w'th' p50 0.109 sensible ->
 # 0.129 virtual at the cropland Bowen ratio).
-# name, regime, z_i target (m), virtual w'th' (K m/s), G (m/s), warm-up segments
+# name, regime, z_i target (m), virtual w'th' (K m/s), G (m/s)
+#
+# THE WARM-UP COLUMN IS GONE with the stable rung and with chaining. It existed so a stable
+# rung could run its FIRST SEGMENT neutral before the cooling started; there are no
+# segments any more, and no stable rung to need one. The finding it encoded is not lost --
+# a cold-started stable boundary layer collapses (FASTEDDY_TRAPS.md 15) -- it is simply
+# not reachable from a rung table that contains no stable rung.
 # THE STABLE RUNG IS GONE, BY MEASUREMENT. Two seeds were run and both collapsed:
 #   sbl      G=8,  w'th'=-0.012 (GABLS1's own regime), z/L ~ 0.12-0.21 -> dead by 2.3 h
 #   sbl-weak G=10, w'th'=-0.012, z/L ~ 0.044          -> dead by 3.0 h, same timeline
@@ -202,11 +208,11 @@ from sounding_to_forcing import derive_dt, les_levels, write_in
 # Ozmidov scale is 6.9 Delta at the receptor even at z/L 0.044, against 318 neutrally --
 # so no forcing change reaches it. See STABLE_REGIME_RESULT.md.
 RUNGS = [
-    ("nbl-shallow", "neutral",    300.0,  0.000,  8.0, 0),
-    ("nbl-deep",    "neutral",    550.0,  0.000, 12.0, 0),
-    ("cbl-shallow", "convective", 450.0,  0.060,  7.0, 0),
-    ("cbl-mid",     "convective", 700.0,  0.110,  9.0, 0),
-    ("cbl-deep",    "convective", 950.0,  0.160, 11.0, 0),
+    ("nbl-shallow", "neutral",    300.0,  0.000,  8.0),
+    ("nbl-deep",    "neutral",    550.0,  0.000, 12.0),
+    ("cbl-shallow", "convective", 450.0,  0.060,  7.0),
+    ("cbl-mid",     "convective", 700.0,  0.110,  9.0),
+    ("cbl-deep",    "convective", 950.0,  0.160, 11.0),
 ]
 BASE_ANGLES = (0.0, 30.0, 60.0)
 
@@ -218,8 +224,6 @@ THETA_GRND = 300.0
 PRES_GRND = 97700.0      # Pa, the site's mean surface pressure (HRRR)
 Z0 = 0.1435              # geometric-mean z0 of the real map; the flat spin-up's scalar
 SPS = 0.0149             # measured s/step at 122^3 with a spin-up IO cadence
-WALLCAP = 3600.0
-MARGIN = 0.93
 CADENCE_SPINUP = 300.0   # s between stationarity dumps
 
 
@@ -260,19 +264,17 @@ def base_state(regime, zi):
                 zStableBottom3=20000.0, stableGradient3=FREE_LAPSE)
 
 
-def plan_segments(sim_h, dt, frq):
-    """Chain of segments, each a whole number of dumps and under the wall cap.
+def plan_run(sim_h, dt, frq):
+    """Total steps, rounded to a whole number of dumps. ONE invocation, no segments.
 
-    The cap is a HARD rule (PLAN.md), so the driver projects before launching and refuses
-    rather than asks. Rounding DOWN to whole dumps is what keeps the projection honest.
+    CHAINING IS RETIRED (2026-08-26). This used to plan a chain of sub-wall-cap segments,
+    and the whole point of removing it is that every segment boundary was a restart READ,
+    which overwrites every IO-registered field with whatever the restart file holds
+    (FASTEDDY_TRAPS.md 17). A seed now runs 738,720 steps in one go, ~2.9 h wall, and the
+    one-hour-per-run cap does not apply to it. The cap constants are gone rather than
+    raised, because a cap nothing checks is worse than no cap.
     """
-    total = int(round(sim_h * 3600.0 / dt / frq)) * frq
-    per = int(WALLCAP * MARGIN / SPS) // frq * frq
-    if per <= 0:
-        raise ValueError("a single dump already exceeds the wall cap")
-    nseg = int(np.ceil(total / per))
-    seg = int(np.ceil(total / nseg / frq)) * frq
-    return total, nseg, seg
+    return int(round(sim_h * 3600.0 / dt / frq)) * frq
 
 
 def main():
@@ -300,20 +302,18 @@ def main():
     frq = int(round(CADENCE_SPINUP / dt))
     if abs(frq * dt - CADENCE_SPINUP) > 2e-4:
         raise ValueError(f"spin-up cadence {frq*dt} s is not {CADENCE_SPINUP}")
-    total, nseg, seg = plan_segments(a.sim_h, dt, frq)
+    total = plan_run(a.sim_h, dt, frq)
 
     os.makedirs(a.outdir, exist_ok=True)
     index = []
     print(f"dt {dt:.7f} s (CFL_3d {cfl:.4f}), dump every {frq} steps = "
           f"{frq*dt:.1f} s, {total} steps = {total*dt/3600:.2f} sim-h")
-    print(f"{nseg} segment(s) of {seg} steps = {seg*SPS/60:.1f} min wall each "
-          f"(cap {WALLCAP/60:.0f} min)")
-    if seg * SPS > WALLCAP:
-        raise SystemExit(f"FATAL: segment projects {seg*SPS/60:.1f} min, over the cap")
+    print(f"ONE continuous invocation of {total} steps = {total*SPS/60:.1f} min wall "
+          f"(chaining is retired; there is no per-run cap)")
     print(f"\n{'job':<22}{'regime':>12}{'z_i tgt':>9}{'wth_v':>9}{'G':>7}"
-          f"{'angle':>7}{'U_g':>9}{'V_g':>9}{'warm':>6}")
+          f"{'angle':>7}{'U_g':>9}{'V_g':>9}")
 
-    for name, regime, zi, wth, gmag, warm in RUNGS:
+    for name, regime, zi, wth, gmag in RUNGS:
         for ang in BASE_ANGLES:
             job = f"seed_{name}_a{int(ang):03d}"
             d = os.path.join(a.outdir, job)
@@ -334,7 +334,7 @@ def main():
                 "U_g": round(float(ug), 6), "V_g": round(float(vg), 6),
                 "z_Ug": 10000.0, "z_Vg": 10000.0, "Ug_grad": 0.0, "Vg_grad": 0.0,
                 # The .in carries the TARGET flux; jobs/run_seed.sh forces it to 0 for
-                # the first `warmup_segments` segments so turbulence exists before the
+                # (retired) the warm-up that once ran the first segment neutral so
                 # cooling starts. See the docstring: a cold-started stable rung collapses.
                 "surflayer_wth": wth, "surflayer_z0": Z0,
                 "surflayer_idealsine": 0,
@@ -343,7 +343,7 @@ def main():
                 "thetaHeight": round(min(300.0, 0.8 * zi), 1),
                 "thetaAmplitude": 0.10 if regime == "stable" else 0.25,
                 "dt": dt,
-                "Nt": seg, "NtBatch": frq, "frqOutput": frq,
+                "Nt": total, "NtBatch": frq, "frqOutput": frq,
                 "inPath": "", "inFile": "", "topoFile": "",
                 "outPath": "./output/", "outFileBase": "FE_SEED",
                 "lsf_w_surf": 0.0, "lsf_w_lev1": wsub, "lsf_w_lev2": 0.0,
@@ -364,12 +364,11 @@ def main():
                 "zStableBottom3": "above the domain; the third segment is unused",
                 "stableGradient3": "free-atmosphere lapse",
                 "surflayer_wth": (f"prescribed VIRTUAL kinematic heat flux ({regime})"
-                                  + (f"; the first {warm} segment(s) run NEUTRAL first -- a "
-                                     f"cold-started stable rung collapses" if warm else "")),
+                                  ),
                 "U_g": f"G = {gmag:.1f} m/s at base angle {ang:.0f} deg",
                 "V_g": f"geostrophic wind FROM {(270.0-ang)%360.0:.0f} deg",
                 "dt": f"= {CADENCE_SPINUP:.0f}/{frq} s; CFL_3d = {cfl:.4f}",
-                "Nt": f"one segment; the driver chains {nseg} of them to {total} steps",
+                "Nt": f"the whole run: {total} steps in ONE invocation, no chaining",
                 "NtBatch": f"one {frq*dt:.0f} s dump per batch",
                 "frqOutput": f"{frq*dt:.0f} s between stationarity dumps",
                 "lsf_w_lev1": ("no subsidence: this rung is held by its cap alone"
@@ -392,10 +391,9 @@ def main():
                            "G_dir_from_deg": float((270.0 - ang) % 360.0)},
                 "run": {"dt": dt, "CFL_3d": cfl, "frqOutput": frq,
                         "cadence_s": frq * dt, "steps_total": total,
-                        "n_segments": nseg, "steps_per_segment": seg,
+                        "n_segments": 1, "chained": False,
                         "sim_hours": total * dt / 3600.0,
-                        "warmup_segments": warm,
-                        "projected_wall_min_per_segment": round(seg * SPS / 60.0, 1),
+                        "projected_wall_min": round(total * SPS / 60.0, 1),
                         "outFileBase": "FE_SEED"},
                 "requires": {"compute_capability": "8.9", "vram_gb": 1.6,
                              "image": "flux-fasteddy:cuda118"},
@@ -409,7 +407,7 @@ def main():
             json.dump(man, open(os.path.join(d, "manifest.json"), "w"), indent=1)
             index.append(man)
             print(f"{job:<22}{regime:>12}{zi:>9.0f}{wth:>9.3f}{gmag:>7.1f}"
-                  f"{ang:>7.0f}{ug:>9.3f}{vg:>9.3f}{warm:>6d}")
+                  f"{ang:>7.0f}{ug:>9.3f}{vg:>9.3f}")
 
     ent = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "jobs",
                        "run_seed.sh")

@@ -39,11 +39,10 @@
     "frqOutput": 20520,
     "cadence_s": 299.9999376,
     "steps_total": 738720,
-    "n_segments": 4,
-    "steps_per_segment": 184680,
+    "n_segments": 1,
+    "chained": false,
     "sim_hours": 2.9999993760000003,
-    "warmup_segments": 0,
-    "projected_wall_min_per_segment": 45.9,
+    "projected_wall_min": 183.4,
     "outFileBase": "FE_SEED"
    },
    "requires": {
@@ -76,11 +75,10 @@
     "frqOutput": 20520,
     "cadence_s": 299.9999376,
     "steps_total": 738720,
-    "n_segments": 4,
-    "steps_per_segment": 184680,
+    "n_segments": 1,
+    "chained": false,
     "sim_hours": 2.9999993760000003,
-    "warmup_segments": 0,
-    "projected_wall_min_per_segment": 45.9,
+    "projected_wall_min": 183.4,
     "outFileBase": "FE_SEED"
    },
    "requires": {
@@ -113,11 +111,10 @@
     "frqOutput": 20520,
     "cadence_s": 299.9999376,
     "steps_total": 738720,
-    "n_segments": 4,
-    "steps_per_segment": 184680,
+    "n_segments": 1,
+    "chained": false,
     "sim_hours": 2.9999993760000003,
-    "warmup_segments": 0,
-    "projected_wall_min_per_segment": 45.9,
+    "projected_wall_min": 183.4,
     "outFileBase": "FE_SEED"
    },
    "requires": {
@@ -150,11 +147,10 @@
     "frqOutput": 20520,
     "cadence_s": 299.9999376,
     "steps_total": 738720,
-    "n_segments": 4,
-    "steps_per_segment": 184680,
+    "n_segments": 1,
+    "chained": false,
     "sim_hours": 2.9999993760000003,
-    "warmup_segments": 0,
-    "projected_wall_min_per_segment": 45.9,
+    "projected_wall_min": 183.4,
     "outFileBase": "FE_SEED"
    },
    "requires": {
@@ -187,11 +183,10 @@
     "frqOutput": 20520,
     "cadence_s": 299.9999376,
     "steps_total": 738720,
-    "n_segments": 4,
-    "steps_per_segment": 184680,
+    "n_segments": 1,
+    "chained": false,
     "sim_hours": 2.9999993760000003,
-    "warmup_segments": 0,
-    "projected_wall_min_per_segment": 45.9,
+    "projected_wall_min": 183.4,
     "outFileBase": "FE_SEED"
    },
    "requires": {
@@ -224,11 +219,10 @@
     "frqOutput": 20520,
     "cadence_s": 299.9999376,
     "steps_total": 738720,
-    "n_segments": 4,
-    "steps_per_segment": 184680,
+    "n_segments": 1,
+    "chained": false,
     "sim_hours": 2.9999993760000003,
-    "warmup_segments": 0,
-    "projected_wall_min_per_segment": 45.9,
+    "projected_wall_min": 183.4,
     "outFileBase": "FE_SEED"
    },
    "requires": {
@@ -261,11 +255,10 @@
     "frqOutput": 20520,
     "cadence_s": 299.9999376,
     "steps_total": 738720,
-    "n_segments": 4,
-    "steps_per_segment": 184680,
+    "n_segments": 1,
+    "chained": false,
     "sim_hours": 2.9999993760000003,
-    "warmup_segments": 0,
-    "projected_wall_min_per_segment": 45.9,
+    "projected_wall_min": 183.4,
     "outFileBase": "FE_SEED"
    },
    "requires": {
@@ -298,11 +291,10 @@
     "frqOutput": 20520,
     "cadence_s": 299.9999376,
     "steps_total": 738720,
-    "n_segments": 4,
-    "steps_per_segment": 184680,
+    "n_segments": 1,
+    "chained": false,
     "sim_hours": 2.9999993760000003,
-    "warmup_segments": 0,
-    "projected_wall_min_per_segment": 45.9,
+    "projected_wall_min": 183.4,
     "outFileBase": "FE_SEED"
    },
    "requires": {
@@ -335,11 +327,10 @@
     "frqOutput": 20520,
     "cadence_s": 299.9999376,
     "steps_total": 738720,
-    "n_segments": 4,
-    "steps_per_segment": 184680,
+    "n_segments": 1,
+    "chained": false,
     "sim_hours": 2.9999993760000003,
-    "warmup_segments": 0,
-    "projected_wall_min_per_segment": 45.9,
+    "projected_wall_min": 183.4,
     "outFileBase": "FE_SEED"
    },
    "requires": {
@@ -372,11 +363,10 @@
     "frqOutput": 20520,
     "cadence_s": 299.9999376,
     "steps_total": 738720,
-    "n_segments": 4,
-    "steps_per_segment": 184680,
+    "n_segments": 1,
+    "chained": false,
     "sim_hours": 2.9999993760000003,
-    "warmup_segments": 0,
-    "projected_wall_min_per_segment": 45.9,
+    "projected_wall_min": 183.4,
     "outFileBase": "FE_SEED"
    },
    "requires": {
@@ -409,11 +399,10 @@
     "frqOutput": 20520,
     "cadence_s": 299.9999376,
     "steps_total": 738720,
-    "n_segments": 4,
-    "steps_per_segment": 184680,
+    "n_segments": 1,
+    "chained": false,
     "sim_hours": 2.9999993760000003,
-    "warmup_segments": 0,
-    "projected_wall_min_per_segment": 45.9,
+    "projected_wall_min": 183.4,
     "outFileBase": "FE_SEED"
    },
    "requires": {
@@ -446,11 +435,10 @@
     "frqOutput": 20520,
     "cadence_s": 299.9999376,
     "steps_total": 738720,
-    "n_segments": 4,
-    "steps_per_segment": 184680,
+    "n_segments": 1,
+    "chained": false,
     "sim_hours": 2.9999993760000003,
-    "warmup_segments": 0,
-    "projected_wall_min_per_segment": 45.9,
+    "projected_wall_min": 183.4,
     "outFileBase": "FE_SEED"
    },
    "requires": {
@@ -483,11 +471,10 @@
     "frqOutput": 20520,
     "cadence_s": 299.9999376,
     "steps_total": 738720,
-    "n_segments": 4,
-    "steps_per_segment": 184680,
+    "n_segments": 1,
+    "chained": false,
     "sim_hours": 2.9999993760000003,
-    "warmup_segments": 0,
-    "projected_wall_min_per_segment": 45.9,
+    "projected_wall_min": 183.4,
     "outFileBase": "FE_SEED"
    },
    "requires": {
@@ -520,11 +507,10 @@
     "frqOutput": 20520,
     "cadence_s": 299.9999376,
     "steps_total": 738720,
-    "n_segments": 4,
-    "steps_per_segment": 184680,
+    "n_segments": 1,
+    "chained": false,
     "sim_hours": 2.9999993760000003,
-    "warmup_segments": 0,
-    "projected_wall_min_per_segment": 45.9,
+    "projected_wall_min": 183.4,
     "outFileBase": "FE_SEED"
    },
    "requires": {
@@ -557,11 +543,10 @@
     "frqOutput": 20520,
     "cadence_s": 299.9999376,
     "steps_total": 738720,
-    "n_segments": 4,
-    "steps_per_segment": 184680,
+    "n_segments": 1,
+    "chained": false,
     "sim_hours": 2.9999993760000003,
-    "warmup_segments": 0,
-    "projected_wall_min_per_segment": 45.9,
+    "projected_wall_min": 183.4,
     "outFileBase": "FE_SEED"
    },
    "requires": {

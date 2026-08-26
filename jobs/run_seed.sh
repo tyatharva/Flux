@@ -12,8 +12,17 @@
 # jobs on two machines cannot interact; two on ONE machine are serialised by
 # docker/run_case.sh, which refuses to start a second FastEddy container.
 #
-# RESUMABLE. The chain restarts from the newest dump on disk, so a killed job costs at most
-# one segment. The gate is re-scored from scratch each time, which is cheap and CPU-only.
+# NO CHAIN, AND THEREFORE NO RESUME. A seed is ONE continuous FastEddy invocation --
+# 738,720 steps, 3.0 simulated hours, ~2.9 h wall. Chaining was retired 2026-08-26 and
+# with it the entire failure mode of FASTEDDY_TRAPS.md 17: a restart READ overwrites every
+# IO-registered field (htFlux, z0m, z0t, tskin, topoPos, zPos) with whatever the restart
+# file holds, so every segment boundary was an opportunity to inherit state the .in does
+# not describe. It cost a whole segment of a stable seed running at zero surface flux
+# while its .in asked for -0.012. THE ONLY RESTART LEFT IN THE PROJECT IS SEED -> TARGET.
+#
+# The price, stated plainly: a killed job now costs the whole run rather than one segment,
+# and the one-hour-per-run wall cap no longer applies to a seed. Re-invoking a COMPLETE
+# job is still a no-op -- that is idempotence, not a restart.
 set -uo pipefail
 
 JOB_ARG="${1:-}"
@@ -30,22 +39,17 @@ die(){ echo "FATAL: $*" >&2; exit 1; }
 [ -f "$JOB/manifest.json" ] || die "no manifest.json in $JOB"
 [ -f "$JOB/seed.in" ] || die "no seed.in in $JOB"
 
-read -r NAME DT FRQ NSEG SEG TOTAL WTH OUTBASE WALLMIN WARM < <(python3 - "$JOB/manifest.json" <<'PY'
+read -r NAME DT FRQ TOTAL WTH OUTBASE WALLMIN < <(python3 - "$JOB/manifest.json" <<'PYMAN'
 import json,sys
 m=json.load(open(sys.argv[1])); r=m["run"]
-print(m["job"], r["dt"], r["frqOutput"], r["n_segments"], r["steps_per_segment"],
-      r["steps_total"], m["target"]["wth_virtual"], r["outFileBase"],
-      r["projected_wall_min_per_segment"], r.get("warmup_segments", 0))
-PY
+print(m["job"], r["dt"], r["frqOutput"], r["steps_total"],
+      m["target"]["wth_virtual"], r["outFileBase"], r["projected_wall_min"])
+PYMAN
 ) || die "manifest.json unreadable"
 
 echo "########## seed $NAME ##########"
 date '+%F %H:%M:%S'
-echo "  dt $DT, dump every $FRQ steps, $NSEG x $SEG steps (proj ${WALLMIN} min wall each)"
-[ "${WARM:-0}" -gt 0 ] 2>/dev/null && echo \
-  "  the first $WARM segment(s) run NEUTRAL (surflayer_wth = 0) before the target $WTH:" && echo \
-  "  a cold-started stable rung collapses -- u* 0.219 -> 0.043, z/L +34.8, the flow above" && echo \
-  "  66 m exactly geostrophic with Ri_g ~ 1e8. Turbulence must exist before the cooling."
+echo "  dt $DT, dump every $FRQ steps, $TOTAL steps in ONE invocation (proj ${WALLMIN} min wall)"
 
 # ---- preflight: the GPU, before any GPU time is spent -----------------------------
 CC=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -1 | tr -d ' ')
@@ -65,77 +69,47 @@ if [ "$DRY" = "1" ]; then echo "  --dry-run: preflight only, stopping here"; exi
 mkdir -p "$JOB/output" "$JOB/return"
 LOG="$JOB/return/seed.log"
 
-# ---- the chain --------------------------------------------------------------------
-IN=""; IPATH=""
-LAST=$(ls -1 "$JOB/output/$OUTBASE".* 2>/dev/null | sort -t. -k2 -n | tail -1)
-S0=1
-if [ -n "$LAST" ]; then
-  STEP=${LAST##*.}
-  S0=$((STEP / SEG + 1))
-  IN=$(basename "$LAST"); IPATH="./output/"
-  echo "  resuming from $(basename "$LAST") (segment $S0 of $NSEG)"
-fi
-for s in $(seq "$S0" "$NSEG"); do
-  NT=$((s * SEG))
-  [ "$NT" -gt "$TOTAL" ] && NT=$TOTAL
-  # WARM-UP: force the surface flux to zero for the first WARM segments, so a stable
-  # rung develops turbulence under neutral forcing before the cooling is switched on.
-  # 0 for every other rung, so this is a no-op there.
-  WTH_S="$WTH"
-  if [ "${WARM:-0}" -gt 0 ] 2>/dev/null && [ "$s" -le "$WARM" ]; then WTH_S=0.0; fi
-  # AND THE .in ALONE CANNOT TURN THE COOLING ON. htFlux is IO-registered
-  # (hydro_core.c:1309), so the restart read OVERWRITES surflayer_wth with whatever the
-  # restart file holds -- trap 7, pointed at the flux instead of at the terrain. A warm-up
-  # segment writes htFlux = 0 into its final dump and every later segment then inherits it,
-  # silently, however its .in is written. Measured: segment 2's .in said -0.012 and its
-  # dumps came back +0.000000 for the whole segment.
-  #
-  # So the flux is injected into the restart FILE. Idempotent, and it runs on RESUME too,
-  # which an .in-only version could never have covered.
-  if [ -n "$IN" ] && [ "$WTH_S" != "0.0" ] && [ "${WARM:-0}" -gt 0 ] 2>/dev/null; then
-    ./docker/pyrun.sh - "$JOB_REL/output/$IN" "$WTH_S" <<'PYINJ' || die "htFlux injection"
-import sys, numpy as np
-from netCDF4 import Dataset
-path, want = sys.argv[1], float(sys.argv[2])
-with Dataset(path, "a") as ds:
-    h = ds["htFlux"]
-    cur = float(np.asarray(h[:]).mean())
-    if abs(cur - want) > 1e-9:
-        h[:] = np.full(np.asarray(h[:]).shape, want, dtype="f4")
-        print(f"      injected htFlux {cur:+.6f} -> {want:+.6f}")
-    else:
-        print(f"      htFlux already {cur:+.6f}")
-PYINJ
-  fi
-  sed -e "s|^Nt = .*|Nt = $NT|" \
-      -e "s|^inPath = .*|inPath = $IPATH|" -e "s|^inFile = .*|inFile = $IN|" \
-      -e "s|^surflayer_wth = .*|surflayer_wth = $WTH_S|" \
-      "$JOB/seed.in" > "$JOB/seg$s.in"
-  echo "  --- segment $s/$NSEG -> step $NT ($(python3 -c "print(f'{$NT*$DT/60:.0f}')") min simulated)"
-  [ "$WTH_S" != "$WTH" ] && echo "      WARM-UP: surflayer_wth = $WTH_S (target $WTH)"
+# ---- the run: ONE invocation ------------------------------------------------------
+# Idempotent, not resumable. If the final dump is already on disk the LES is skipped and
+# the gate is re-scored; anything short of that is re-run from the start, because there is
+# no restart within a seed any more.
+FINAL_DUMP="$JOB/output/$OUTBASE.$TOTAL"
+if [ -f "$FINAL_DUMP" ]; then
+  echo "  $OUTBASE.$TOTAL already on disk; skipping the LES and re-scoring the gate"
+else
+  ls -1 "$JOB/output/$OUTBASE".* >/dev/null 2>&1 && {
+    echo "  partial output present and a seed cannot be resumed -- clearing and starting over"
+    rm -f "$JOB/output/$OUTBASE".*; }
+  # A COLD START, so inPath/inFile are empty and surflayer_wth is whatever the .in says.
+  # With no restart to read, htFlux CANNOT be inherited -- which is the point of retiring
+  # the chain. The assertion below is kept anyway: it costs seconds once per run, and
+  # PROJECT_BRIEF.md's standing rule is to validate the state the model actually loaded, never
+  # the config handed to it.
+  sed -e "s|^Nt = .*|Nt = $TOTAL|" \
+      -e "s|^inPath = .*|inPath = |" -e "s|^inFile = .*|inFile = |" \
+      -e "s|^surflayer_wth = .*|surflayer_wth = $WTH|" \
+      "$JOB/seed.in" > "$JOB/run.in"
+  echo "  --- single invocation -> step $TOTAL ($(python3 -c "print(f'{$TOTAL*$DT/60:.0f}')") min simulated)"
   date '+%F %H:%M:%S'
-  ./docker/run_case.sh "$JOB_REL" "seg$s.in" "$JOB/return/seg$s.log" \
-      || die "segment $s"
-  cat "$JOB/return/seg$s.log" >> "$LOG"
-  LAST=$(ls -1 "$JOB/output/$OUTBASE".* | sort -t. -k2 -n | tail -1)
-  [ -n "$LAST" ] || die "segment $s wrote no dump"
-  # ASSERT ON THE ARTIFACT: the flux the segment actually RAN with, not the one its .in
-  # asked for. Those two differed silently for a whole segment before the injection above
-  # existed, and nothing in the log said so.
-  ./docker/pyrun.sh - "${LAST#$ROOT/}" "$WTH_S" <<'PYCHK' || die "segment $s ran the wrong surface flux"
+  ./docker/run_case.sh "$JOB_REL" "run.in" "$JOB/return/run.log" || die "the seed run"
+  cat "$JOB/return/run.log" >> "$LOG"
+fi
+LAST=$(ls -1 "$JOB/output/$OUTBASE".* | sort -t. -k2 -n | tail -1)
+[ -n "$LAST" ] || die "the run wrote no dump"
+[ "${LAST##*.}" = "$TOTAL" ] || die "newest dump is step ${LAST##*.}, wanted $TOTAL"
+# ASSERT ON THE ARTIFACT: the flux the run actually USED, not the one its .in asked for.
+./docker/pyrun.sh - "${LAST#$ROOT/}" "$WTH" <<'PYCHK' || die "the run used the wrong surface flux"
 import sys, numpy as np
 from netCDF4 import Dataset
 path, want = sys.argv[1], float(sys.argv[2])
 with Dataset(path) as ds:
     got = float(np.asarray(ds["htFlux"][:]).mean())
 if abs(got - want) > 1e-6:
-    print(f"FATAL: the dump carries htFlux {got:+.6f}, the segment asked for {want:+.6f}",
+    print(f"FATAL: the dump carries htFlux {got:+.6f}, the run asked for {want:+.6f}",
           file=sys.stderr)
     raise SystemExit(1)
-print(f"      htFlux confirmed {got:+.6f}")
+print(f"  htFlux confirmed {got:+.6f}")
 PYCHK
-  IN=$(basename "$LAST"); IPATH="./output/"
-done
 
 # ---- the gate, HERE, so the 300 s dumps never travel -------------------------------
 # ASSERT ON THE ARTIFACT, NOT THE EXIT STATUS (FASTEDDY_TRAPS.md 12): the gate's stdout is
