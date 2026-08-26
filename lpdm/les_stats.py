@@ -48,10 +48,27 @@ def window_stats(paths, k_recept):
     zlev = None
     ust = hfx = th0 = 0.0
     n = 0
-    # Level heights are STATIC, and the fork's ioLPDMmode writes the coordinate geometry
-    # into the first file of a run only -- so read them once, from the first dump, rather
-    # than from every dump.
-    with Dataset(paths[0]) as ds0:
+    # Level heights are STATIC, so they are read ONCE rather than from every dump -- but
+    # NOT necessarily from paths[0]. Under ioLPDMmode the coordinate geometry goes to the
+    # first file of a RUN and to the ioLPDMfullFrq multiples; a target case runs the
+    # adjustment and the window as one invocation and DELETES the adjustment dumps, so the
+    # run's first file is routinely gone by the time this reads. bin/run_window.sh sets
+    # ioLPDMfullFrq so the first SURVIVING dump is full-form and asserts that it is, which
+    # makes paths[0] correct in production -- but lpdm/fields.py already had to learn to
+    # search rather than assume, and a caller that subsamples the series
+    # (bin/stage4_wellmixed.py takes paths[::n]) should not depend on which end it kept.
+    zsrc = None
+    for _p in paths:
+        with Dataset(_p) as _ds:
+            if "zPos" in _ds.variables:
+                zsrc = _p
+                break
+    if zsrc is None:
+        raise KeyError(
+            "no dump in this series carries zPos, so the receptor level cannot be "
+            "located. Under ioLPDMmode only the first file of a run and the "
+            "ioLPDMfullFrq multiples do -- see bin/run_window.sh.")
+    with Dataset(zsrc) as ds0:
         z = np.squeeze(np.asarray(ds0["zPos"][:], dtype=np.float64))[:, 0, 0]
     nz = len(z)
     k0 = int(np.clip(k0, 0, nz - 1))
