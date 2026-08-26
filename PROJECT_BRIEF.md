@@ -539,6 +539,31 @@ Backward LPDM, run offline on saved FastEddy output.
 - **Restart is a true bit-for-bit state resume** (verified twice, at two grids). Restarting from a
   dump and re-dumping reproduces that dump byte-for-byte. Requires netCDF; `ioOutputMode = 1`
   binary output is **not** restartable.
+- **VALIDATE THE STATE THE MODEL ACTUALLY LOADED, NEVER THE CONFIG HANDED TO IT.** This is
+  the single most expensive standing failure in this project -- **four separate instances,
+  each of which produced a plausible wrong number rather than an error**, and each of which
+  was found by looking at an artifact rather than at a setting:
+
+  | what was configured | what the model actually had | how it was found |
+  |---|---|---|
+  | a per-cell convective `htFlux` map | **all zeros** in `data/grid16` -- the case would have run NEUTRAL and said nothing | reading the field out of the file |
+  | the receptor at 10 m | `stage5_footprint.py` never passed `z_target`, so every footprint landed on the level nearest the **30 m** default | reading the call, not the flag |
+  | `dt` inside the stability limit | inside the ACCURACY-vs-stability window: exits 0, prints nothing, near-surface `w` is acoustic noise | `k0/k1` measured on the dump |
+  | `surflayer_wth = -0.012` in the `.in` | **`+0.000000` in every dump** -- `htFlux` is IO-registered, so the restart read overwrites it (`FASTEDDY_TRAPS.md` §17) | reading `htFlux` out of the dump |
+
+  The generalisation, and the reason it is a rule rather than four traps: **every parameter
+  that is ALSO an IO-registered field is a property of the restart FILE, not of the `.in`** --
+  `htFlux`, `z0m`, `z0t`, `tskin`, `topoPos`, `zPos`, `xPos`, `yPos`. For those, the `.in`
+  is a request and the restart is the answer. But the rule is wider than that list: a
+  default silently taken, a parameter silently reverted for being out of range
+  (`FASTEDDY_TRAPS.md` §13), and a `dt` inside the accuracy window are all the same shape.
+
+  **So every step asserts on the artifact it produced, and asserts on the QUANTITY, not on
+  the presence of the file.** `jobs/run_seed.sh` reads `htFlux` back out of each segment's
+  own dump and refuses if it is not the flux that segment asked for; `bin/smoke_check.py`
+  scores FastEddy's built base state against the `.in` that requested it. Both are cheap.
+  Neither would have existed if the settings had been trusted.
+
 - **VALIDATION MUST EXERCISE THE PRODUCTION CODE PATH AND THE PRODUCTION REGIME.** A gate
   that tests a different closure than the footprints use is not a gate. Two instances, both
   of which shipped a wrong result:
@@ -632,19 +657,37 @@ Evaluated and rejected. Re-proposing them wastes time.
   drifting, `x_peak` at **6989%** of its limit. There is therefore no stationary stable
   state to run Gate D1 on.
 
-  **The cause is resolution, and it is measured.** At the healthy dump the Ozmidov scale
-  `L_O = sqrt(eps/N^3)` — the largest eddy stratification permits to overturn — is only
-  **1.0-3.2 x `Delta`** through the layer, and at the receptor the resolved fraction of
-  `sigma_w^2` is **0.6-4%**, against 16-56% convectively. The LES is not simulating stable
-  turbulence at the receptor; it is running a sub-grid model. GABLS1, the standard stable
-  benchmark, uses `dx = 6.25 m` — **2.5x finer, 16x the cells for this domain.**
+  **The cause is resolution, and it is measured at the HEALTHY dump** — an hour before
+  anything looked wrong, which is what makes it diagnosable before the GPU time is spent.
+  `bin/ozmidov.py`, `results/ozmidov_regimes.txt`, with FastEddy's own `eps` and mixing
+  length imported from `lpdm/fields.py`:
+
+  | regime | `L_O/Delta` at the 10 m receptor | surface layer (min-median) | resolved `sigma_w^2` at the receptor |
+  |---|---|---|---|
+  | **stable** (GABLS1 regime) | **3.57** | 2.41 - 5.21 | **0.2%** |
+  | neutral | 318.07 | 43.2 - 92.7 | 2.7% |
+  | convective | *unstratified — no constraint at all* | — | 12.1% |
+
+  A factor of **89** between stable and neutral at the same receptor on the same grid.
+  GABLS1 runs that regime at `dx = 6.25 m` — **2.6x finer, 17x the cells for this domain.**
+
+  **Two numbers here were wrong until 2026-08-25 and are corrected above**: this bullet
+  said "1.0-3.2 x `Delta` through the layer" and "0.6-4%" at the receptor, both remembered
+  from an ad-hoc calculation rather than a script. **And the COLUMN MEDIAN would have
+  hidden the result**: `L_O/Delta` rises steeply with height as `N` falls, so the median
+  over the whole stratified column reads **8.97** against the 2.4-4.0 the surface layer
+  actually has. Score at the receptor, where the footprint is made.
 
   **`k0/k1` was 0.442 throughout**, so the standing accuracy check passes on a run whose
-  boundary layer has died. It is a `dt` check, not a physics check.
+  boundary layer has died. It is a `dt` check, not a physics check —
+  `docker/turb_alive.py` is the physics check and now runs everywhere `k0/k1` runs.
 
-  **What follows for the corpus:** stable hours are ~29% of this site's QC'd record and 44%
-  of a coverage-balanced selection, and the grid cannot sustain them. That is a corpus-scope
-  decision, not something to tune around. See `LIBRARY_PLAN.md`.
+  **What follows for the corpus: stable is RESTRICTED, not excluded, and the bound is
+  measured.** 61-66% of this site's QC'd stable hours sit at `z/L <= 0.10`, weak enough
+  that a deeper layer resolves (`z_i/Delta` 27.7 against GABLS1's 28.8). The corpus keeps
+  those and refuses the rest, which costs **14-15% of the whole QC'd record**
+  (`bin/stable_fraction.py`, three independent sources). `bin/select_times.py --max-zol`
+  enforces it on the stable side only. Full evidence: **`STABLE_REGIME_RESULT.md`**.
 - **AND THE SAME APPLIES TO ANY REGIME THE GATE HAS NOT RUN IN.**
   Checked 2026-08-25: `bin/run_pass6.sh` ran the well-mixed battery on `g16_flat`
   (neutral) and `g16_flatcbl` (convective) and on nothing else. The HRRR-forced corpus

@@ -737,12 +737,27 @@ Then it collapsed. All seven stationarity limits drift; **`x_peak` binds last at
 its limit**, `U/u*` at +68 %/h, `u*` at -75 %/h.
 
 **The cause is resolution, and it is measured rather than inferred.** At the *healthy*
-dump, the Ozmidov scale `L_O = sqrt(eps/N^3)` — the largest eddy stratification permits to
-overturn — is only **1.0-3.2 x `Delta`** anywhere in the layer, and at the receptor the
-resolved fraction of `sigma_w^2` is **0.6% at 6 m and 4.0% at 14 m**, against 16-56%
-convectively. The model is not simulating stable turbulence at the receptor at all; it is
-running a sub-grid closure. **GABLS1 uses `dx = 6.25 m`** — 2.5x finer, and 16x the cells
-for this domain.
+dump — an hour before anything looked wrong — the Ozmidov scale `L_O = sqrt(eps/N^3)`, the
+largest eddy stratification permits to overturn. Measured with `bin/ozmidov.py` using
+FastEddy's own `eps` and mixing length (`results/ozmidov_regimes.txt`):
+
+| regime | `L_O/Delta` at the 10 m receptor | surface layer (min-median) | resolved `sigma_w^2` at the receptor |
+|---|---|---|---|
+| **stable** (GABLS1 regime) | **3.57** | 2.41 - 5.21 | **0.2%** |
+| neutral | 318.07 | 43.2 - 92.7 | 2.7% |
+| convective | *unstratified — no Ozmidov constraint at all* | — | 12.1% |
+
+A factor of **89** between stable and neutral at the same receptor on the same grid. The
+model is not simulating stable turbulence at the receptor; it is running a sub-grid
+closure. **GABLS1 uses `dx = 6.25 m`** — 2.6x finer, and **17x the cells** for this domain.
+
+> **CORRECTED 2026-08-25.** This paragraph previously said "1.0-3.2 x `Delta` anywhere in
+> the layer" and "0.6% at 6 m and 4.0% at 14 m". Both were remembered from an ad-hoc
+> calculation; the script gives 2.41-5.21 through the surface layer, 3.57 at the receptor,
+> and 0.2% resolved there. **And the column median would have hidden the result** —
+> `L_O/Delta` rises steeply with height as `N` falls, so the median over the whole
+> stratified column reads **8.97**, far healthier than the surface layer actually is.
+> Score at the receptor, where the footprint is made.
 
 > **`k0/k1` was 0.442 for the whole run**, including after the collapse. The standing
 > accuracy check passes on a boundary layer that has died, because it is a `dt` check and
@@ -766,6 +781,41 @@ stable of 85 in the sample). Three options, none of them free:
 **Not attempted: weakening the cooling until it passes.** Three spec changes were already
 made to this rung on physical grounds, and a fourth chosen to obtain a pass would be
 tuning, not measurement.
+
+### DECIDED 2026-08-25: option 3, and the bound is measured rather than asserted
+
+**How much of the site is weakly stable was a number, not a judgement**, and it was
+measured over three independent sources with three different determinations of `u*`
+(`bin/stable_fraction.py`, `results/stable_fraction.txt`):
+
+| source | median stable `z/L` | runnable (`z/L <= 0.10`) share of stable hours | cost, share of whole QC'd record |
+|---|---|---|---|
+| the tower's own `H` + `sigma_w`, 1 y | 0.056 | **65.8%** | 15.2% |
+| HRRR, the corpus's own forcing | 0.063 | **64.9%** | 15.4% |
+| CONUS404, 45 y, `u*` direct | 0.071 | **60.7%** | 14.0% |
+
+So **about two thirds of the site's stable hours survive the restriction**, and the
+exclusion costs 14-15% of the record. That is a bounded limitation, not a lost regime —
+and the "44% of a coverage-balanced selection" figure above was measured BEFORE the screen
+existed, on a selector free to pick hours the grid cannot run.
+
+**The knob is more wind, not less cooling**, and the reason is the failure mode: `z/L`
+falls as `u*^-3` while `eps` rises as `u*^3`, so more wind buys weaker stratification AND a
+larger Ozmidov scale at once, where a weaker flux buys only the first. It also deepens the
+layer (`z_i ~ u*^2`), and **depth relative to the filter width is what the grid has to
+buy**:
+
+| | `z_i` | `Delta` | `z_i/Delta` |
+|---|---|---|---|
+| GABLS1 | ~180 m | 6.25 m | **28.8** |
+| the collapsed rung | 150 m | 10.09 m | **14.9** |
+| **`sbl-weak`** | **~280 m** | 10.09 m | **27.7** |
+
+`sbl` therefore becomes **`sbl-weak`**: `G = 10 m/s`, `w'th' = -0.012` (unchanged), `z_i`
+target 280 m, one neutral warm-up segment — placed at the site's MEDIAN stable hour rather
+than at the edge of the band, so a pass licenses the band and a failure is unambiguous.
+`bin/select_times.py --max-zol 0.10` enforces the same bound on case selection, stable side
+only. Full evidence: **`STABLE_REGIME_RESULT.md`**.
 
 ---
 
