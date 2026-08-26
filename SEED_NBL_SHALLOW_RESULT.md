@@ -146,6 +146,64 @@ of array share over `h = 200-1200 m`.
   for it — **2023-03-10 14:00 UTC**, chosen and staged offline — is described in the report
   and is ready to run against whatever seed the user decides to accept.
 
+---
+
+## The target case that was selected, staged, and NOT run
+
+**2023-03-10 14:00 UTC** (08:00 CST). Chosen from **2,928 enumerated candidate hours** —
+the stride-4 2023 sample (2,208) plus 30 more days enumerated for this purpose (720),
+`results/candidates.tsv` and `results/candidates_b.tsv`. Stages 1-4 all ran offline; the
+sounding, forcing, `.in` and surface map are on disk.
+
+| criterion the user set | this case |
+|---|---|
+| **the seed actually serves it** | regime **neutral** (`w'th_v' = +0.0054 K m/s`, under the 0.01 threshold), and the seed's ACHIEVED heading 251.72 deg puts rot 3 at **341.7 deg** against the case's predicted **353.0 deg** — a **11.3 deg** gap, inside the 15 deg half-spacing |
+| **near-neutral** | `z_m/L = -0.0043`, `z_i/L = -0.22` |
+| **an accepted `(z_i, dz_i/dt)` bin** | `z_i` 510 m (band 100-976), `dz_i/dt` **+4.1 %/h** (limit 15) |
+| **a direction where the array carries signal** | see below |
+
+**The direction was the binding criterion, and it is worth stating what it cost.** Kljun
+array share on the real `grid16_raised` map at the production `z_m = 8.5 m`, neutral,
+`z_i 320`, `u* 0.45`:
+
+| bearing | 0 (N) | 15 | 30 | 45 | 90 (E) | 150 | 180 (S) | 270 (W) | 330 | 345 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| array share | **84.1%** | 77.8% | 63.1% | 50.9% | **37.8%** | 58.7% | 61.9% | **37.8%** | 63.1% | 77.8% |
+
+Every case in the original sample that `seed_nbl-shallow_a000` could serve sat on the
+**E/W axis at 33-40%**, the minimum of that curve. 2023-03-10 14Z sits at **353 deg**, 7 deg
+off due north, at **~79%** on its own scalars — roughly **double** the array signal of any
+alternative the seed reaches.
+
+Two more things it wins on, and one it does not:
+
+- **Forcing match: `G = 8.84 m/s` against the rung's 8.0 (1.11x)** — the closest of any
+  candidate. The array-loaded near-neutral hours are otherwise a WINDY subset (`G` 12-22
+  m/s); over 118 screened neutral-regime hours the implied `G = U(10)/0.55` runs p25 2.9,
+  **median 6.3**, p75 9.3, so the rung's 8.0 is well specified and the windy shortlist was
+  a selection artifact, not a mis-specified rung.
+- **Data quality**: the geostrophic proxy agrees with the above-BL wind to **3.1 deg** (the
+  best of the set), Bowen 0.46 so the sensible-to-virtual conversion is real rather than
+  skipped, base-state fit **0.042 K rms / 0.094 K max** over 122 LES levels, and **no
+  warnings at all**.
+- **The mismatch it does carry is `z_i`: 510 m requested against the seed's achieved 364.**
+  30 minutes of entrainment closes ~+40 m of that, so the case would have landed in input
+  space near the seed's depth rather than the sounding's — which is the design working as
+  intended (inputs come from the LES window, not the sounding) and exactly the quantity
+  `make_pair.py` records as `achieved_minus_requested`.
+
+**Both of the array's channels are present and one is 24x weaker than a midday case.** For
+this case `bin/case_surface.py` gives the array **+0.0071 K m/s** against a cropland
+reference of **+0.0051** (the 1.376x virtual ratio) — a thermal contrast of **+0.0020
+K m/s ~ 2.3 W/m2**, against **+0.0486** for a convective-midday case. The aerodynamic
+channel is the full **z0 0.250 vs 0.100 = 2.50x**. So this is very nearly, but not exactly,
+the purely-aerodynamic array case.
+
+**Why it was not run.** `bin/pick_seed.py` refuses a seed whose gate says FAIL, and asked
+for this case today it returns `no usable seeds ... (3 failed their gate)`, naming
+`seed_nbl-shallow_a000` among them. That is the machinery working. Running the case anyway
+would have meant overriding the gate on the same day it failed.
+
 ## Files
 
 `jobs/seed_nbl-shallow_a000/return/` (73.4 MB: restart, gate JSON and text, logs, manifest),
