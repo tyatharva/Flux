@@ -1,0 +1,44 @@
+=== seed seed_sbl_a030: sbl (stable), base angle 30 deg ===
+
+--- cost, against the projection the other 17 are budgeted on ---
+  738720 steps x dt 0.01461988 = 3.000 simulated hours
+  measured wall 2.076 h  ->  10.115 ms/step
+  planned                              14.900 ms/step   (-32.1%)
+  wall-to-sim ratio 0.692 GPU-h per simulated hour   (projection 1.02, i.e. -32.2%)
+  the library at this rate: 18 x 2.08 h = 37.4 GPU-h  (projected 52)
+
+--- the seven stationarity limits, scored on the last 1.5 h ---
+  quantity                            mean      trend   limit    used  verdict
+  Kljun x_peak                     64.7349    +69.89%     1.0   6989%  DRIFTING
+  U/u* (Kljun Pi_4)                17.9660    +68.07%     1.0   6807%  DRIFTING
+  Kljun x90                       769.8892    +52.72%     1.0   5272%  DRIFTING
+  sigma_v/u*                        1.9723    +36.37%     3.0   1212%  DRIFTING
+  z_i                             387.0805    -34.56%     3.0   1152%  DRIFTING
+  TKE/u*^2                          0.6537    +21.72%     5.0    434%  DRIFTING
+  sigma_w/u* at the receptor        1.3769     +7.46%     2.0    373%  DRIFTING
+  ALL SEVEN: FAIL
+  BINDS LAST: Kljun x_peak at 6989% of its limit (+69.89 %/h against 1.0)
+  reported, not gated: u* -75.49 %/h, U(10 m) -5.81 %/h, wind direction -9.70 %/h, domain TKE -149.87 %/h
+
+--- is the stable boundary layer still turbulent? ---
+  column-integrated TKE 0.000 -> 4.638 m3/s2; trend over the last half -138.8 %/h
+  u* 0.0000 -> 0.0984 m/s   (min over the run 0.0000)
+  u* trend over the last half -75.5 %/h; peak-to-final -75%
+  DECAYING TURBULENCE: YES -- u* is collapsing; this state is not a usable seed
+  k0/k1 at the last dump 0.442   (must be < 1; ~9 means dt too large)
+
+--- achieved vs asked ---
+  the manifest carries no `achieved` block
+
+--- what comes home ---
+  manifest.json                  0.00 MB
+  seed.log                       0.17 MB
+  seed_restart.nc               73.27 MB
+  seg1.log                       0.03 MB
+  seg2.log                       0.04 MB
+  seg3.log                       0.05 MB
+  seg4.log                       0.05 MB
+  stationarity.json              0.00 MB
+  stationarity.txt               0.00 MB
+  restart 73.3 MB against the 73.3 MB estimate (-0.0%)
+  return/ total 73.6 MB

@@ -114,8 +114,18 @@ def main():
         p(f"  column-integrated TKE {tkes[0]:.3f} -> {tkes[-1]:.3f} m3/s2;"
           f" trend over the last half {100*sl/max(abs(tkes[half].mean()),1e-30):+.1f} %/h")
         p(f"  u* {usts[0]:.4f} -> {usts[-1]:.4f} m/s   (min over the run {usts.min():.4f})")
-        lam = tkes[-1] < 0.05 * max(tkes.max(), 1e-30) or usts[-1] < 0.02
-        p(f"  LAMINARISED: {'YES -- the state is not usable as a seed' if lam else 'no'}")
+        # u* IS THE TEST, NOT TKE. The first version keyed on column TKE and said "no"
+        # on a run whose u* had fallen 58% and whose z/L had reached 2.67 -- because the
+        # TKE integral is dominated by gravity-wave variance aloft, which GROWS as the
+        # turbulence dies (FASTEDDY_TRAPS.md 15). u* is a genuine turbulent flux and it
+        # cannot be faked by waves.
+        u_slope = np.polyfit(ts[half], usts[half], 1)[0]
+        u_rel = 100 * u_slope / max(abs(usts[half].mean()), 1e-30)
+        p(f"  u* trend over the last half {u_rel:+.1f} %/h; peak-to-final "
+          f"{100*(usts[-1]/max(usts.max(), 1e-30) - 1):+.0f}%")
+        lam = usts[-1] < 0.6 * usts.max() or usts[-1] < 0.05 or u_rel < -20.0
+        p(f"  DECAYING TURBULENCE: "
+          f"{'YES -- u* is collapsing; this state is not a usable seed' if lam else 'no'}")
         p(f"  k0/k1 at the last dump {ww0[-1]:.3f}   (must be < 1; ~9 means dt too large)")
 
     # ---- achieved vs asked -------------------------------------------------------

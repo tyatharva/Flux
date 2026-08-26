@@ -716,6 +716,59 @@ is **~330 GB over ~20 h**, run once, GRIB deleted as it goes. `--stride` samples
 
 ---
 
+## The stable regime does not survive this grid — measured, 2026-08-25
+
+**Gate D1 in stable conditions cannot be run at `dx = 16 m`, because there is no stationary
+stable state to run it on.** That is a stronger and more useful result than the gate verdict
+would have been, and it is a property of the grid rather than of the closure.
+
+A stable seed was built at GABLS1's own regime — `G = 8 m/s`, `w'th' = -0.012 K m/s`,
+solved so that `z_i = 0.4 sqrt(u* L/f)` lands on the 150 m target — and run for 3.0
+simulated hours with a neutral warm-up first. It was **healthy for 1.75 h**:
+
+| | t = 1.50 h (healthy) | t = 3.00 h (collapsed) |
+|---|---|---|
+| `u*` | 0.2361 m/s | **0.0984** |
+| `z/L` at the receptor | +0.123 | **+2.67** (peak) |
+| `Ri_g` through the layer | 0.03-0.05 | — |
+| receptor direction | 228.8 deg (**11.2 deg** of Ekman backing from a 240 deg forcing) | 200.2 deg (39.8 deg) |
+
+Then it collapsed. All seven stationarity limits drift; **`x_peak` binds last at 6989% of
+its limit**, `U/u*` at +68 %/h, `u*` at -75 %/h.
+
+**The cause is resolution, and it is measured rather than inferred.** At the *healthy*
+dump, the Ozmidov scale `L_O = sqrt(eps/N^3)` — the largest eddy stratification permits to
+overturn — is only **1.0-3.2 x `Delta`** anywhere in the layer, and at the receptor the
+resolved fraction of `sigma_w^2` is **0.6% at 6 m and 4.0% at 14 m**, against 16-56%
+convectively. The model is not simulating stable turbulence at the receptor at all; it is
+running a sub-grid closure. **GABLS1 uses `dx = 6.25 m`** — 2.5x finer, and 16x the cells
+for this domain.
+
+> **`k0/k1` was 0.442 for the whole run**, including after the collapse. The standing
+> accuracy check passes on a boundary layer that has died, because it is a `dt` check and
+> not a physics check. `u*`, `z/L` and the mean wind profile are what caught it.
+
+**This is a corpus-scope decision, not something to tune around.** Stable hours are ~29% of
+this site's QC'd record and **44% of a coverage-balanced selection** (35 stable + 2 very
+stable of 85 in the sample). Three options, none of them free:
+
+1. **Exclude stable cases.** The corpus becomes convective-and-neutral, which is also where
+   the array's signal lives (a stable case has no thermal array contrast at all). Coverage
+   falls to ~56% of a balanced selection, and the emulator is undefined at night.
+2. **A finer grid for stable cases only.** `dx = 6.25 m` over the same 1952 m box is
+   `312^2`, about **16x the cells** — and it breaks the one-grid design the whole seed
+   library rests on.
+3. **Restrict to weakly stable cases only.** The site's typical stable night is
+   `z/L ~ 0.03-0.10` (`U(10) ~ 3.3 m/s`, `w'th' ~ -0.006`), which is 2-5x weaker than what
+   collapsed here. That may be resolvable, and it is one run to find out — but it narrows
+   "stable" to "near-neutral" and should be called that.
+
+**Not attempted: weakening the cooling until it passes.** Three spec changes were already
+made to this rung on physical grounds, and a fourth chosen to obtain a pass would be
+tuning, not measurement.
+
+---
+
 ## The one gate the corpus needs that has never been run
 
 **Gate D1 (well-mixed) has never been run in STABLE conditions.** Checked against

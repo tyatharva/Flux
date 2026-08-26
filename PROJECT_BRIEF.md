@@ -624,7 +624,28 @@ Evaluated and rejected. Re-proposing them wastes time.
 - **A neutral well-mixed PASS as evidence about the convective closure** — the floor
   is nearly inert neutrally, so the neutral gate tests a different model. It passed a
   closure carrying NINE turnovers. Run the gate convectively or do not claim it.
-- **AND THE SAME NOW APPLIES TO STABLE, WHERE THE GATE HAS NEVER BEEN RUN AT ALL.**
+- **AND IN STABLE CONDITIONS THE GATE CANNOT BE RUN AT THIS GRID AT ALL — measured
+  2026-08-25, and it is a grid result, not a closure result.** A stable seed at
+  `G = 8 m/s`, `w'th' = -0.012 K m/s` (GABLS1's own regime) was healthy for 1.75 simulated
+  hours — `u*` 0.20-0.24, `z/L` 0.12-0.21, `Ri_g` 0.03-0.05, a proper Ekman profile — and
+  then **collapsed**: `u*` 0.236 -> 0.098, `z/L` -> 2.67, all seven stationarity limits
+  drifting, `x_peak` at **6989%** of its limit. There is therefore no stationary stable
+  state to run Gate D1 on.
+
+  **The cause is resolution, and it is measured.** At the healthy dump the Ozmidov scale
+  `L_O = sqrt(eps/N^3)` — the largest eddy stratification permits to overturn — is only
+  **1.0-3.2 x `Delta`** through the layer, and at the receptor the resolved fraction of
+  `sigma_w^2` is **0.6-4%**, against 16-56% convectively. The LES is not simulating stable
+  turbulence at the receptor; it is running a sub-grid model. GABLS1, the standard stable
+  benchmark, uses `dx = 6.25 m` — **2.5x finer, 16x the cells for this domain.**
+
+  **`k0/k1` was 0.442 throughout**, so the standing accuracy check passes on a run whose
+  boundary layer has died. It is a `dt` check, not a physics check.
+
+  **What follows for the corpus:** stable hours are ~29% of this site's QC'd record and 44%
+  of a coverage-balanced selection, and the grid cannot sustain them. That is a corpus-scope
+  decision, not something to tune around. See `LIBRARY_PLAN.md`.
+- **AND THE SAME APPLIES TO ANY REGIME THE GATE HAS NOT RUN IN.**
   Checked 2026-08-25: `bin/run_pass6.sh` ran the well-mixed battery on `g16_flat`
   (neutral) and `g16_flatcbl` (convective) and on nothing else. The HRRR-forced corpus
   walks the whole diurnal cycle and this site is stable ~29% of QC'd hours, so **the
