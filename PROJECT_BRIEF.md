@@ -259,7 +259,7 @@ targets are needed in quantity and per-target precision is secondary.
 | cost | **0.0149 s/step measured** -> **0.94-0.99 GPU-h per simulated hour** | |
 | `Delta` / `z/Delta` | **10.09 m / 0.99** | at 24 m it was 17.02 / 1.76 |
 | storage (`ioLPDMmode`) | 14.5 MB/dump | a 2400 s window at 5 s = **7.0 GB** |
-| wall cap | **1 hour** | = **1.02 simulated hours per segment** |
+| wall cap | **retired 2026-08-26** | chaining is gone; a seed is ~2.9 h wall, a target case ~74 min |
 
 **`bin/vgrid.py` solves this grid from FastEddy's own `zDeform`** (`grid.c:1114-1127`), so it
 is never hand arithmetic in a comment again. With `verticalDeformQuadCoeff = 0`,
@@ -443,6 +443,29 @@ Backward LPDM, run offline on saved FastEddy output.
 - Kljun is evaluated at the static cells' own coordinates rather than rotated onto them
   (`lpdm.kljun.footprint_on_static`, 8x8 sub-sampling per cell). **Note the return signature:
   `crosswind_integrated` returns `(fy, xs)`, a tuple, not an array.**
+- **THE TARGET CLASS IS ONE CONTINUOUS RUN OF 4200 s, AND ITS SCHEDULE IS LOAD-BEARING.**
+  `t_back = 600 s` is MEASURED (`results/g16_tback.txt`: the integral reaches 98.9% of its
+  full value by 500 s and `x80` comes within 9 m of final against a 203 m tolerance; x1.25
+  margin, rounded to 50 s). So a case is **1800 s adjustment + 600 s `t_back` + 1800 s of
+  releases = 4200 s = 1.1667 sim-h**, 287,280 steps, 840 dumps at a 5 s cadence that lands
+  on an integer step count. For a footprint stamped 01:00 UTC covering 00:30-01:00:
+
+  | clock | event | step |
+  |---|---|---|
+  | 23:50 | restart from the seed; adjustment begins | 0 |
+  | 00:20 | adjustment complete | 123,120 |
+  | 00:30 | first release (needs history back to 00:20) | 123,120 + `t_back` |
+  | 01:00 | last release; window closes | 287,280 |
+
+  **The earliest field a backward trajectory can reach is EXACTLY the adjustment end, and
+  that is enforced twice.** FastEddy has one `frqOutput` and writes from step 0, so the
+  adjustment's 360 dumps land in the same directory as the window's -- and
+  `lpdm/fields.py:dump_series` globs the directory while `compute_footprint` releases from
+  `t[0] + t_back`. Left alone that would put the whole averaging period inside the
+  adjustment, on fields still settling, silently. `run_window.sh SKIP_S` deletes those
+  dumps and asserts on the earliest survivor; `stage5_footprint.py --t-min` refuses them
+  independently. **The earlier `1.07 sim-h` per case was an estimate against a `t_back`
+  smaller than anything measured, and it understated the corpus by 9.0%.**
 - **A WINDOW IS (30 min + `t_back`), NOT 30 min.** The first `t_back` seconds of any window
   produce no releases, because a backward trajectory needs that much history behind it. The
   averaging period stays 30 minutes — that is how eddy covariance is defined. `--rel-seconds 1800`
@@ -834,7 +857,9 @@ relaxes the 3-D CFL by at most `sqrt(3/2)`. Stretch for domain depth, never for 
 - **`ioLPDMmode` (fork)** writes only the fields the LPDM reads and CF-packs the 3-D prognostics
   to 16 bit: **8 B/cell**. Verified harmless on real fields — fp16 vs fp32 footprints differ by
   0 m in peak and 19 m in centroid, against a 59.2% source-area error floor.
-- **`ioLPDMfullFrq` (fork) makes a sampling window chainable.** Lean output is deliberately not
+- **`ioLPDMfullFrq` (fork) made a sampling window chainable — and chaining is now retired,
+  so all it still buys is that a run ENDS on a restartable dump.** `bin/run_window.sh` sets
+  it to the total step count for exactly that reason. Lean output is deliberately not
   restartable (`rho` and `pressure` are absent), so a whole window had to be one invocation.
   `ioLPDMfullFrq = N` writes any output whose ABSOLUTE step is a multiple of `N` in full upstream
   form while every other dump stays lean. `bin/run_window.sh` is the driver.
@@ -1103,11 +1128,12 @@ gone; tree and built now pull it up. `prep_surface.py` prints it.
 
 > **SUPERSEDED 2026-08-25 by the seed library — `LIBRARY_PLAN.md`.** The corpus is ~1825
 > HRRR-forced cases, not a sweep over bins. The 18 seed states are pre-spun turbulence
-> whose only purpose is to delete each case's 3 h spin-up (52 GPU-h that buys back ~5250);
+> whose only purpose is to delete each case's 3 h spin-up (43 GPU-h that buys back ~3700);
 > they are not corpus points and are never trained on. A case restarts from the nearest
 > seed, adjusts 30 min under its own sounding's forcing, then samples 30 min. Costed at
-> the MEASURED `t_back = 600 s`: 2065 GPU-h for the corpus plus 52 for the library,
-> against 7376 cold-started.
+> the MEASURED `t_back = 600 s` and the measured s/step: **1695 GPU-h for 1370 cases plus
+> 43 for 15 seeds**, against ~5420 cold-started. Chaining is retired -- each case and each
+> seed is ONE invocation.
 > **Seed axes are sized by what 30 minutes CANNOT adjust** — direction (-5.4 deg/h),
 > `z_i` (+79 m/h) and regime (~1.2 h to turn over) get axes; `u*` and fine `z/L` do not,
 > because the surface layer re-equilibrates in ~2 min at a 10 m receptor. **`z_i` outside
@@ -1126,11 +1152,13 @@ directions in that bin** by 90-degree re-indexing.
                        -> ~20 min adjustment + (30 min + t_back) sampling   ~0.9 GPU-h, 1 segment
 ```
 
-At ~0.97 GPU-h per simulated hour and a **1-hour wall cap**, one segment is **1.02 simulated
-hours** — so a spin-up is 5-6 chained segments and **a whole sampling window fits in ONE**.
-The cap is enforced by the drivers (`bin/run_window.sh`, `bin/spin_cbl.sh`), which project
-before launching and refuse. `run_window.sh` derives both the planner and the refusal from a
-single `WALLCAP`; they used to be two independent constants that happened to agree.
+**SUPERSEDED — the wall cap and segment chaining are both retired (2026-08-26).** At
+~0.95 GPU-h per simulated hour a seed runs 3.0 simulated hours in **one invocation, ~2.9 h
+wall**, and a target case runs 4200 s in **one invocation, ~74 min wall**. The paragraph
+below described the retired chained design.
+
+At ~0.97 GPU-h per simulated hour and a 1-hour wall cap, one segment was 1.02 simulated
+hours — so a spin-up was 5-6 chained segments and a whole sampling window fit in ONE.
 
 An 8-case campaign (2 stability x 4 directions from 2 base states) costs about **12 GPU-h**,
 against 42 at the 186^2 @ 10 m grid and 20 at 24 m. That is the corpus economics the grid was
@@ -1146,7 +1174,7 @@ is what turns it into a corpus.
 
 The corpus is **one HRRR-forced LES case per day over five years**, walking the whole
 diurnal cycle. **18 seed states** (6 coupled rungs x 3 base angles) exist only to delete
-each case's 3 h spin-up: **52 GPU-h that buys back ~5250.**
+each case's 3 h spin-up: **43 GPU-h that buys back ~3700.**
 
 **MEASURED: the domain accepts 70.6% of days**, so 1826 days give **~1289 usable cases**
 (~1459 GPU-h + 52). `z_i` outside **100-976 m** is refused rather than run and

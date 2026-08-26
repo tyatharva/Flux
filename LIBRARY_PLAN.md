@@ -7,7 +7,7 @@
 > per regime config, the non-zero base angle, **Gate B6 convectively**, a job round trip
 > from an unrelated checkout, and **Gate C2 bit-for-bit on the returned artifact**.
 >
-> **What remains is GPU time**: spin the 18 seeds (~52 GPU-h, shippable to rented
+> **What remains is GPU time**: spin the 15 seeds (~43 GPU-h, shippable to rented
 > machines — see `jobs/README.md`), then run the corpus.
 
 ---
@@ -36,18 +36,27 @@ Costed at the **measured** `t_back = 600 s` (`results/tback_production.txt`), no
 150-250 s PROJECT_BRIEF.md estimated before it was measured, so a case is
 `1800 + 1800 + 600 = 4200 s = 1.167` simulated hours at ~0.97 GPU-h per simulated hour:
 
-| | GPU-h |
-|---|---|
-| 1825 cases x (30 min adjust + 30 min window + 600 s `t_back`) = 1.167 sim-h | **2065** |
-| the seed library, 18 x 3.0 sim-h | **52** |
-| **total** | **2117** |
-| the same corpus, cold-started at 3 h of spin-up each | **7376** |
+**RE-COSTED 2026-08-26 on the measured rate and the current case count.** Two things moved
+since the table below was first written: the stable regime is excluded, so 75.0% of days
+carry a case rather than 100%, and the s/step is measured rather than assumed
+(13.94 ms/step at a 300 s cadence, `results/sblweak_seed_report.txt`; ~15.5 ms/step with a
+5 s window cadence, which is what a target case runs at).
 
-**52 GPU-h buys back about 5250.** The corpus is the real cost; the library is rounding
-error beside it.
+| | sim-h each | wall each | GPU-h |
+|---|---|---|---|
+| **1370 cases** (75.0% of 1826 days) x 4200 s | 1.167 | 74.2 min | **1695** |
+| **the seed library, 15 x 3.0 sim-h** | 3.000 | 2.86 h | **43** |
+| **total** | | | **1738** |
+| the same corpus cold-started (3 h spin-up per case) | 4.167 | | **~5420** |
 
-> **1825 is the number of DAYS. MEASURED, 70.6% of them are usable — about 1289 cases,
-> ~1459 GPU-h plus 52 for the library.** Days whose `z_i` falls outside `100-976 m` are
+**43 GPU-h buys back about 3700.** The corpus is the real cost; the library is rounding
+error beside it. Each case is now ONE FastEddy invocation of 287,280 steps — 840 dumps at
+a 5 s cadence, ~11.9 GB peak, of which the 360 adjustment dumps (5.1 GB) are deleted and
+the 481 window dumps (6.8 GB) survive.
+
+> **1825 is the number of DAYS. Superseded twice: `z_i` outside `100-976 m` was already
+> refused, and stable hours (`z/L > 0`) are now refused too — 75.0% of days carry a case,
+> about 1370. The 70.6% / 1289 / 1459 GPU-h figures below predate the stability screen.** Days whose `z_i` falls outside `100-976 m` are
 > refused rather than run and mis-labelled. `bin/corpus_coverage.py`, on a 51-case weekly
 > sample across 2023 walking the full diurnal cycle (`results/corpus_coverage.txt`):
 
@@ -138,7 +147,10 @@ array-share-vs-bearing curve to **0.80 points** maximum error, about 4x below th
 
 ### Per-state spin-up spec
 
-3.0 simulated hours, chained as **4 segments of 45.9 min wall** each, under the 1-hour cap.
+3.0 simulated hours as **ONE continuous invocation** of 738,720 steps, ~2.9 h wall.
+Chaining was retired 2026-08-26 (`bin/test_unchained.py`: chained vs unchained is
+0.89-1.08x the run-to-run reproducibility floor, so nothing is lost by removing it), and
+with it the 1-hour cap. The only restart left in the project is seed -> target.
 `dt = 0.0146199 s` (`CFL_3d = 1.3480`), a stationarity dump every **300 s**.
 
 **The gate is on `U/u*`, not on `u*`.** A doubly-periodic neutral Ekman layer forced by a
@@ -187,7 +199,9 @@ as `FLUX_ROOT`, which is why `docker/run_case.sh`, `docker/pyrun.sh`, `bin/spin_
   `flux-fasteddy:cuda118` image, and a checkout of this repo.
 - **returns**: `seed_restart.nc` (73.3 MB, all 22 variables), `stationarity.json`,
   `stationarity.txt`, `seed.log`, and the manifest with `achieved` filled in.
-- **resumable**: the chain restarts from the newest dump on disk, so a kill costs at most
+- **idempotent, NOT resumable** — a resume is a restart, and restarts within a run are
+  what was removed. Re-invoking a COMPLETE job is a no-op; a kill costs the whole run.
+  (retired) the chain used to restart from the newest dump on disk, so a kill cost at most
   one segment.
 
 > **Bitwise reproducibility will not hold across different physical GPUs.** Stated, not

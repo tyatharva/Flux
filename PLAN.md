@@ -33,10 +33,19 @@
 Goal: **one validated configuration at a 10 m receptor, a flat/neutral control footprint,
 the domain-adequacy answer, and then the production directions.**
 
-**HARD RULE: no single run over 1 hour wall.** At 0.0149 s/step that is **1.02 simulated
-hours per segment**, so a spin-up is 5-6 chained segments and a whole sampling window fits
-in ONE. `bin/run_window.sh` and `bin/spin_cbl.sh` derive both their planning and their
-refusal from a single `WALLCAP` and refuse rather than ask.
+> **RETIRED 2026-08-26 — CHAINING IS GONE AND SO IS THE CAP.** A seed and a target case
+> are each ONE continuous FastEddy invocation; the only restart left in the project is
+> seed -> target. That removes `FASTEDDY_TRAPS.md` §17's failure mode structurally: every
+> segment boundary was a restart READ, which overwrites every IO-registered field with
+> whatever the restart file holds. **The price is stated rather than hidden** — a seed is
+> ~2.9 h wall and a target case ~74 min, both past the old cap, and neither can be split.
+> A killed run now costs the whole run. Measured first: chained vs unchained is
+> **0.89-1.08x the run-to-run reproducibility floor** (`bin/test_unchained.py`), so
+> chained results carry.
+
+**HARD RULE (RETIRED): no single run over 1 hour wall.** At 0.0149 s/step that was **1.02
+simulated hours per segment**, so a spin-up was 5-6 chained segments and a whole sampling
+window fit in ONE.
 
 **Validate the configuration as ONE thing.** Everything lands together, gets a batch of
 short smoke runs, then one full window. The fourth pass established that the expensive
@@ -92,7 +101,7 @@ ladder off a developed state instead.
 
 ---
 
-## Phase C — spin-ups (chained ~1-hour segments)
+## Phase C — spin-ups (one continuous invocation each; chaining retired)
 
 | state | target | `w'th_v'` land | simulated | GPU-h |
 |---|---|---|---|---|
@@ -241,5 +250,5 @@ exactly like a trained model on a correct one.
 - Every script greps for `CORRUPTED` and tests `np.isfinite(...).all()` FIRST. `inf` is not
   NaN, and a NaN passes every `>` comparison.
 - Stop early only if a gate fails twice, a fix needs FastEddy source changes beyond the
-  existing fork, a segment projects over 1 hour and cannot be chained, or a result would
+  existing fork, a run projects far past its budget, or a result would
   change the grid decision.

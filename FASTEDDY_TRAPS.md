@@ -524,6 +524,15 @@ is not automatically the informative one.
 
 ## 17. `surflayer_wth` in the .in is inert after a restart
 
+> **THE MECHANISM IS STILL TRUE; ITS MAIN OPPORTUNITY IS GONE (2026-08-26).** Segment
+> chaining is retired — a seed and a target case are each ONE continuous FastEddy
+> invocation — so there is no longer a restart READ at every segment boundary waiting to
+> overwrite `htFlux` with whatever the previous dump happened to hold. **The one restart
+> that remains is seed -> target**, and `bin/prep_restart.py` / `bin/prep_stage6.py` write
+> the surface into it deliberately, which is the same mechanism used as a LEVER rather than
+> walked into. Keep reading: the trap is what a restart does, and the project still does
+> one.
+
 Found 2026-08-25, one segment after building a feature that depended on the opposite.
 
 ### Symptom
