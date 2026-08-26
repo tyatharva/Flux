@@ -14,6 +14,7 @@
 #             MEASURED (results/g16_tback.txt: converged at 500 s, x1.25, rounded to 600).
 #          SKIP_LES=1     stop after stage 4, for a dry run with no GPU
 #          SEED_LIB=jobs  where the spun-up seed library lives
+#          SEED_ANY=1     rank seeds with no returned artifact too (planning only)
 #          GRID=data/grid16_raised  ZTARGET=8.5  EXACT_AGL=1   (production; see below)
 #
 # The eight stages, and which file owns each:
@@ -116,8 +117,15 @@ GRID="$CG"
 # ---- 4. the seed -----------------------------------------------------------------
 say "$TAG  stage 4: pick a seed"
 PICK=results/pick/$TAG.json
+# --available-only BY DEFAULT, because this driver is about to RESTART from the chosen
+# seed. Ranking a seed that has no returned artifact is never right here: the pick would
+# name a file that does not exist and the case would stop at the guard below, and an
+# unbuilt seed's heading is an ESTIMATE (geostrophic angle minus a nominal Ekman backing)
+# being compared against a spun seed's MEASURED one. With a complete library the flag is a
+# no-op. SEED_ANY=1 restores the full-library ranking for planning.
 ./docker/pyrun.sh bin/pick_seed.py "$FRC" --json "$PICK" \
-    --library "${SEED_LIB:-jobs}" --index "${SEED_LIB:-jobs}/index.json" || true
+    --library "${SEED_LIB:-jobs}" --index "${SEED_LIB:-jobs}/index.json" \
+    $([ "${SEED_ANY:-0}" = "1" ] || echo --available-only) || true
 [ -s "$PICK" ] || die "stage 4 wrote no pick json"
 read -r JOB ROT < <(python3 -c "
 import json; c=json.load(open('$PICK'))['chosen']; print(c['job'], c['rot'])")
