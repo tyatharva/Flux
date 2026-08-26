@@ -40,8 +40,14 @@ def main():
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
 
-    man = json.load(open(os.path.join(a.job, "manifest.json")))
     ret = os.path.join(a.job, "return")
+    # THE RETURN MANIFEST IS THE ONE WITH THE ANSWER. jobs/run_seed.sh stamps `achieved`
+    # into return/manifest.json, not into the job's own; reading the job manifest reported
+    # "the manifest carries no `achieved` block" on a run that had measured every one of
+    # those numbers and written them down. Prefer the return copy, fall back to the job's.
+    _rm = os.path.join(ret, "manifest.json")
+    man = json.load(open(_rm if os.path.exists(_rm)
+                         else os.path.join(a.job, "manifest.json")))
     st_path = os.path.join(ret, "stationarity.json")
     if not os.path.exists(st_path):
         print(f"FATAL: {st_path} does not exist", file=sys.stderr)
