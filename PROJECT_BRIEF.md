@@ -1188,6 +1188,28 @@ chosen for.
 
 ## Status
 
+**THE FIRST FULL-LENGTH SEED RAN, AND FAILED ITS GATE ON ONE LIMIT — 2026-08-26.**
+`SEED_NBL_SHALLOW_RESULT.md`. `nbl-shallow` base angle 0, 738,720 steps in ONE invocation:
+**2.869 h wall, 0.956 GPU-h per simulated hour, +0.4% against the sanctioned seed class**;
+artifact 73.27 MB against a 73.3 MB estimate; **Gate C2 bit-for-bit (0 of 23 differ)**;
+the new static **rotation check PASS** (four turns the identity bit-for-bit, the FROM
+bearing exactly -90 per turn, which is the convention `pick_seed.py` picks every case on);
+`k0/k1` 0.119; **`turb_alive` a real OK, not a SKIP**; Ozmidov at the receptor
+`L_O/Delta = 485` against a 10 requirement; resolved `sigma_w^2` fraction 0.036, i.e.
+**96.4% sub-grid**; 0 `CORRUPTED`; `htFlux` read back as the flux the run was asked for.
+
+**Six of seven stationarity limits passed with enormous margin and the seventh — `z_i` at
++11.67 %/h against 3.0 — is the ESTIMATOR, not the boundary layer.** `z_i` is diagnosed as
+5% of the *instantaneous* TKE peak; `u*` falls 9.6 %/h through the first quarter of the
+17.6 h inertial period, the peak falls 15.7 %/h with it, and a falling threshold pushes the
+crossing height up. An absolute threshold gives **+1.71 %/h** and the theta gradient
+**+2.33 %/h**, both inside the limit; and the two gated quantities that CONSUME `z_i`,
+Kljun's `x_peak` and `x90`, are flat at -0.21 and -0.17 %/h against a limit ten times
+tighter. **This corrects `FASTEDDY_TRAPS.md` §16, which claimed the estimator "is fine in a
+converged state".** The gate was NOT changed, the run was NOT extended, and the target case
+was NOT built on the seed — whether the `z_i` limit should score an absolute threshold is a
+design decision and the numbers for it are in the result file.
+
 **SEED LIBRARY AND SOUNDING-FORCED CORPUS — PIPELINE BUILT AND VALIDATED, 2026-08-25.**
 Branch `library-states`; `LIBRARY_PLAN.md`. The target pipeline (passes 1-6) is done; this
 is what turns it into a corpus.

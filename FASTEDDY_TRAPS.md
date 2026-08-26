@@ -527,11 +527,52 @@ The same definition is used in `lpdm/les_stats.py:window_stats` (where it become
 corpus INPUT `h`), in `bin/seed_stationarity.py` (where its trend is one of the seven gated
 quantities), and in `bin/pick_seed.py` via the achieved `z_i`.
 
-**In a converged state it is fine** — the peak is steady, so the threshold is steady, and
+~~**In a converged state it is fine** — the peak is steady, so the threshold is steady, and
 that is the state all three of those actually consume. The gate scores the last 1.5 h of a
 3 h run, by which time the peak has stopped growing. **It is only unreliable while the
 turbulence is still organising**, which is exactly when someone is most likely to be
-watching it to decide whether a run is healthy.
+watching it to decide whether a run is healthy.~~
+
+### CORRECTED 2026-08-26: the peak is NOT steady in a converged state, and the sign reverses
+
+The first full-length seed (`SEED_NBL_SHALLOW_RESULT.md`) **failed its stationarity gate on
+this quantity alone**, at **+11.67 %/h against a 3.0 %/h limit** — and the boundary layer
+was not deepening at 11.67 %/h. Measured on the same dumps, over the same scored 1.5 h:
+
+| diagnostic | mean | trend |
+|---|---|---|
+| `z_i`, 5% of the INSTANTANEOUS peak (**the gated one**) | 364.4 m | **+11.67 %/h** |
+| `z_i`, 5% of the run's own SETTLED peak (absolute threshold) | 370.8 m | **+1.71 %/h** |
+| `z_i` from the theta gradient (inversion base) | 336.5 m | **+2.33 %/h** |
+| peak resolved TKE | 0.3308 m2/s2 | **-15.67 %/h** |
+| `u*` | 0.2936 | **-9.61 %/h** |
+
+Above, a **growing** peak made `z_i` fall. Here a **shrinking** peak makes it rise, and both
+physical depths sit inside the limit the relative one blows through by 4x.
+
+**Why the peak moves in a converged state, which is what the paragraph above got wrong.** A
+doubly-periodic neutral Ekman layer forced by a constant geostrophic wind has no steady
+`u*` on any affordable timescale: `f = 9.94e-5`, the inertial period is **17.6 h**, and `u*`
+falls through the first quarter of it. A 3.0 h seed is squarely inside that quarter, `u*` is
+down 9.6 %/h, and `TKE ~ u*^2` predicts the peak at -19.2 %/h against -15.7 measured. There
+is no "by which time the peak has stopped growing" — it stops growing and starts falling.
+
+**And that is the sharp form of it.** `bin/seed_stationarity.py` exists precisely because
+gating on `u*` failed this project's spin-ups twice for a reason that was never a modelling
+error, so every one of its limits is a RATIO whose two terms ride the oscillation together.
+`z_i` is the one gated quantity that is not such a ratio — and it inherits the oscillation
+anyway, through the threshold rather than through the value.
+
+**The corroboration is in the gate's own output.** Kljun's `x_peak` and `x90` take `z_i` as
+an input and are gated ten times tighter, at 1.0 %/h. They came in at **-0.21** and
+**-0.17 %/h**, with `x_peak` spanning **38.0-38.4 m across the whole window against a 16 m
+raster cell**. A depth genuinely moving at 11.67 %/h cannot leave them there.
+
+**Still not redefined here.** Whether the limit should score an absolute threshold, or the
+theta-gradient depth, or stay as it is because a seed that trips it deserves a second look,
+is a design decision. What is recorded is that a PASS on this quantity means less than it
+looks, and a FAIL on it means less than it looks, and neither should be read without the
+absolute-threshold depth beside it.
 
 ### Fix
 
