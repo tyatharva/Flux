@@ -87,15 +87,19 @@ def main():
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                     "..", "docker"))
     import turb_alive                                              # noqa: E402
+    # verdict_for(), not a locally-written comparison: a 5 min cold start is legitimately
+    # below the floor while CLIMBING, and only the series can tell that from a collapse.
+    ta_status, ta_msg = turb_alive.verdict_for(a.dump)
     tr = turb_alive.scan([a.dump])[0]
-    if tr["e_max"] < turb_alive.LAMINAR:
-        print(f"  SKIP  turbulence alive -- e_res = {tr['e_max']:.2e} is below the laminar "
-              f"floor; a 5 min cold start is legitimately still developing")
+    if ta_status == "SKIP":
+        print(f"  SKIP  turbulence alive -- {ta_msg.strip()}")
     else:
-        chk(tr["e_over_uref2"] >= turb_alive.E_FLOOR, "turbulence alive",
+        chk(ta_status == "OK", "turbulence alive",
             f"max e_res/U_ref^2 = {tr['e_over_uref2']:.2e} vs floor "
             f"{turb_alive.E_FLOOR:.1e}  (e_res/u*^2 = {tr['e_over_ust2']:.2f}, which is "
             f"the metric that CANNOT see a collapse -- reported, never gated)")
+        if ta_status == "FAIL":
+            print(ta_msg)
 
     # TOLERANCE 1e-4 m, NOT ZERO, and the reason is the file rather than the grid.
     # bin/vgrid.py solves the receptor onto k=2 at 10.000000000 m in fp64, but FastEddy is

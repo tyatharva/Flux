@@ -107,6 +107,8 @@ UST_FRAC = 0.50          # final u* must exceed this fraction of the run's own m
 UST_TREND = -35.0        # %/h over the scored half; see the calibration below
 LAMINAR = 1.0e-4         # m2/s2; below this e_res carries no information -> SKIP
 E_DECAY = 0.25           # final e_res as a fraction of the run's own peak
+AT_PEAK = 0.90           # at or above this fraction of its own peak = still climbing
+GROWTH  = 3.0            # ...AND grown this much since the run's first dump
 SCORE_FRAC = 0.5         # score u* over the last half of the series
 
 
@@ -168,6 +170,31 @@ def scan(paths):
     return rows
 
 
+def expand(paths, siblings=10):
+    """One dump given -> its own run's history, evenly spaced across the WHOLE run.
+
+    Shared so the CLI and bin/smoke_check.py cannot drift apart on it. Spanning matters as
+    much as sampling: a tail window on a run that died an hour ago is all post-collapse
+    and reads as a healthy plateau.
+    """
+    if len(paths) != 1 or siblings <= 0:
+        return paths
+    sibs = glob.glob(os.path.join(os.path.dirname(paths[0]) or ".", "*.[0-9]*"))
+    try:
+        sibs = sorted(sibs, key=lambda q: int(q.split(".")[-1]))
+        k = sibs.index(paths[0])
+        n = min(siblings, k)
+        idx = ([int(round(i * k / n)) for i in range(n)] if n > 0 else []) + [k]
+        return [sibs[i] for i in sorted(set(idx))]
+    except (ValueError, IndexError):
+        return paths
+
+
+def verdict_for(path, siblings=10):
+    """(status, msg) for one dump, judged in the context of its own run."""
+    return verdict(scan(expand([path], siblings)))
+
+
 def verdict(rows):
     """OK / FAIL / SKIP plus the message. Series tests only run with >= 3 dumps."""
     if not rows:
@@ -181,6 +208,15 @@ def verdict(rows):
            f"u*={last['ustar']:.4f}  U_ref={last['u_ref']:.2f}  "
            f"(e_res/u*^2={last['e_over_ust2']:.2f}, reported only)")
     emax = np.array([r["e_max"] for r in rows], dtype=np.float64)
+    # DEVELOPING IS NOT DYING, AND THE ABSOLUTE LEVEL CANNOT TELL THEM APART.
+    # Caught on a live run before it did any damage: a healthy cold start passes THROUGH
+    # the band between LAMINAR and E_FLOOR on its way up -- measured on the warm-up
+    # segment of seed_sbl-weak_a030, e_max climbed 9.7e-4 -> 4.2e-3 -> 9.1e-3 -> 1.9e-2
+    # while u* fell 0.463 -> 0.303 as the impulsive start relaxed, which reads as
+    # "below the floor and u* collapsing at -128 %/h" and would have killed the job.
+    # The discriminator is DIRECTION OF TRAVEL: a run sitting at its own peak is climbing
+    # or plateaued, a run at 8% of its peak is dead. Below the floor, that decides between
+    # SKIP and FAIL; above it, the floor was never in question.
     # DECAY FRACTION, and it is what closes the hole SKIP would otherwise leave.
     # docker/k0k1_check.py returns SKIP below its variance floor, and check_run.sh treats
     # SKIP as a pass -- so a boundary layer dead enough to fall under the floor gets NO
@@ -190,8 +226,23 @@ def verdict(rows):
     # e_res: healthy 0.87 (neutral) and 0.88 (convective), collapsed 0.076.
     decayed = (len(rows) >= 3 and emax.max() > LAMINAR
                and emax[-1] < E_DECAY * emax.max())
+    # "Developing" needs BOTH: at its own peak AND materially grown since the run began.
+    # At-peak alone is not enough, and the case that proves it is a DEAD-FLAT series --
+    # g16_flatsbl, a window launched from an already-collapsed restart, runs 4.597e-2 ->
+    # 4.548e-2 over its whole length (a 1% decline) while u* falls 0.164 -> 0.126. It sits
+    # at 98% of its own peak for the entire window and would be exempted as "developing".
+    # A run that is genuinely building climbs by orders of magnitude: the live warm-up
+    # went 0 -> 1.9e-2 in 25 minutes. Nothing sits between a factor of 20 and a factor of
+    # 0.99, so the 3x line is not a close call.
+    grown = len(rows) < 3 or emax[-1] > GROWTH * max(emax[0], LAMINAR)
+    at_peak = (len(rows) < 3 or emax[-1] >= AT_PEAK * emax.max()) and grown
     if last["e_max"] < LAMINAR and not decayed:
         return "SKIP", f"  turb-alive SKIP (undeveloped, e_res < {LAMINAR:g}): {tag}"
+    if (not decayed) and at_peak and last["e_over_uref2"] < E_FLOOR:
+        return "SKIP", (f"  turb-alive SKIP (still developing -- e_res is at "
+                        f"{100*emax[-1]/max(emax.max(),1e-30):.0f}% of its own running peak, "
+                        f"has grown {emax[-1]/max(emax[0], LAMINAR):.0f}x since the run "
+                        f"began, and is below the {E_FLOOR:.1e} floor): {tag}")
     msgs = []
     if decayed:
         msgs.append(f"resolved TKE has fallen to {100*emax[-1]/emax.max():.0f}% of the "
@@ -235,6 +286,15 @@ def main():
     ap.add_argument("dumps", nargs="+")
     ap.add_argument("--calibrate", action="store_true",
                     help="print every dump's metrics instead of a verdict")
+    ap.add_argument("--siblings", type=int, default=10,
+                    help="when given ONE dump, also read up to this many of its own run's "
+                         "earlier dumps, EVENLY SPACED ACROSS THE WHOLE RUN. "
+                         "docker/check_run.sh hands over only the newest dump, and a "
+                         "single dump cannot distinguish a layer that has not developed "
+                         "yet from one that has died. Spanning matters as much as "
+                         "sampling: the last 45 minutes of a run that died an hour ago are "
+                         "all post-collapse, so a tail window reads as a healthy plateau "
+                         "at 100% of its own peak. 0 disables.")
     ap.add_argument("--json", default=None)
     a = ap.parse_args()
 
@@ -251,6 +311,7 @@ def main():
         print("  turb-alive SKIP: no dumps matched", file=sys.stderr)
         return 0
 
+    paths = expand(paths, a.siblings)
     rows = scan(paths)
     if a.calibrate:
         print(f"  {'dump':<32}{'t_h':>7}{'u*':>9}{'U_ref':>8}{'e_max':>11}"
