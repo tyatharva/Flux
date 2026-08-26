@@ -40,13 +40,25 @@ done_ok=$(count "simulation is complete")
 [ "${done_ok:-0}" -eq 0 ] && { echo "  FAIL: no 'simulation is complete' banner"; fail=1; }
 
 # Standing checks on any dumps handed to us. BOTH run; neither substitutes for the other.
+SKIPPED=""
 if [ "$#" -gt 0 ]; then
-  "$(dirname "$0")/pyrun.sh" docker/k0k1_check.py "$@" || fail=1
-  "$(dirname "$0")/pyrun.sh" docker/turb_alive.py "$@" || fail=1
+  _k=$("$(dirname "$0")/pyrun.sh" docker/k0k1_check.py "$@" 2>&1); _rc=$?
+  echo "$_k"; [ "$_rc" -ne 0 ] && fail=1
+  case "$_k" in *"k0/k1 SKIP"*) SKIPPED="$SKIPPED k0/k1";; esac
+  _t=$("$(dirname "$0")/pyrun.sh" docker/turb_alive.py "$@" 2>&1); _rc=$?
+  echo "$_t"; [ "$_rc" -ne 0 ] && fail=1
+  case "$_t" in *"turb-alive SKIP"*) SKIPPED="$SKIPPED turbulence-alive";; esac
 fi
 
+# A SKIP IS NOT A PASS, AND THE BANNER USED TO SAY IT WAS. Observed live: a collapsed
+# stable segment produced `k0/k1 SKIP (turbulence undeveloped)` -- because the near-surface
+# variance had fallen BELOW the floor by dying -- and `turb-alive SKIP`, and this script
+# printed "RUN OK ... k0/k1 < 1, turbulence alive". Neither check had rendered a verdict.
+# The banner now names what was actually established.
+VERD="k0/k1 < 1, turbulence alive"
+[ -n "$SKIPPED" ] && VERD="but NO VERDICT from:$SKIPPED -- these established NOTHING"
 if [ "$fail" -eq 0 ]; then
-  echo "  RUN OK (exit 0, no CORRUPTED, no NaN/Inf, completion banner, k0/k1 < 1, turbulence alive)"
+  echo "  RUN OK (exit 0, no CORRUPTED, no NaN/Inf, completion banner, $VERD)"
 else
   echo "  >>> RUN REJECTED: $LOG"
 fi

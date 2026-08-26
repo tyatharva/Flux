@@ -99,6 +99,8 @@ import json
 import os
 import sys
 
+import re
+
 import numpy as np
 from netCDF4 import Dataset
 
@@ -180,14 +182,26 @@ def expand(paths, siblings=10):
     if len(paths) != 1 or siblings <= 0:
         return paths
     sibs = glob.glob(os.path.join(os.path.dirname(paths[0]) or ".", "*.[0-9]*"))
-    try:
-        sibs = sorted(sibs, key=lambda q: int(q.split(".")[-1]))
-        k = sibs.index(paths[0])
-        n = min(siblings, k)
-        idx = ([int(round(i * k / n)) for i in range(n)] if n > 0 else []) + [k]
-        return [sibs[i] for i in sorted(set(idx))]
-    except (ValueError, IndexError):
+    # TOLERANT PARSE, not a try/except around the whole sort. The previous version keyed
+    # the sort on int(q.split(".")[-1]) inside one try block, so a SINGLE unparseable name
+    # anywhere in the directory aborted the whole expansion and fell back to one dump --
+    # silently, and a single dump below the floor is exempted as "still developing".
+    # Observed live: a collapsed segment reported SKIP and check_run.sh printed
+    # "RUN OK ... turbulence alive". Files that do not parse are now skipped individually.
+    keyed = []
+    for q in sibs:
+        m = re.search(r"\.(\d+)$", q)
+        if m:
+            keyed.append((int(m.group(1)), q))
+    keyed.sort()
+    order = [q for _, q in keyed]
+    want = os.path.normpath(paths[0])
+    k = next((i for i, q in enumerate(order) if os.path.normpath(q) == want), None)
+    if k is None or k < 2:
         return paths
+    n = min(siblings, k)
+    idx = [int(round(i * k / n)) for i in range(n)] + [k]
+    return [order[i] for i in sorted(set(idx))]
 
 
 def verdict_for(path, siblings=10):
@@ -234,10 +248,25 @@ def verdict(rows):
     # A run that is genuinely building climbs by orders of magnitude: the live warm-up
     # went 0 -> 1.9e-2 in 25 minutes. Nothing sits between a factor of 20 and a factor of
     # 0.99, so the 3x line is not a close call.
-    grown = len(rows) < 3 or emax[-1] > GROWTH * max(emax[0], LAMINAR)
-    at_peak = (len(rows) < 3 or emax[-1] >= AT_PEAK * emax.max()) and grown
+    # NO SERIES = NO EXEMPTION. With fewer than three dumps there is no way to tell a
+    # layer that has not developed from one that has died, and granting the benefit of the
+    # doubt is what let a collapsed segment through as "still developing". A lone dump
+    # below the floor is INDETERMINATE, and the caller is told so.
+    if len(rows) < 3:
+        grown = at_peak = False
+    else:
+        grown = emax[-1] > GROWTH * max(emax[0], LAMINAR)
+        at_peak = emax[-1] >= AT_PEAK * emax.max() and grown
     if last["e_max"] < LAMINAR and not decayed:
         return "SKIP", f"  turb-alive SKIP (undeveloped, e_res < {LAMINAR:g}): {tag}"
+    if len(rows) < 3 and last["e_over_uref2"] < E_FLOOR:
+        return "INDETERMINATE", (
+            f"  turb-alive INDETERMINATE: only {len(rows)} dump(s) in scope and e_res is "
+            f"below the {E_FLOOR:.1e} floor.\n"
+            f"        A single dump cannot separate 'not developed yet' from 'already "
+            f"dead'.\n"
+            f"        Re-run against the whole series: turb_alive.py '<dir>/*.[0-9]*'\n"
+            f"        {tag}")
     if (not decayed) and at_peak and last["e_over_uref2"] < E_FLOOR:
         return "SKIP", (f"  turb-alive SKIP (still developing -- e_res is at "
                         f"{100*emax[-1]/max(emax.max(),1e-30):.0f}% of its own running peak, "
@@ -328,7 +357,8 @@ def main():
         os.makedirs(os.path.dirname(a.json) or ".", exist_ok=True)
         with open(a.json, "w") as fh:
             json.dump(dict(status=status, rows=rows), fh, indent=1)
-    return 1 if status == "FAIL" else 0
+    # INDETERMINATE is not a pass. It exits non-zero so a driver stops and looks.
+    return 1 if status in ("FAIL", "INDETERMINATE") else 0
 
 
 if __name__ == "__main__":
