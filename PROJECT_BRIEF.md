@@ -682,12 +682,28 @@ Evaluated and rejected. Re-proposing them wastes time.
   boundary layer has died. It is a `dt` check, not a physics check —
   `docker/turb_alive.py` is the physics check and now runs everywhere `k0/k1` runs.
 
-  **What follows for the corpus: stable is RESTRICTED, not excluded, and the bound is
-  measured.** 61-66% of this site's QC'd stable hours sit at `z/L <= 0.10`, weak enough
-  that a deeper layer resolves (`z_i/Delta` 27.7 against GABLS1's 28.8). The corpus keeps
-  those and refuses the rest, which costs **14-15% of the whole QC'd record**
-  (`bin/stable_fraction.py`, three independent sources). `bin/select_times.py --max-zol`
-  enforces it on the stable side only. Full evidence: **`STABLE_REGIME_RESULT.md`**.
+  **WEAKENING THE STRATIFICATION WAS TRIED AND FAILED, so stable is EXCLUDED.** A second
+  seed was built at the site's MEDIAN stable hour -- `z/L = 0.044`, `G = 10 m/s`,
+  `z_i/Delta` 27.7 against GABLS1's 28.8 -- and collapsed on the same timeline: `u*` to
+  40% of its own peak, resolved TKE to 5%, all seven limits failing.
+
+  **And it was not the cold-start failure the warm-up fixes.** Every decoupling signature
+  was absent -- `Ri_g` peaked at **0.043** against a critical 0.25, Ekman backing was
+  normal and increasing, the inversion was an ordinary 12 K/km rather than 2551, and the
+  flow aloft DEPARTED from geostrophic instead of pinning to it. The surface layer stayed
+  healthy while the height holding 95% of the column TKE ran **92 m -> 1825 m**: the
+  turbulence was not destroyed at the surface, it failed to be RESOLVED there.
+  `bin/sbl_diagnose.py` separates the two, and its control on the retired seed reports
+  *starved AND decoupled*, so it discriminates.
+
+  **What follows for the corpus: THERE ARE NO STABLE CASES**, `bin/select_times.py
+  --max-zol` defaults to **0.0**, and the `sbl` rung is deleted -- the library is 5 rungs
+  x 3 angles = **15 seeds, 43 GPU-h**. The cost is small in cases and large in reach:
+  day coverage falls only **80.4% -> 75.0%** (1370 cases from 1826 days), because
+  enumeration finds a usable hour on almost every day, but **stable is ~44% of QC'd hours
+  and the emulator is undefined there**. 26% of retained cases still fall outside
+  06-18 LST -- those are near-neutral or weakly unstable nights, NOT stable ones, and must
+  not be quoted as stable coverage. Full evidence: **`STABLE_REGIME_RESULT.md`**.
 - **AND THE SAME APPLIES TO ANY REGIME THE GATE HAS NOT RUN IN.**
   Checked 2026-08-25: `bin/run_pass6.sh` ran the well-mixed battery on `g16_flat`
   (neutral) and `g16_flatcbl` (convective) and on nothing else. The HRRR-forced corpus

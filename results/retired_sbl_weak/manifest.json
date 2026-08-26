@@ -1,13 +1,13 @@
 {
- "job": "seed_sbl-weak_a060",
+ "job": "seed_sbl-weak_a030",
  "rung": "sbl-weak",
  "regime": "stable",
- "base_angle_deg": 60.0,
+ "base_angle_deg": 30.0,
  "target": {
   "zi_m": 280.0,
   "wth_virtual": -0.012,
   "G": 10.0,
-  "G_dir_from_deg": 210.0
+  "G_dir_from_deg": 240.0
  },
  "run": {
   "dt": 0.01461988,

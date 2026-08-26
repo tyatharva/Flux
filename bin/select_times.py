@@ -91,11 +91,14 @@ def main():
     ap.add_argument("--zi-max", type=float, default=1200.0)
     ap.add_argument("--max-dzidt-rel", type=float, default=15.0,
                     help="percent per hour; screened INDEPENDENTLY of the z_i value")
-    ap.add_argument("--max-zol", type=float, default=0.10,
-                    help="reject stable hours above this z/L at 10 m. The grid cannot "
-                         "carry them: at z/L ~ 0.2 the Ozmidov scale falls to 1-3 Delta "
-                         "and the boundary layer laminarises (results/stable_regime.md). "
-                         "Unstable hours are never screened by this.")
+    ap.add_argument("--max-zol", type=float, default=0.0,
+                    help="reject stable hours above this z/L at 10 m. Default 0.0: the "
+                         "grid cannot carry ANY of them. Two seeds were run, at z/L 0.12 "
+                         "and 0.044, and both collapsed on the same timeline -- the "
+                         "Ozmidov scale is 6.9 Delta at the receptor even at 0.044, "
+                         "against 318 neutrally, so weakening the stratification does not "
+                         "reach the problem (STABLE_REGIME_RESULT.md). Unstable hours are "
+                         "never screened by this. Raise it only to re-measure the bound.")
     ap.add_argument("--out", default="results/selected_times.tsv")
     ap.add_argument("--report", default="results/time_selection.txt")
     a = ap.parse_args()

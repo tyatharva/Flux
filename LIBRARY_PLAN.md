@@ -811,11 +811,45 @@ buy**:
 | the collapsed rung | 150 m | 10.09 m | **14.9** |
 | **`sbl-weak`** | **~280 m** | 10.09 m | **27.7** |
 
-`sbl` therefore becomes **`sbl-weak`**: `G = 10 m/s`, `w'th' = -0.012` (unchanged), `z_i`
+`sbl` therefore became **`sbl-weak`**: `G = 10 m/s`, `w'th' = -0.012` (unchanged), `z_i`
 target 280 m, one neutral warm-up segment — placed at the site's MEDIAN stable hour rather
-than at the edge of the band, so a pass licenses the band and a failure is unambiguous.
-`bin/select_times.py --max-zol 0.10` enforces the same bound on case selection, stable side
-only. Full evidence: **`STABLE_REGIME_RESULT.md`**.
+than at the edge of the band, so a pass would license the band and a failure would be
+unambiguous.
+
+### It failed. Option 1 by elimination: stable is EXCLUDED — measured 2026-08-26
+
+`seed_sbl-weak_a030`, 3.0 simulated hours, fresh, at `z/L = 0.044`:
+
+| t (h) | `u*` | `z/L` | backing | `\|U-G\|` aloft | `Ri_g`@20 m | `dθ/dz`@2 m | `zTKE95` |
+|---|---|---|---|---|---|---|---|
+| 0.75 | 0.2794 | 0.074 | 8° | 0.0001 | −0.000 | −0.0 | **92 m** |
+| 1.50 | 0.3334 | **0.044** | 7° | 0.344 | 0.012 | 7.1 | 559 m |
+| 3.00 | **0.1848** | 0.253 | 21° | 0.467 | 0.043 | 12.4 | **1825 m** |
+
+`u*` at **40% of its own peak** and still falling at −40 %/h; resolved TKE at **5%** of
+its peak; all seven limits fail. **Halving `z/L` bought a slightly slower death.**
+
+**Not the cold-start fault.** `Ri_g` peaked at 0.043 against a critical 0.25, Ekman backing
+was normal and increasing, the inversion was an ordinary 12 K/km, and the flow aloft
+*departed* from geostrophic. The surface layer was healthy; the resolved energy drained
+upward. `bin/sbl_diagnose.py` scores both signatures and its control on the retired seed
+reports *starved **and** decoupled*, so it discriminates rather than labelling everything
+the same.
+
+**Consequences, all live in the code:**
+
+- `bin/select_times.py --max-zol` defaults to **0.0**. No stable cases.
+- The `sbl` rung is deleted: **5 rungs × 3 angles = 15 seeds, ~43 GPU-h** measured.
+- Corpus: **1370 cases from 1826 days**, 75.0% of days (was 80.4% with weak stable).
+- Convective share of selected cases rises 40.5% → **65.2%**.
+
+**State the reach limitation, not the count.** 44% of QC'd hours are stable and the
+emulator is undefined in all of them. Day coverage barely moves (−5.4 points) because a
+case is drawn from any acceptable hour of the day, and 26% of retained cases are still
+outside 06–18 LST — but those are near-neutral or weakly unstable nights and **must not be
+quoted as stable coverage**.
+
+Full evidence: **`STABLE_REGIME_RESULT.md`**.
 
 ---
 

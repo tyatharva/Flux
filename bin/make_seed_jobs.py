@@ -64,7 +64,9 @@ to overturn -- was only 1.0-3.2 x Delta through the layer, and the resolved frac
 sigma_w^2 at the receptor was 0.6% at 6 m and 4.0% at 14 m against 16-56% convectively.
 GABLS1 (Beare et al. 2006) runs that regime at dx = 6.25 m: 2.5x finer, 16x the cells.
 
-So the rung is moved to the WEAKLY stable end of the site's own record rather than deleted.
+MOVING THE RUNG TO THE WEAKLY STABLE END WAS TRIED, AND IT FAILED. The reasoning below is
+kept because it is why the attempt was worth making and because the measurements in it
+stand; the OUTCOME is that the stable rung is deleted. Read to the end of this section.
 Measured over three independent sources (bin/stable_fraction.py, results/stable_fraction.txt)
 the median stable hour at this tower sits at z/L = 0.056 (the tower's own H and sigma_w),
 0.063 (HRRR) and 0.071 (CONUS404), and 61-66% of QC'd stable hours are at z/L <= 0.10. The
@@ -85,9 +87,38 @@ against GABLS1's own 180 m / 6.25 m = 28.8. THE LAYER IS RESOLVED IN THE SAME RE
 SENSE THE CANONICAL STABLE BENCHMARK IS. The collapsed 150 m rung had z_i/Delta = 14.9,
 half of it. That ratio, not the absolute spacing, is what the grid has to buy.
 
-Note what this costs, and state it wherever the corpus is described: stable coverage is
-BOUNDED at z/L <= 0.10. That is 61-66% of QC'd stable hours, so roughly 14-15% of the
-site's whole QC'd record is stable-but-unrunnable and is excluded.
+=== AND THE MEASURED OUTCOME: IT COLLAPSED ANYWAY, ON THE SAME TIMELINE ===
+
+seed_sbl-weak_a030, 3.0 simulated hours, one neutral warm-up segment, z/L 0.044 at the
+receptor -- less than half the stratification of the run that collapsed before it:
+
+  t_h     u*     z/L   backing   |U-G| aloft   Ri_g@20m   dth/dz@2m   zTKE95
+  0.75  0.2794  0.074     8 deg      0.0001      -0.000        -0.0      92 m
+  1.50  0.3334  0.044     7 deg      0.3440       0.012         7.1     559 m
+  3.00  0.1848  0.253    21 deg      0.4670       0.043        12.4    1825 m
+
+u* ends at 40% of its own peak and still falling at -40 %/h; resolved TKE is at 5% of its
+peak. All seven stationarity limits fail.
+
+**And it is NOT the cold-start failure this file's warm-up was written to fix.** Ri_g
+peaked at 0.043 against a critical 0.25; the Ekman backing was normal and INCREASING; the
+inversion reached an ordinary 12 K/km rather than thousands; and the flow aloft DEPARTED
+from geostrophic instead of pinning to it. Every one of those says the surface layer was
+healthy. What moved was WHERE the energy sat: the height holding 95% of the column TKE ran
+92 m -> 1825 m. The turbulence was not destroyed by stratification at the surface; it
+failed to be RESOLVED there. bin/sbl_diagnose.py scores both signatures and this is the
+starvation one.
+
+So halving z/L bought a slightly slower death and nothing else, which is what the Ozmidov
+measurement predicted: 6.88 Delta at the receptor at z/L 0.044, against 3.57 at 0.12 and
+318 neutrally -- better, and still an order of magnitude short of a resolved band.
+
+**THE STABLE RUNG IS THEREFORE DELETED. The corpus contains no stable cases.** The library
+is 5 rungs x 3 base angles = 15 seeds. bin/select_times.py defaults to --max-zol 0.0.
+What it costs, measured: 44% of QC'd hours are stable, but only 5.4 points of DAY coverage
+(80.4% -> 75.0%), because enumeration finds a neutral or unstable hour on almost every day.
+The loss is a REGIME, not a sample size -- the emulator is undefined in stable conditions
+and must not be extrapolated into them. 26% of retained cases still fall outside 06-18 LST.
 
 === AND A STABLE RUNG CANNOT BE COLD-STARTED EITHER, WHICH WAS MEASURED THE HARD WAY ===
 
@@ -161,8 +192,16 @@ from sounding_to_forcing import derive_dt, les_levels, write_in
 # straddle the convective-midday reference (z_i p50 859 m, w'th' p50 0.109 sensible ->
 # 0.129 virtual at the cropland Bowen ratio).
 # name, regime, z_i target (m), virtual w'th' (K m/s), G (m/s), warm-up segments
+# THE STABLE RUNG IS GONE, BY MEASUREMENT. Two seeds were run and both collapsed:
+#   sbl      G=8,  w'th'=-0.012 (GABLS1's own regime), z/L ~ 0.12-0.21 -> dead by 2.3 h
+#   sbl-weak G=10, w'th'=-0.012, z/L ~ 0.044          -> dead by 3.0 h, same timeline
+# Halving the stratification bought nothing, and the second run's diagnosis says why:
+# Ri_g peaked at 0.043 against a critical 0.25, Ekman backing was normal and INCREASING,
+# the inversion was an ordinary 12 K/km and the flow aloft was DEPARTING from geostrophic.
+# The surface layer was healthy the whole way down. What failed is resolution -- the
+# Ozmidov scale is 6.9 Delta at the receptor even at z/L 0.044, against 318 neutrally --
+# so no forcing change reaches it. See STABLE_REGIME_RESULT.md.
 RUNGS = [
-    ("sbl-weak",    "stable",     280.0, -0.012, 10.0, 1),
     ("nbl-shallow", "neutral",    300.0,  0.000,  8.0, 0),
     ("nbl-deep",    "neutral",    550.0,  0.000, 12.0, 0),
     ("cbl-shallow", "convective", 450.0,  0.060,  7.0, 0),

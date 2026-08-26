@@ -11,9 +11,16 @@
 > **Every standing check passed while it died.** Finiteness, a clean `CORRUPTED` grep, and
 > `k0/k1` at **0.442** — a comfortable pass. `k0/k1` is a `dt` check, not a physics check.
 >
-> **The consequence is bounded, and the bound is measured.** 61–66% of this site's QC'd
-> stable hours sit at `z/L <= 0.10`, weak enough to carry, so the corpus keeps weakly
-> stable cases and excludes the rest. That costs **14–15% of the whole QC'd record**.
+> **Weakening the stratification was tried and did not work.** A second seed at half the
+> stability (`z/L = 0.044`, the *median* stable hour at this site) collapsed on the same
+> timeline, with every decoupling signature absent — `Ri_g` 0.043 against a critical 0.25,
+> normal Ekman backing, an ordinary 12 K/km inversion. The surface layer stayed healthy
+> while the resolved energy drained upward, 92 m → 1825 m.
+>
+> **So stable is excluded from the corpus.** The cost is smaller than it looks in cases and
+> larger than it looks in coverage: day coverage falls only **80.4% → 75.0%** (1370 cases
+> from 1826 days), because enumeration finds a usable hour on almost every day — but the
+> emulator is **undefined in stable conditions**, which is 44% of the site's QC'd hours.
 
 This is a methods-section finding, not a maintenance note. It belongs wherever the corpus
 is described, alongside the roughness-sublayer caveat and the retired sub-grid gate. The
@@ -218,28 +225,94 @@ the comparison is direct. 3.0 simulated hours, four chained segments under the 1
   its stable coverage as **bounded at `z/L <= 0.10`** rather than complete.
 - **Collapses too** → stable is excluded outright, and that is the result. No fourth respec.
 
+It collapsed. What follows is the second branch.
+
 **Judged on `docker/turb_alive.py`, not on the stationarity gate alone.** The two ask
 different questions and the stable case is exactly where they diverge: a layer can be
 drifting (gate FAIL) while perfectly turbulent, which is a usable seed run for longer, and
 it can be dead while `k0/k1` passes, which is not usable at all.
 
-<!-- RESULT -->
+### THE RESULT: it collapsed too. Stable is excluded.
+
+`seed_sbl-weak_a030`, 3.0 simulated hours, fresh (not resumed), one neutral warm-up
+segment. Artifacts in `results/retired_sbl_weak/`.
+
+| t (h) | `u*` | `z/L` | Ekman backing | `\|U-G\|` aloft | `Ri_g` @20 m | `dθ/dz` @2 m | `zTKE95` |
+|---|---|---|---|---|---|---|---|
+| 0.75 (cooling starts) | 0.2794 | 0.074 | 8° | 0.0001 | −0.000 | −0.0 | **92 m** |
+| 1.50 | 0.3334 | **0.044** | 7° | 0.344 | 0.012 | 7.1 | 559 m |
+| 3.00 | **0.1848** | 0.253 | 21° | 0.467 | 0.043 | 12.4 | **1825 m** |
+
+`u*` ends at **40% of its own peak** and still falling at −40 %/h; resolved TKE is at
+**5%** of its peak. All seven stationarity limits fail. **Halving the stratification bought
+a slightly slower death and nothing else.**
+
+**And this is NOT the cold-start failure the warm-up was written to fix.** Every
+decoupling signature is absent: `Ri_g` peaked at **0.043** against a critical 0.25, the
+Ekman backing was normal and *increasing*, the inversion reached an ordinary 12 K/km rather
+than the 2551 K/km of the cold-started run, and the flow aloft **departed** from geostrophic
+instead of pinning to it. The surface layer was healthy the whole way down.
+
+What moved was **where the energy sat**: the height holding 95% of the column TKE ran
+**92 m → 1825 m**. The turbulence was not destroyed by stratification at the surface; it
+failed to be *resolved* there, and what the TKE integral still counts is wave energy aloft.
+`bin/sbl_diagnose.py` scores both signatures; the control confirms it discriminates — run
+on the retired GABLS1-regime seed it reports *starved **and** decoupled* (`Ri_g` 0.198,
+flow pinned to 0.002 m/s of geostrophic). The two runs sit at different points on one road.
+
+**One alternative not excluded, stated.** A stably stratified periodic box with a 500 m
+Rayleigh sponge is also a configuration in which upward-propagating wave energy can
+accumulate rather than radiate away, and `zTKE95` reaching 1825 m in a 2500 m domain is
+consistent with that as well. The load-bearing evidence for starvation is not the energy
+aloft — it is the Ozmidov and resolved-fraction measurement **at the healthy dump**, which
+is independent of anything that happens later and above.
+
+**DECISION: stable is excluded from the corpus.** `bin/select_times.py --max-zol` defaults
+to **0.0**; the `sbl` rung is deleted and the library is **5 rungs × 3 base angles = 15
+seeds**.
+
+**What it costs, and the surprise is that it is small in cases and large in coverage:**
+
+| | with weak stable (`z/L ≤ 0.10`) | stable excluded (`z/L ≤ 0`) |
+|---|---|---|
+| days carrying a case | 80.4% | **75.0%** |
+| cases from 1826 days | 1469 | **1370** |
+| convective share of selected | 40.5% | **65.2%** |
+| stable / very-stable cases | 24 / 0 | **0 / 0** |
+
+**Only 5.4 points of day coverage**, because enumeration finds a neutral or unstable hour
+on almost every day — 44% of QC'd *hours* are stable, but they are not the only hours those
+days offer. **The loss is a regime, not a sample size.** The emulator will be undefined in
+stable conditions and must not be extrapolated into them. 18 of 69 retained cases (26%)
+still fall outside 06–18 LST, so the corpus is not purely daytime.
+
+**Not attempted: a third respec.** Two runs at a factor of ~3 apart in `z/L` died on the
+same timeline, and the mechanism measured at the healthy dump does not depend on the
+forcing. A third attempt chosen to obtain a pass would be tuning, not measurement.
 
 ---
 
 ## 7. Limitations text, ready to use
 
-> **Stable coverage is bounded.** The corpus contains stable cases only where `z/L <= 0.10`
-> at the 10 m receptor. At stronger stratification the Ozmidov scale falls to a few times
-> the LES filter width (`L_O/Delta = 3.6` at `z/L ~ 0.2`, against 318 neutrally), there is
-> no resolved turbulent band at the receptor, and the boundary layer laminarises within
-> about two simulated hours. The standard stable benchmark, GABLS1, runs that regime at
-> `dx = 6.25 m` — 17× the cells for this domain, which the corpus economics do not permit.
+> **The corpus contains no stable cases, and the emulator is undefined in stable
+> conditions.** At `dx = 16 m` with a 10 m receptor the Ozmidov scale — the largest eddy
+> stratification permits to overturn — is only 3.6 × the LES filter width at `z/L ~ 0.2`
+> and 6.9 × at `z/L ~ 0.04`, against 318 × in a neutral layer. There is no resolved
+> turbulent band at the receptor, and two independent seeds, a factor of three apart in
+> stratification, both lost their turbulence within about two simulated hours of the
+> cooling being applied. The failure is resolution, not forcing: in both runs the surface
+> layer stayed healthy (`Ri_g` well below critical, normal Ekman turning, an ordinary
+> surface inversion) while the resolved variance drained upward into internal waves. The
+> standard stable benchmark, GABLS1, runs this regime at `dx = 6.25 m` — 17× the cells for
+> this domain, which the corpus economics do not permit.
 >
-> Measured over three independent sources, **61–66% of this site's quality-controlled
-> stable hours fall inside the retained band**, so the exclusion removes **14–15% of the
-> whole QC'd record**. The excluded hours are the strongly stratified, low-`u*` nights;
-> the emulator is undefined there and should not be extrapolated into them.
+> **Stable conditions are ~44% of this site's quality-controlled hours**, so this is a
+> substantial restriction on where the emulator may be applied. It is a much smaller
+> restriction on the corpus itself: because a case is selected from any acceptable hour of
+> each day rather than from a fixed time, day coverage falls only from 80.4% to 75.0%
+> (1370 cases from 1826 days), and 26% of retained cases still fall outside 06–18 local
+> time. The model must not be extrapolated into stable conditions on the strength of that
+> nocturnal coverage — those hours are near-neutral or weakly unstable, not stable.
 >
 > This compounds with, and is separate from, the two standing near-field limitations: the
 > receptor may sit inside the roughness sublayer over the array, and the resolved fraction

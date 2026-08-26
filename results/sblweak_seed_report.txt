@@ -1,0 +1,54 @@
+=== seed seed_sbl-weak_a030: sbl-weak (stable), base angle 30 deg ===
+
+--- cost, against the projection the other 17 are budgeted on ---
+  738720 steps x dt 0.01461988 = 3.000 simulated hours
+  MEASURED off the dumps: 13.940 ms/step
+  from 37 dump mtimes, no pauses
+  planned                 14.900 ms/step   (-6.4%)
+  implied wall for the whole chain 2.860 h
+  wall-to-sim ratio 0.953 GPU-h per simulated hour   (projection 1.02, i.e. -6.5%)
+  per segment 42.9 min (cap 60; planner projected 45.9)
+  the library at this rate: 18 x 2.86 h = 51.5 GPU-h  (projected 52)
+
+--- the seven stationarity limits, scored on the last 1.5 h ---
+  quantity                            mean      trend   limit    used  verdict
+  TKE/u*^2                          0.3598   -134.05%     5.0   2681%  DRIFTING
+  z_i                            1202.4174    +48.87%     3.0   1629%  DRIFTING
+  sigma_v/u*                        1.4556    -23.92%     3.0    797%  DRIFTING
+  U/u* (Kljun Pi_4)                11.8028     +5.70%     1.0    570%  DRIFTING
+  Kljun x_peak                     41.5229     +4.91%     1.0    491%  DRIFTING
+  Kljun x90                       557.3313     +4.01%     1.0    401%  DRIFTING
+  sigma_w/u* at the receptor        1.3265     -1.31%     2.0     66%  ok
+  ALL SEVEN: FAIL
+  BINDS LAST: TKE/u*^2 at 2681% of its limit (-134.05 %/h against 5.0)
+  reported, not gated: u* -40.12 %/h, U(10 m) -33.81 %/h, wind direction -8.82 %/h, domain TKE -206.12 %/h
+
+--- is the stable boundary layer still turbulent? ---
+  column-integrated TKE 0.000 -> 6.978 m3/s2; trend over the last half -172.1 %/h
+  u* 0.0000 -> 0.1848 m/s   (min over the run 0.0000)
+  FAIL: TURBULENCE IS NOT ALIVE in jobs/seed_sbl-weak_a030/output/FE_SEED.738720
+  - resolved TKE has fallen to 5% of the run's own peak, under 25% -- the turbulence is dying, not developing
+  - resolved TKE 4.98e-04 U_ref^2 is below the 2.0e-03 floor -- the layer is not turbulent
+  - u* trending -40.1 %/h, past the -35 %/h limit -- u* is collapsing
+  - final u* is 40% of the run's own peak, under 50% -- u* has collapsed
+  max e_res/U_ref^2=4.98e-04 at k=15  u*=0.1848  U_ref=10.02  (e_res/u*^2=1.46, reported only)  u* trend -40.1 %/h, final/peak 40%
+  NOTE k0/k1 can still PASS here: it is a dt check, not a
+  physics check. It read 0.442 on a fully collapsed SBL.
+  TURBULENCE ALIVE: FAIL  -- this state is not a usable seed
+  k0/k1 at the last dump 0.111   (must be < 1; ~9 means dt too large)
+    ^ note this passed at 0.442 on a FULLY COLLAPSED SBL. k0/k1 is a dt check;
+      the line above it is the physics check. Read both.
+
+--- achieved vs asked ---
+  the manifest carries no `achieved` block
+
+--- what comes home ---
+  manifest.json                  0.00 MB
+  seed.log                       0.12 MB
+  seg1.log                       0.03 MB
+  seg2.log                       0.05 MB
+  seg3.log                       0.05 MB
+  seg4.log                       0.05 MB
+  stationarity.json              0.00 MB
+  stationarity.txt               0.00 MB
+  return/ total 0.3 MB
