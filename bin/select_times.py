@@ -39,6 +39,9 @@ from collections import Counter, defaultdict
 
 import numpy as np
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from stable_fraction import ustar_from_wind, zeta_from_ustar   # noqa: E402
+
 VONK, G, Z0 = 0.4, 9.81, 0.1435
 RHO_CP = 1.15 * 1004.5          # W/m^2 -> K m/s
 DIR_SECTORS = 12                # 30 deg, matching the seed library's 12 headings
@@ -55,13 +58,26 @@ def classify(zi, shtfl, wspd, wdir, zm=10.0):
     """(direction sector, stability class, z_i bin) for one candidate hour.
 
     u* is a surface-layer estimate from the 10 m wind and the domain z0 -- good to ~20%
-    and used ONLY to order candidates into bins. Every quantity the corpus records comes
-    off the LES itself; nothing here reaches a training record.
+    and used ONLY to order candidates into bins and to apply the stability screen. Every
+    quantity the corpus RECORDS comes off the LES itself; nothing here reaches a training
+    record.
+
+    THE NEUTRAL LOG LAW IS NOT GOOD ENOUGH HERE, and it used to be what this did. At a
+    given wind, inverting neutrally OVERSTATES u*, which UNDERSTATES z/L -- and z/L is now
+    a screen, not just a bin label, so that bias would quietly wave through exactly the
+    strongly stable hours the screen exists to reject. bin/stable_fraction.py's
+    ustar_from_wind solves the stability-corrected log law instead, and returns NaN where
+    it has no solution at all: the classical surface-layer cutoff, which is the same set of
+    hours by another name. NaN is mapped to the very-stable class, never to 0.
     """
-    ust = VONK * max(wspd, 0.05) / np.log(zm / Z0)
     wth = shtfl / RHO_CP
-    L = (-ust ** 3 * 290.0 / (VONK * G * wth)) if abs(wth) > 1e-5 else np.inf
-    zoL = (zm / L) if np.isfinite(L) and L != 0 else 0.0
+    ust = float(ustar_from_wind(np.asarray(max(wspd, 0.05)), np.asarray(wth), zm))
+    if not np.isfinite(ust) or ust <= 0.0:
+        zoL = np.inf if wth < 0 else 0.0
+    else:
+        zoL = float(zeta_from_ustar(np.asarray(ust), np.asarray(wth), zm))
+    if not np.isfinite(zoL):
+        zoL = np.inf if wth < 0 else 0.0
     d = int(((wdir + 180.0 / DIR_SECTORS) % 360.0) // (360.0 / DIR_SECTORS))
     s = int(np.searchsorted(STAB_EDGES, zoL, side="right") - 1)
     z = int(np.searchsorted(ZI_EDGES, zi, side="right") - 1)
@@ -75,6 +91,11 @@ def main():
     ap.add_argument("--zi-max", type=float, default=1200.0)
     ap.add_argument("--max-dzidt-rel", type=float, default=15.0,
                     help="percent per hour; screened INDEPENDENTLY of the z_i value")
+    ap.add_argument("--max-zol", type=float, default=0.10,
+                    help="reject stable hours above this z/L at 10 m. The grid cannot "
+                         "carry them: at z/L ~ 0.2 the Ozmidov scale falls to 1-3 Delta "
+                         "and the boundary layer laminarises (results/stable_regime.md). "
+                         "Unstable hours are never screened by this.")
     ap.add_argument("--out", default="results/selected_times.tsv")
     ap.add_argument("--report", default="results/time_selection.txt")
     a = ap.parse_args()
@@ -100,11 +121,14 @@ def main():
     days = sorted(by_day)
 
     for r in rows:
+        cl = classify(r["zi"], r["shtfl"], r["wspd"], r["wdir"])
+        r["cell"], r["zoL"] = cl[:3], cl[3]
         r["ok_zi"] = a.zi_min <= r["zi"] <= a.zi_max
         r["ok_dz"] = abs(r["dzidt_rel"]) <= a.max_dzidt_rel
-        r["valid"] = r["ok_zi"] and r["ok_dz"]
-        r["cell"] = classify(r["zi"], r["shtfl"], r["wspd"], r["wdir"])[:3]
-        r["zoL"] = classify(r["zi"], r["shtfl"], r["wspd"], r["wdir"])[3]
+        # THE THIRD SCREEN, and it is one-sided on purpose. A convective hour is never
+        # rejected for being convective; only the stable side has a resolution ceiling.
+        r["ok_zl"] = r["zoL"] <= a.max_zol
+        r["valid"] = r["ok_zi"] and r["ok_dz"] and r["ok_zl"]
 
     counts = Counter()
     picked, empty, empty_reason = [], [], Counter()
@@ -113,8 +137,11 @@ def main():
         if not cand:
             empty.append(d)
             any_zi = any(r["ok_zi"] for r in by_day[d])
+            any_zl = any(r["ok_zi"] and r["ok_zl"] for r in by_day[d])
             empty_reason["no hour with an acceptable z_i" if not any_zi
-                         else "z_i acceptable somewhere, but never stationary enough"] += 1
+                         else ("z_i ok somewhere, but every such hour is too stable to run"
+                               if not any_zl
+                               else "z_i and z/L ok somewhere, but never stationary enough")] += 1
             continue
         # deterministic: thinnest cell, then most stationary, then earliest hour
         cand.sort(key=lambda r: (counts[r["cell"]], abs(r["dzidt_rel"]), r["hour"]))
@@ -137,10 +164,13 @@ def main():
     nv = sum(r["valid"] for r in rows)
     p(f"Time selection from {len(rows)} candidate hours over {len(days)} day(s)")
     p(f"  screens: {a.zi_min:.0f} m <= z_i <= {a.zi_max:.0f} m, "
-      f"|dz_i/dt| <= {a.max_dzidt_rel:.0f} %/h")
+      f"|dz_i/dt| <= {a.max_dzidt_rel:.0f} %/h, z/L <= {a.max_zol:.2f} (stable side only)")
     p(f"  candidate hours valid: {nv}/{len(rows)} = {100*nv/len(rows):.1f}%")
     p(f"    z_i out of range        : {sum(not r['ok_zi'] for r in rows):5d}")
-    p(f"    z_i ok but drifting fast: {sum(r['ok_zi'] and not r['ok_dz'] for r in rows):5d}"
+    p(f"    z_i ok, too stable to run: {sum(r['ok_zi'] and not r['ok_zl'] for r in rows):4d}"
+      f"   <-- the resolution ceiling; z/L > {a.max_zol:.2f} laminarises at dx = 16 m")
+    p(f"    z_i+z/L ok but drifting  : "
+      f"{sum(r['ok_zi'] and r['ok_zl'] and not r['ok_dz'] for r in rows):5d}"
       f"   <-- the transition-bias screen; these would all be morning/evening")
     p("")
     p(f"  DAYS WITH A CASE : {len(picked)}/{len(days)} = {100*len(picked)/len(days):.1f}%")
@@ -156,6 +186,65 @@ def main():
     for h in range(24):
         n = hh.get(h, 0)
         p(f"  {h:02d}Z {n:4d} |{'#' * int(round(40 * n / mx))}")
+    p("")
+    p("=== TIME-OF-DAY SKEW: is the daytime convective population being thinned? ===")
+    p("  Stationarity is the binding screen now, and it rejects the morning and evening")
+    p("  transitions hardest. The convective midday is where the array's flux signal")
+    p("  lives, so a screen that quietly ate it would be the worst possible failure --")
+    p("  and it would look like a healthy 24-hour histogram while doing it.")
+    p("")
+    p("  LOCAL STANDARD TIME (UTC-6). Acceptance of every CANDIDATE hour, by local hour:")
+    p(f"  {'LST':>5}{'cand':>7}{'z_i ok':>9}{'z/L ok':>9}{'dz/dt ok':>10}"
+      f"{'ALL':>8}{'accept':>9}   {'convective share of candidates':<32}")
+    for lh in range(24):
+        sub = [r for r in rows if (r["hour"] - 6) % 24 == lh]
+        if not sub:
+            continue
+        n = len(sub)
+        nzi = sum(r["ok_zi"] for r in sub)
+        nzl = sum(r["ok_zl"] for r in sub)
+        ndz = sum(r["ok_dz"] for r in sub)
+        nok = sum(r["valid"] for r in sub)
+        nconv = sum(1 for r in sub if r["zoL"] < -0.02)
+        p(f"  {lh:02d}h {n:6d}{100*nzi/n:8.0f}%{100*nzl/n:8.0f}%{100*ndz/n:9.0f}%"
+          f"{nok:8d}{100*nok/n:8.0f}%   {'#' * int(round(32 * nconv / n))}")
+    p("")
+    # THE ACTUAL TEST. Not "does the histogram span 24 h" -- it does, and that is not
+    # evidence. The question is whether the CONVECTIVE hours survive the screens at the
+    # same rate as everything else, and whether the SELECTED set is convective in at
+    # least the proportion the underlying record is.
+    conv = [r for r in rows if r["zoL"] < -0.02]
+    nonc = [r for r in rows if r["zoL"] >= -0.02]
+    mid = [r for r in conv if 10 <= (r["hour"] - 6) % 24 <= 16]
+    def rate(x):
+        return 100.0 * sum(r["valid"] for r in x) / max(len(x), 1)
+    p(f"  screen acceptance, convective (z/L < -0.02)      : {rate(conv):5.1f}%  "
+      f"({sum(r['valid'] for r in conv)}/{len(conv)})")
+    p(f"  screen acceptance, everything else               : {rate(nonc):5.1f}%  "
+      f"({sum(r['valid'] for r in nonc)}/{len(nonc)})")
+    p(f"  screen acceptance, CONVECTIVE MIDDAY (10-16 LST) : {rate(mid):5.1f}%  "
+      f"({sum(r['valid'] for r in mid)}/{len(mid)})")
+    p("")
+    pop_conv = 100.0 * len(conv) / max(len(rows), 1)
+    sel_conv = 100.0 * sum(1 for r in picked if r["zoL"] < -0.02) / max(len(picked), 1)
+    val_conv = (100.0 * sum(1 for r in rows if r["valid"] and r["zoL"] < -0.02)
+                / max(nv, 1))
+    p(f"  convective share of ALL candidate hours   : {pop_conv:5.1f}%")
+    p(f"  convective share of VALID candidate hours : {val_conv:5.1f}%")
+    p(f"  convective share of SELECTED cases        : {sel_conv:5.1f}%")
+    verdict = ("NOT THINNED -- selection is convective-richer than the record"
+               if sel_conv >= pop_conv else
+               f"THINNED by {pop_conv - sel_conv:.1f} points -- investigate")
+    p(f"  VERDICT: {verdict}")
+    p("")
+    p("  local-hour histogram of SELECTED cases (LST):")
+    lh_sel = Counter((r["hour"] - 6) % 24 for r in picked)
+    mxl = max(lh_sel.values()) if lh_sel else 1
+    for lh in range(24):
+        n = lh_sel.get(lh, 0)
+        night = " " if 6 <= lh <= 18 else "*"
+        p(f"  {lh:02d}h{night}{n:4d} |{'#' * int(round(36 * n / mxl))}")
+    p("       (* = outside 06-18 LST)")
     p("")
     p("=== coverage: direction x stability (cases) ===")
     p(f"  {'':>6}" + "".join(f"{s:>12}" for s in STAB_NAMES) + f"{'total':>8}")

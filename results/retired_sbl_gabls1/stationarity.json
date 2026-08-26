@@ -1,0 +1,94 @@
+{
+ "label": "seed_sbl_a030",
+ "pass": false,
+ "dt": 0.01461988,
+ "wth": -0.012,
+ "score_h": 1.5,
+ "n_dumps": 37,
+ "t_end_h": 2.9999993760000003,
+ "gated": [
+  {
+   "name": "U/u* (Kljun Pi_4)",
+   "mean": 17.966018279206757,
+   "trend_pct_per_h": 68.06812475381506,
+   "limit": 1.0,
+   "ok": false
+  },
+  {
+   "name": "sigma_v/u*",
+   "mean": 1.9722786732388509,
+   "trend_pct_per_h": 36.37338911545582,
+   "limit": 3.0,
+   "ok": false
+  },
+  {
+   "name": "sigma_w/u* at the receptor",
+   "mean": 1.3769465142736572,
+   "trend_pct_per_h": 7.463329460893521,
+   "limit": 2.0,
+   "ok": false
+  },
+  {
+   "name": "TKE/u*^2",
+   "mean": 0.6536879950966641,
+   "trend_pct_per_h": 21.717194709293953,
+   "limit": 5.0,
+   "ok": false
+  },
+  {
+   "name": "z_i",
+   "mean": 387.08049734015214,
+   "trend_pct_per_h": -34.56030546348961,
+   "limit": 3.0,
+   "ok": false
+  },
+  {
+   "name": "Kljun x_peak",
+   "mean": 64.73489191974784,
+   "trend_pct_per_h": 69.89183964867742,
+   "limit": 1.0,
+   "ok": false
+  },
+  {
+   "name": "Kljun x90",
+   "mean": 769.8891519650514,
+   "trend_pct_per_h": 52.723901047581805,
+   "limit": 1.0,
+   "ok": false
+  }
+ ],
+ "reported": [
+  {
+   "name": "u*",
+   "mean": 0.14639769277073886,
+   "trend_pct_per_h": -75.49314803265926
+  },
+  {
+   "name": "U(10 m)",
+   "mean": 2.327290590933923,
+   "trend_pct_per_h": -5.812815132405755
+  },
+  {
+   "name": "wind direction",
+   "mean": 215.57076742478253,
+   "trend_pct_per_h": -9.699803549972854
+  },
+  {
+   "name": "domain TKE",
+   "mean": 0.01490641737214538,
+   "trend_pct_per_h": -149.86817237628165
+  }
+ ],
+ "final": {
+  "ustar": 0.09843686529808397,
+  "U": 2.4134335628004107,
+  "zi": 387.08049734015214,
+  "wdir": 200.22992237169984,
+  "sigma_v": 0.22546862062153158,
+  "sigma_w": 0.1404822024440722,
+  "theta0": 296.97348417155496,
+  "x_peak": 89.81929183533026,
+  "x90": 993.2658701683522
+ },
+ "last_dump": "FE_SEED.738720"
+}

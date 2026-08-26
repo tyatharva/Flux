@@ -52,7 +52,44 @@ GABLS1's own depth to 186 m against an observed 175-200.
 -0.006 and p5 at -0.027, so the original -0.020 sat near the 10th percentile -- an
 unusually strong cooling night -- while -0.012 is an ordinary one.
 
-=== AND A STABLE RUNG CANNOT BE COLD-STARTED, WHICH WAS MEASURED THE HARD WAY ===
+=== AND THE STABLE RUNG IS RESTRICTED TO WEAK STABILITY, BY MEASUREMENT ===
+
+The spec above (G = 8, w'th' = -0.012, z_i 150 m) IS GABLS1's regime, and at dx = 16 m it
+does not survive. It ran healthy for 1.75 simulated hours -- u* 0.20-0.24, z/L 0.12-0.21,
+Ri_g 0.03-0.05, a proper Ekman profile -- and then collapsed to u* 0.098 and z/L +2.67.
+
+The cause is RESOLUTION and it was measured at the HEALTHY dump, not inferred from the
+collapse: the Ozmidov scale L_O = sqrt(eps/N^3) -- the largest eddy stratification permits
+to overturn -- was only 1.0-3.2 x Delta through the layer, and the resolved fraction of
+sigma_w^2 at the receptor was 0.6% at 6 m and 4.0% at 14 m against 16-56% convectively.
+GABLS1 (Beare et al. 2006) runs that regime at dx = 6.25 m: 2.5x finer, 16x the cells.
+
+So the rung is moved to the WEAKLY stable end of the site's own record rather than deleted.
+Measured over three independent sources (bin/stable_fraction.py, results/stable_fraction.txt)
+the median stable hour at this tower sits at z/L = 0.056 (the tower's own H and sigma_w),
+0.063 (HRRR) and 0.071 (CONUS404), and 61-66% of QC'd stable hours are at z/L <= 0.10. The
+rung is placed at that median, not at the edge of the band, so a PASS licenses the band and
+a FAIL is unambiguous.
+
+    G = 10 m/s, w'th' = -0.012 K m/s  ->  u* ~ 0.30, z/L(10 m) ~ 0.06
+
+and the flux is left at -0.012 rather than weakened. RAISING G IS THE BETTER KNOB, and the
+reason is the failure mode: z/L falls as u*^-3 while eps rises as u*^3, so more wind buys
+weaker stratification AND a larger Ozmidov scale at the same time, where a weaker flux buys
+only the first. It also deepens the layer, since z_i = 0.4 sqrt(u* L/f) and L ~ u*^3 make
+z_i ~ u*^2:
+
+    z_i = 0.4 sqrt(0.30 * 162 / 9.94e-5) = 280 m      ->   z_i/Delta = 27.7
+
+against GABLS1's own 180 m / 6.25 m = 28.8. THE LAYER IS RESOLVED IN THE SAME RELATIVE
+SENSE THE CANONICAL STABLE BENCHMARK IS. The collapsed 150 m rung had z_i/Delta = 14.9,
+half of it. That ratio, not the absolute spacing, is what the grid has to buy.
+
+Note what this costs, and state it wherever the corpus is described: stable coverage is
+BOUNDED at z/L <= 0.10. That is 61-66% of QC'd stable hours, so roughly 14-15% of the
+site's whole QC'd record is stable-but-unrunnable and is excluded.
+
+=== AND A STABLE RUNG CANNOT BE COLD-STARTED EITHER, WHICH WAS MEASURED THE HARD WAY ===
 
 `sbl` at G = 6 m/s with w'th' = -0.020 K m/s was cold-started for 1.25 simulated hours and
 COLLAPSED. Measured at the end: u* fell 0.219 -> 0.043 m/s, z_i 209 -> 61 m, the receptor
@@ -125,7 +162,7 @@ from sounding_to_forcing import derive_dt, les_levels, write_in
 # 0.129 virtual at the cropland Bowen ratio).
 # name, regime, z_i target (m), virtual w'th' (K m/s), G (m/s), warm-up segments
 RUNGS = [
-    ("sbl",         "stable",     150.0, -0.012,  8.0, 1),
+    ("sbl-weak",    "stable",     280.0, -0.012, 10.0, 1),
     ("nbl-shallow", "neutral",    300.0,  0.000,  8.0, 0),
     ("nbl-deep",    "neutral",    550.0,  0.000, 12.0, 0),
     ("cbl-shallow", "convective", 450.0,  0.060,  7.0, 0),

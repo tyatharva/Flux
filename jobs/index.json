@@ -23,14 +23,14 @@
  ],
  "jobs": [
   {
-   "job": "seed_sbl_a000",
-   "rung": "sbl",
+   "job": "seed_sbl-weak_a000",
+   "rung": "sbl-weak",
    "regime": "stable",
    "base_angle_deg": 0.0,
    "target": {
-    "zi_m": 150.0,
+    "zi_m": 280.0,
     "wth_virtual": -0.012,
-    "G": 8.0,
+    "G": 10.0,
     "G_dir_from_deg": 270.0
    },
    "run": {
@@ -60,14 +60,14 @@
    "reproducibility": "FastEddy is not bitwise reproducible run-to-run on one GPU (~1e-4 relative in velocity), and will not be across different physical GPUs either. Seeds are turbulence realisations; do not diff two of them."
   },
   {
-   "job": "seed_sbl_a030",
-   "rung": "sbl",
+   "job": "seed_sbl-weak_a030",
+   "rung": "sbl-weak",
    "regime": "stable",
    "base_angle_deg": 30.0,
    "target": {
-    "zi_m": 150.0,
+    "zi_m": 280.0,
     "wth_virtual": -0.012,
-    "G": 8.0,
+    "G": 10.0,
     "G_dir_from_deg": 240.0
    },
    "run": {
@@ -97,14 +97,14 @@
    "reproducibility": "FastEddy is not bitwise reproducible run-to-run on one GPU (~1e-4 relative in velocity), and will not be across different physical GPUs either. Seeds are turbulence realisations; do not diff two of them."
   },
   {
-   "job": "seed_sbl_a060",
-   "rung": "sbl",
+   "job": "seed_sbl-weak_a060",
+   "rung": "sbl-weak",
    "regime": "stable",
    "base_angle_deg": 60.0,
    "target": {
-    "zi_m": 150.0,
+    "zi_m": 280.0,
     "wth_virtual": -0.012,
-    "G": 8.0,
+    "G": 10.0,
     "G_dir_from_deg": 210.0
    },
    "run": {
