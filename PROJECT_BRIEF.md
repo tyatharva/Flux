@@ -620,6 +620,26 @@ Backward LPDM, run offline on saved FastEddy output.
   spread, and the only level that ever exceeded 3e-2 was `z = 2 m`, where `ww = 0.0013`
   and the field's own block SE is **8.1%**. Everywhere else the two rotations agree to
   **0.001-0.015%**. The reframing is not a loosening: it is what located the problem.
+- **A TOLERANCE MUST BE THE SIZE OF THE FAILURE IT IS LOOKING FOR, NOT THE SMALLEST
+  NUMBER YOU CAN WRITE DOWN.** `--strict-rel` exists to catch losing a DUMP off the head of
+  a window -- 5 s at the production cadence -- and it scored against `1e-6` s. `dt` is
+  carried in the `.in` to 8 decimals, so `frqOutput*dt` is 5 s only to `1.04e-6`, and over
+  840 dumps that makes the production release period **1799.99950 s** instead of 1800. The
+  guard therefore failed the production configuration on **half a millisecond**, at stage
+  7, after 74 minutes of GPU, with the fields already on disk. One lost dump exceeds that
+  deficit by a factor of **10,016**; the tolerance is now one tenth of the measured output
+  interval. This is the bullet below with the sign flipped -- there the constant was too
+  LOOSE and hid a real effect; here it was too TIGHT and rejected a correct run -- and both
+  come from picking a number instead of deriving one. `FASTEDDY_TRAPS.md` §18b.
+  **Corollary: print the margin on SUCCESS too.** A configuration designed to sit at zero
+  margin leaves no evidence of how close it came unless the passing path says so.
+- **ONE RUN PER DIRECTORY, OR IT IS NOT A SERIES.** FastEddy names a dump
+  `<outFileBase>.<step>`, so a directory that has held two runs holds two families with
+  OVERLAPPING step numbers -- and sorting the union on the step alone interleaves them into
+  a "history" that has two different states at the same time. Four seed job output
+  directories still held an August smoke test's `FE_SMOKE.0` and `.20520` alongside the
+  real run's `FE_SEED.0` and `.20520`. Every glob of a dump directory, and every expansion
+  of "the siblings of this dump", now filters on one base name. `FASTEDDY_TRAPS.md` §18c.
 - **A TOLERANCE MEASURED FROM ONE DIFFERENCE IS NOT A TOLERANCE.** A gate that scores a
   result against a single half-vs-half difference is comparing against a statistic with
   ONE degree of freedom, whose own sampling error is of the same size as the thing it is

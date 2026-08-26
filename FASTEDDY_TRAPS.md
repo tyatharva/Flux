@@ -581,3 +581,99 @@ value that segment was supposed to run with, and fails the job if they disagree.
 The general form: **any FastEddy parameter that is also an IO-registered field is a
 restart-file property, not an `.in` property.** `z0m`, `z0t`, `tskin`, `topoPos` and
 `zPos` are in the same category.
+
+---
+
+## 18. Retiring the chain removed §17's mechanism and created four of our own
+
+Chaining was retired on 2026-08-26: a seed and a target case are each ONE continuous
+FastEddy invocation, and the only restart left in the project is seed -> target. That
+deletes §17 **structurally** rather than by assertion — there is no longer a segment
+boundary at which an IO-registered field can be silently inherited.
+
+What it did not delete is the class of mistake. **Four defects were introduced or exposed
+by the change, all in our own drivers, and none of them had ever been executed**: the
+corpus dry run stops after stage 4, so stages 5-8 had not run since the change. Each was
+found by walking the pass path deliberately rather than by a failure, and each would have
+produced either a dead run or a plausible wrong number.
+
+### 18a. `run_window.sh` deleted its own input restart
+
+```bash
+rm -f "$D"/window/* "$D"/FE_RST.*      # <- deletes the restart
+cp -f "$RST" "$D/FE_RST.0" || die ...  # <- then copies it from itself
+```
+
+`bin/run_corpus_case.sh` stages the seed-derived restart at `$D/FE_RST.0` and passes that
+path in as `$RST`. Before unchaining, `$RST` was the ADJUSTMENT RUN's final dump, in a
+different directory, and could not collide with the destination. Afterwards it is the same
+file, so the stale-clean removes it and the copy fails. The case dies before FastEddy is
+launched — loud, but only if you run it.
+
+**Fix:** the staging is a no-op when `readlink -f` says the two paths are the same file,
+and the result is asserted with `[ -s ... ]` either way.
+
+### 18b. `--strict-rel` failed the production configuration on half a millisecond
+
+The guard exists to catch losing a DUMP off the head of the window — 5 s at the production
+cadence — and it scored against a tolerance of `1e-6` s.
+
+`dt` is carried in the `.in` to 8 decimals (`0.01461988`), so `frqOutput * dt` is 5 s only
+to `1.04e-6`. Over the 840 dumps of a 4200 s case that accumulates:
+
+| quantity | value |
+|---|---|
+| `fs.t[0]` (step 123120) | 1799.9996256 s |
+| `t_last` (step 287280) | 4199.9991264 s |
+| release period achieved | **1799.9995008 s** |
+| deficit against 1800 | **4.99e-4 s** |
+| one lost dump would be | 5 s = **10,016x** the deficit |
+
+So the production case raised `ValueError` at **stage 7**, after 74 minutes of GPU, with
+the fields already on disk, on a rounding artifact.
+
+**Fix:** the tolerance is one tenth of the measured output interval — 0.5 s here — which
+separates a missing dump from `dt` rounding by four orders of magnitude on both sides. The
+achieved margin is now printed on SUCCESS too: this configuration is designed to sit at
+exactly zero margin, and a guard that only speaks when it fires leaves no evidence of how
+close a run came.
+
+**The general form is worth more than the fix.** *A tolerance must be the size of the
+failure it is looking for, not the size of the smallest number you can write down.* This
+project already has the mirror-image lesson recorded in PROJECT_BRIEF.md — scoring a second moment
+against an arbitrary 3e-2 instead of against its own sampling spread — and this is the same
+error with the sign flipped.
+
+### 18c. Two runs in one directory make a series that holds two states at the same time
+
+FastEddy names a dump `<outFileBase>.<step>`. `bin/seed_stationarity.py` was handed a
+DIRECTORY and globbed `*.[0-9]*`, sorting on the step number with no test that the dumps
+came from one run. Four seed job output directories still held `FE_SMOKE.0` and
+`FE_SMOKE.20520` from an August smoke test; the real run writes `FE_SEED.0` and
+`FE_SEED.20520`. Sorting the union by step interleaves them into a "history" containing two
+different states at t = 0 and two more at t = 300 s — and reports a stationarity verdict on
+it.
+
+`docker/turb_alive.py`, `docker/k0k1_check.py` and `bin/ozmidov.py` expanded "the siblings
+in this directory" the same way. `k0k1_check.py`'s docstring already said *"or any sibling
+of the same run"* and did not enforce it.
+
+**Fix:** the smoke dumps are moved aside, mixed families are refused by name with both
+listed, and every sibling expansion filters on the anchor dump's own base name.
+
+### 18d. A seed that FAILED its gate was selectable, because the verdict is stamped last
+
+`jobs/run_seed.sh` writes `achieved` into the return manifest as its LAST step. A job that
+died after the gate and before that stamp leaves a manifest with **no verdict at all** —
+and `bin/pick_seed.py` tested only `achieved.pass is False`, so such a job read as
+*unjudged* rather than as *failed* and was ranked normally.
+
+Live: `seed_sbl-weak_a030` — the weakly-stable seed whose collapse is the entire subject of
+`STABLE_REGIME_RESULT.md`, whose `return/stationarity.json` says `pass: false`, whose
+manifest says nothing, and which `pick_seed.py` returned as the best available seed in the
+library.
+
+**Fix:** the verdict is read from the gate's own JSON; the manifest is a convenience, not
+the record. A return directory with neither a verdict nor a restart is reported as an
+UNFINISHED JOB rather than falling back to its index entry, which would present a run that
+got part way and stopped as one that never started.

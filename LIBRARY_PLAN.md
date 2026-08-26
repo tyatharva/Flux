@@ -2,7 +2,7 @@
 
 > **Status, 2026-08-25.** The pipeline is **built and validated end to end** on branch
 > `library-states`; `main` is untouched. All eight stages run, `bin/make_seed_jobs.py`
-> generates the 18 portable jobs, and every gate that could be run without spinning the
+> generates the 15 portable jobs, and every gate that could be run without spinning the
 > library has been run and passed — stages 1-2 across four regimes (70/70), a cold start
 > per regime config, the non-zero base angle, **Gate B6 convectively**, a job round trip
 > from an unrelated checkout, and **Gate C2 bit-for-bit on the returned artifact**.
@@ -93,7 +93,13 @@ A case's window is 42 min of wall clock and its adjustment 31, so **both fit ins
 
 ---
 
-## The library: 6 rungs x 3 base angles = 18 states
+## The library: 5 rungs x 3 base angles = 15 states
+
+> **The `sbl` rung is DELETED.** A cold-started stable boundary layer does not survive
+> `Delta = 16 m` at this site -- two seeds were built and both collapsed, and the cause is
+> resolution, measured (`L_O/Delta = 3.57` at the receptor against a decade requirement;
+> GABLS1 runs the regime at `dx = 6.25 m`). Full evidence: `STABLE_REGIME_RESULT.md`. The
+> table below keeps the row so the reasoning is legible; it is not built and not selectable.
 
 ### Why these axes, and no others
 
@@ -104,7 +110,7 @@ project's own runs:
 | quantity | closed in 30 min? | evidence | axis? |
 |---|---|---|---|
 | **direction** | no, ~2.7 deg | -5.4 deg/h backing, `g16_spin` | **yes -- 3 base angles -> 12 headings** |
-| **z_i** | no, ~+40 m | +79 m/h entrainment, `g16_cbl_shallow` | **yes -- 6 real depths** |
+| **z_i** | no, ~+40 m | +79 m/h entrainment, `g16_cbl_shallow` | **yes -- 5 real depths** |
 | **stability regime** | no | a CBL needs ~8 `T*` ~ 1.2 h to turn over | **yes -- in the rungs** |
 | u\* / wind speed | partly | the surface layer is ~0.1 `z_i` deep, so it re-equilibrates in ~2 min at a 10 m receptor | no |
 | fine `z/L` | yes | the surface flux is prescribed and the surface layer follows | no |
@@ -112,14 +118,14 @@ project's own runs:
 ### The rungs are coupled, not a product
 
 A 150 m stable boundary layer cannot carry a 12 m/s geostrophic wind -- shear that strong
-destroys the stratification that defines it. So `G` belongs to the rung. Six rungs walk the
+destroys the stratification that defines it. So `G` belongs to the rung. The rungs walk the
 site's real joint `(z_i, flux, wind)` distribution as CONUS404 measures it at this tower
 (`z_i` p25/p50/p75 = 267/493/835 m; `w'th'` p25/p50/p75 = -0.006/+0.015/+0.076 K m/s;
 `U(30 m)` p25/p50/p75 = 3.9/5.2/6.8 m/s):
 
 | rung | regime | `z_i` target | `w'th_v'` | `G` | how `z_i` is held |
 |---|---|---|---|---|---|
-| `sbl` | stable | 150 m | **-0.020** | 6 m/s | surface cooling; no neutral layer, inversion from the ground |
+| ~~`sbl`~~ | ~~stable~~ | ~~150 m~~ | ~~**-0.020**~~ | ~~6 m/s~~ | **DELETED -- collapses at this grid, see above** |
 | `nbl-shallow` | neutral | 300 m | 0.000 | 8 m/s | capping inversion alone |
 | `nbl-deep` | neutral | 550 m | 0.000 | 12 m/s | capping inversion alone |
 | `cbl-shallow` | convective | 450 m | +0.060 | 7 m/s | cap + subsidence |
@@ -446,6 +452,38 @@ has run.
 **A mismatch does not corrupt a case.** Inputs are read off the LES window, so an
 imperfectly-closed gap moves where a case *lands* in input space without making it wrong.
 Seed spacing is a **coverage** question, not a correctness one.
+
+**`--available-only`, and why `bin/run_corpus_case.sh` passes it by default.** The driver
+is about to RESTART from the chosen seed, so ranking a seed with no returned artifact is
+never right there: the pick names a file that does not exist and the case stops. The
+second reason matters more while the library is being built -- an unbuilt seed's heading is
+an **estimate** (its geostrophic angle minus a nominal Ekman backing) while a spun one
+reports what it **achieved**, so ranking the two together compares a guess against a
+measurement. With a complete library the flag is a no-op; `SEED_ANY=1` restores the
+full-library ranking for planning.
+
+**The geostrophic SPEED is reported and never costed, and the report now says what that
+claim rests on.** Everything Kljun sees is a ratio: `U(z_m)` and `u*` scale together, so
+`Pi_4 = U/u*` is nearly invariant under a speed mismatch -- measured on `g16_spin`, `u*`
+moved 18% across five windows while `U/u*` moved 0.6%. What 30 minutes does **not** do is
+close the gap: the mean flow accelerates at `f (G_case - G_seed)`, so it closes
+`f dt = 9.94e-5 x 1800 = 17.9%` of it whatever its size, and the case samples a flow
+somewhere between the two forcings. That is sound for a modest gap and an extrapolation for
+a large one, so `pick_seed.py` prints the ratio and **warns past a factor of two**.
+
+> Measured while choosing the first target case: over 118 screened neutral-regime candidate
+> hours the implied `G = U(10)/0.55` runs p25 2.9, **median 6.3**, p75 9.3 m/s, so the
+> `nbl-shallow` rung's `G = 8.0` sits between the median and p75 and is well specified. The
+> array-loaded near-neutral hours are a WINDY subset of that population -- filtering on
+> `u* >= 0.30` and an N/S sector returned cases at `G = 12-22 m/s` -- which is a property of
+> the selection, not of the rung.
+
+**A seed that failed its gate is not a seed, and the verdict is not in the manifest.**
+`jobs/run_seed.sh` stamps `achieved` into the return manifest as its LAST step, so a job
+that died after the gate and before the stamp leaves a manifest with no verdict at all.
+`pick_seed.py` reads `return/stationarity.json` directly; a return directory with neither a
+verdict nor a restart is reported as an **unfinished job**, not as an unbuilt one. See
+`FASTEDDY_TRAPS.md` §18d for the live instance.
 
 ### 8. `bin/make_pair.py`
 
@@ -872,6 +910,15 @@ Full evidence: **`STABLE_REGIME_RESULT.md`**.
 ---
 
 ## The one gate the corpus needs that has never been run
+
+> **SUPERSEDED 2026-08-26 by the stable exclusion, and kept because the ARGUMENT is not
+> superseded.** `bin/select_times.py --max-zol` defaults to 0.0 and the `sbl` rung is
+> deleted, so **the corpus contains no stable cases** and there is no stable closure left
+> to validate. The gate below is therefore moot *for this corpus*. What survives is the
+> reasoning: a regime the gate has not run in is no evidence at all, and if stable is ever
+> re-admitted -- at a finer grid, which is what `STABLE_REGIME_RESULT.md` says it would
+> take -- this gate is the price of admission and must be run before any stable case is
+> trusted.
 
 **Gate D1 (well-mixed) has never been run in STABLE conditions.** Checked against
 `bin/run_pass6.sh`: the battery ran on `g16_flat` (neutral) and `g16_flatcbl` (convective),
