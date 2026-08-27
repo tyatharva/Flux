@@ -130,6 +130,17 @@ def main():
                         "integral_kljun": fp.get("integral_kljun"),
                         "overlap80_kljun": fp.get("overlap_kljun"),
                         "cover_share": fp.get("cover_share", {}),
+                        # THE SHARE TRAVELS WITH ITS OWN SAMPLING SPREAD. A share quoted
+                        # without an SE cannot be compared to anything: the h defect moved
+                        # the array share 0.8 points against a 3.66-point SE and looked
+                        # like a result. PROJECT_BRIEF.md: score a second moment against its own
+                        # sampling spread, never against a number you picked.
+                        "cover_share_se": fp.get("cover_share_se", {}),
+                        "cover_share_groups": fp.get("cover_share_groups_n"),
+                        # THE PER-CASE QC STAMP, so a suspect pair is identifiable from
+                        # the training record alone rather than only from a log that was
+                        # deleted with the fields.
+                        "floor_health": ((fp.get("floor") or {}).get("health") or {}),
                         "wind_angle": fp.get("wind_angle")},
     }
 
@@ -161,11 +172,21 @@ def main():
 
     if a.seed and os.path.exists(a.seed):
         pk = json.load(open(a.seed))
-        rec["seed"] = {"job": pk["chosen"]["job"], "rot": pk["chosen"]["rot"],
-                       "d_dir_deg": pk["chosen"]["d_dir_deg"],
-                       "seed_zi_m": pk["chosen"]["seed_zi_m"],
-                       "labelled_by": pk["chosen"]["labelled_by"],
-                       "regime_match": pk["chosen"]["regime_match"]}
+        ch = pk["chosen"]
+        rec["seed"] = {"job": ch["job"], "rot": ch["rot"],
+                       "d_dir_deg": ch["d_dir_deg"],
+                       "seed_zi_m": ch["seed_zi_m"],
+                       "labelled_by": ch["labelled_by"],
+                       "regime_match": ch["regime_match"],
+                       # WHERE THE SEED'S HEADING CAME FROM. The adjustment does not close
+                       # a direction gap -- measured, it widened one by 10.5 deg -- so the
+                       # seed is carried forward at its own drift rate. Recording the
+                       # frozen heading, the rate and the horizon makes that reconstructable
+                       # per pair instead of only in aggregate.
+                       "seed_dir_deg": ch.get("seed_dir_deg"),
+                       "seed_dir_frozen_deg": ch.get("seed_dir_frozen_deg"),
+                       "dwdir_dt_deg_per_h": ch.get("dwdir_dt_deg_per_h"),
+                       "project_h": ch.get("project_h")}
 
     os.makedirs(a.outdir, exist_ok=True)
     if a.copy_npz:

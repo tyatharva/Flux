@@ -204,7 +204,7 @@ def measured_backing(seeds):
     mean; then the nominal. One spun seed is one sample and is reported as such -- this
     replaces a guess with a small sample, and says which it is.
     """
-    per, allv = {}, []
+    per, by_reg = {}, {}
     for s in seeds:
         ach = s.get("achieved") or {}
         wd = ach.get("wdir")
@@ -212,9 +212,16 @@ def measured_backing(seeds):
             continue
         b = ((float(s["target"]["G_dir_from_deg"]) - float(wd) + 180.0) % 360.0) - 180.0
         per.setdefault(s["rung"], []).append(b)
-        allv.append(b)
+        by_reg.setdefault(s["regime"], []).append(b)
+    # POOL WITHIN A REGIME, NEVER ACROSS ONE. Ekman turning is a function of stability --
+    # ekman_backing_deg itself puts it at 23.5 deg neutral against 10.0 convective, a
+    # 13.5 deg spread that is nearly half a library direction bin. A library MEAN pools
+    # those, so with only neutral seeds spun it would place every convective seed using a
+    # neutral measurement: strictly worse than the convective nominal it replaced, and
+    # silently so. Observed on the first dry run of a convective case, which took the
+    # neutral 18.3 deg.
     return ({k: (float(np.mean(v)), len(v)) for k, v in per.items()},
-            (float(np.mean(allv)), len(allv)) if allv else None)
+            {k: (float(np.mean(v)), len(v)) for k, v in by_reg.items()})
 
 
 def seed_state(s, zm, meas=None):
@@ -275,11 +282,12 @@ def seed_state(s, zm, meas=None):
     zoL_bulk = -1.0 if wth > WTH_NEUTRAL else 0.0
     back, src = ekman_backing_deg(zoL_bulk), "target"
     if meas:
-        per, overall = meas
+        per, by_reg = meas
         if s["rung"] in per:
             back, src = per[s["rung"]][0], f"target/backing:rung(n={per[s['rung']][1]})"
-        elif overall:
-            back, src = overall[0], f"target/backing:library(n={overall[1]})"
+        elif s["regime"] in by_reg:
+            back, src = (by_reg[s["regime"]][0],
+                         f"target/backing:{s['regime'][:4]}(n={by_reg[s['regime']][1]})")
     hdg = (float(s["target"]["G_dir_from_deg"]) - back) % 360.0
     return zi, hdg, float("nan"), src
 
@@ -311,13 +319,16 @@ def main():
 
     seeds = load_library(a.index, a.library, available_only=a.available_only)
     meas = measured_backing(seeds)
-    per, overall = meas
-    if overall:
+    per, by_reg = meas
+    if by_reg:
         print(f"  Ekman backing MEASURED off the library: "
               + ", ".join(f"{k} {v:.1f} deg (n={n})" for k, (v, n) in sorted(per.items()))
-              + f"; library mean {overall[0]:.1f} deg (n={overall[1]}) "
-              f"against a nominal {ekman_backing_deg(0.0):.1f}. Unspun seeds' headings "
-              f"use the measured value for their own rung where one exists.")
+              + "; by regime "
+              + ", ".join(f"{k} {v:.1f} (n={n})" for k, (v, n) in sorted(by_reg.items()))
+              + f"; nominal {ekman_backing_deg(0.0):.1f} neutral / "
+              f"{ekman_backing_deg(-1.0):.1f} convective. An unspun seed takes its own "
+              f"rung's measurement, then its own REGIME's, then the nominal -- never a "
+              f"cross-regime mean, because the backing IS a function of stability.")
     rows = []
     for s, st in ((s, seed_state(s, a.zm, meas)) for s in seeds):
         zi_s, dir_s, zoL_s, src = st
@@ -424,8 +435,8 @@ def main():
 
     out = {"forcing": os.path.abspath(a.forcing),
            "ekman_backing_measured": {k: {"deg": v, "n": n} for k, (v, n) in per.items()},
-           "ekman_backing_library": (None if not overall else
-                                     {"deg": overall[0], "n": overall[1]}),
+           "ekman_backing_by_regime": {k: {"deg": v, "n": n}
+                                       for k, (v, n) in by_reg.items()},
            "ekman_backing_nominal": float(ekman_backing_deg(0.0)),
            "G_seed": G_s, "G_case": G_c,
            "G_ratio": (G_c / G_s if (np.isfinite(G_s) and G_s > 0) else None),
