@@ -135,7 +135,17 @@ def main():
 
     print(f"{a.out}")
     print(f"  static geography hardlinked from {a.grid} ({len(STATIC)} arrays)")
-    print(f"  regime {regime}: {note}")
+    # SAY WHICH QUESTION THIS ANSWERS. bin/pick_seed.py also prints a "regime" for the
+    # same case, on a different threshold (WTH_NEUTRAL = 0.01 K m/s), and the two can
+    # legitimately disagree: a case at +0.0082 is CONVECTIVE here -- the flux is positive,
+    # so a per-class daytime enhancement map is the physical one -- and NEUTRAL there,
+    # because it is far too weak to need a convective seed rather than a neutral one.
+    # Observed on case_2023101222, where the log read "regime convective" at stage 3 and
+    # "case: neutral" at stage 4 with nothing to say they were different questions.
+    print(f"  FLUX-MAP regime {regime} (sign of w'th_v', |.| > {NEUTRAL_EPS:g}): {note}")
+    print(f"  ^ this chooses the SHAPE OF THE HEAT-FLUX MAP only. Which SEED RUNG the "
+          f"case restarts from is a separate call on a separate threshold "
+          f"(bin/pick_seed.py, 0.01 K m/s), and the two may differ near neutral.")
     print(f"  cropland reference {w:+.4f} K m/s -> map {wth.min():+.4f} .. "
           f"{wth.max():+.4f}, DOMAIN MEAN {wth.mean():+.4f}")
     if regime == "convective":

@@ -363,7 +363,8 @@ def main():
     best = rows[0]
 
     print(os.path.basename(a.forcing))
-    print(f"  case: {reg_c} (w'th_v' {wth_c:+.4f}), z_i {zi_c:.0f} m, "
+    print(f"  case: SEED-MATCHING regime {reg_c} (|w'th_v'| > {WTH_NEUTRAL} K m/s; "
+          f"bin/case_surface.py answers a different question on a different threshold) (w'th_v' {wth_c:+.4f}), z_i {zi_c:.0f} m, "
           f"heading {dir_c:.1f} deg, z_m/L "
           f"{'n/a' if not np.isfinite(zoL_c) else f'{zoL_c:+.4f}'}")
     print(f"  {'seed':<24}{'rot':>4}{'dir':>6}{'d_dir':>7}{'z_i':>7}"
