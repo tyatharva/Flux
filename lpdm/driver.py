@@ -8,7 +8,8 @@ import numpy as np
 from .footprint import FootprintGrid
 from .les_stats import window_stats
 from .model import LPDM
-from .sgs_floor import check_monotone, most_floor
+from .sgs_floor import (FSGS_AT_PEAK_MIN, check_monotone, floor_health,
+                        most_floor)
 
 
 def receptor_indices(fs, z_target=10.0, x_frac=0.75, y_frac=0.5, ij=None,
@@ -273,6 +274,10 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
         fl = most_floor(st, d_r=d_r, mode=sgs_most_mode, legacy=sgs_most_legacy,
                         subgrid_weight=sgs_subgrid_weight)
         zl, fac = fl["zl"], fl["fac"]
+        # THE INVARIANT, SCORED ON EVERY CASE. See lpdm/sgs_floor.py:floor_health for the
+        # derivation and the margins. It is computed before anything is printed so the
+        # alarm cannot be lost in the ordinary diagnostics above it.
+        fl["health"] = floor_health(fl)
         floor_diag = fl
         n_new, worst = check_monotone(fl)
         if n_new and not sgs_most_legacy:
@@ -305,16 +310,20 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
                   f"active below z={zl[fl['kpk']]:.0f} m (the model's own sigma_w^2 peak); "
                   f"sigma_w/u* {np.sqrt(fl['base'][kk])/fl['ustar']:.2f} -> "
                   f"{np.sqrt(fl['sig2'][kk])/fl['ustar']:.2f} (surface-layer target 1.25)")
-            _fmax = float(np.nanmax(fac))
-            if _fmax > 100.0:
-                print(f"\n  *** WARNING: the sigma_w floor reaches {_fmax:.3g} somewhere in "
-                      f"the column. A floor is a CORRECTION to a sub-grid variance, so a "
-                      f"factor of order 100+ means its target has been computed from a "
-                      f"broken input -- most often h. On the first corpus case h fell "
-                      f"through to the domain top (2500 m) and the floor ran at 3-20x "
-                      f"between 35 and 200 m where it should have been 1.0, peaking at "
-                      f"9e4. The receptor factor was 1.000 throughout and said nothing. "
-                      f"Check st['h'] before trusting this footprint.\n")
+            hh = fl["health"]
+            # LOG THE RANGE AND WHERE IT PEAKS, ON SUCCESS TOO. A configuration that sits
+            # at zero margin leaves no evidence of how close it came unless the passing
+            # path says so.
+            print(f"  floor health: factor {hh['fac_min']:.3f}-{hh['fac_max']:.4g} "
+                  f"(peak at z={hh['z_fac_max']:.0f} m), inflates sigma_w^2 by at most "
+                  f"{100*hh['inflation_max']:.1f}% at z={hh['z_delta_max']:.0f} m where "
+                  f"f_sgs = {hh['f_sgs_at_peak']:.3f} (must be >= "
+                  f"{FSGS_AT_PEAK_MIN}); "
+                  f"inert above z={hh['z_inert']:.0f} m = {hh['z_inert_over_h']:.2f} h; "
+                  f"{100*hh['share_resolved']:.0f}% of the added variance lands where the "
+                  f"LES already resolves >=80%")
+            for _a in hh["alarms"]:
+                print(f"\n  *** FLOOR ALARM: {_a}\n")
             print(f"  monotonicity: {n_new} floor-induced turnover(s) in sigma_w^2 below "
                   f"the peak (must be 0); sub-grid weighting "
                   f"{'ON' if sgs_subgrid_weight and not sgs_most_legacy else 'off'}, "

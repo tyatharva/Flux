@@ -307,6 +307,12 @@ def main():
                         for k in ("zl", "fac", "sig2", "base", "wwp", "have", "tgt2",
                                   "kpk", "wstar", "ustar", "h", "L", "d_r", "mode",
                                   "legacy", "delta")}
+        # THE INVARIANT'S VERDICT TRAVELS WITH THE CASE. bin/run_corpus_case.sh asserts on
+        # it, because PROJECT_BRIEF.md's standing rule is to assert on the artifact rather than
+        # on an exit status -- and this analysis is piped into tee, so the exit status
+        # belongs to tee.
+        if _fl.get("health") is not None:
+            out["floor"]["health"] = _fl["health"]
     for _k in ("zlev", "ww_prof", "esgs_prof", "tke_prof"):
         if st.get(_k) is not None:
             out.setdefault("profiles", {})[_k] = [float(v) for v in np.asarray(st[_k])]
@@ -370,12 +376,22 @@ def main():
             ng = len(ch)
             print(f"  land-cover share over {ng} independent release groups "
                   f"(the sampling distribution of each share):")
+            # PERSIST THE SAMPLING SPREAD, NOT JUST THE VALUE. Until now this block
+            # printed the standard error and dropped it: the .txt held the only copy of
+            # the number that says whether a share DIFFERENCE means anything, and across
+            # 1370 cases nothing downstream could reach it. A share quoted without its
+            # own SE is exactly the reporting failure PROJECT_BRIEF.md forbids -- "score a
+            # second moment against its own sampling spread".
+            out["cover_share_se"] = {}
+            out["cover_share_groups_n"] = ng
             for nm in ch[0]:
                 v = np.array([100*(g.get(nm) or np.nan) for g in ch], dtype=float)
                 v = v[np.isfinite(v)]
                 if v.size < 2:
                     continue
                 se = v.std(ddof=1)/np.sqrt(v.size)
+                out["cover_share_se"][nm] = float(se) / 100.0     # a FRACTION, like the
+                                                                  # share it belongs to
                 print(f"    {nm:<12} mean {v.mean():6.2f}%  sd {v.std(ddof=1):5.2f}  "
                       f"se {se:5.2f}  range {v.min():6.2f}-{v.max():6.2f}"
                       + (f"  [{' '.join(f'{x:.1f}' for x in v)}]" if ng <= 12 else ""))

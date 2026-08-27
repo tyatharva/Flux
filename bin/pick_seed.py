@@ -67,6 +67,20 @@ WTH_NEUTRAL = 0.01       # |w'th_v'| below this is a neutral run, K m/s
 ZI_SCALE = np.log(2.0)   # a factor of 2 in depth costs 1
 DIR_SCALE = 30.0         # one library direction bin costs 1
 
+# === HOW FAR FORWARD A FROZEN SEED IS PROJECTED, AND WHY THAT NUMBER ===============
+# bin/run_corpus_case.sh runs ADJ_S = 1800 s of adjustment and then a WINDOW_S = 2400 s
+# window, and lpdm/les_stats.py:window_stats averages over the dumps that SURVIVE the
+# adjustment -- i.e. over [ADJ_S, ADJ_S + WINDOW_S] measured from the restart. Its
+# midpoint is ADJ_S + WINDOW_S/2 = 3000 s, and the direction it reports is the label the
+# pair actually carries. So that is the instant a seed's heading must be compared at.
+#
+# Do not "improve" this to the release-weighted midpoint (ADJ_S + TBACK + 900 = 3300 s).
+# That is the right centre for the FOOTPRINT and the wrong one for the LABEL, and it is
+# the label this file is minimising the gap in -- a mismatch does not corrupt a pair, it
+# moves where the pair lands in input space.
+ADJ_S, WINDOW_S = 1800.0, 2400.0
+PROJECT_H = (ADJ_S + 0.5 * WINDOW_S) / 3600.0        # 0.8333 h
+
 
 def regime_of(wth):
     """stable / neutral / convective from the PRESCRIBED virtual heat flux."""
@@ -227,8 +241,35 @@ def seed_state(s, zm, meas=None):
         # selection that nothing downstream could see. Prefer the peak-fraction depth when
         # the seed reports it; fall back to the gated one for seeds spun before the split.
         zi_a = ach.get("zi_peakfrac", ach["zi"])
-        return (float(zi_a), float(ach["wdir"]),
-                (zm / L if np.isfinite(L) else 0.0), "achieved")
+        # === PROJECT THE FREEZE-TIME DRIFT FORWARD; DO NOT BUDGET A CLOSURE ==========
+        # MEASURED ON THE FIRST CORPUS PAIR, AND IT INVERTED THE DESIGN ASSUMPTION.
+        # This file used to say "30 min of backing closes ~2.7 deg", i.e. that the
+        # adjustment pulls the seed toward the case's own forcing. It does not. The seed
+        # is frozen mid-oscillation and keeps turning the way it already was: the gap on
+        # case_2023031014 WIDENED from 11.26 to 21.79 deg (341.72 -> 331.19 against a
+        # 352.98 target) while the closure budget predicted it would shrink.
+        #
+        # 30 min is 2.8% of the 17.6 h inertial period. Nothing at that timescale can
+        # re-point a mean flow; what the case inherits is the seed's angular momentum.
+        # So the honest model is ballistic, not restoring:
+        #
+        #     heading at the window  =  heading at freeze  +  (d dir/dt) * PROJECT_H
+        #
+        # Checked on the one case that exists: -8.12 deg/h over 0.8333 h projects
+        # 334.95 against a measured 331.19 -- residual 3.76 deg, against 10.53 for the
+        # unprojected heading. n = 1, so this is a measured correction and not yet a
+        # calibration; every seed from here reports its own rate.
+        wd = float(ach["wdir"])
+        rate = ach.get("dwdir_dt_deg_per_h")
+        if rate is not None and np.isfinite(rate):
+            wd = (wd + float(rate) * PROJECT_H) % 360.0
+            src = "achieved+projected"
+        else:
+            # A SEED SPUN BEFORE THE DRIFT WAS RECORDED. Say so: its heading is a
+            # freeze-time value being compared against a window-time one, and on the
+            # measured rate that is ~7 deg, a quarter of a library direction bin.
+            src = "achieved(frozen)"
+        return (float(zi_a), wd, (zm / L if np.isfinite(L) else 0.0), src)
     zi = float(s["target"]["zi_m"])
     # zi/L only to choose the Ekman angle; it never enters the cost
     zoL_bulk = -1.0 if wth > WTH_NEUTRAL else 0.0
@@ -288,7 +329,14 @@ def main():
             dd = abs(((d - dir_c + 180.0) % 360.0) - 180.0)
             c_zi = abs(np.log(max(zi_s, 1.0) / max(zi_c, 1.0))) / ZI_SCALE
             cost = float(np.hypot(c_zi, dd / DIR_SCALE))
+            ach_ = s.get("achieved") or {}
+            _rate = ach_.get("dwdir_dt_deg_per_h")
+            _froz = (None if _rate is None or not np.isfinite(_rate)
+                     else round((float(ach_["wdir"]) - 90.0 * rot) % 360.0, 2))
             rows.append({"job": s["job"], "rung": s["rung"], "rot": rot,
+                         "seed_dir_frozen_deg": _froz,
+                         "dwdir_dt_deg_per_h": (None if _rate is None else float(_rate)),
+                         "project_h": PROJECT_H,
                          "seed_G": float(s["target"].get("G", float("nan"))),
                          "regime": s["regime"], "regime_match": bool(same),
                          "seed_dir_deg": round(d, 2), "d_dir_deg": round(dd, 2),
@@ -315,10 +363,28 @@ def main():
               f"{r['cost_dir']:>7.3f}{r['cost']:>7.3f}  {r['regime']:>10} "
               f"{r['labelled_by']:>8}")
     print(f"\n  CHOSEN: {best['job']} --rot {best['rot']}")
-    print(f"    heading {best['seed_dir_deg']:.0f} vs {dir_c:.0f} deg "
-          f"(gap {best['d_dir_deg']:.1f}, and 30 min of backing closes ~2.7)")
+    print(f"    heading {best['seed_dir_deg']:.1f} vs {dir_c:.1f} deg "
+          f"(gap {best['d_dir_deg']:.1f})")
+    if best.get("seed_dir_frozen_deg") is not None:
+        print(f"    ^ PROJECTED from a frozen {best['seed_dir_frozen_deg']:.1f} deg at "
+              f"{best['dwdir_dt_deg_per_h']:+.2f} deg/h over {PROJECT_H:.3f} h "
+              f"(= ADJ_S + WINDOW_S/2). The adjustment does NOT close a direction gap -- "
+              f"measured, it widened one by 10.5 deg -- so the seed is carried forward "
+              f"ballistically rather than assumed to relax toward the case's forcing.")
+    elif best["labelled_by"] == "achieved(frozen)":
+        print(f"    ^ NOT projected: this seed predates the drift measurement, so its "
+              f"heading is a freeze-time value compared against a window-time one "
+              f"(~7 deg on the one rate measured so far).")
     print(f"    z_i {best['seed_zi_m']:.0f} vs {zi_c:.0f} m "
-          f"(gap {best['seed_zi_m']-zi_c:+.0f}, and 30 min of entrainment closes ~+40)")
+          f"(gap {best['seed_zi_m']-zi_c:+.0f} m)")
+    print(f"    ^ REPORTED, not projected, and the budget it replaces was too small by 3x."
+          f" The design assumed +79 m/h of entrainment, i.e. ~+40 m of closure. Measured on"
+          f" case_2023031014 the depth closed a 146 m gap AND overshot by 49 -- +233 m/h."
+          f" Unlike direction, this rate is NOT a property of the seed and cannot be"
+          f" carried forward: entrainment is set by the CASE's surface flux working"
+          f" against the CASE's inversion, and that case's lid (2.61 K/km) is far weaker"
+          f" than the seed's (+8 K/100 m). The library buys LESS convergence in direction"
+          f" and MORE in depth than it was designed to.")
     # === THE GEOSTROPHIC SPEED IS REPORTED, NOT COSTED -- AND HERE IS WHY, WITH THE
     # === NUMBER THAT SAYS WHEN TO STOP BELIEVING IT.
     #

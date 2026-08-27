@@ -45,7 +45,7 @@ that is what is constrained here.
 """
 import numpy as np
 
-__all__ = ["most_floor", "phi_w_of_zeta"]
+__all__ = ["most_floor", "phi_w_of_zeta", "floor_health", "FSGS_AT_PEAK_MIN"]
 
 
 def phi_w_of_zeta(zeta):
@@ -237,3 +237,112 @@ def check_monotone(fl, z_top=None):
     new = (ds < -1e-12) & ~(db < -1e-12)
     worst = float(np.min(ds[new] / np.maximum(sig2[m][:-1][new], 1e-12))) if new.any() else 0.0
     return int(new.sum()), worst
+
+
+# =====================================================================================
+# THE INVARIANT: THE FLOOR MUST DO ITS WORK WHERE THE LES HAS NOT RESOLVED THE VARIANCE
+# =====================================================================================
+# WHY THIS EXISTS. On the first corpus case `h` fell through to the domain top (2500 m),
+# and because `h` sets the mixed-layer blend the floor ran at 3-20x between 35 and 200 m
+# where it should have been 1.0, peaking near 9e4. NOTHING COMPLAINED. The receptor factor
+# read 1.000, the driver printed "1.00-381935.02 over the column" as an ordinary range,
+# and the footprint came out plausible -- the near-field peak was wrong by a full raster
+# cell while the array share moved 0.8 points against a 3.66-point SE. The 100x warning
+# added afterwards catches that particular case and would NOT catch a 3-20x version of it.
+#
+# WHAT TO TEST, AND WHY IT IS NOT THE FACTOR. `fac` is a multiplier on the SUB-GRID part,
+# whose denominator collapses with height, so a large `fac` aloft can mean nothing at all:
+# in g16r_cbl_wE the running maximum holds the TOTAL sigma_w^2 at ~0.655 from 18 m to
+# 52 m, and `fac` reads 8.6 at 52 m purely because `have` has fallen to 0.032 there. Gating
+# `fac` would fail four validated, Gate-D1-passing convective production cases.
+#
+# The premise the sub-grid weighting rests on is the testable thing. The floor's whole
+# justification is unresolved sub-filter variance, so THE LEVEL AT WHICH IT ADDS THE MOST
+# VARIANCE MUST BE A LEVEL THE LES HAS NOT RESOLVED. Measured on every production record
+# on disk -- 12 of them, neutral and convective, four directions each, plus two corpus
+# cases -- the sub-grid fraction at that level sits in 0.368-0.564, straddling the 0.5
+# crossover where the resolved and sub-grid parts are equal. That band is not a
+# coincidence: it is the f_sgs weighting placing the correction at the crossover, which is
+# what it was built to do.
+#
+# With `h` broken the same quantity is 0.008 -- the floor's hardest work lands at 414 m,
+# where the LES resolves 99.2% of sigma_w^2 and there is nothing to repair.
+#
+# THE THRESHOLD IS DERIVED, NOT PICKED. The crossover is f_sgs = 0.5. Half of it means
+# "the floor's peak influence sits where the LES already resolves three quarters of the
+# variance", which contradicts the premise outright. That is 1.47x below the lowest
+# production value and 31x above the defect, and the h-sweep in both regimes shows the
+# statistic is FLAT across every plausible h and only moves when h is grossly wrong -- so
+# it does not fire on ordinary depth uncertainty. Margins, on this evidence:
+#
+#     production (n=14)   f_sgs at the floor's peak      0.368 - 0.564
+#     h -> 800..2500 m    same quantity                  0.008
+#     alarm                                              < 0.25
+FSGS_AT_PEAK_MIN = 0.25
+DELTA_ACTIVE_MIN = 1e-3      # below this the floor asserts nothing; use the inert arm
+FAC_ABSURD = 100.0           # the coarse arm, kept: it costs nothing and it is unambiguous
+
+
+def floor_health(fl):
+    """Is this floor repairing a deficit, or repairing a broken input?
+
+    Takes a most_floor() result. Returns a dict of diagnostics plus `ok` and `alarms`.
+    Cheap, pure, and safe to call on every case -- which is the point: the defect it
+    exists to catch produced a plausible footprint and no error at all.
+    """
+    zl = np.asarray(fl["zl"], float)
+    base = np.asarray(fl["base"], float)
+    wwp = np.asarray(fl["wwp"], float)
+    fac = np.asarray(fl["fac"], float)
+    delta = np.maximum(np.asarray(fl["sig2"], float) - base, 0.0)
+    f_sgs = 1.0 - wwp / np.maximum(base, 1e-30)
+
+    active = fac > 1.0 + 1e-9
+    k_fac = int(np.argmax(fac))
+    tot = float(delta.sum())
+    inflation = delta / np.maximum(base, 1e-30)
+
+    d = dict(fac_min=float(fac.min()), fac_max=float(fac.max()),
+             z_fac_max=float(zl[k_fac]), h=float(fl["h"]),
+             z_inert=float(zl[active].max()) if active.any() else 0.0,
+             inflation_max=float(inflation.max()),
+             n_active=int(active.sum()))
+    d["z_inert_over_h"] = d["z_inert"] / max(d["h"], 1.0)
+
+    alarms = []
+    if tot <= 0.0 or d["inflation_max"] < DELTA_ACTIVE_MIN:
+        # THE INERT ARM. A floor that asserts nothing at z/Delta ~ 1 is not a floor that
+        # was not needed -- at this receptor the LES resolves 4-10% of sigma_w^2 at 10 m
+        # and the correction is never zero in a healthy window. Measured: a neutral
+        # production case given h = 2000 m switches the floor OFF entirely, because the
+        # resolved-variance peak search runs past the boundary layer and lands above
+        # everything the floor would have corrected. Same broken input, opposite symptom.
+        d.update(f_sgs_at_peak=float("nan"), z_delta_max=float("nan"),
+                 share_resolved=float("nan"))
+        alarms.append(f"the floor is INERT (max inflation {d['inflation_max']:.2e} of "
+                      f"sigma_w^2). At z/Delta ~ 1 a healthy window always needs some "
+                      f"correction, so this is an input fault, not an easy case -- most "
+                      f"often h ({d['h']:.0f} m) placing the resolved-variance peak "
+                      f"outside the boundary layer.")
+    else:
+        k_d = int(np.argmax(delta))
+        hi = wwp / np.maximum(base, 1e-30) >= 0.8
+        d.update(f_sgs_at_peak=float(f_sgs[k_d]), z_delta_max=float(zl[k_d]),
+                 share_resolved=float(delta[hi].sum() / tot))
+        if d["f_sgs_at_peak"] < FSGS_AT_PEAK_MIN:
+            alarms.append(
+                f"the floor adds the most variance at z = {d['z_delta_max']:.0f} m, where "
+                f"the LES already resolves {100*(1-d['f_sgs_at_peak']):.1f}% of "
+                f"sigma_w^2 (f_sgs {d['f_sgs_at_peak']:.3f} < {FSGS_AT_PEAK_MIN}). The "
+                f"floor's justification is UNRESOLVED variance, so its peak influence "
+                f"cannot sit where the model has resolved the field. Production runs put "
+                f"this at 0.37-0.56; the h-fell-through-to-the-domain-top defect put it "
+                f"at 0.008. Check st['h'] = {d['h']:.0f} m before trusting this "
+                f"footprint.")
+    if d["fac_max"] > FAC_ABSURD:
+        alarms.append(f"the floor reaches {d['fac_max']:.3g} somewhere in the column; a "
+                      f"correction to a sub-grid variance does not have a factor of "
+                      f"order 100.")
+    d["alarms"] = alarms
+    d["ok"] = not alarms
+    return d

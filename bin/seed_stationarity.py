@@ -197,10 +197,25 @@ def score(s, xp, x90, score_h):
         raise ValueError(f"only {int(sel.sum())} dumps in the last {score_h} h; "
                          "the trend would have no degrees of freedom")
 
-    def trend(y):
+    def slope_of(y):
         A = np.vstack([t[sel], np.ones(int(sel.sum()))]).T
-        slope = np.linalg.lstsq(A, y[sel], rcond=None)[0][0]
-        return 100.0 * slope / max(abs(y[sel].mean()), 1e-30)
+        return float(np.linalg.lstsq(A, y[sel], rcond=None)[0][0])
+
+    def trend(y):
+        return 100.0 * slope_of(y) / max(abs(y[sel].mean()), 1e-30)
+
+    def trend_deg(y):
+        """d(bearing)/dt in DEG PER HOUR, on an unwrapped series.
+
+        A BEARING HAS NO PERCENTAGE. Reported as %/h it was 100*slope/mean, so the same
+        physical backing read -3.15 %/h at a mean of 258 deg and would read -8.1 %/h at a
+        mean of 100 -- and nobody can convert either back to a rate without also knowing
+        the mean. Worse, the series is modular: a run drifting through north takes the
+        mean of {359, 1} as 180 and the slope through the wrap is meaningless. Unwrapping
+        first and reporting deg/h fixes both, and deg/h is the unit the projection in
+        bin/pick_seed.py actually consumes.
+        """
+        return float(np.degrees(slope_of(np.unwrap(np.radians(np.asarray(y))))))
 
     us = s["ustar"]
     quantities = (("U/u* (Kljun Pi_4)", s["U"] / us),
@@ -227,12 +242,22 @@ def score(s, xp, x90, score_h):
             r["level_span_m"] = float(y[sel].max() - y[sel].min())
         rows.append(r)
     reported = [{"name": nm, "mean": float(y[sel].mean()),
-                 "trend_pct_per_h": float(trend(y))}
+                 "trend_pct_per_h": float(trend(y)), "unit": "%/h"}
                 for nm, y in (("u*", us), ("U(10 m)", s["U"]),
-                              ("wind direction", s["wdir"]), ("domain TKE", s["tke"]),
+                              ("domain TKE", s["tke"]),
                               ("peak resolved TKE", s["tkepeak"]),
                               ("z_i, 5% of the running peak", s["zi_peakfrac"]))]
-    return bool(ok), rows, reported, sel
+    # DIRECTION DRIFT AT FREEZE -- the number bin/pick_seed.py projects forward.
+    # MEASURED, and it inverted the design assumption. pick_seed used to assume the
+    # 30-minute adjustment CLOSES a direction gap by ~2.7 deg. On the first corpus case
+    # it did the opposite: the seed was frozen mid-backing and simply kept turning, so
+    # the gap WIDENED from 11.3 to 21.8 deg. 30 min is 2.8% of a 17.6 h inertial period,
+    # which is far too little for the case's own forcing to assert itself; what the case
+    # inherits is the seed's angular momentum, not the seed's angle.
+    dwdir = trend_deg(s["wdir"])
+    reported.insert(2, {"name": "wind direction", "mean": float(s["wdir"][sel].mean()),
+                        "trend_deg_per_h": dwdir, "unit": "deg/h"})
+    return bool(ok), rows, reported, sel, dwdir
 
 
 def main():
@@ -273,7 +298,7 @@ def main():
 
     s = series(paths, a.dt, a.k)
     xp, x90 = kljun_geometry(s, a.zm, a.wth)
-    ok, rows, reported, sel = score(s, xp, x90, a.score_h)
+    ok, rows, reported, sel, dwdir = score(s, xp, x90, a.score_h)
 
     f = 2 * 7.292e-5 * math.sin(math.radians(42.957160))
     period = 2 * math.pi / f / 3600.0
@@ -307,7 +332,11 @@ def main():
                      if r["n_levels"] <= 4 else ""))
     print(f"\n  === REPORTED, not gated: the mean flow rides the inertial oscillation ===")
     for r in reported:
-        print(f"  {r['name']:<28}{r['mean']:10.4f}{r['trend_pct_per_h']:+9.2f} %/h")
+        v = r.get("trend_pct_per_h", r.get("trend_deg_per_h"))
+        print(f"  {r['name']:<28}{r['mean']:10.4f}{v:+9.2f} {r['unit']}")
+    print(f"  ^ the direction row is the DRIFT AT FREEZE. bin/pick_seed.py projects it "
+          f"forward to the window's own midpoint rather than assuming the adjustment "
+          f"closes a gap; measured, the adjustment WIDENS one.")
     print(f"  x_peak spans {xp[sel].min():.1f}-{xp[sel].max():.1f} m across the scored "
           f"window, against a 16 m raster cell.")
     verdict = ("PASS" if ok else
@@ -326,6 +355,8 @@ def main():
                              "zi_peakfrac": float(s["zi_peakfrac"][sel].mean()),
                              "tke_peak": float(s["tkepeak"][sel].mean()),
                              "wdir": float(s["wdir"][-1]),
+                             "dwdir_dt_deg_per_h": dwdir,
+                             "dwdir_scored_over_h": float(a.score_h),
                              "sigma_v": float(s["sv"][-1]),
                              "sigma_w": float(s["sw"][-1]),
                              "theta0": float(s["th0"][-1]),

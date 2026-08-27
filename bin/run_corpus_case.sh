@@ -241,6 +241,38 @@ LPDM_WORKERS="${LPDM_WORKERS:-8}" \
 [ -s "$FPDIR/$TAG.json" ] || { tail -12 "$FPDIR/$TAG.txt" >&2
   die "stage 7 produced no footprint json"; }
 
+# ---- 7b. the per-case health gate -------------------------------------------------
+# ASSERT ON THE ARTIFACT, NOT ON THE EXIT STATUS. Stage 7 is piped into grep, so bash
+# reports GREP's status and a python traceback lands quietly in the redirected .txt. The
+# gates are read back out of the JSON stage 7 was supposed to write.
+#
+# WHAT IT GATES, AND WHY NOT THE ARRAY SHARE. The share is the scientific result and a
+# poor fault detector: the h-fell-through defect was a SIX-fold error in the quantity
+# setting the sigma_w floor and it moved the share 0.8 points against a 3.66-point SE,
+# while it moved the near-field peak a full raster cell. Peak location, floor health and
+# the integral are the sharp quantities; the share is reported beside them.
+#
+# NON-FATAL BY DEFAULT. A failed gate marks the case and lets the campaign continue --
+# across 1370 cases the useful output is a LIST of suspect cases, not a driver that stops
+# on the first one at 3 a.m. Set MONITOR_FATAL=1 to make it stop.
+say "$TAG  stage 7b: per-case health gate"
+# ${PIPESTATUS[0]}, NOT $?. Piping into tee makes $? TEE's status, which is 0 whatever
+# the monitor decided -- and writing that mistake into the very check that exists to catch
+# it would be the joke completing itself.
+./docker/pyrun.sh bin/corpus_monitor.py "$FPDIR/$TAG.json" \
+    --json "$FPDIR/$TAG.monitor.json" 2>&1 | tee -a "$FPDIR/$TAG.txt"
+MON_RC=${PIPESTATUS[0]}
+[ -s "$FPDIR/$TAG.monitor.json" ] || die "stage 7b wrote no monitor json"
+# AND RE-READ THE VERDICT FROM THE JSON, so the gate does not rest on an exit code at all.
+MON_V=$(python3 -c "import json;d=json.load(open('$FPDIR/$TAG.monitor.json'));\
+print('FAIL' if d['fail'] else ('UNJUDGED' if d['unjudged'] else 'OK'))")
+echo "  health gate: $MON_V (rc $MON_RC)"
+if [ "$MON_V" != "OK" ]; then
+  echo "  *** $TAG health gate: $MON_V -- see $FPDIR/$TAG.txt" >&2
+  echo "$TAG $MON_V" >> "$FPDIR/SUSPECT_CASES.txt"
+  [ "${MONITOR_FATAL:-0}" = "1" ] && die "the per-case health gate returned $MON_V"
+fi
+
 # ---- 8. the training record ------------------------------------------------------
 say "$TAG  stage 8: assemble the pair"
 ./docker/pyrun.sh bin/make_pair.py --tag "$TAG" --footprint "$FPDIR/$TAG.json" \
