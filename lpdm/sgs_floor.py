@@ -278,6 +278,17 @@ def check_monotone(fl, z_top=None):
 #     production (n=14)   f_sgs at the floor's peak      0.368 - 0.564
 #     h -> 800..2500 m    same quantity                  0.008
 #     alarm                                              < 0.25
+#
+# AND IT IS DEPTH-ROBUST, WHICH MATTERS BECAUSE THE LIBRARY GOES DEEPER THAN THIS
+# EVIDENCE. Every calibrating record has h in 399-655 m; cbl-deep is aimed at 950. The
+# statistic survives that because the level it keys on is set by the GRID, not by the
+# boundary layer: the f_sgs = 0.5 crossover sits at 30.1-33.3 m in all five neutral
+# records and 18.7-21.9 m in all six convective ones, i.e. 1.9-3.3 Delta, and inside
+# each regime it does not move with h at all. (The -0.77 rank correlation between the
+# crossover and h across the pooled set is an artifact of the convective runs happening
+# to be the deeper ones -- REGIME moves the crossover, depth does not, because convection
+# resolves more of sigma_w^2 at a given z.) The two regimes' gated values overlap
+# (0.407-0.439 neutral, 0.428-0.564 convective), so one threshold serves both.
 FSGS_AT_PEAK_MIN = 0.25
 DELTA_ACTIVE_MIN = 1e-3      # below this the floor asserts nothing; use the inert arm
 FAC_ABSURD = 100.0           # the coarse arm, kept: it costs nothing and it is unambiguous
