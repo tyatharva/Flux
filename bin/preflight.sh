@@ -64,7 +64,7 @@ done
 # module scope or an argparse definition that raises -- both of which look exactly like a
 # working script until the moment a campaign calls one. --help exercises import and
 # argument construction and nothing else, so it costs milliseconds and touches no data.
-for f in bin/hrrr_sounding.py bin/sounding_to_forcing.py bin/make_seed_jobs.py          bin/pick_seed.py bin/make_pair.py bin/seed_stationarity.py bin/corpus_monitor.py bin/test_floor_health.py bin/direction_drift.py          bin/test_sounding.py; do
+for f in bin/hrrr_sounding.py bin/sounding_to_forcing.py bin/make_seed_jobs.py          bin/pick_seed.py bin/make_pair.py bin/seed_stationarity.py bin/corpus_monitor.py bin/test_floor_health.py bin/direction_drift.py bin/case_compare.py          bin/test_sounding.py; do
   [ -e "$f" ] || continue
   out=$(python3 "$f" --help 2>&1) || { echo "  ENTRY $f: $(echo "$out" | tail -3)"; bad=1; }
 done

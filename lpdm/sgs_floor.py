@@ -294,7 +294,7 @@ DELTA_ACTIVE_MIN = 1e-3      # below this the floor asserts nothing; use the ine
 FAC_ABSURD = 100.0           # the coarse arm, kept: it costs nothing and it is unambiguous
 
 
-def floor_health(fl):
+def floor_health(fl, z_receptor=None):
     """Is this floor repairing a deficit, or repairing a broken input?
 
     Takes a most_floor() result. Returns a dict of diagnostics plus `ok` and `alarms`.
@@ -319,6 +319,16 @@ def floor_health(fl):
              inflation_max=float(inflation.max()),
              n_active=int(active.sum()))
     d["z_inert_over_h"] = d["z_inert"] / max(d["h"], 1.0)
+    # AT THE RECEPTOR, because that is where the footprint is made and where every
+    # near-field number is quoted. The column summary above can look healthy while the
+    # receptor is doing something else -- the h defect read fac = 1.000 there throughout.
+    if z_receptor is not None:
+        kr = int(np.argmin(np.abs(zl - float(z_receptor))))
+        d["z_receptor"] = float(zl[kr])
+        d["fac_at_receptor"] = float(fac[kr])
+        d["f_sgs_at_receptor"] = float(f_sgs[kr])
+        d["sigma_w_over_ustar_at_receptor"] = float(
+            np.sqrt(max(fl["sig2"][kr], 0.0)) / max(float(fl["ustar"]), 1e-12))
 
     alarms = []
     if tot <= 0.0 or d["inflation_max"] < DELTA_ACTIVE_MIN:

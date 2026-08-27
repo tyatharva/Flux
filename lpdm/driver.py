@@ -277,7 +277,7 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
         # THE INVARIANT, SCORED ON EVERY CASE. See lpdm/sgs_floor.py:floor_health for the
         # derivation and the margins. It is computed before anything is printed so the
         # alarm cannot be lost in the ordinary diagnostics above it.
-        fl["health"] = floor_health(fl)
+        fl["health"] = floor_health(fl, z_receptor=z_target)
         floor_diag = fl
         n_new, worst = check_monotone(fl)
         if n_new and not sgs_most_legacy:

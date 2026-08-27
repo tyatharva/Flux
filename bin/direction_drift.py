@@ -19,6 +19,16 @@ WIDENED from 11.26 to 21.79 deg. 30 min is 2.8% of the 17.6 h inertial period --
 little for the case's own forcing to re-point a mean flow. What the case inherits is the
 seed's angular momentum, not the seed's angle.
 
+AND THE WIDENING IS NOT n = 1. Both corpus cases that have run show it, measured as
+achieved-minus-requested direction, which does not depend on any seed estimate:
+
+    case_2023031014   pick gap 11.3 deg -> achieved 21.8 deg   (widened 10.5)
+    e2e_20230118      pick gap 14.1 deg -> achieved 36.0 deg   (widened 21.9)
+
+Two for two, in opposite directions of the compass and off different rungs. What is still
+n = 1 is the RATE, which is why the projection below is called a measured correction and
+not a calibration.
+
 === AND THE CONSEQUENCE FOR THE SPEC IS THE OPPOSITE OF THE OBVIOUS ONE ===
 
 The obvious reading of "the measured backing is 18.3 against a nominal 23.5" is that the
