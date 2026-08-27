@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Which seed does this case restart from? Stage 4 of the corpus pipeline.
 
-The library is 6 stability/depth rungs x 3 base angles, and each base angle re-indexes into
+The library is 5 stability/depth rungs x 6 base angles, and each base angle re-indexes into
 4 wind directions by a 90-degree rotation of the grid (bin/prep_restart.py --rot; Gate B6
-measured the rotation exact to 1.2e-14). So 18 spun-up files present 72 (state, direction)
+measured the rotation exact to 1.2e-14). So 30 spun-up files present 120 (state, direction)
 options, and this picks one.
 
 === THE METRIC IS "WHAT WILL 30 MINUTES FAIL TO CLOSE", AND NOTHING ELSE ===
@@ -65,7 +65,9 @@ G = 9.81
 
 WTH_NEUTRAL = 0.01       # |w'th_v'| below this is a neutral run, K m/s
 ZI_SCALE = np.log(2.0)   # a factor of 2 in depth costs 1
-DIR_SCALE = 30.0         # one library direction bin costs 1
+DIR_SCALE = 15.0         # one library direction bin costs 1; 6 base angles x 4
+                         # rotations = 24 headings at 15 deg (approved 2026-08-27,
+                         # was 30 -- see bin/make_seed_jobs.py:BASE_ANGLES)
 
 # === HOW FAR FORWARD A FROZEN SEED IS PROJECTED, AND WHY THAT NUMBER ===============
 # bin/run_corpus_case.sh runs ADJ_S = 1800 s of adjustment and then a WINDOW_S = 2400 s
@@ -237,7 +239,7 @@ def measured_backing(seeds):
     """Ekman backing measured off the library itself, per rung and overall.
 
     THE NOMINAL IS AN ESTIMATE AND THE LIBRARY CAN NOW MEASURE IT. An unspun seed's
-    heading is `G_dir_from - ekman_backing_deg(z_i/L)`, and every one of the 60
+    heading is `G_dir_from - ekman_backing_deg(z_i/L)`, and every one of the 120
     (state, direction) options in the library is placed by that number -- direction is the
     dominant skill axis, so an error there is an error in the axis that matters most. The
     first spun seed put it at **18.3 deg against a nominal 23.5**, i.e. 5.2 deg, about a
@@ -491,9 +493,10 @@ def main():
     if best["labelled_by"] == "target":
         print("  NOTE: matched on the seed's TARGET, not its achieved state -- this "
               "library has not been spun up, so the spacing is unmeasured.")
-    if best["d_dir_deg"] > 15.0:
-        print(f"  WARNING: {best['d_dir_deg']:.1f} deg exceeds half the 30 deg library "
-              f"spacing; a base angle is missing or a seed drifted off its own.")
+    if best["d_dir_deg"] > 0.5 * DIR_SCALE:
+        print(f"  WARNING: {best['d_dir_deg']:.1f} deg exceeds half the {DIR_SCALE:.0f} deg "
+              f"library spacing; a base angle is missing, or a seed drifted off its own "
+              f"by more than the projection removed.")
 
     out = {"forcing": os.path.abspath(a.forcing),
            "ekman_backing_measured": {k: {"deg": v, "n": n} for k, (v, n) in per.items()},

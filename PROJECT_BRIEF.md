@@ -911,6 +911,39 @@ enters the streamwise footprint shape, and both of its terms ride the oscillatio
 **38.0-38.3 m against a 16 m raster cell**. The turbulence is in equilibrium with the
 instantaneous shear; only the mean flow is turning.
 
+### A diagnostic is only as scale-free as its reference — the general rule
+
+**Added 2026-08-27, after the third instance.** The ratio rule below is a special case of
+something wider, and stating only the special case is what let the same failure recur:
+
+> **A diagnostic whose DENOMINATOR or REFERENCE varies with anything other than the
+> quantity being measured will report that variation as signal.**
+
+It is a quiet failure every time. The number stays finite, the check still runs, the
+verdict still prints — and it is about the reference rather than the thing. Three
+instances in this project, each of which cost real GPU time or produced a wrong number:
+
+| diagnostic | the reference that moved | what it reported instead |
+|---|---|---|
+| **`z_i`**, gated as 5% of the *running* TKE peak | the peak falls with `u*^2` on the inertial oscillation | **+11.67 %/h** of "deepening" while three independent depths said +1.71 to +2.33 |
+| **`TKE/u*^2`**, as a mean over the *whole 2500 m column* | the column is mostly free atmosphere, so the mean scales with `z_i/H_domain` | a rung **44%** apart from another in a quantity that is **5.7%** apart when scale-free — and it FAILED a seed on it |
+| **`k0/k1`**, a ratio of first-to-second level `w` variance | both levels collapse together when the layer dies | **0.442, a clean pass**, through a stable seed whose boundary layer had died |
+
+**The fix is one of two things, and never a looser threshold:**
+
+1. **Make the reference scale-free.** `z_i` moved to a FIXED 0.01 m2/s2 threshold; `TKE`
+   moved to the BOUNDARY-LAYER average, which has nearly the same value across rungs where
+   the column mean differs by 44%.
+2. **Or pair the check with one that fails differently.** `k0/k1` cannot be made
+   scale-free — it is a ratio of two things that die together — so `docker/turb_alive.py`
+   runs everywhere it runs and answers a question it structurally cannot: *is there any
+   turbulence at all?* A SKIP from it is not a PASS.
+
+**And the diagnostic for the diagnostic is its own sampling error.** Where a reference
+cannot be fixed, score the number against the spread of the estimator that produced it --
+`bin/seed_stationarity.py` reports each trend's AR(1)-corrected SE and `n_eff`, and returns
+INDETERMINATE rather than PASS or FAIL when the threshold sits inside that spread.
+
 **THE RATIO RULE HAS EXACTLY ONE EXCEPTION, AND IT IS `z_i`. Corrected 2026-08-26.**
 Every other gated quantity is a ratio whose numerator and denominator ride the oscillation
 together -- `U/u*`, `sigma_v/u*`, `sigma_w/u*`, `TKE/u*^2` -- and Kljun's `x_peak` and

@@ -18,7 +18,7 @@ Sized by what 30 MINUTES CANNOT ADJUST, which is the only criterion that matters
 seed exists solely to be adjusted away:
 
   direction        NO  -- the mean flow backs at -5.4 deg/h (measured, g16_spin), so 30 min
-                          closes 2.7 deg of a gap that can be 45.        AXIS: 3 base angles
+                          the gap WIDENS by 10-22 deg, measured.        AXIS: 6 base angles
   z_i              NO  -- entrainment runs +79 m/h (measured, g16_cbl_shallow), so 30 min
                           closes 40 m of a gap that can be 800.          AXIS: 6 real levels
   stability regime NO  -- a CBL needs ~8 T* ~ 1.2 h to turn over.        AXIS: in the rungs
@@ -114,7 +114,7 @@ measurement predicted: 6.88 Delta at the receptor at z/L 0.044, against 3.57 at 
 318 neutrally -- better, and still an order of magnitude short of a resolved band.
 
 **THE STABLE RUNG IS THEREFORE DELETED. The corpus contains no stable cases.** The library
-is 5 rungs x 3 base angles = 15 seeds. bin/select_times.py defaults to --max-zol 0.0.
+is 5 rungs x 6 base angles = 30 seeds. bin/select_times.py defaults to --max-zol 0.0.
 What it costs, measured: 44% of QC'd hours are stable, but only 5.4 points of DAY coverage
 (80.4% -> 75.0%), because enumeration finds a neutral or unstable hour on almost every day.
 The loss is a REGIME, not a sample size -- the emulator is undefined in stable conditions
@@ -214,7 +214,23 @@ RUNGS = [
     ("cbl-mid",     "convective", 700.0,  0.110,  9.0),
     ("cbl-deep",    "convective", 950.0,  0.160, 11.0),
 ]
-BASE_ANGLES = (0.0, 30.0, 60.0)
+# === SIX BASE ANGLES AT 15 DEG, APPROVED 2026-08-27 =================================
+# Was (0.0, 30.0, 60.0) -> 12 library headings at 30 deg spacing, on the reasoning that a
+# 30 deg bin gives a worst-case gap of 15 deg. IT DOES NOT, because the seeds do not stay
+# where they are placed: both corpus cases that have run show the direction gap WIDENING
+# through the 30-minute adjustment rather than closing -- case_2023031014 11.3 -> 21.8 deg,
+# e2e_20230118 14.1 -> 36.0 -- so the real worst case was 25-35 deg, on the axis the
+# emulator is judged on.
+#
+# bin/pick_seed.py projects the seed's own freeze-time drift forward, which removes the
+# MEAN of that excursion; it cannot remove the SCATTER, and nothing yet predicts the rate
+# (n = 2 seeds, -5.63 and -7.79 deg/h; no fit is reported at that sample). So the spacing
+# has to absorb what projection leaves.
+#
+# 6 x 15 deg = 24 headings: worst-case 7.5 deg before drift, ~15 after -- which is what 3
+# angles were believed to give. 30 seeds instead of 15, ~86 GPU-h against ~43, i.e. 2.5%
+# of the ~1700 GPU-h corpus.
+BASE_ANGLES = (0.0, 15.0, 30.0, 45.0, 60.0, 75.0)
 
 CAP_GRADIENT = 0.08      # K/m across the capping inversion -- the CONTROL on z_i
 CAP_DEPTH = 100.0        # m
@@ -279,6 +295,10 @@ def plan_run(sim_h, dt, frq):
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--force", action="store_true",
+                    help="rewrite manifests even where a completed run has stamped an "
+                         "`achieved` block. Destroys the measured state pick_seed matches "
+                         "on; you almost never want this.")
     ap.add_argument("--outdir", default="jobs")
     ap.add_argument("--template", default="runs/g16_base/base.in")
     ap.add_argument("--sim-h", type=float, default=3.0)
@@ -313,6 +333,7 @@ def main():
     print(f"\n{'job':<22}{'regime':>12}{'z_i tgt':>9}{'wth_v':>9}{'G':>7}"
           f"{'angle':>7}{'U_g':>9}{'V_g':>9}")
 
+    preserved = []
     for name, regime, zi, wth, gmag in RUNGS:
         for ang in BASE_ANGLES:
             job = f"seed_{name}_a{int(ang):03d}"
@@ -404,11 +425,52 @@ def main():
                                    "across different physical GPUs either. Seeds are "
                                    "turbulence realisations; do not diff two of them.",
             }
-            json.dump(man, open(os.path.join(d, "manifest.json"), "w"), indent=1)
+            # === DO NOT CLOBBER A RUN THAT HAS ALREADY HAPPENED =====================
+            # jobs/run_seed.sh stamps the measured state into manifest["achieved"] as its
+            # last step, and bin/pick_seed.py matches every corpus case on that block.
+            # Rewriting the library -- which is exactly what a base-angle change does --
+            # would silently replace the measured direction, depth and drift rate of every
+            # completed seed with the TARGET values they were asked for, and nothing
+            # downstream would report it: the manifest would still parse, pick_seed would
+            # still rank, and the library would quietly be matched on guesses again.
+            # Same shape as every other failure in this project that produced a plausible
+            # wrong number rather than an error.
+            # THE COMPLETED RUN'S RECORD IS return/manifest.json, NOT this one. The job
+            # manifest is the INPUT spec; jobs/run_seed.sh copies it to return/ at the end
+            # and stamps the measured `achieved` block there, and that is the file
+            # bin/pick_seed.py reads. A first version of this guard tested the job
+            # manifest for `achieved` -- which it never carries -- so it never fired.
+            mp = os.path.join(d, "manifest.json")
+            rp = os.path.join(d, "return", "manifest.json")
+            if os.path.exists(rp) and not a.force:
+                try:
+                    ran = json.load(open(rp))
+                except (ValueError, OSError):
+                    ran = {}
+                # Refuse only if the SPEC would change under a run that already happened.
+                # An identical rewrite is harmless and silent; a differing one would leave
+                # the job directory claiming parameters its artifacts were not produced
+                # with, and nothing downstream would notice.
+                keys = ("dt", "frqOutput", "steps_total", "outFileBase")
+                diff = [k for k in keys
+                        if ran.get("run", {}).get(k) != man["run"][k]]
+                diff += [f"target.{k}" for k in ("zi_m", "wth_virtual", "G",
+                                                 "G_dir_from_deg")
+                         if ran.get("target", {}).get(k) != man["target"][k]]
+                if diff:
+                    preserved.append(f"{job} ({', '.join(diff)})")
+                    index.append(ran)
+                    print(f"{job:<22}  REFUSED: a completed run used a different spec "
+                          f"({', '.join(diff)}); --force to overwrite")
+                    continue
+            json.dump(man, open(mp, "w"), indent=1)
             index.append(man)
             print(f"{job:<22}{regime:>12}{zi:>9.0f}{wth:>9.3f}{gmag:>7.1f}"
                   f"{ang:>7.0f}{ug:>9.3f}{vg:>9.3f}")
 
+    if preserved:
+        print(f"\n  REFUSED to rewrite {len(preserved)} job(s) whose completed run used a "
+              f"different spec: {'; '.join(sorted(preserved))}")
     ent = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "jobs",
                        "run_seed.sh")
     json.dump({"n_jobs": len(index), "sim_hours_each": total * dt / 3600.0,

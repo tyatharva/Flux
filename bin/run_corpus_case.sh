@@ -15,6 +15,8 @@
 #          SKIP_LES=1     stop after stage 4, for a dry run with no GPU
 #          SEED_LIB=jobs  where the spun-up seed library lives
 #          SEED_ANY=1     rank seeds with no returned artifact too (planning only)
+#          ALLOW_INDETERMINATE=0  require ESTABLISHED stationarity (default 1;
+#                         no seed in the library can supply it -- see stage 4)
 #          GRID=data/grid16_raised  ZTARGET=8.5  EXACT_AGL=1   (production; see below)
 #
 # The eight stages, and which file owns each:
@@ -126,14 +128,23 @@ PICK=results/pick/$TAG.json
 ./docker/pyrun.sh bin/pick_seed.py "$FRC" --json "$PICK" \
     --library "${SEED_LIB:-jobs}" --index "${SEED_LIB:-jobs}/index.json" \
     $([ "${SEED_ANY:-0}" = "1" ] || echo --available-only) \
-    $([ "${ALLOW_INDETERMINATE:-0}" = "1" ] && echo --allow-indeterminate) \
+    $([ "${ALLOW_INDETERMINATE:-1}" = "1" ] && echo --allow-indeterminate) \
     ${SEED_EXCLUDE:+--exclude "$SEED_EXCLUDE"} || true
-# ALLOW_INDETERMINATE IS OFF BY DEFAULT AND MUST BE SET DELIBERATELY. A seed whose gate
-# returned INDETERMINATE is not a seed that passed -- its stationarity is unestablished,
-# because TKE_BL/u*^2 and z_i decorrelate on the eddy turnover and a 3.0 h run cannot
-# resolve their trends against their own limits. Setting this admits such a seed and
-# stamps seed.gate_state = INDETERMINATE onto every pair built from it. It does NOT
-# loosen any threshold and it is not a pass.
+# === ALLOW_INDETERMINATE IS ON BY DEFAULT, BECAUSE INDETERMINATE IS THE LIBRARY'S
+# === NORMAL STATE AND NOT AN EXCEPTION ============================================
+# Two of the seven stationarity limits -- TKE_BL/u*^2 and z_i -- cannot be resolved
+# against their own thresholds in a 3.0 h spin-up, at ANY scoring window. They decorrelate
+# on the EDDY TURNOVER (h/u* = 1258-1345 s), not on the 300 s dump interval, so n_eff
+# saturates at 3-5 from a 1.0 h window to a 2.5 h one. Dumping more often cannot help;
+# the RUN is what is short. Every seed in this library is therefore expected to return
+# INDETERMINATE on those two, and refusing them by default would refuse the whole library.
+#
+# What this does NOT do is call them PASS. The verdict stays INDETERMINATE, the thresholds
+# are untouched, seed.gate_state = INDETERMINATE is stamped onto every pair, and
+# make_pair.py writes a warning into the training record. A seed with a DRIFTING limit is
+# still refused outright -- that is a different and stronger statement, and no flag admits
+# it. Set ALLOW_INDETERMINATE=0 to require established stationarity, which today no seed
+# in the library can supply.
 [ -s "$PICK" ] || die "stage 4 wrote no pick json"
 read -r JOB ROT < <(python3 -c "
 import json; c=json.load(open('$PICK'))['chosen']; print(c['job'], c['rot'])")

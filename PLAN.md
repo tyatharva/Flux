@@ -225,6 +225,29 @@ exactly like a trained model on a correct one.
 
 ## Known limitations to state wherever the corpus is described
 
+0. **THE LIBRARY'S SEEDS HAVE UNESTABLISHED STATIONARITY, AND THAT IS THE NORMAL STATE
+   RATHER THAN AN EXCEPTION.** Two of the seven gated limits — **`TKE_BL/u*^2` and `z_i`**
+   — cannot be resolved against their own thresholds in a 3.0 h spin-up, at **any** scoring
+   window. Both decorrelate on the **eddy turnover** (`h/u*` = 1258–1345 m/s at these
+   rungs), not on the 300 s dump interval, so the effective sample size `n_eff` **saturates
+   at 3–5** from a 1.0 h window to a 2.5 h one. **Dumping more often cannot help: it is the
+   RUN LENGTH that is short, not the sampling.**
+
+   Every seed is therefore expected to return **INDETERMINATE** on those two — not PASS and
+   not FAIL. `bin/seed_stationarity.py` reports each trend's AR(1)-corrected SE and `n_eff`
+   and refuses a verdict when the threshold sits within 3 SE of the measurement;
+   `bin/run_corpus_case.sh` runs with `ALLOW_INDETERMINATE=1` as its **default operating
+   mode**; and `seed.gate_state = INDETERMINATE` is stamped onto **every pair**, with a
+   warning in the training record. No threshold is loosened by any of this, and a seed with
+   a **DRIFTING** limit is still refused outright — a stronger and different statement that
+   no flag admits.
+
+   **The first corpus pair, `case_2023031014`, carries this state.** Its seed
+   `seed_nbl-shallow_a000` is INDETERMINATE on `TKE_BL/u*^2` and `z_i`; it was accepted
+   before the gate could say so. What IS established for it, at 3.6–8.7 SE of margin, is
+   the four limits the inertial oscillation cancels in — `U/u*`, `sigma_v/u*`,
+   `sigma_w/u*` — and the two Kljun geometry terms that inherit their immunity.
+
 1. **The receptor may be inside the roughness sublayer over the array.** MOST does not hold
    there, so Kljun is not a reference over the array and the `sigma_w` floor is extrapolated.
 2. **The first model level is at 1.997 m, at or below panel top.** The array's surface
