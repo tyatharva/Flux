@@ -141,6 +141,26 @@ the rule Phase E validated (the stricter `L >= 4 z_i` is not binding for a 10 m 
 p ~ 0.54). `bin/sounding_to_forcing.py` flags any sounding above that cap as
 `representable: false` rather than running it and mis-labelling it.
 
+> **THE 30-DEGREE SPACING DOES NOT DELIVER +/-15 DEG, MEASURED 2026-08-27.** The section
+> below reasons from where the seeds are PLACED. Both corpus cases that have run show the
+> direction gap WIDENING through the adjustment rather than closing -- `case_2023031014`
+> 11.3 -> 21.8 deg, `e2e_20230118` 14.1 -> 36.0 -- so the worst-case gap on the DOMINANT
+> SKILL AXIS is 25-35 deg, not 15. `bin/pick_seed.py` now projects the seed's own
+> freeze-time drift forward, which removes the MEAN of that excursion and leaves its
+> SCATTER; it is a partial fix and cannot be the whole one.
+>
+> **Nothing yet predicts the drift rate.** n = 2 seeds with a measured rate (-5.63 and
+> -7.79 deg/h) and n = 2 cases with a measured widening -- with that sample any predictor
+> fits exactly and its correlation is an artifact of the sample size, so no fit is
+> reported. `bin/direction_drift.py` lays out `u*`, `z_i`, `h/u*` and the drift-per-turnover
+> beside the rate so the answer arrives on its own as seeds accumulate.
+>
+> **PROPOSED, NOT APPLIED: 6 base angles at 15 deg** = 24 library headings, worst-case
+> 7.5 deg before drift and ~15 after -- which is what 3 angles were believed to give. Cost
+> 30 seeds instead of 15, ~86 GPU-h against ~43, i.e. **2.5% of the ~1700 GPU-h corpus** to
+> fix the axis the emulator is judged on. Denser angles are the honest fix; smarter
+> projection is not.
+
 ### Three base angles, not four
 
 A square doubly-periodic flat uniform domain with `dx = dy` is exactly equivariant under
