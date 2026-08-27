@@ -128,8 +128,15 @@ def main():
     for r in rows:
         frac = abs(r["trend_pct_per_h"]) / r["limit"]
         p(f"  {r['name']:<30}{r['mean']:10.4f}{r['trend_pct_per_h']:+10.2f}%"
-          f"{r['limit']:8.1f}{100*frac:7.0f}%  {'ok' if r['ok'] else 'DRIFTING'}")
-    p(f"  ALL SEVEN: {'PASS' if st['pass'] else 'FAIL'}")
+          f"{r['limit']:8.1f}{100*frac:7.0f}%  {r.get('verdict', 'ok' if r['ok'] else 'DRIFTING')}")
+    # INDETERMINATE IS NOT DRIFTING. r['ok'] is None for a limit the gate cannot resolve,
+    # and `'ok' if r['ok'] else 'DRIFTING'` printed None as DRIFTING -- asserting a limit
+    # was moving when the gate's whole point was that it could not say.
+    _ind = [r["name"] for r in rows if r.get("ok") is None]
+    _dft = [r["name"] for r in rows if r.get("ok") is False]
+    p(f"  ALL SEVEN: {'PASS' if st['pass'] else 'FAIL'}"
+      + (f"  -- DRIFTING: {', '.join(_dft)}" if _dft else "")
+      + (f"  -- INDETERMINATE: {', '.join(_ind)}" if _ind else ""))
     tight = rows[0]
     p(f"  BINDS LAST: {tight['name']} at {100*abs(tight['trend_pct_per_h'])/tight['limit']:.0f}% "
       f"of its limit ({tight['trend_pct_per_h']:+.2f} %/h against {tight['limit']:.1f})")
