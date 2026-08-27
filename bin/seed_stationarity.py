@@ -204,6 +204,45 @@ def score(s, xp, x90, score_h):
     def trend(y):
         return 100.0 * slope_of(y) / max(abs(y[sel].mean()), 1e-30)
 
+    def trend_se(y):
+        """The trend's OWN standard error, in %/h, and the effective sample size.
+
+        A TREND IS AN ESTIMATE AND HAS A SAMPLING ERROR; a limit it is compared against
+        is meaningless without one. This is the same rule PROJECT_BRIEF.md already states twice
+        -- score a second moment against its own sampling spread, and never quote a
+        tolerance without saying how many independent realisations went into it -- applied
+        to the estimator rather than to the quantity.
+
+        THE CORRECTION FOR AUTOCORRELATION IS NOT OPTIONAL HERE. Dumps are 300 s apart and
+        the eddy turnover at these depths is 1300-1500 s, so consecutive dumps are not
+        independent: measured, the residuals of TKE/u*^2 carry rho = +0.43 to +0.66, and
+        19 dumps are worth n_eff = 4 to 8. The naive least-squares SE understates the
+        spread by sqrt(n/n_eff), which is a factor of 1.6-2.2. Bartlett's AR(1) form is
+        used because it needs only one lag and the series is short.
+        """
+        tt, yy = t[sel], y[sel]
+        n = int(tt.size)
+        A = np.vstack([tt, np.ones(n)]).T
+        b = np.linalg.lstsq(A, yy, rcond=None)[0]
+        r = yy - A @ b
+        if n <= 3:
+            return float("nan"), float(n)
+        s2 = float((r ** 2).sum()) / (n - 2)
+        sxx = float(((tt - tt.mean()) ** 2).sum())
+        se = np.sqrt(s2 / max(sxx, 1e-30))
+        with np.errstate(invalid="ignore"):
+            rho = float(np.corrcoef(r[:-1], r[1:])[0, 1])
+        if not np.isfinite(rho):
+            rho = 0.0
+        # CLAMPED TO [3, n]. Negative residual autocorrelation genuinely does make a
+        # mean more precise than independent sampling would, so Bartlett's formula
+        # can return n_eff > n -- measured 40.4 from 19 dumps on U/u*. Reporting more
+        # independent samples than dumps reads as an error whatever the algebra says,
+        # and clamping only ever makes the SE more conservative, which is the safe
+        # direction for something a gate is read against.
+        neff = float(np.clip(n * (1.0 - rho) / (1.0 + rho), 3.0, n))
+        return (100.0 * se * np.sqrt(n / neff) / max(abs(yy.mean()), 1e-30), neff)
+
     def trend_deg(y):
         """d(bearing)/dt in DEG PER HOUR, on an unwrapped series.
 
@@ -230,8 +269,15 @@ def score(s, xp, x90, score_h):
         v = trend(y)
         g_ = bool(abs(v) < LIMITS[nm])
         ok &= g_
+        se, neff = trend_se(y)
         r = {"name": nm, "mean": float(y[sel].mean()),
-             "trend_pct_per_h": float(v), "limit": LIMITS[nm], "ok": g_}
+             "trend_pct_per_h": float(v), "limit": LIMITS[nm], "ok": g_,
+             "trend_se_pct_per_h": float(se), "n_eff": float(neff),
+             # CAN THIS GATE TELL PASS FROM FAIL AT ALL? If the limit sits within 2 SE of
+             # the measured trend, the verdict is inside the estimator's own noise and
+             # says little either way. Reported, never acted on: the limit is not moved
+             # here and the verdict is not softened.
+             "resolvable": bool(np.isfinite(se) and abs(abs(v) - LIMITS[nm]) > 2.0 * se)}
         # A LINEAR TREND THROUGH A STAIRCASE REPORTS THE STAIRCASE. z_i can only land on a
         # model level, so over a short window it takes a handful of discrete values and a
         # least-squares slope through them is as much an artifact of WHICH levels were
@@ -324,6 +370,16 @@ def main():
         print(f"  {r['name']:<28}{r['mean']:10.4f}{r['trend_pct_per_h']:+9.2f} %/h  "
               f"(limit {r['limit']:.0f})   {abs(r['trend_pct_per_h'])*40/60:5.2f}% per "
               f"40-min window   {'ok' if r['ok'] else 'DRIFTING'}")
+        if np.isfinite(r["trend_se_pct_per_h"]):
+            print(f"    ^ trend SE {r['trend_se_pct_per_h']:.2f} %/h "
+                  f"(AR(1)-corrected, n_eff {r['n_eff']:.1f} of {int(sel.sum())} dumps); "
+                  f"|trend| is {abs(r['trend_pct_per_h'])/max(r['trend_se_pct_per_h'],1e-9):.1f} "
+                  f"SE from zero and the limit is "
+                  f"{abs(abs(r['trend_pct_per_h'])-r['limit'])/max(r['trend_se_pct_per_h'],1e-9):.1f} "
+                  f"SE away"
+                  + ("" if r["resolvable"] else
+                     "  -- NOT RESOLVABLE: the limit is inside this estimator's own "
+                     "sampling noise, so the verdict is close to a coin flip either way"))
         if "n_levels" in r:
             print(f"    ^ on {r['n_levels']} distinct model level(s) spanning "
                   f"{r['level_span_m']:.0f} m across the window"
