@@ -248,6 +248,13 @@ exactly like a trained model on a correct one.
    the four limits the inertial oscillation cancels in — `U/u*`, `sigma_v/u*`,
    `sigma_w/u*` — and the two Kljun geometry terms that inherit their immunity.
 
+0b. **THE `cbl-deep` RUNG IS LOCKED IN AND UNUSABLE AT THIS BOX SIZE.** Measured
+   2026-08-27 (`SEED_CBL_DEEP_RESULT.md`): the mid-depth `w` spectrum pins to `lambda = L`
+   with **53.9-72.0%** of the variance in mode 1, and the depth overshoots to 987-1276 m
+   against a 976 m limit. The corpus therefore has **no deep convective rung**, and the
+   exclusion is biased in the same direction as every other depth exclusion here — deep
+   CBLs carry 1.5-3.6x the heat flux of the retained hours.
+
 1. **The receptor may be inside the roughness sublayer over the array.** MOST does not hold
    there, so Kljun is not a reference over the array and the `sigma_w` floor is extrapolated.
 2. **The first model level is at 1.997 m, at or below panel top.** The array's surface

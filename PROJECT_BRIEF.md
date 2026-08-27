@@ -1279,6 +1279,27 @@ because the case's own lid (2.61 K/km) is far weaker than the seed's (+8 K/100 m
 makes a pair wrong — inputs come from the LES window — but the library buys less convergence
 in direction and more in depth than the design assumed.
 
+**THE `cbl-deep` RUNG IS LOCKED IN AND IS NOT USABLE IN A 1952 m BOX — 2026-08-27.**
+`SEED_CBL_DEEP_RESULT.md`. The seed ran clean and in class (0.966 GPU-h/sim-h, `k0/k1`
+0.113, `turb_alive` OK, no Ozmidov constraint because the surface layer is unstratified)
+and failed on the mode it was chosen to test. **The peak wavelength of `w` at mid-depth is
+pinned at EXACTLY `L` = 1952 m in every one of the last five dumps, with mode 1 carrying
+53.9-72.0% of the variance** — Phase E accepted a deep case at **50.2%** and `L/z_i` 2.28;
+this is above that share at a tighter ratio. `r(L/2)` is positive rather than negative
+because a sheared CBL at `G = 11 m/s` organises into along-wind rolls, which does not
+weaken the spectral evidence.
+
+**And the depth overshot the domain**: target 950 m, achieved **1276 m** (fixed TKE),
+**1055 m** (peak fraction, the corpus currency) and **987 m** (theta gradient) — every one
+at or above the 976 m the box supports, every `L/z_i` (1.53, 1.85, 1.98) below the 2.0
+corpus floor. **The gate is not what rejects it**: four limits INDETERMINATE, none
+drifting. Lock-in is a property no stationarity limit looks for — a flow can be perfectly
+steady and still be organised by the box.
+
+Cost, stated and left as a design decision: **6 of 30 seeds**, and the corpus's deepest
+convective coverage — which is exactly where `z_i` correlates with heat flux (+0.43
+CONUS404, +0.49 HRRR) and the array's flux enhancement is largest.
+
 **THE STATIONARITY GATE WAS SCORING THE WRONG QUANTITY ON THE WRONG WINDOW, AND COULD
 NOT RESOLVE ITS OWN LIMITS — CORRECTED 2026-08-27.** `SEED_NBL_DEEP_RESULT.md`. Three
 changes, none of which moves a threshold:
