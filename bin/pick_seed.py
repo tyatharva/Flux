@@ -91,7 +91,8 @@ def regime_of(wth):
     return "neutral"
 
 
-def load_library(index_path, library_dir, available_only=False):
+def load_library(index_path, library_dir, available_only=False,
+                 allow_indeterminate=False, exclude=()):
     """Prefer each job's RETURNED manifest (it carries `achieved`); fall back to the index.
 
     The fallback is not silent. A seed with no achieved block is matched on its TARGET, and
@@ -108,11 +109,19 @@ def load_library(index_path, library_dir, available_only=False):
             f"library outside it is invisible. Put it under the repo and pass a relative "
             f"path.")
     seeds, have, rejected, unbuilt, incomplete = [], set(), [], [], []
+    indeterminate, indeterminate_blocked, excluded_by_hand = [], [], []
     if os.path.isdir(library_dir):
         for m in sorted(glob.glob(os.path.join(library_dir, "*", "return",
                                                "manifest.json"))):
             s = json.load(open(m))
             ret = os.path.dirname(m)
+            # AN EXPLICIT, RECORDED EXCLUSION. Distinct from every automatic one above:
+            # this is a human decision about a specific seed, and it is named in the
+            # output so it cannot be mistaken for the library simply not containing it.
+            if s["job"] in exclude:
+                excluded_by_hand.append(s["job"])
+                have.add(s["job"])
+                continue
             # A SEED THAT FAILED ITS OWN STATIONARITY GATE IS NOT A SEED. It is a state
             # still drifting in one of the footprint's controlling parameters, and
             # restarting a case from it starts the case mid-transient -- which the 30
@@ -126,18 +135,39 @@ def load_library(index_path, library_dir, available_only=False):
             # seed_sbl-weak_a030, whose stationarity.json says pass=false, whose manifest
             # says nothing, and which this function happily returned as the best available
             # seed in the library.
-            gate = None
+            gate, indet = None, []
             gp = os.path.join(ret, "stationarity.json")
             if os.path.exists(gp):
                 try:
-                    gate = bool(json.load(open(gp)).get("pass"))
+                    _g = json.load(open(gp))
+                    gate = bool(_g.get("pass"))
+                    # DRIFTING AND INDETERMINATE ARE NOT THE SAME REFUSAL. A seed with a
+                    # DRIFTING limit is known to be moving in a footprint-controlling
+                    # parameter -- restarting a case from it starts the case mid-transient.
+                    # A seed with only INDETERMINATE limits is not known to be moving; its
+                    # stationarity is UNESTABLISHED, because the trend estimator cannot
+                    # resolve its own limit in a 3.0 h run (TKE_BL/u*^2 and z_i decorrelate
+                    # on the eddy turnover, so n_eff saturates at 3-5 however finely the
+                    # run is dumped). Both are refused by default. Only the second can be
+                    # opted into, and only explicitly.
+                    indet = list(_g.get("indeterminate") or [])
+                    s["_drifting"] = list(_g.get("drifting") or [])
+                    s["_indeterminate"] = indet
                 except (ValueError, OSError):
                     gate = None
             ach = s.get("achieved") or {}
             if ach.get("pass") is False or gate is False:
-                rejected.append(s["job"])
-                have.add(s["job"])          # and do NOT fall back to its index entry
-                continue
+                only_indet = bool(indet) and not s.get("_drifting")
+                if only_indet and allow_indeterminate:
+                    s["_gate_state"] = "INDETERMINATE"
+                    indeterminate.append((s["job"], indet))
+                else:
+                    (indeterminate_blocked if only_indet else rejected).append(
+                        s["job"] if not only_indet else (s["job"], indet))
+                    have.add(s["job"])      # and do NOT fall back to its index entry
+                    continue
+            else:
+                s["_gate_state"] = "PASS" if gate else "unjudged"
             # NO VERDICT AND NO ARTIFACT IS AN UNFINISHED JOB, not a seed and not an
             # unbuilt one. Falling back to its index entry would present a run that got
             # part way and stopped as though it had never started.
@@ -174,9 +204,23 @@ def load_library(index_path, library_dir, available_only=False):
                 unbuilt.append(s["job"])
                 continue
             seeds.append(s)
+    if excluded_by_hand:
+        print(f"  EXCLUDED BY REQUEST ({len(excluded_by_hand)}): "
+              f"{', '.join(sorted(excluded_by_hand))} -- named on the command line, not "
+              f"rejected by any gate.")
     if rejected:
-        print(f"  EXCLUDED {len(rejected)} seed(s) that failed their own stationarity "
-              f"gate: {', '.join(sorted(rejected))}")
+        print(f"  EXCLUDED {len(rejected)} seed(s) whose gate found a limit DRIFTING: "
+              f"{', '.join(sorted(rejected))}")
+    for j, lim in sorted(indeterminate_blocked):
+        print(f"  EXCLUDED {j}: stationarity UNESTABLISHED (INDETERMINATE on "
+              f"{', '.join(lim)}) -- nothing is drifting, but the gate cannot resolve "
+              f"these limits in a 3.0 h run. Pass --allow-indeterminate to use it anyway; "
+              f"every pair built on it is stamped with this state.")
+    for j, lim in sorted(indeterminate):
+        print(f"  *** USING AN INDETERMINATE SEED: {j} is INDETERMINATE on "
+              f"{', '.join(lim)} and was admitted by --allow-indeterminate. Its "
+              f"stationarity is UNESTABLISHED, not established. Every pair built on it "
+              f"carries seed.gate_state = INDETERMINATE.")
     if incomplete:
         print(f"  EXCLUDED {len(incomplete)} unfinished job(s) -- a return/ directory with "
               f"neither a gate verdict nor a restart: {', '.join(sorted(incomplete))}")
@@ -299,6 +343,13 @@ def main():
     ap.add_argument("--library", default="jobs")
     ap.add_argument("--zm", type=float, default=10.0)
     ap.add_argument("--json", default=None)
+    ap.add_argument("--exclude", default=None,
+                    help="comma-separated seed job names to exclude explicitly, "
+                         "regardless of their gate verdict. Named in the output.")
+    ap.add_argument("--allow-indeterminate", action="store_true",
+                    help="admit seeds whose gate returned INDETERMINATE (no limit "
+                         "drifting, but the trend estimator cannot resolve its own "
+                         "threshold). NOT a pass: the state is stamped onto every pair.")
     ap.add_argument("--available-only", action="store_true",
                     help="rank only seeds that have a returned artifact on disk. Use "
                          "while the library is partially built: an unbuilt seed cannot be "
@@ -317,7 +368,9 @@ def main():
     L_c = lab.get("L_estimate")
     zoL_c = (a.zm / float(L_c)) if L_c not in (None, 0) else float("nan")
 
-    seeds = load_library(a.index, a.library, available_only=a.available_only)
+    seeds = load_library(a.index, a.library, available_only=a.available_only,
+                         allow_indeterminate=a.allow_indeterminate,
+                         exclude=set(x for x in (a.exclude or "").split(",") if x))
     meas = measured_backing(seeds)
     per, by_reg = meas
     if by_reg:
@@ -345,6 +398,9 @@ def main():
             _froz = (None if _rate is None or not np.isfinite(_rate)
                      else round((float(ach_["wdir"]) - 90.0 * rot) % 360.0, 2))
             rows.append({"job": s["job"], "rung": s["rung"], "rot": rot,
+                         "gate_state": s.get("_gate_state", "unjudged"),
+                         "gate_indeterminate": s.get("_indeterminate") or [],
+                         "gate_drifting": s.get("_drifting") or [],
                          "seed_dir_frozen_deg": _froz,
                          "dwdir_dt_deg_per_h": (None if _rate is None else float(_rate)),
                          "project_h": PROJECT_H,
@@ -374,7 +430,12 @@ def main():
               f"{r['d_dir_deg']:>7.1f}{r['seed_zi_m']:>7.0f}{r['cost_zi']:>7.3f}"
               f"{r['cost_dir']:>7.3f}{r['cost']:>7.3f}  {r['regime']:>10} "
               f"{r['labelled_by']:>8}")
-    print(f"\n  CHOSEN: {best['job']} --rot {best['rot']}")
+    print(f"\n  CHOSEN: {best['job']} --rot {best['rot']}  [gate "
+          f"{best.get('gate_state','unjudged')}]")
+    if best.get("gate_state") == "INDETERMINATE":
+        print(f"    *** its stationarity is UNESTABLISHED on "
+              f"{', '.join(best['gate_indeterminate'])} -- not established, and not a "
+              f"pass. This is recorded on the pair, not waved through.")
     print(f"    heading {best['seed_dir_deg']:.1f} vs {dir_c:.1f} deg "
           f"(gap {best['d_dir_deg']:.1f})")
     if best.get("seed_dir_frozen_deg") is not None:

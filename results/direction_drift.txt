@@ -8,20 +8,22 @@
              instant the pair's own direction LABEL refers to.
 
   rung          job                        G from  freeze    drift  window  b_frz  b_win   nom
-  nbl-shallow   seed_nbl-shallow_a000       270.0  251.72    -8.12  244.95 +18.28 +25.05  23.5
+  nbl-deep      seed_nbl-deep_a000          270.0  255.98    -5.63  251.29 +14.02 +18.71  23.5
+  nbl-shallow   seed_nbl-shallow_a000       270.0  251.72    -7.79  245.23 +18.28 +24.77  23.5
+  sbl           seed_sbl_a030               240.0  200.23     +nan     nan +39.77   +nan  23.5
 
-  nbl-shallow    backing at freeze +18.28 deg (n=1), drift  -8.12 deg/h (n=1)
-  LIBRARY        backing at freeze +18.28 deg (n=1)
+  nbl-deep       backing at freeze +14.02 deg (n=1), drift  -5.63 deg/h (n=1)
+  nbl-shallow    backing at freeze +18.28 deg (n=1), drift  -7.79 deg/h (n=1)
+  sbl            backing at freeze +39.77 deg (n=1)
+  LIBRARY        backing at freeze +24.02 deg (n=3)
 
   === IS THE NOMINAL WRONG, OR WAS IT READ AT THE WRONG INSTANT? ===
     nominal                       +23.50 deg
-    measured AT FREEZE            +18.28 deg   error  5.22 deg = 17% of a 30 deg library bin
-    measured AT THE WINDOW        +25.05 deg   error  1.55 deg = 5% of a 30 deg library bin
+    measured AT FREEZE            +24.02 deg   error  0.52 deg = 2% of a 30 deg library bin
+    measured AT THE WINDOW        +21.74 deg   error  1.76 deg = 6% of a 30 deg library bin
 
-    THE ANGLE WAS RIGHT; THE INSTANT WAS WRONG. Most of the apparent error
-    in the nominal is the seed continuing to back between its freeze and
-    the window it is used for. bin/pick_seed.py projects, and the three
-    base angles need no offset on this evidence.
+    Projection does NOT reconcile the nominal with the measurement here.
+    If this survives more rungs, the nominal itself needs replacing.
 
   RECOMMENDATION ON BASE ANGLES -- PROPOSED, NOT APPLIED.
     Leave {0, 30, 60} as they are. Two reasons, and the second is the general one:
@@ -32,4 +34,30 @@
            spaced set of 12. Only a drift that DIFFERS between rungs moves the
            effective spacing, and that is what the per-rung column above is for.
     Revisit when the per-rung drifts span a usable fraction of the 30 deg bin.
-    Samples so far: 1.
+    Samples so far: 3.
+
+  === WHAT PREDICTS THE DRIFT RATE? ===
+  seed                          drift      u*     z_i  h/u* (s)  |drift|*h/u*
+  seed_nbl-deep_a000            -5.63  0.4292     577      1345         2.103
+  seed_nbl-shallow_a000         -7.79  0.2815     354      1258         2.724
+  n = 2 seeds with a measured rate.  NO FIT IS REPORTED: with n <= 3 any predictor explains the data exactly and the correlation is an artifact of the sample size, not a result.
+
+  case                    seed                      pick gap  achieved gap  widened by
+  case_2023031014         seed_nbl-shallow_a000         11.3          21.8       +10.5
+  e2e_20230118            seed_cbl-mid_a030             14.1          36.0       +21.8
+  n = 2 cases. The WIDENING is one-signed in both, off different rungs and on opposite sides of the compass.
+
+  === AND ONE THING FOLLOWS WITHOUT ANY FIT ===
+  A drift that is one-signed and of order 10-20 deg by the time the window is
+  sampled is NOT a spacing that 30-degree base angles deliver +/- 15 deg on.
+  Twelve library directions at 30 deg give a worst-case gap of 15 deg only if the
+  seeds sit where they were placed; a variable 10-20 deg one-signed excursion
+  makes the worst case 25-35 deg, and on the DOMINANT SKILL AXIS.
+
+  Projection (bin/pick_seed.py) removes the MEAN of that excursion and leaves its
+  SCATTER, so it is a partial fix and cannot be the whole one. The honest fix is
+  DENSER BASE ANGLES: 6 base angles at 15 deg = 24 library directions, worst-case
+  7.5 deg before drift and ~15 after, which is what 3 angles were believed to give.
+  Cost: 30 seeds instead of 15, i.e. ~86 GPU-h instead of ~43, against a corpus of
+  ~1700 GPU-h -- 2.5% of the total to fix the axis the emulator is judged on.
+  PROPOSED, NOT APPLIED.

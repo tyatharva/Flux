@@ -105,6 +105,27 @@ def zi_fixed(tk, z, thresh=ZI_ABS):
     return bl_depth(tk, z, thresh=thresh)
 
 
+def tke_bl_average(tk, z, zi):
+    """Resolved TKE averaged over the BOUNDARY LAYER, not over the whole column.
+
+    THE ONE DEFINITION. bin/run_pass5.sh imports this rather than restating it: that file
+    already carried an inline 5%-of-peak copy of the depth while importing LIMITS from
+    here, and the same file then broke when the TKE key changed. A gate with a private
+    copy of a definition is how stage4_wellmixed.py came to score a closure the footprints
+    did not compute.
+
+    The column mean divides by the whole 2500 m box, so it rises mechanically as z_i rises
+    even in an equilibrated layer. This form does not: measured, it has nearly the same
+    value across rungs (1.4814 nbl-deep vs 1.4262 nbl-shallow) where the column mean
+    differs by 44%.
+    """
+    tk = np.asarray(tk, dtype=np.float64)
+    z = np.asarray(z, dtype=np.float64)
+    top = max(float(zi), float(z[2]))
+    m = z <= top
+    return float(np.trapezoid(tk[m], z[m]) / top)
+
+
 def zi_peak_fraction(tk, z, frac=0.05):
     """Depth from a fraction of the profile's OWN peak. Reported, never gated.
 
@@ -117,11 +138,17 @@ def zi_peak_fraction(tk, z, frac=0.05):
 
 # Percent-per-hour trend limits, scored over the last SCORE_H hours. Single definition;
 # bin/run_pass5.sh imports this dict rather than restating it.
+# HOW MANY STANDARD ERRORS OF SEPARATION A VERDICT NEEDS. 3 SE is ~99.7% under a normal
+# approximation; the estimator here is a least-squares slope over 19-25 correlated dumps,
+# so the normal approximation is itself rough and 3 is chosen to be comfortably clear of
+# the 1-2 SE band where both neutral seeds actually landed rather than to hit a p-value.
+RESOLVE_SE = 3.0
+
 LIMITS = {
     "U/u* (Kljun Pi_4)": 1.0,
     "sigma_v/u*": 3.0,
     "sigma_w/u* at the receptor": 2.0,
-    "TKE/u*^2": 5.0,
+    "TKE_BL/u*^2": 5.0,
     "z_i": 3.0,
     "Kljun x_peak": 1.0,
     "Kljun x90": 1.0,
@@ -131,8 +158,8 @@ LIMITS = {
 def series(paths, dt, k):
     """Per-dump receptor-level moments and the derived Kljun geometry inputs."""
     from netCDF4 import Dataset
-    out = {n: [] for n in ("t", "ustar", "tke", "zi", "zi_peakfrac", "sw", "sv", "U",
-                          "wdir", "th0", "tkepeak")}
+    out = {n: [] for n in ("t", "ustar", "tke", "tke_bl", "zi", "zi_peakfrac", "sw",
+                          "sv", "U", "wdir", "th0", "tkepeak")}
     for p in paths:
         with Dataset(p) as ds:
             g = lambda v: np.squeeze(np.asarray(ds[v][:], dtype=np.float64))
@@ -148,9 +175,22 @@ def series(paths, dt, k):
                 raise ValueError(f"{os.path.basename(p)}: {nm} is not finite")
         pr = lambda a: a - a.mean(axis=(-2, -1), keepdims=True)
         tk = 0.5 * ((pr(u) ** 2 + pr(v) ** 2 + pr(w) ** 2).mean(axis=(-2, -1)))
-        out["tke"].append(float(tk.mean()))
+        _zi = zi_fixed(tk, z)
+        out["tke"].append(float(tk.mean()))               # column mean; REPORTED only
+        # === THE GATED TKE IS THE BOUNDARY-LAYER AVERAGE, NOT THE COLUMN MEAN =========
+        # The column mean divides by the whole 2500 m box, so it rises MECHANICALLY as
+        # z_i rises even in a layer that is otherwise in equilibrium -- it is not a
+        # scale-free quantity and it was never a fair thing to trend. Measured on the two
+        # neutral seeds, the boundary-layer average has nearly the same VALUE across
+        # rungs (1.4814 at nbl-deep against 1.4262 at nbl-shallow) while the column mean
+        # differs by 44% (1.1430 against 0.7955) -- which is the signature of a quantity
+        # carrying the depth rather than the turbulence.
+        #
+        # This is wrong even when it PASSES. nbl-shallow passed the column-mean form, and
+        # part of what it passed on was its own shallower depth.
+        out["tke_bl"].append(tke_bl_average(tk, z, _zi))
         out["tkepeak"].append(float(tk[int(np.argmax(tk))]))
-        out["zi"].append(zi_fixed(tk, z))                 # GATED: fixed threshold
+        out["zi"].append(_zi)                             # GATED: fixed threshold
         out["zi_peakfrac"].append(zi_peak_fraction(tk, z))  # reported; the corpus currency
         out["sw"].append(float(np.sqrt((pr(w)[k] ** 2).mean() + (2 / 3) * e[k].mean())))
         out["sv"].append(float(np.sqrt(((pr(u)[k] ** 2 + pr(v)[k] ** 2).mean()) / 2
@@ -260,24 +300,45 @@ def score(s, xp, x90, score_h):
     quantities = (("U/u* (Kljun Pi_4)", s["U"] / us),
                   ("sigma_v/u*", s["sv"] / us),
                   ("sigma_w/u* at the receptor", s["sw"] / us),
-                  ("TKE/u*^2", s["tke"] / us ** 2),
+                  ("TKE_BL/u*^2", s["tke_bl"] / us ** 2),
                   ("z_i", s["zi"]),
                   ("Kljun x_peak", xp),
                   ("Kljun x90", x90))
-    rows, ok = [], True
+    rows, ok, n_indet = [], True, 0
     for nm, y in quantities:
         v = trend(y)
-        g_ = bool(abs(v) < LIMITS[nm])
-        ok &= g_
         se, neff = trend_se(y)
+        # === RESOLVABILITY IS PART OF THE VERDICT, NOT A FOOTNOTE ===================
+        # A limit whose threshold sits within RESOLVE_SE standard errors of the
+        # measurement cannot separate PASS from FAIL: measured on the two neutral seeds,
+        # the ACCEPTED one read +4.32 +/- 3.46 %/h against a 5.0 limit (0.2 SE of margin)
+        # and would have read +6.51 -- a FAIL -- had its run stopped fifteen minutes
+        # earlier, while the REJECTED one read +8.13 +/- 3.09 (1.0 SE). The two seeds were
+        # never distinguishable by that limit, and calling one PASS and the other FAIL
+        # asserted a difference the data does not contain.
+        #
+        # So such a limit returns INDETERMINATE. This is the same move as
+        # docker/turb_alive.py refusing to let a SKIP read as a PASS: a check that could
+        # not run is not a check that passed. It does NOT loosen anything -- an
+        # INDETERMINATE limit fails the run just as a DRIFTING one does, because a seed
+        # whose stationarity is unestablished is not a seed. What changes is that the run
+        # is refused for the honest reason.
+        resolvable = bool(np.isfinite(se) and se > 0
+                          and abs(abs(v) - LIMITS[nm]) > RESOLVE_SE * se)
+        if not resolvable:
+            g_ = None
+            n_indet += 1
+        else:
+            g_ = bool(abs(v) < LIMITS[nm])
+        ok &= bool(g_)                      # None -> False: neither PASS nor DRIFTING
         r = {"name": nm, "mean": float(y[sel].mean()),
              "trend_pct_per_h": float(v), "limit": LIMITS[nm], "ok": g_,
              "trend_se_pct_per_h": float(se), "n_eff": float(neff),
-             # CAN THIS GATE TELL PASS FROM FAIL AT ALL? If the limit sits within 2 SE of
-             # the measured trend, the verdict is inside the estimator's own noise and
-             # says little either way. Reported, never acted on: the limit is not moved
-             # here and the verdict is not softened.
-             "resolvable": bool(np.isfinite(se) and abs(abs(v) - LIMITS[nm]) > 2.0 * se)}
+             "resolvable": resolvable,
+             "margin_se": (float(abs(abs(v) - LIMITS[nm]) / se)
+                           if np.isfinite(se) and se > 0 else float("nan")),
+             "verdict": ("INDETERMINATE" if g_ is None
+                         else ("ok" if g_ else "DRIFTING"))}
         # A LINEAR TREND THROUGH A STAIRCASE REPORTS THE STAIRCASE. z_i can only land on a
         # model level, so over a short window it takes a handful of discrete values and a
         # least-squares slope through them is as much an artifact of WHICH levels were
@@ -290,6 +351,7 @@ def score(s, xp, x90, score_h):
     reported = [{"name": nm, "mean": float(y[sel].mean()),
                  "trend_pct_per_h": float(trend(y)), "unit": "%/h"}
                 for nm, y in (("u*", us), ("U(10 m)", s["U"]),
+                              ("TKE_column/u*^2 (retired form)", s["tke"] / us ** 2),
                               ("domain TKE", s["tke"]),
                               ("peak resolved TKE", s["tkepeak"]),
                               ("z_i, 5% of the running peak", s["zi_peakfrac"]))]
@@ -303,7 +365,28 @@ def score(s, xp, x90, score_h):
     dwdir = trend_deg(s["wdir"])
     reported.insert(2, {"name": "wind direction", "mean": float(s["wdir"][sel].mean()),
                         "trend_deg_per_h": dwdir, "unit": "deg/h"})
-    return bool(ok), rows, reported, sel, dwdir
+    return bool(ok), rows, reported, sel, dwdir, n_indet
+
+
+def sweep(s, xp, x90, widths):
+    """Trend, SE and n_eff for every limit at several scoring-window widths.
+
+    THE WINDOW LENGTH IS A GATE PARAMETER AND IT WAS NEVER MEASURED. 1.5 h was inherited
+    from the run that first passed at 3.0 h, not chosen against the estimators' own
+    resolution. A trend's SE falls roughly as T^(-3/2) for independent samples, so a wider
+    window buys resolution fast -- but it also reaches back into the cold-start transient,
+    which biases the trend. This prints both sides of that trade so the width is picked on
+    evidence and not on inheritance.
+    """
+    rows = []
+    for w in widths:
+        try:
+            ok, gated, _rep, sel, _d, _ni = score(s, xp, x90, w)
+        except ValueError as e:
+            rows.append((w, None, str(e)))
+            continue
+        rows.append((w, dict(ok=ok, n=int(sel.sum()), gated=gated), None))
+    return rows
 
 
 def main():
@@ -313,11 +396,34 @@ def main():
     ap.add_argument("--wth", type=float, default=0.0,
                     help="the PRESCRIBED surface virtual heat flux, for L in the Kljun "
                          "terms. The resolved covariance at k=0 is not it (cbl_check.py).")
-    ap.add_argument("--score-h", type=float, default=1.5)
+    # === 2.0 h, MEASURED, NOT INHERITED ==========================================
+    # 1.5 h was carried over from the first run that passed at 3.0 h; it was never chosen
+    # against the estimators' own resolution. Swept over 1.0-2.5 h on both neutral seeds
+    # (--sweep-score-h), 2.0 h is the best width available in a 3.0 h run:
+    #
+    #   * the four oscillation-immune limits improve by ~50% in margin: U/u* goes from
+    #     4.7 to 7.2 SE (nbl-shallow) and 11.1 to 10.2 (nbl-deep); x90 5.6 -> 8.7 and
+    #     13.5 -> 13.8; sigma_w/u* 3.4 -> 5.3 and 6.9 -> 6.3;
+    #   * sigma_v/u* CROSSES into resolvable on nbl-shallow (2.6 -> 3.6 SE);
+    #   * and 2.25-2.5 h reaches back into the cold-start transient, where the z_i trend
+    #     blows up to +9.0 and +9.6 %/h on the two seeds. 2.0 h does not.
+    #
+    # WHAT IT DOES NOT DO IS FIX THE TWO THAT MATTER, and that is the finding rather than
+    # a shortcoming of the width. TKE_BL/u*^2 holds n_eff = 3.0-5.5 at EVERY width from
+    # 1.0 h to 2.5 h, and z_i holds 3.0-9.6: adding dumps adds no independent information,
+    # because both decorrelate on the EDDY TURNOVER (h/u* = 1330-1470 s here), not on the
+    # 300 s dump interval. A 2.0 h window is 4.9-5.4 turnovers, so it can hold about five
+    # independent samples of them however finely it is sampled. Those two limits are
+    # bounded by RUN LENGTH, and nothing about the scoring can substitute for it.
+    ap.add_argument("--score-h", type=float, default=2.0)
     ap.add_argument("--zm", type=float, default=10.0)
     ap.add_argument("--k", type=int, default=2)
     ap.add_argument("--json", default=None)
     ap.add_argument("--label", default="")
+    ap.add_argument("--sweep-score-h", default=None,
+                    help="comma-separated window widths to report trend/SE/n_eff at, "
+                         "e.g. '1.0,1.5,2.0,2.5'. Diagnostic: the verdict still comes "
+                         "from --score-h.")
     a = ap.parse_args()
 
     pat = a.target
@@ -344,7 +450,7 @@ def main():
 
     s = series(paths, a.dt, a.k)
     xp, x90 = kljun_geometry(s, a.zm, a.wth)
-    ok, rows, reported, sel, dwdir = score(s, xp, x90, a.score_h)
+    ok, rows, reported, sel, dwdir, n_indet = score(s, xp, x90, a.score_h)
 
     f = 2 * 7.292e-5 * math.sin(math.radians(42.957160))
     period = 2 * math.pi / f / 3600.0
@@ -369,7 +475,7 @@ def main():
     for r in rows:
         print(f"  {r['name']:<28}{r['mean']:10.4f}{r['trend_pct_per_h']:+9.2f} %/h  "
               f"(limit {r['limit']:.0f})   {abs(r['trend_pct_per_h'])*40/60:5.2f}% per "
-              f"40-min window   {'ok' if r['ok'] else 'DRIFTING'}")
+              f"40-min window   {r['verdict']}")
         if np.isfinite(r["trend_se_pct_per_h"]):
             print(f"    ^ trend SE {r['trend_se_pct_per_h']:.2f} %/h "
                   f"(AR(1)-corrected, n_eff {r['n_eff']:.1f} of {int(sel.sum())} dumps); "
@@ -378,8 +484,9 @@ def main():
                   f"{abs(abs(r['trend_pct_per_h'])-r['limit'])/max(r['trend_se_pct_per_h'],1e-9):.1f} "
                   f"SE away"
                   + ("" if r["resolvable"] else
-                     "  -- NOT RESOLVABLE: the limit is inside this estimator's own "
-                     "sampling noise, so the verdict is close to a coin flip either way"))
+                     f"  -- INDETERMINATE: {RESOLVE_SE:.0f} SE of separation is required "
+                     f"and there is {r['margin_se']:.1f}. This limit cannot tell PASS "
+                     f"from FAIL on this window, so it asserts neither"))
         if "n_levels" in r:
             print(f"    ^ on {r['n_levels']} distinct model level(s) spanning "
                   f"{r['level_span_m']:.0f} m across the window"
@@ -395,13 +502,52 @@ def main():
           f"closes a gap; measured, the adjustment WIDENS one.")
     print(f"  x_peak spans {xp[sel].min():.1f}-{xp[sel].max():.1f} m across the scored "
           f"window, against a 16 m raster cell.")
-    verdict = ("PASS" if ok else
-               "FAIL -- a footprint-controlling parameter is still drifting")
+    if a.sweep_score_h:
+        widths = [float(x) for x in a.sweep_score_h.split(",")]
+        print(f"\n  === SCORING-WINDOW SWEEP: does the gate resolve at all, and where? ===")
+        for w, r, err in sweep(s, xp, x90, widths):
+            if r is None:
+                print(f"  {w:.2f} h: {err}")
+                continue
+            print(f"\n  --- window {w:.2f} h ({r['n']} dumps) ---")
+            print(f"    {'quantity':28}{'trend':>9}{'SE':>8}{'n_eff':>7}{'limit':>7}"
+                  f"{'margin/SE':>11}  verdict")
+            for g in r["gated"]:
+                se = g["trend_se_pct_per_h"]
+                marg = (abs(abs(g["trend_pct_per_h"]) - g["limit"]) / se
+                        if np.isfinite(se) and se > 0 else float("nan"))
+                print(f"    {g['name']:28}{g['trend_pct_per_h']:+9.2f}{se:8.2f}"
+                      f"{g['n_eff']:7.1f}{g['limit']:7.1f}{marg:11.1f}  {g['verdict']}")
+
+    drifting = [r["name"] for r in rows if r["ok"] is False]
+    indet = [r["name"] for r in rows if r["ok"] is None]
+    if ok:
+        verdict = "PASS"
+    elif drifting:
+        verdict = ("FAIL -- still drifting: " + ", ".join(drifting)
+                   + (f"; and INDETERMINATE: {', '.join(indet)}" if indet else ""))
+    else:
+        # NOT A PASS AND NOT A DRIFT. The run is refused because its stationarity is
+        # UNESTABLISHED, which is a different thing to report and a different thing to
+        # fix: a drifting seed needs different physics or more time, an indeterminate one
+        # needs a longer scoring window or more dumps.
+        verdict = ("FAIL -- INDETERMINATE: " + ", ".join(indet)
+                   + f". No limit is drifting; the gate cannot resolve these at "
+                     f"{a.score_h:.2f} h. DUMPING MORE OFTEN WILL NOT HELP -- measured, "
+                     f"n_eff for these saturates at 3-5 at every window width from 1.0 to "
+                     f"2.5 h, because they decorrelate on the eddy turnover and not on "
+                     f"the dump interval. What is short is the RUN. Do NOT loosen the "
+                     f"threshold and do NOT read this as a pass.")
     print(f"\n  SEED STATIONARITY: {verdict}")
 
     if a.json:
         os.makedirs(os.path.dirname(a.json) or ".", exist_ok=True)
-        json.dump({"label": a.label, "pass": ok, "dt": a.dt, "wth": a.wth,
+        json.dump({"label": a.label, "pass": ok,
+                   "n_indeterminate": int(n_indet),
+                   "indeterminate": [r["name"] for r in rows if r["ok"] is None],
+                   "drifting": [r["name"] for r in rows if r["ok"] is False],
+                   "resolve_se": RESOLVE_SE,
+                   "dt": a.dt, "wth": a.wth,
                    "score_h": a.score_h, "n_dumps": len(paths),
                    "t_end_h": float(s["t"][-1]), "gated": rows, "reported": reported,
                    "final": {"ustar": float(s["ustar"][-1]), "U": float(s["U"][-1]),

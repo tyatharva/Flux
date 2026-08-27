@@ -1246,6 +1246,36 @@ because the case's own lid (2.61 K/km) is far weaker than the seed's (+8 K/100 m
 makes a pair wrong — inputs come from the LES window — but the library buys less convergence
 in direction and more in depth than the design assumed.
 
+**THE STATIONARITY GATE WAS SCORING THE WRONG QUANTITY ON THE WRONG WINDOW, AND COULD
+NOT RESOLVE ITS OWN LIMITS — CORRECTED 2026-08-27.** `SEED_NBL_DEEP_RESULT.md`. Three
+changes, none of which moves a threshold:
+
+1. **The gated TKE is the BOUNDARY-LAYER AVERAGE, not the column mean.** The column mean
+   divides by the whole 2500 m box, so it rises mechanically with `z_i` even in an
+   equilibrated layer. The BL-average is nearly the same across rungs (**1.5024 vs
+   1.4218**, 5.7%) where the column mean differs by **44%**. Wrong even when it PASSED.
+2. **The scoring window is 2.0 h, swept rather than inherited.** 1.5 h came from the first
+   run that passed. 2.0 h improves the four oscillation-immune limits ~50% and stops short
+   of the cold-start transient that 2.25-2.5 h reaches into.
+3. **A limit whose threshold sits within 3 SE of its measurement returns INDETERMINATE**,
+   not PASS and not FAIL. It still fails the run -- unestablished stationarity is not
+   stationarity -- but for the honest reason.
+
+**AND THE GATE STILL CANNOT RESOLVE `TKE_BL/u*^2` OR `z_i` AT ANY WINDOW WIDTH.** `n_eff`
+saturates at **3.0-5.5** and **3.0-9.6** from 1.0 h to 2.5 h, because both decorrelate on
+the **eddy turnover** (`h/u*` = 1258-1345 s), not on the 300 s dump interval. **Dumping
+more often cannot help; the RUN is what is short.** Both neutral seeds -- the rejected one
+AND the accepted one carrying the first corpus pair -- are INDETERMINATE, neither
+DRIFTING. `bin/pick_seed.py` separates the two and admits INDETERMINATE only under
+`--allow-indeterminate`, stamping `seed.gate_state` onto every pair.
+
+**`nbl-deep`'s failure did not survive the correction**: `TKE_BL/u*^2` reads **-0.15 %/h**
+against the `+8.13` the retired form gave. And **the rung selection rationale was wrong** --
+it was chosen for ~5 turnovers against ~9, and the achieved numbers are **8.4 against
+10.2**, an 18% margin, because `u*` scales with `G`. The library's spread is 8.4-23.0
+(convective rungs turn over on `z_i/w*` and are 2-3x better), so **the genuinely
+spin-up-marginal rung has not been identified and may not exist.**
+
 **THE FIRST FULL-LENGTH SEED RAN, AND FAILED ITS GATE ON ONE LIMIT — 2026-08-26.**
 `SEED_NBL_SHALLOW_RESULT.md`. `nbl-shallow` base angle 0, 738,720 steps in ONE invocation:
 **2.869 h wall, 0.956 GPU-h per simulated hour, +0.4% against the sanctioned seed class**;

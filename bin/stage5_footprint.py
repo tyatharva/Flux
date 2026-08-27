@@ -281,7 +281,29 @@ def main():
               "Kljun rests on. The\n        80% area, the tail and the land-cover shares "
               "are free.")
 
+    # === THE DIRECTION DRIFT INSIDE THE WINDOW ITSELF ================================
+    # Measured here because the window fields are deleted at the end of every case and
+    # this cannot be recovered afterwards. It answers a question the seed-side rate
+    # cannot: the seed's drift is measured at its FREEZE, and whether it persists through
+    # the case's own forcing is exactly what "the adjustment widens the gap rather than
+    # closing it" claims and has never directly tested.
+    _wd = st.get("wdir_per_dump") or []
+    _sp = st.get("step_per_dump") or []
+    dwdir_window = None
+    if len(_wd) >= 4 and len(_sp) == len(_wd):
+        _t = np.asarray(_sp, float) * float(a.dt) / 3600.0
+        _y = np.unwrap(np.radians(np.asarray(_wd, float)))
+        _A = np.vstack([_t, np.ones(_t.size)]).T
+        dwdir_window = float(np.degrees(np.linalg.lstsq(_A, _y, rcond=None)[0][0]))
+        print(f"  direction drift ACROSS THE WINDOW: {dwdir_window:+.2f} deg/h over "
+              f"{_t[-1]-_t[0]:.2f} h ({len(_wd)} dumps). The seed's own rate at freeze is "
+              f"in its manifest; whether the case inherits it is the open question in "
+              f"bin/direction_drift.py.")
+
     out = dict(dirs=a.dirs, zm=zm, zm_agl=zm_agl, d_recept=st.get("d_recept", 0.0),
+               dwdir_dt_window_deg_per_h=dwdir_window,
+               wdir_per_dump=[float(x) for x in _wd],
+               step_per_dump=[int(x) for x in _sp],
                z_target=a.z_target, exact_agl=bool(a.exact_agl), tback=a.tback, rel_seconds=a.rel_seconds, res=res,
                stats={k: (float(v) if np.isscalar(v) else None) for k, v in st.items()},
                les=m_les, kljun=m_kl, overlap_kljun=ov80, overlap50_kljun=ov50,

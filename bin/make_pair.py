@@ -165,6 +165,12 @@ def main():
                     float(((float(st["wdir"]) - float(lab["predicted_10m_dir_deg"])
                             + 180.0) % 360.0) - 180.0), 2))},
         }
+        if ch.get("gate_state") == "INDETERMINATE":
+            rec.setdefault("warnings", []).append(
+                "the seed this pair restarts from has UNESTABLISHED stationarity: "
+                + ", ".join(ch.get("gate_indeterminate") or [])
+                + " could not be resolved against their own limits in a 3.0 h spin-up. "
+                  "Nothing was drifting; nothing was established either.")
         if fc.get("representable") is False:
             rec.setdefault("warnings", []).append(
                 "the sounding's z_i exceeds what the domain supports; this pair is "
@@ -178,6 +184,13 @@ def main():
                        "seed_zi_m": ch["seed_zi_m"],
                        "labelled_by": ch["labelled_by"],
                        "regime_match": ch["regime_match"],
+                       # THE SEED'S GATE STATE TRAVELS WITH EVERY PAIR. A pair built on a
+                       # seed whose stationarity was never established is not wrong, but
+                       # it is qualified, and the qualification has to survive in the
+                       # training record rather than only in a log.
+                       "gate_state": ch.get("gate_state", "unjudged"),
+                       "gate_indeterminate": ch.get("gate_indeterminate", []),
+                       "gate_drifting": ch.get("gate_drifting", []),
                        # WHERE THE SEED'S HEADING CAME FROM. The adjustment does not close
                        # a direction gap -- measured, it widened one by 10.5 deg -- so the
                        # seed is carried forward at its own drift rate. Recording the

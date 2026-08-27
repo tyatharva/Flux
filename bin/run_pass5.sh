@@ -54,13 +54,13 @@ from lpdm import kljun
 #
 # These thresholds are far TIGHTER in footprint terms than the u* test they replace.
 # ============================================================================
-SCORE_H = float("${SCORE_H:-1.5}")
+SCORE_H = float("${SCORE_H:-2.0}")   # measured, see bin/seed_stationarity.py --score-h
 # The seven limits live in bin/seed_stationarity.py, which is the portable form of this
 # gate and the one the seed jobs run. Imported, not restated: a gate carrying its own copy
 # of a definition is exactly how stage4_wellmixed.py came to score a closure the
 # footprints did not compute (PROJECT_BRIEF.md, Conventions).
 sys.path.insert(0, "bin")
-from seed_stationarity import LIMITS as LIM, zi_fixed
+from seed_stationarity import LIMITS as LIM, tke_bl_average, zi_fixed
 ps = sorted(glob.glob('$SPIN/output/FE_G16.*'), key=lambda p:int(p.rsplit('.',1)[1]))
 t,us,tke,zi,sw,sv,Um,wd = [],[],[],[],[],[],[],[]
 for p in ps:
@@ -70,7 +70,7 @@ for p in ps:
         us.append(float(g('fricVel').mean()))
     pr=lambda a:a-a.mean(axis=(-2,-1),keepdims=True)
     tk=0.5*((pr(u)**2+pr(v)**2+pr(w)**2).mean(axis=(-2,-1)))
-    tke.append(float(tk.mean()))
+    tke.append(tke_bl_average(tk, z, zi_fixed(tk, z)))   # BL-AVERAGE, imported
     # IMPORTED, NOT RESTATED -- and this line was the counter-example to its own comment
     # four lines up: it carried an inline 5%-of-peak copy while the gate it imports LIMITS
     # from moved to a fixed threshold. Same shape as stage4_wellmixed.py's private copy of
@@ -98,7 +98,7 @@ def tr(y):
     A=np.vstack([t[sel],np.ones(sel.sum())]).T
     return 100*np.linalg.lstsq(A,y[sel],rcond=None)[0][0]/max(abs(y[sel].mean()),1e-30)
 print(f"\n  per-hour windows: is the TURBULENCE settled while the mean turns?")
-print(f"  {'window':>12}{'u*':>9}{'U(10)':>8}{'U/u*':>8}{'sw/u*':>8}{'TKE/u*^2':>10}"
+print(f"  {'window':>12}{'u*':>9}{'U(10)':>8}{'U/u*':>8}{'sw/u*':>8}{'TKE_BL/u*^2':>13}"
       f"{'z_i':>7}{'dir':>7}")
 for lo in np.arange(1.0, t[-1]-1.0+1e-9, 1.0):
     m=(t>=lo)&(t<lo+1.0)
@@ -109,13 +109,13 @@ for lo in np.arange(1.0, t[-1]-1.0+1e-9, 1.0):
 print(f"\n  === GATED: the footprint's controlling parameters, last {SCORE_H:.1f} h ===")
 ok=True
 for nm,y in (("U/u* (Kljun Pi_4)",Um/us),("sigma_v/u*",sv/us),
-             ("sigma_w/u* at the receptor",sw/us),("TKE/u*^2",tke/us**2),
+             ("sigma_w/u* at the receptor",sw/us),("TKE_BL/u*^2",tke/us**2),
              ("z_i",zi),("Kljun x_peak",xp),("Kljun x90",x90)):
     v=tr(y); g_=abs(v)<LIM[nm]; ok&=g_
     print(f"  {nm:<28}{y[sel].mean():10.4f}{v:+9.2f} %/h  (limit {LIM[nm]:.0f})   "
           f"{abs(v)*40/60:5.2f}% per 40-min window   {'ok' if g_ else 'DRIFTING'}")
 print(f"\n  === REPORTED, not gated: the mean flow rides the inertial oscillation ===")
-for nm,y in (("u*",us),("U(10 m)",Um),("wind direction",wd),("domain TKE",tke)):
+for nm,y in (("u*",us),("U(10 m)",Um),("wind direction",wd),("TKE_BL",tke)):
     print(f"  {nm:<28}{y[sel].mean():10.4f}{tr(y):+9.2f} %/h")
 print(f"  x_peak spans {xp[sel].min():.1f}-{xp[sel].max():.1f} m across the scored window, "
       f"against a {16.0:.0f} m raster cell.")

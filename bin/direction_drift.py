@@ -70,7 +70,11 @@ def collect(library):
     for m in sorted(glob.glob(os.path.join(library, "*", "return", "manifest.json"))):
         s = json.load(open(m))
         ach = s.get("achieved") or {}
-        if ach.get("pass") is not True or not np.isfinite(ach.get("wdir", np.nan)):
+        # A DRIFT MEASUREMENT IS VALID WHATEVER THE STATIONARITY VERDICT. The rate is
+        # read off the same dumps either way; refusing a seed here because a DIFFERENT
+        # limit could not be resolved throws away the only samples this question has.
+        # The gate state is carried instead, so a reader can weight them.
+        if not np.isfinite(ach.get("wdir", np.nan)):
             continue
         G = float(s["target"]["G_dir_from_deg"])
         frz = float(ach["wdir"])
@@ -78,6 +82,7 @@ def collect(library):
         proj = (frz + rate * PROJECT_H) % 360.0 if rate is not None else None
         nom = ekman_backing_deg(-1.0 if s["regime"] == "convective" else 0.0)
         out.append(dict(job=s["job"], rung=s["rung"], regime=s["regime"], G_dir=G,
+                        ustar=ach.get("ustar"), gate=ach.get("pass"),
                         wdir_freeze=frz, rate=rate, wdir_window=proj, nominal=nom,
                         back_freeze=((G - frz + 180) % 360) - 180,
                         back_window=(None if proj is None
@@ -87,7 +92,88 @@ def collect(library):
     return out
 
 
-def render(rows):
+def predictors(rows, cases):
+    """Does anything predict the drift rate? Reported honestly, including "no".
+
+    THE HONEST ANSWER TODAY IS THAT NOTHING CAN BE TESTED. A predictor needs a sample, and
+    the sample is: 2 seeds with a measured freeze-time drift rate, and 2 corpus cases with
+    a measured widening. With n = 2 a straight line through the points is exact by
+    construction and its correlation is +/-1 whatever the physics -- reporting one would
+    be the purest form of the failure PROJECT_BRIEF.md already forbids twice ("a tolerance
+    measured from one difference is not a tolerance"; "gates compare against a
+    DISTRIBUTION with enough degrees of freedom to have a standard error").
+
+    So this prints the table and the sample size and refuses to fit. What it DOES do is
+    name the candidate predictors and lay the data out so the answer arrives on its own as
+    seeds accumulate -- and it flags the one structural fact that is already visible
+    without any fit.
+    """
+    L = []
+    P = L.append
+    P("")
+    P("  === WHAT PREDICTS THE DRIFT RATE? ===")
+    P(f"  {'seed':26}{'drift':>9}{'u*':>8}{'z_i':>8}{'h/u* (s)':>10}{'|drift|*h/u*':>14}")
+    for r in rows:
+        if r["rate"] is None:
+            continue
+        us, zi = r.get("ustar"), r.get("zi_ach")
+        tt = (zi / us) if (us and zi) else float("nan")
+        P(f"  {r['job']:26}{r['rate']:+9.2f}{(us or float('nan')):8.4f}"
+          f"{(zi or float('nan')):8.0f}{tt:10.0f}{abs(r['rate'])*tt/3600.0:14.3f}")
+    n = sum(1 for r in rows if r["rate"] is not None)
+    P(f"  n = {n} seeds with a measured rate."
+      + ("  NO FIT IS REPORTED: with n <= 3 any predictor explains the data exactly and "
+         "the correlation is an artifact of the sample size, not a result."
+         if n <= 3 else ""))
+    if cases:
+        P("")
+        P(f"  {'case':24}{'seed':24}{'pick gap':>10}{'achieved gap':>14}{'widened by':>12}")
+        for c in cases:
+            P(f"  {c['tag']:24}{str(c['seed']):24}{c['pick_gap']:10.1f}"
+              f"{c['ach_gap']:14.1f}{c['widened']:+12.1f}")
+        P(f"  n = {len(cases)} cases. The WIDENING is one-signed in both, off different "
+          f"rungs and on opposite sides of the compass.")
+    P("")
+    P("  === AND ONE THING FOLLOWS WITHOUT ANY FIT ===")
+    P("  A drift that is one-signed and of order 10-20 deg by the time the window is")
+    P("  sampled is NOT a spacing that 30-degree base angles deliver +/- 15 deg on.")
+    P("  Twelve library directions at 30 deg give a worst-case gap of 15 deg only if the")
+    P("  seeds sit where they were placed; a variable 10-20 deg one-signed excursion")
+    P("  makes the worst case 25-35 deg, and on the DOMINANT SKILL AXIS.")
+    P("")
+    P("  Projection (bin/pick_seed.py) removes the MEAN of that excursion and leaves its")
+    P("  SCATTER, so it is a partial fix and cannot be the whole one. The honest fix is")
+    P("  DENSER BASE ANGLES: 6 base angles at 15 deg = 24 library directions, worst-case")
+    P("  7.5 deg before drift and ~15 after, which is what 3 angles were believed to give.")
+    P("  Cost: 30 seeds instead of 15, i.e. ~86 GPU-h instead of ~43, against a corpus of")
+    P("  ~1700 GPU-h -- 2.5% of the total to fix the axis the emulator is judged on.")
+    P("  PROPOSED, NOT APPLIED.")
+    return L
+
+
+def collect_cases(pairdir="pairs", pickdir="results/pick"):
+    """Every corpus case that has a measured achieved-vs-requested direction."""
+    out = []
+    for p in sorted(glob.glob(os.path.join(pairdir, "*.json"))):
+        try:
+            d = json.load(open(p))
+        except (OSError, ValueError):
+            continue
+        amr = ((d.get("forcing") or {}).get("achieved_minus_requested")) or {}
+        sd = d.get("seed") or {}
+        g = amr.get("dir_deg")
+        if g is None:
+            continue
+        pk = sd.get("d_dir_deg")
+        if pk is None:
+            continue
+        out.append(dict(tag=os.path.basename(p)[:-5], seed=sd.get("job"),
+                        pick_gap=float(pk), ach_gap=abs(float(g)),
+                        widened=abs(float(g)) - float(pk)))
+    return out
+
+
+def render(rows, cases=()):
     L = []
     P = L.append
     P("=== Ekman backing and direction DRIFT, measured off the seed library ===")
@@ -156,6 +242,7 @@ def render(rows):
     P("           effective spacing, and that is what the per-rung column above is for.")
     P(f"    Revisit when the per-rung drifts span a usable fraction of the 30 deg bin.")
     P(f"    Samples so far: {bf.size}.")
+    L.extend(predictors(rows, cases))
     return "\n".join(L) + "\n"
 
 
@@ -166,7 +253,7 @@ def main():
     ap.add_argument("--json", default=None)
     a = ap.parse_args()
     rows = collect(a.library)
-    txt = render(rows)
+    txt = render(rows, collect_cases())
     print(txt)
     os.makedirs(os.path.dirname(a.out) or ".", exist_ok=True)
     open(a.out, "w").write(txt)

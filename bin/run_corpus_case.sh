@@ -125,7 +125,15 @@ PICK=results/pick/$TAG.json
 # no-op. SEED_ANY=1 restores the full-library ranking for planning.
 ./docker/pyrun.sh bin/pick_seed.py "$FRC" --json "$PICK" \
     --library "${SEED_LIB:-jobs}" --index "${SEED_LIB:-jobs}/index.json" \
-    $([ "${SEED_ANY:-0}" = "1" ] || echo --available-only) || true
+    $([ "${SEED_ANY:-0}" = "1" ] || echo --available-only) \
+    $([ "${ALLOW_INDETERMINATE:-0}" = "1" ] && echo --allow-indeterminate) \
+    ${SEED_EXCLUDE:+--exclude "$SEED_EXCLUDE"} || true
+# ALLOW_INDETERMINATE IS OFF BY DEFAULT AND MUST BE SET DELIBERATELY. A seed whose gate
+# returned INDETERMINATE is not a seed that passed -- its stationarity is unestablished,
+# because TKE_BL/u*^2 and z_i decorrelate on the eddy turnover and a 3.0 h run cannot
+# resolve their trends against their own limits. Setting this admits such a seed and
+# stamps seed.gate_state = INDETERMINATE onto every pair built from it. It does NOT
+# loosen any threshold and it is not a pass.
 [ -s "$PICK" ] || die "stage 4 wrote no pick json"
 read -r JOB ROT < <(python3 -c "
 import json; c=json.load(open('$PICK'))['chosen']; print(c['job'], c['rot'])")

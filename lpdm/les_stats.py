@@ -103,6 +103,14 @@ def window_stats(paths, k_recept):
     zlev = None
     ust = hfx = th0 = 0.0
     n = 0
+    # PER-DUMP DIRECTION, SO THE DRIFT INSIDE THE WINDOW CAN BE MEASURED AT ALL.
+    # The seed library's dominant skill axis is direction, and the one thing measured
+    # about it -- that the 30-minute adjustment WIDENS a gap rather than closing it --
+    # rests on comparing a window MEAN against a requested value. That says the gap moved
+    # but not how fast, and the window's own fields are deleted at the end of every case,
+    # so it cannot be recovered afterwards. Two floats per dump make the rate recoverable
+    # from the training record instead of from fields that no longer exist.
+    uv_series, step_series = [], []
     # Level heights are STATIC, so they are read ONCE rather than from every dump -- but
     # NOT necessarily from paths[0]. Under ioLPDMmode the coordinate geometry goes to the
     # first file of a RUN and to the ioLPDMfullFrq multiples; a target case runs the
@@ -165,6 +173,11 @@ def window_stats(paths, k_recept):
         esgs_prof = ep if esgs_prof is None else esgs_prof + ep
         zlev = z
         n += 1
+        uv_series.append((float(Uk), float(Vk)))
+        try:
+            step_series.append(int(str(_p).rsplit(".", 1)[1]))
+        except (ValueError, IndexError):
+            step_series.append(n - 1)
     U /= n; V /= n; uu /= n; vv /= n; ww /= n; uv /= n; esgs /= n
     sgs = (2.0 / 3.0) * esgs        # isotropic sub-grid variance per component
     ust /= n; hfx /= n; th0 /= n
@@ -207,5 +220,8 @@ def window_stats(paths, k_recept):
                 sigma_w_resolved=float(np.sqrt(ww)), e_sgs=float(esgs),
                 ustar=float(ust), htFlux=float(hfx), theta0=float(th0),
                 L=float(L), h=h, tke_prof=tke_prof, n_dumps=n,
+                wdir_per_dump=[float((270.0 - np.degrees(np.arctan2(v_, u_))) % 360.0)
+                               for (u_, v_) in uv_series],
+                step_per_dump=[int(x) for x in step_series],
                 ww_prof=ww_prof, esgs_prof=esgs_prof, zlev=zlev,
                 U=float(U), V=float(V))
