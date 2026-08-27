@@ -133,8 +133,14 @@ def main():
     tight = rows[0]
     p(f"  BINDS LAST: {tight['name']} at {100*abs(tight['trend_pct_per_h'])/tight['limit']:.0f}% "
       f"of its limit ({tight['trend_pct_per_h']:+.2f} %/h against {tight['limit']:.1f})")
+    # THE REPORTED ROWS ARE NOT ALL IN %/h. Wind direction is a BEARING and is carried
+    # in deg/h -- a percentage of a bearing is unreadable and wraps through north -- so
+    # each row names its own unit and this formats what it finds. Assuming one unit here
+    # is what crashed this report the first time the direction row changed.
     p(f"  reported, not gated: " + ", ".join(
-        f"{r['name']} {r['trend_pct_per_h']:+.2f} %/h" for r in st["reported"]))
+        f"{r['name']} "
+        f"{r.get('trend_pct_per_h', r.get('trend_deg_per_h', float('nan'))):+.2f} "
+        f"{r.get('unit', '%/h')}" for r in st["reported"]))
 
     # ---- laminarisation ----------------------------------------------------------
     dumps = sorted(glob.glob(os.path.join(a.job, "output", "*.[0-9]*")),
