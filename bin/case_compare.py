@@ -77,7 +77,13 @@ def row_of(c):
     hl = ((fp.get("floor") or {}).get("health")) or {}
     st = fp.get("stats") or {}
     lab = (frc.get("labels") or {})
-    ch = (pick.get("chosen") or {})
+    # THE PAIR IS AUTHORITATIVE, THE PICK IS THE FALLBACK. make_pair.py writes the seed
+    # block that actually shipped with the training record, and a pair can be re-stamped
+    # (case_2023031014's gate_state was backfilled after the gate learned to say
+    # INDETERMINATE) without the pick being regenerated. Reading the pick first would show
+    # the stale value and call it "unjudged".
+    ch = dict(pick.get("chosen") or {})
+    ch.update({k: v for k, v in (pair.get("seed") or {}).items() if v is not None})
     amr = ((pair.get("forcing") or {}).get("achieved_minus_requested")) or {}
     share = (fp.get("cover_share") or {}).get("solar array")
     se = (fp.get("cover_share_se") or {}).get("solar array")
@@ -88,6 +94,10 @@ def row_of(c):
         H_w = float(lab["shtfl_wm2"])
     return dict(
         tag=c["tag"], seed=ch.get("job"), rot=ch.get("rot"),
+        gate_state=ch.get("gate_state"),
+        gate_indet=", ".join(ch.get("gate_indeterminate") or []),
+        dwdir_window=fp.get("dwdir_dt_window_deg_per_h"),
+        seed_drift=ch.get("dwdir_dt_deg_per_h"),
         peak_x=les.get("peak_x"), peak_klj=klj.get("peak_x"),
         centroid=les.get("centroid_dist"), bearing=les.get("centroid_bearing"),
         a80=les.get("area80_ha"), a80_klj=klj.get("area80_ha"),
@@ -120,7 +130,12 @@ def main():
 
     f = lambda v, s="{:.3f}": ("n/a" if v is None else s.format(v))
     for r in rows:
-        print(f"\n=== {r['tag']}  (seed {r['seed']} rot {r['rot']}) ===")
+        gs = r.get("gate_state") or "unjudged"
+        print(f"\n=== {r['tag']}  (seed {r['seed']} rot {r['rot']}, gate {gs}) ===")
+        if gs == "INDETERMINATE":
+            print(f"  ^ the seed's stationarity is UNESTABLISHED on {r['gate_indet']} -- "
+                  f"the library's normal state, not an exception: those two limits cannot "
+                  f"be resolved in a 3.0 h spin-up at any window width.")
         print(f"  footprint   peak {f(r['peak_x'],'{:.0f}')} m (Kljun {f(r['peak_klj'],'{:.0f}')}),"
               f"  centroid {f(r['centroid'],'{:.0f}')} m at {f(r['bearing'],'{:.1f}')} deg,"
               f"  A80 {f(r['a80'],'{:.2f}')} ha (Kljun {f(r['a80_klj'],'{:.2f}')}),"
@@ -139,6 +154,9 @@ def main():
         print(f"              dir {f(r['seed_dir'],'{:.1f}')} -> requested {f(r['req_dir'],'{:.1f}')} "
               f"-> ACHIEVED {f(r['wdir'],'{:.1f}')} deg  (achieved-requested {f(r['d_dir'],'{:+.1f}')} deg,"
               f" pick gap was {f(r['gap_dir'],'{:.1f}')})")
+        print(f"              drift: seed at freeze {f(r['seed_drift'],'{:+.2f}')} deg/h;"
+              f"  ACROSS THIS WINDOW {f(r['dwdir_window'],'{:+.2f}')} deg/h"
+              f"   -- does the case inherit the seed's rate?")
         if r["sigma_w"] is not None and r["H_w"] is not None:
             tw = tower_sigma_w(r["H_w"])
             if tw:
@@ -157,6 +175,7 @@ def main():
                 ("integral", "integral"), ("share", "array share"),
                 ("fac_max", "floor max"), ("fsgs_recept", "f_sgs at receptor"),
                 ("fsgs_peak", "f_sgs at floor peak"), ("h", "achieved h (m)"),
+                ("dwdir_window", "drift in window (deg/h)"),
                 ("ustar", "u*"), ("sigma_w", "sigma_w(10 m)")]
         print(f"  {'metric':22}{'min':>11}{'median':>11}{'max':>11}{'max/min':>10}")
         for k, nm in keys:
