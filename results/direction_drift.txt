@@ -44,6 +44,10 @@
   seed_nbl-deep_a000            -5.63  0.4292     577      1345         2.103
   seed_nbl-shallow_a000         -7.79  0.2815     354      1258         2.724
   n = 3 seeds with a measured rate.  NO FIT IS REPORTED: with n <= 3 any predictor explains the data exactly and the correlation is an artifact of the sample size, not a result.
+    |drift| vs u*   : MONOTONE  7.79  5.63  4.04
+    |drift| vs z_i  : MONOTONE  7.79  5.63  4.04
+    |drift| vs h/u* : MONOTONE  7.79  5.63  4.04
+    A monotone ordering of 3 points arises by chance with probability 0.333 -- a candidate to watch, not a relationship. And where several candidates order the seeds identically, three points cannot separate them.
 
   case                    seed                      pick gap  achieved gap  widened by
   case_2023031014         seed_nbl-shallow_a000         11.3          21.8       +10.5

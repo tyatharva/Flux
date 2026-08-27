@@ -54,6 +54,7 @@ from __future__ import annotations
 
 import argparse
 import glob
+import math
 import json
 import os
 import sys
@@ -125,6 +126,27 @@ def predictors(rows, cases):
       + ("  NO FIT IS REPORTED: with n <= 3 any predictor explains the data exactly and "
          "the correlation is an artifact of the sample size, not a result."
          if n <= 3 else ""))
+    # ORDERING IS NOT A FIT, and it is the one thing a sample this small can honestly say.
+    # A monotone ordering across n points has a 2/n! chance of arising by accident, which
+    # is worth stating at n = 3 (p = 0.33) only as a candidate to watch -- never as a
+    # relationship. What it CANNOT do is separate the candidates: if u*, z_i and h/u* all
+    # order the seeds identically, no amount of staring at three points tells you which is
+    # the mechanism.
+    have = [r for r in rows if r["rate"] is not None
+            and r.get("ustar") and r.get("zi_ach")]
+    if len(have) >= 3:
+        mag = [abs(r["rate"]) for r in have]
+        for nm, key in (("u*", lambda r: r["ustar"]), ("z_i", lambda r: r["zi_ach"]),
+                        ("h/u*", lambda r: r["zi_ach"] / r["ustar"])):
+            order = [abs(r["rate"]) for r in sorted(have, key=key)]
+            mono = (all(a >= b for a, b in zip(order, order[1:]))
+                    or all(a <= b for a, b in zip(order, order[1:])))
+            P(f"    |drift| vs {nm:5}: {'MONOTONE' if mono else 'not monotone'}  "
+              + "  ".join(f"{v:.2f}" for v in order))
+        P(f"    A monotone ordering of {len(have)} points arises by chance with "
+          f"probability {2.0/math.factorial(len(have)):.3f}"
+          f" -- a candidate to watch, not a relationship. And where several candidates "
+          f"order the seeds identically, three points cannot separate them.")
     if cases:
         P("")
         P(f"  {'case':24}{'seed':24}{'pick gap':>10}{'achieved gap':>14}{'widened by':>12}")
