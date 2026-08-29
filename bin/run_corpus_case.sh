@@ -267,6 +267,7 @@ LPDM_WORKERS="${LPDM_WORKERS:-8}" \
     --z-target "$ZTARGET" ${EXACT_AGL:+--exact-agl} --rel-seconds 1800 --strict-rel \
     --cover-groups "${COVER_GROUPS:-10}" \
     --keep-touchdowns "$KEEP_TD" \
+    ${TBACK_MARKS:+--tback-marks "$TBACK_MARKS"} \
     --t-min "$(python3 -c "print(f'{$A_NT*$DT:.3f}')")" \
     --outdir "$FPDIR" --tag "$TAG" 2>&1 | grep -vE 'batch [0-9]+/' > "$FPDIR/$TAG.txt"
 [ -s "$FPDIR/$TAG.json" ] || { tail -12 "$FPDIR/$TAG.txt" >&2

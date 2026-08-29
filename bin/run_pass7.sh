@@ -29,7 +29,14 @@ L="${LOGDIR:-/tmp/flux-logs}"; mkdir -p "$L" results
 export GRID=data/grid24_raised ZTARGET=28.5 EXACT_AGL=1
 export TEMPLATE=runs/g24_base/base.in DX=24 ZCEILING=3000 DEFORM=0.346601 ZI_MAX_ABS=1250
 export SEED_LIB=jobs24 ALLOW_INDETERMINATE=1 LPDM_WORKERS=12
-export ADJ_S=1800 WINDOW_S="${WINDOW_S:-2400}" TBACK="${TBACK:-600}"
+# t_back = 900 s AT A 30 m RECEPTOR, not the 600 s measured at 10 m. Descent time scales
+# roughly as z/sigma_w, so tripling the height roughly triples it; the fourth pass measured
+# the shape converged at 450-600 s at THIS receptor height and ran production at 900. The
+# window is (30 min averaging + t_back) = 2700 s, so a case is 4500 s = 1.25 sim-h =
+# 0.60 GPU-h. --tback-marks re-measures the convergence curve for free, from touchdown ages
+# already in hand, which is what fixes the production value.
+export ADJ_S=1800 WINDOW_S="${WINDOW_S:-2700}" TBACK="${TBACK:-900}"
+export TBACK_MARKS="${TBACK_MARKS:-150,300,450,600,750}"
 export KEEP_TD=100000
 
 die(){ echo "FATAL: $*" >&2; exit 1; }

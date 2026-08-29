@@ -30,3 +30,31 @@ window is a 900 s slice of a convective layer 1800 s old, still spinning up; the
 control will be the fair number.
 
   window statistics: u* 0.419, sigma_w 0.425 m/s, h 524 m, L -85.4 m, U(30) 5.83 m/s
+
+=== AND THE NEUTRAL NUMBER IS NOT THE CONVECTIVE ONE. Measured on the nbl-deep seed. ===
+
+  regime        z/Delta   resolved sigma_w^2 at 30 m   sub-grid
+  convective      1.76              47.5%                52.5%
+  NEUTRAL         1.76              13.6%                86.4%
+
+Same grid, same receptor, same Delta = 17.05 m. The difference is physical and PROJECT_BRIEF.md
+already predicts it: the resolved fraction collapses onto z/Delta, crossing 40% at
+z/Delta ~ 3.5 neutral and ~2.1 convective, because thermals draw on z_i-scale motions
+while shear-driven eddies scale with z. At z/Delta = 1.76 convection is just past its
+threshold and neutral is only half way to its own.
+
+  Cross-check, and it is a good one: the FOURTH pass measured 85.5% neutral / 52.3%
+  convective at a 30 m receptor on a 186^2 @ 24 m domain. This pass gets 86.4% / 52.5%
+  on 122^2 @ 24 m -- a different domain size, a different surface, a different closure,
+  and the same two numbers to within a point. The resolved fraction is a property of
+  z/Delta and the regime, exactly as claimed.
+
+  Against the retired 10 m configuration: neutral 96.4% -> 86.4% sub-grid (resolved 3.6%
+  -> 13.6%, a factor of 3.8), convective ~90% -> 52.5%.
+
+WHAT THIS PREDICTS ABOUT THE DECIDING TEST, said before the targets ran. The convective
+target is out of the closure-dominated regime and the near-neutral one is not. If the peak
+moves, it will move because the CONVECTIVE case moved; if the neutral case's peak is stuck
+at the same value the 10 m cases were, that is consistent with 86% sub-grid and is not a
+surprise. A 30 m receptor fixes the convective half of the corpus at this grid and leaves
+the neutral half where it was.

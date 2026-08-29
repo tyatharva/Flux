@@ -108,7 +108,12 @@ say "8. Ekman backing and direction drift"
 # THE LIBRARY IS AN ARGUMENT, NOT A DEFAULT. direction_drift.py defaults to jobs/, which
 # is the retired 16 m library; scoring a 24 m seed against 16 m seeds' drift rates would
 # pool two different grids into one "library mean" and report it without complaint.
-./docker/pyrun.sh bin/direction_drift.py --library "$(dirname "$JOB")" \
+# REPO-RELATIVE, because the container mounts the repo at /work and an absolute HOST path
+# simply does not exist inside it -- the glob then matches nothing and the report says
+# "NO SPUN SEEDS WITH A RECORDED DRIFT YET" rather than failing. Same shape as every other
+# trap here: a plausible output rather than an error.
+JOB_REL_DIR="$(dirname "${JOB#$ROOT/}")"
+./docker/pyrun.sh bin/direction_drift.py --library "$JOB_REL_DIR" \
     2>&1 | tail -30 | tee_
 
 # ---- 9. CONVECTIVE ONLY: is the box organising the thermals? ----------------------

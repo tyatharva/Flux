@@ -417,6 +417,8 @@ def main():
     # bounded by RUN LENGTH, and nothing about the scoring can substitute for it.
     ap.add_argument("--score-h", type=float, default=2.0)
     ap.add_argument("--zm", type=float, default=10.0)
+    ap.add_argument("--dx", type=float, default=16.0,
+                    help="raster cell size, for reporting the x_peak span against it")
     ap.add_argument("--k", type=int, default=2)
     ap.add_argument("--json", default=None)
     ap.add_argument("--label", default="")
@@ -500,8 +502,12 @@ def main():
     print(f"  ^ the direction row is the DRIFT AT FREEZE. bin/pick_seed.py projects it "
           f"forward to the window's own midpoint rather than assuming the adjustment "
           f"closes a gap; measured, the adjustment WIDENS one.")
+    # THE CELL SIZE IS THE GRID'S, NOT A CONSTANT. It read "a 16 m raster cell" on a 24 m
+    # grid -- the same defect as FASTEDDY_TRAPS.md 19, in a print rather than in a
+    # calculation, which makes it worse rather than better: a wrong number in prose is
+    # copied into a result file and never recomputed.
     print(f"  x_peak spans {xp[sel].min():.1f}-{xp[sel].max():.1f} m across the scored "
-          f"window, against a 16 m raster cell.")
+          f"window, against a {a.dx:.0f} m raster cell.")
     if a.sweep_score_h:
         widths = [float(x) for x in a.sweep_score_h.split(",")]
         print(f"\n  === SCORING-WINDOW SWEEP: does the gate resolve at all, and where? ===")

@@ -47,12 +47,12 @@ die(){ echo "FATAL: $*" >&2; exit 1; }
 [ -f "$JOB/manifest.json" ] || die "no manifest.json in $JOB"
 [ -f "$JOB/seed.in" ] || die "no seed.in in $JOB"
 
-read -r NAME DT FRQ TOTAL WTH OUTBASE WALLMIN ZM ZK < <(python3 - "$JOB/manifest.json" <<'PYMAN'
+read -r NAME DT FRQ TOTAL WTH OUTBASE WALLMIN ZM ZK DXG < <(python3 - "$JOB/manifest.json" <<'PYMAN'
 import json,sys
 m=json.load(open(sys.argv[1])); r=m["run"]; g=m.get("gate", {})
 print(m["job"], r["dt"], r["frqOutput"], r["steps_total"],
       m["target"]["wth_virtual"], r["outFileBase"], r["projected_wall_min"],
-      g.get("zm", 10.0), g.get("k", 2))
+      g.get("zm", 10.0), g.get("k", 2), m.get("grid", {}).get("dx", 16.0))
 PYMAN
 ) || die "manifest.json unreadable"
 
@@ -206,7 +206,7 @@ PYCHK
 # The gate scores the LAST 1.5 h, which is past the warm-up, so the flux it needs for the
 # Kljun terms is the TARGET one and not the zero the first segment ran under.
 ./docker/pyrun.sh bin/seed_stationarity.py "$JOB_REL/output" --dt "$DT" --wth "$WTH" \
-    --zm "$ZM" --k "$ZK" ${SCORE_H:+--score-h $SCORE_H} \
+    --zm "$ZM" --k "$ZK" --dx "$DXG" ${SCORE_H:+--score-h $SCORE_H} \
     --json "$JOB_REL/return/stationarity.json" --label "$NAME" \
     2>&1 | tee "$JOB/return/stationarity.txt"
 [ -s "$JOB/return/stationarity.json" ] \
