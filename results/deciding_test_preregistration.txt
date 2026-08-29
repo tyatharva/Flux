@@ -1,0 +1,52 @@
+THE DECIDING TEST -- PRE-REGISTERED 2026-08-29, BEFORE EITHER TARGET RAN.
+
+QUESTION. At the retired 10 m receptor the footprint peak was 48 m in all three target
+cases -- three soundings, three rotations, three achieved directions -- max/min 1.00x,
+while A80 spanned 2.54x. A peak that does not respond to meteorology cannot beat Kljun,
+whose peak does. Does raising the receptor to 30 m on a 122^3 @ 24 m grid unstick it?
+
+THE TWO TARGETS, chosen before running and for stated reasons.
+
+  A  2023-05-25 19:00 UTC   convective, off seed_cbl-deep_a000
+     z_i 970 m (HPBL 970, bulk-Ri 962, parcel 998 -- three estimates within 4%)
+     H 333 W/m2, w'th_v' 0.2906 K m/s, 30/L = -1.934, U10 4.71 m/s from 57.8 deg
+     geostrophic cross-check CLEAN: dir diff 1.6 deg, speed ratio 1.13
+     seed match: z_i 970 against the rung's 950; nearest 90-deg rotation is 32 deg off
+
+  B  2023-12-19 21:00 UTC   near-neutral, off seed_nbl-deep_a000
+     z_i 447 m, H 22 W/m2, 30/L = -0.048, U10 6.66 m/s from 182.5 deg
+     seed match: z_i 447 against the rung's 550; nearest rotation is 2 deg off
+     noted: the above-BL layer turns 33 deg across 500 m, so its geostrophic proxy is a
+     poor summary -- carried as a label, not as an error
+
+KLJUN ON THE SAME MAP AT z_m = 30 m, from each case's own labels:
+
+     A  x_peak 119 m,  x90 1173 m
+     B  x_peak 160 m,  x90 1389 m
+     ORDERING  A < B,  separation 41 m = 1.7 raster cells at dx = 24 m
+
+THE CRITERION, fixed now:
+
+  1. |peak_A - peak_B| from the LES must EXCEED each target's own half-vs-half Delta-peak
+     floor, measured on that case and not assumed. (The 30 m ensemble table's peak p90 is
+     60 m, but that was measured on a 60 m raster over 12.5 minutes; this raster is 24 m
+     and the averaging period is 30 minutes, so the measured floor is the tolerance and
+     the 60 m is an upper bound on it.)
+  2. The two LES peaks must ORDER the way Kljun's do: the convective case closer in.
+
+  If both hold, the peak responds to meteorology and the configuration worked.
+  If the peak does not move, the receptor is still closure-dominated and the
+  configuration has NOT worked. Say so plainly and stop.
+
+AND THE BAR IS NARROW, WHICH IS ITSELF A RESULT. Scored over all 70 corpus-eligible
+candidate hours in results/selected_times_24m.tsv, Kljun's own x_peak at z_m = 30 m spans
+only 103-169 m -- 66 m, 2.8 raster cells. That is the entire dynamic range the emulator has
+to reproduce in this observable at this receptor height. A 41 m separation is 62% of the
+full range, so this pair is a demanding but not extreme sample of it. The 126-206 m range
+quoted in the geometry table is wider only because it includes stable and very stable
+classes, which the corpus does not contain.
+
+A LEADING INDICATOR RUNS FIRST, off the convective control window and before either
+target: the sub-grid fraction of sigma_w^2 at the receptor, expected ~52% against ~90% at
+10 m. If it does not land near that, the peak test is likely to fail and it costs one
+number instead of two more GPU-hours.

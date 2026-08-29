@@ -22,11 +22,23 @@ OUT="$JOB/return/acceptance.txt"; : > "$OUT"
 say(){ echo -e "\n=== $* ===" | tee -a "$OUT"; }
 tee_(){ tee -a "$OUT"; }
 
-read -r NAME DT TOTAL WTH OUTBASE REGIME < <(python3 -c "
-import json;m=json.load(open('$JOB/manifest.json'));r=m['run']
-print(m['job'],r['dt'],r['steps_total'],m['target']['wth_virtual'],r['outFileBase'],m['regime'])")
-LAST="$JOB/output/$OUTBASE.$TOTAL"
-[ -f "$LAST" ] || { echo "FATAL: no final dump $LAST" >&2; exit 1; }
+read -r NAME DT TOTAL WTH OUTBASE REGIME ZM DXG < <(python3 -c "
+import json;m=json.load(open('$JOB/manifest.json'));r=m['run'];g=m.get('gate',{})
+print(m['job'],r['dt'],r['steps_total'],m['target']['wth_virtual'],r['outFileBase'],
+      m['regime'],g.get('zm',10.0),m.get('grid',{}).get('dx',16.0))")
+# THE FINAL DUMP IS NOT NECESSARILY AT Nt. Seeds run open-ended with Nt as a CEILING and
+# jobs/seed_watch.sh stops them when the oscillation-immune limits enter band, so the
+# battery has to score whatever the run actually ended on. Scoring "$OUTBASE.$TOTAL"
+# would simply not exist -- which at least fails loudly -- but the same assumption in a
+# glob would have scored an earlier dump and said nothing.
+LAST=$(ls -1 "$JOB/output/$OUTBASE".[0-9]* 2>/dev/null | sort -t. -k2 -n | tail -1)
+[ -n "$LAST" ] && [ -f "$LAST" ] || { echo "FATAL: no dump in $JOB/output" >&2; exit 1; }
+STOPPED_AT=${LAST##*.}
+if [ "$STOPPED_AT" != "$TOTAL" ]; then
+  echo "  the run stopped at step $STOPPED_AT of a $TOTAL ceiling = $(python3 -c \
+    "print(f'{$STOPPED_AT*$DT/3600:.2f}')") of $(python3 -c \
+    "print(f'{$TOTAL*$DT/3600:.2f}')") simulated hours" | tee_
+fi
 echo "########## acceptance battery: $NAME ($REGIME) ##########" | tee_
 date '+%F %H:%M:%S' | tee_
 
@@ -66,7 +78,7 @@ print('   seed whose boundary layer had died -- this is the physics check)')" | 
 
 # ---- 5. is the grid resolving the stratification ---------------------------------
 say "5. Ozmidov scale in Delta at the receptor (the stable rungs died at 3.57)"
-./docker/pyrun.sh bin/ozmidov.py "${LAST#$ROOT/}" 2>&1 | tee_
+./docker/pyrun.sh bin/ozmidov.py "${LAST#$ROOT/}" --dx "$DXG" --receptor "$ZM" 2>&1 | tee_
 
 # ---- 6. Gate C2: the saved restart restarts bit-for-bit ---------------------------
 say "6. Gate C2: restart with Nt = restart step, re-dump, diff byte-for-byte"
