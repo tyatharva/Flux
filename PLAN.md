@@ -1,3 +1,70 @@
+# Staged Plan — SEVENTH PASS, 30 m receptor on 122^3 @ 24 m
+
+> **THE SIXTH PASS'S CONFIGURATION IS RETIRED, 2026-08-29.** The 10 m receptor produced a
+> footprint whose peak did not move: 48 m in all three target cases across three soundings,
+> three rotations and three directions, max/min **1.00x**, while A80 spanned 2.54x — and
+> LES `sigma_w` at the receptor ran 2.33-2.99x the tower median with the closure floor
+> INACTIVE. The near field was closure output. See the dated block at the top of
+> `PROJECT_BRIEF.md` for the new configuration and everything it reverses. **Every absolute
+> distance below this line, and in every earlier pass, is a 10 m number.**
+
+## Where this pass stands
+
+| phase | item | verdict |
+|---|---|---|
+| **A** | grid solve, surfaces, geometry, coverage | **done** |
+| A | B1 launch + measured cost | **PASS** 0.481 GPU-h/sim-h |
+| A | **B3 flat `dt`, RE-MEASURED** | **PASS** boundary 1.55/1.60, production 17% below |
+| A | B5 restart injection at 24 m | **PASS** topoPos 4.2e-08, z0m 1.5e-09, htFlux 4.0e-08 |
+| A | static rotation check | **PASS** bit-for-bit, FROM bearing exact at all four turns |
+| A | Gate A1' water | **FAIL 17.45%** very stable easterly; **PASS 7.38%** over corpus regimes |
+| A | five analysis fixes + touchdown persistence | **done** |
+| A | **GPU LPDM acceptance** | **PASS** (a)(b)(c)(d); 153x; forward D1 fails in BOTH paths on the bring-up window |
+| A | `ML_TARGETS.md` | **done** (design only, plus the persistence that had to ship) |
+| **B** | `nbl-deep` + accelerator, open-ended, 3.0 h ceiling | running |
+| **C** | `cbl-deep` at `L/z_i` 3.08 — the lock-in re-test | pending |
+| C | pre-target go/no-go: sub-grid fraction of `sigma_w^2` at the receptor | pending |
+| C | one target per seed, then **THE DECIDING TEST** | pending |
+
+## THE DECIDING TEST, pre-registered
+
+**Does the peak MOVE between the two targets?** `|Δpeak|` must exceed each target's own
+half-vs-half floor (the 30 m ensemble table gives peak p90 = **60 m**, ~2.5 raster cells,
+where the 10 m table gave 0 m) AND order the way Kljun's `x_peak` orders the two cases.
+Expected if the configuration worked: peaks **150-250 m** upwind, on the array for a
+northerly and past it for E/W, share falling with A80 growing to ~3-8 ha against the array's
+1.03% of the box by area. **If the peak still does not move, the receptor is still
+closure-dominated and the configuration has not worked — say so plainly and stop.**
+
+A cheaper leading indicator runs first, off the convective control window and before any
+target: **the sub-grid fraction of `sigma_w^2` at the receptor, expected ~52%** against
+~90% at 10 m. If it does not land near that, the peak test is likely to fail and it is one
+number rather than two more GPU-hours.
+
+## Deferred, and REQUIRED BEFORE ANY CORPUS
+
+1. **The flat/neutral containment gate.** Kljun `x90` neutral is 1615 m in a 2928 m box
+   (55%), which is comfortable; the fourth pass's LES 80% source area at a 30 m receptor
+   measured 3810 m, which is not — but on the retired closure and a different surface. The
+   gate is: does the integral saturate before the wrap cap, and is `x80` inside `L`. If it
+   fails, the options (accept the truncation and quote Kljun on the identical box; go to
+   146^2 @ 24 m = 3504 m at ~+48% per case; refuse near-neutral cases) are a **grid
+   decision and belong to the user**.
+2. **Gate D1 on the production closure, both regimes, both directions, on a SEED window.**
+   The acceptance suite ran D1 through both integrators on a 900 s bring-up window and
+   **both failed forward** (lowest-three 1.093 CPU, 1.095 GPU, agreeing to 0.002). That is
+   a statement about that window — 900 s of a convective layer 1800 s old — and it is not a
+   substitute for the gate. Until it runs, the closure at 24 m has no evidence.
+3. **The in-FastEddy hook for the GPU LPDM.** The integrator is validated; the ring buffer
+   is not yet filled from the live device fields inside the time loop, so a case still
+   writes ~16.6 GB of scratch. Eliminating that is the entire deployment argument for the
+   port.
+4. **Rung re-spacing.** The `z_i` band moved to 300-1250 m and `nbl-shallow`'s 300 m target
+   now sits exactly ON the floor. Whether the five-rung ladder should be re-spaced is a
+   post-validation decision and is flagged, not made.
+
+---
+
 # Staged Plan — Fifth Pass, 10 m receptor, 122^3 @ 16 m
 
 > **THE CORPUS PHASE IS NOW `LIBRARY_PLAN.md`, 2026-08-25.** "After Phase F: corpus design,
@@ -224,6 +291,37 @@ exactly like a trained model on a correct one.
 ---
 
 ## Known limitations to state wherever the corpus is described
+
+> **RE-CUT AT 30 m / 24 m, 2026-08-29.** Items 1, 2, 5 and 7 below were written for a 10 m
+> receptor on a 1952 m box and are LARGELY UNDONE by the new configuration; items 3, 4 and
+> 6 change value. The seventh-pass list is here and the retired one is kept below it,
+> because the reasoning is still the record of how each was arrived at.
+>
+> **A. The model receptor is 30 m and the instrument is 10 m.** A deliberate methodological
+>    choice for resolution adequacy, not a correction. The emulator predicts a footprint the
+>    physical tower does not measure, and every comparison with the tower — including the
+>    `sigma_w` gate — goes through a MOST translation whose stable branch is an upper bound.
+> **B. Containment at 2928 m is not established for neutral.** Deferred item 1 above.
+> **C. Gate D1 has no evidence at this grid.** Deferred item 2 above; forward D1 failed in
+>    both integrators on the bring-up window.
+> **D. The lake is back: 8.78% of the box, and up to 7.38% of a corpus-eligible footprint.**
+>    Gate A1 fails outright (17.45%) in very stable easterly conditions, which the corpus
+>    excludes. Water's virtual flux ratio is 0.151, so easterly cases now carry a real
+>    buoyancy heterogeneity that 10 m cases did not.
+> **E. The array leaves the footprint for E/W winds.** Kljun array share at `z_m = 30 m`:
+>    N 30.7%, E 0.04% neutral. The directional signal is presence-versus-absence.
+> **F. The `z_i` band 300-1250 m is still biased against strong convection.** The
+>    deep-excluded unstable hours carry **2.33x** the mean surface heat flux of the accepted
+>    ones (136 vs 58 W/m2), barely better than the old band's 2.44x — the widening buys
+>    +4.0% of runnable unstable hours and +5.4 points of day coverage, not a fix.
+> **G. `nbl-shallow`'s 300 m target sits exactly on the new `z_i` floor.** Rung re-spacing
+>    is open.
+> **H. The GPU LPDM is validated but not yet in-process**, so the corpus still writes and
+>    re-reads ~16.6 GB per case.
+
+### The retired 10 m list, kept for its reasoning
+
+
 
 0. **THE LIBRARY'S SEEDS HAVE UNESTABLISHED STATIONARITY, AND THAT IS THE NORMAL STATE
    RATHER THAN AN EXCEPTION.** Two of the seven gated limits — **`TKE_BL/u*^2` and `z_i`**

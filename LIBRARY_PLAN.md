@@ -1,5 +1,68 @@
 # The seed library and the sounding-forced corpus
 
+> **THE LIBRARY MOVED TO 30 m / 24 m, 2026-08-29 — `jobs24/`, not `jobs/`.** The 15 (later
+> 30) seeds in `jobs/` were built for a 10 m receptor on a 1952 m box and none of them
+> transfers: different `d_zeta`, different `dt`, different domain, different surface `z0`.
+> `jobs24/` holds the 30 replacements (5 rungs x 6 base angles), generated with
+>
+>     bin/make_seed_jobs.py --outdir jobs24 --template runs/g24_base/base.in \
+>       --dx 24 --nz 122 --zceiling 3000 --deform 0.346601 \
+>       --grid data/grid24_raised --receptor 30 --receptor-k 3
+>
+> **Four things changed with it, and each was a latent trap in the generator.**
+>
+> 1. **`surflayer_z0` is now read off the grid** (`--grid`), not a constant. It was
+>    hardcoded at 0.1435 m — the 16 m map's geometric mean. At 24 m over a 2928 m box the
+>    same WorldCover map gives **0.0832 m**, 42% smaller, because the box reaches the lake
+>    and the coarser cells average tree and crop together. Carrying the constant would have
+>    spun every seed up over the wrong surface, silently.
+> 2. **The gate's receptor is in the manifest** (`gate: {zm, k}`) and `jobs/run_seed.sh`
+>    passes it. `bin/seed_stationarity.py` defaults to `--zm 10 --k 2`; a 24 m library
+>    scored with the defaults would evaluate Kljun's `x_peak` and `x90` at the wrong height
+>    AND read `sigma_w` off level k=2 (21.4 m) instead of k=3, and every number would still
+>    print.
+> 3. **The budget is measured, not assumed** — see below.
+> 4. **Cost per seed falls from ~2.9 h wall to ~87 min** (0.481 GPU-h/sim-h measured), so
+>    30 seeds is **~43 GPU-h** rather than ~87.
+>
+> ## The 3.0-hour class is now a CEILING, and the stop is measured
+>
+> `jobs/seed_watch.sh` scores the trailing window every 30 simulated minutes and stops the
+> run as soon as the **oscillation-immune** limits are in band — `U/u*`, `sigma_v/u*`,
+> `sigma_w/u*`, Kljun `x_peak`, Kljun `x90`. `TKE_BL/u*^2` and `z_i` are deliberately NOT
+> in the criterion: they decorrelate on the eddy turnover rather than on the 300 s dump
+> interval, `n_eff` saturates at 3-5 at every window width from 1.0 h to 2.5 h, and
+> requiring them would mean never stopping early while misreporting why. A DRIFTING verdict
+> on any limit still blocks the stop — unestablished stationarity is not stationarity, but
+> neither is it drift. **A seed that has not entered band by 3.0 simulated hours stops
+> there and that IS the result: no extension, no respec.**
+>
+> **Neutral rungs get Steinfeld's accelerator.** 3000 s at `surflayer_wth = +0.05 K m/s`,
+> then the open-ended run at the rung's own flux, restarting from the burn-in dump with
+> `htFlux` **zeroed in the FILE** (`bin/zero_htflux.py`, which re-reads to confirm). That
+> restart is the only one in a seed and it is the dangerous kind: `htFlux` is IO-registered,
+> so the main invocation would otherwise inherit +0.05 whatever its `.in` says
+> (`FASTEDDY_TRAPS.md` 17). The existing per-run read-back assertion is the second lock.
+> Neutral is the regime the accelerator is for: `h/u*` is ~1500 s there against `T* ~ 350 s`
+> convectively, so it is the slowest to organise a perturbation field into turbulence.
+> **The no-accelerator control was cut** — if the accelerated seed passes, it is not needed.
+>
+> ## The corpus band moved with the box
+>
+> `z_i` **300-1250 m** (was 100-976): the floor is `10 z_m` and tracks the receptor, the
+> ceiling is the LOWER of the width constraint `L >= 2 z_i` (1464 m) and the domain-height
+> constraint (~1250 m, half the clean column under the 500 m sponge). Measured on the same
+> code: day coverage **75.0% -> 80.4%**, **1370 -> 1469 cases** over five years. The deep
+> exclusion is barely less biased — rejected unstable hours carry **2.33x** the mean surface
+> heat flux of accepted ones against 2.44x before — so the widening buys cases, not fairness.
+>
+> `bin/sounding_to_forcing.py` now reads the receptor height off `<grid>/meta.npy` and the
+> domain `z0` off `<grid>/z0m.npy` instead of hardcoding 10.0 and 0.1435, and takes
+> `--zi-max-abs` for the height ceiling.
+
+---
+
+
 > **Status, 2026-08-25.** The pipeline is **built and validated end to end** on branch
 > `library-states`; `main` is untouched. All eight stages run, `bin/make_seed_jobs.py`
 > generates the 15 portable jobs, and every gate that could be run without spinning the

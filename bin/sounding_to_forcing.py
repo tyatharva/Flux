@@ -265,8 +265,29 @@ def flux_split(grid_dir):
     return float(f.mean())
 
 
+
+def _grid_receptor(grid_dir):
+    """Receptor height from the grid's own meta.npy, falling back loudly."""
+    import os
+    p = os.path.join(grid_dir or "", "meta.npy")
+    if os.path.exists(p):
+        return float(np.load(p, allow_pickle=True).item().get("receptor", 10.0))
+    print(f"  WARNING: no {p}; assuming a 10 m receptor for the representability screen")
+    return 10.0
+
+
+def _grid_z0(grid_dir):
+    """Geometric-mean z0 of the grid's own roughness map."""
+    import os
+    p = os.path.join(grid_dir or "", "z0m.npy")
+    if os.path.exists(p):
+        return float(np.exp(np.log(np.load(p)).mean()))
+    print(f"  WARNING: no {p}; assuming z0 = 0.1435 m for the Obukhov label")
+    return 0.1435
+
+
 def build(snd, grid_dir, nz, zceiling, c1, dx, cfl, match_10m, w_low, z_low,
-          nx=122, zi_l_ratio=2.0):
+          nx=122, zi_l_ratio=2.0, z_recept=None, z0_dom=None, zi_max_abs=None):
     z = np.asarray(snd["profile"]["z_agl_m"], float)
     th = np.asarray(snd["profile"]["theta_k"], float)
     sfc, geo = snd["surface"], snd["geostrophic"]
@@ -294,7 +315,13 @@ def build(snd, grid_dir, nz, zceiling, c1, dx, cfl, match_10m, w_low, z_low,
 
     zi = float(sfc.get("zi_used_m") or sfc.get("hpbl_m"))
     wthv = float(sfc["wth_virtual"])
-    zm_recept = 10.0
+    # THE RECEPTOR HEIGHT AND THE DOMAIN z0 ARE PROPERTIES OF THE GRID, NOT CONSTANTS.
+    # Both were hardcoded at their 16 m values (10.0 m and 0.1435 m). At 24 m the receptor
+    # is 30 m and the geometric-mean z0 of the bigger box is 0.0832 -- and every one of
+    # z_i_min, the Obukhov label and the Ekman-angle choice is built on them, so carrying
+    # the old numbers would have refused the wrong cases and picked the wrong seeds while
+    # printing perfectly reasonable output. Read them off the grid the case will run on.
+    zm_recept = float(z_recept if z_recept is not None else _grid_receptor(grid_dir))
 
     # WHAT THE BOX CAN HOLD, AS A RATIO. The constraint is L >= R z_i, and R is the
     # thing the evidence is about -- writing the cap as a height hides which experiment
@@ -313,11 +340,19 @@ def build(snd, grid_dir, nz, zceiling, c1, dx, cfl, match_10m, w_low, z_low,
     # not apply, and the whole boundary layer spans about 25 model levels at dz_sfc = 4 m.
     # HRRR gives z_i = 36 m on 2023-10-05 12Z, so this is not hypothetical.
     zi_min = 10.0 * zm_recept
+    # AND A SECOND CEILING, from the DOMAIN HEIGHT rather than its width. The width
+    # constraint L >= R z_i is about horizontal lock-in; a boundary layer also has to fit
+    # under the Rayleigh damping layer with room for the entrainment zone. At zCeiling
+    # 3000 m with a 500 m damping layer the clean column ends at 2500 m, and a z_i above
+    # about half of that is being held down by the sponge rather than by its inversion.
+    # Whichever ceiling is lower is the one that binds, and which one it was is recorded.
+    if zi_max_abs is not None:
+        zi_max = min(zi_max, float(zi_max_abs))
     representable = bool(zi_min <= zi <= zi_max)
     # L from HRRR's own u* proxy is not available; use the surface-layer relation with the
     # 10 m wind and the domain z0 -- a LABEL for choosing the Ekman angle and the seed
     # rung, never a corpus input. The corpus input is the LES's achieved L.
-    z0 = 0.1435
+    z0 = float(z0_dom if z0_dom is not None else _grid_z0(grid_dir))
     u10 = float(sfc.get("wspd10_ms") or np.nan)
     ust_est = VONK * u10 / np.log(10.0 / z0) if np.isfinite(u10) else np.nan
     th_s = fit["theta_grnd"]
@@ -497,6 +532,15 @@ def main():
     ap.add_argument("--grid", default="data/grid16")
     ap.add_argument("--nz", type=int, default=122)
     ap.add_argument("--nx", type=int, default=122)
+    ap.add_argument("--zi-max-abs", type=float, default=None,
+                    help="a second z_i ceiling, from the DOMAIN HEIGHT rather than its "
+                         "width. The lower of the two binds and the record says which.")
+    ap.add_argument("--zm", type=float, default=None,
+                    help="receptor height for the representability screen; default is "
+                         "read off <grid>/meta.npy")
+    ap.add_argument("--z0", type=float, default=None,
+                    help="domain geometric-mean z0 for the Obukhov label; default is "
+                         "read off <grid>/z0m.npy")
     ap.add_argument("--zi-l-ratio", type=float, default=2.0,
                     help="the domain constraint L >= R z_i. R = 2 caps z_i at 976 m and is "
                          "what Phase E licences. Lowering R raises the cap and is a claim "
@@ -517,7 +561,8 @@ def main():
     snd = json.load(open(a.sounding))
     rec = build(snd, a.grid, a.nz, a.zceiling, a.deform, a.dx, a.cfl,
                 a.match_10m, a.weight_factor, a.weight_below, a.nx,
-                a.zi_l_ratio)
+                a.zi_l_ratio, z_recept=a.zm, z0_dom=a.z0,
+                zi_max_abs=a.zi_max_abs)
 
     out = a.out or os.path.join("results/forcing",
                                 os.path.basename(a.sounding).replace(".json", "") + ".json")

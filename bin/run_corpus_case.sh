@@ -66,6 +66,15 @@ TAG="${2:-case_${_t:0:10}}"
 GRID="${GRID:-data/grid16_raised}"
 ZTARGET="${ZTARGET:-8.5}"
 EXACT_AGL="${EXACT_AGL:-1}"
+# GRID GEOMETRY, so one driver serves both configurations. The seventh pass runs
+#   GRID=data/grid24_raised ZTARGET=28.5 TEMPLATE=runs/g24_base/base.in DX=24
+#   ZCEILING=3000 DEFORM=0.346601 ZI_MAX_ABS=1250 SEED_LIB=jobs24
+# and every one of those has to travel together: a 24 m case built against the 16 m
+# template would carry the wrong d_zeta and the wrong dt and would still run.
+TEMPLATE="${TEMPLATE:-runs/g16_base/base.in}"
+DX="${DX:-16.0}"; ZCEILING="${ZCEILING:-2500.0}"; DEFORM="${DEFORM:-0.194059}"
+ZI_MAX_ABS="${ZI_MAX_ABS:-}"
+KEEP_TD="${KEEP_TD:-100000}"
 ADJ_S="${ADJ_S:-1800}"
 WINDOW_S="${WINDOW_S:-2400}"
 TBACK="${TBACK:-$(cat results/tback_production.txt 2>/dev/null || echo 600)}"
@@ -87,6 +96,8 @@ SND=results/soundings/$TAG.json
 say "$TAG  stage 2: sounding -> .in"
 FRC=results/forcing/$TAG.json
 ./docker/pyrun.sh bin/sounding_to_forcing.py "$SND" --out "$FRC" --grid "$GRID" \
+    --template "$TEMPLATE" --dx "$DX" --zceiling "$ZCEILING" --deform "$DEFORM" \
+    ${ZI_MAX_ABS:+--zi-max-abs $ZI_MAX_ABS} \
     --in-out "$D/case.in" || true
 [ -s "$FRC" ] || die "stage 2 wrote no forcing json"
 [ -s "$D/case.in" ] || die "stage 2 wrote no .in"
@@ -125,7 +136,7 @@ PICK=results/pick/$TAG.json
 # unbuilt seed's heading is an ESTIMATE (geostrophic angle minus a nominal Ekman backing)
 # being compared against a spun seed's MEASURED one. With a complete library the flag is a
 # no-op. SEED_ANY=1 restores the full-library ranking for planning.
-./docker/pyrun.sh bin/pick_seed.py "$FRC" --json "$PICK" \
+./docker/pyrun.sh bin/pick_seed.py "$FRC" --json "$PICK" --zm "$ZTARGET" \
     --library "${SEED_LIB:-jobs}" --index "${SEED_LIB:-jobs}/index.json" \
     $([ "${SEED_ANY:-0}" = "1" ] || echo --available-only) \
     $([ "${ALLOW_INDETERMINATE:-1}" = "1" ] && echo --allow-indeterminate) \
@@ -255,6 +266,7 @@ LPDM_WORKERS="${LPDM_WORKERS:-8}" \
     --sgs-most --cover-dir "$GRID" --receptor-from "$GRID" --fp16-cache \
     --z-target "$ZTARGET" ${EXACT_AGL:+--exact-agl} --rel-seconds 1800 --strict-rel \
     --cover-groups "${COVER_GROUPS:-10}" \
+    --keep-touchdowns "$KEEP_TD" \
     --t-min "$(python3 -c "print(f'{$A_NT*$DT:.3f}')")" \
     --outdir "$FPDIR" --tag "$TAG" 2>&1 | grep -vE 'batch [0-9]+/' > "$FPDIR/$TAG.txt"
 [ -s "$FPDIR/$TAG.json" ] || { tail -12 "$FPDIR/$TAG.txt" >&2
@@ -290,6 +302,57 @@ if [ "$MON_V" != "OK" ]; then
   echo "  *** $TAG health gate: $MON_V -- see $FPDIR/$TAG.txt" >&2
   echo "$TAG $MON_V" >> "$FPDIR/SUSPECT_CASES.txt"
   [ "${MONITOR_FATAL:-0}" = "1" ] && die "the per-case health gate returned $MON_V"
+fi
+
+# ---- 7c. the sigma_w ACCEPTANCE gate ----------------------------------------------
+# THE ONLY EXTERNAL CHECK IN THE PROJECT, AND IT IS NOW A GATE RATHER THAN A DIAGNOSTIC.
+# data/raw/H_and_sigma_w.csv is a year of half-hourly eddy covariance at the real
+# instrument, never used for training, tuning or forcing; bin/sigma_w_tower.py translates
+# it from the 10 m sensor to the 30 m model receptor through MOST (u* is constant in the
+# surface layer, H is a surface flux, so only phi_w(z/L) changes with height).
+#
+# WHY A GATE. At the retired 10 m receptor the LES ran 2.33-2.99x the tower median with the
+# closure floor INACTIVE, i.e. the near-field variance was closure output rather than LES
+# output -- and it was REPORTED, case after case, without stopping anything. A case whose
+# sigma_w falls outside the measured IQR for its own surface heat flux is not a usable
+# target, and refusing it is the same discipline the z_i band already uses: refused, never
+# mis-labelled.
+#
+# THE IQR IS DELIBERATELY STRICT and the failure mode is stated in advance: the file
+# carries no wind speed, so conditioning on H alone leaves a band spanning a factor of ~2,
+# and if the refusal rate comes out high that number gets REPORTED rather than the band
+# widened. Non-fatal by default for the same reason stage 7b is.
+say "$TAG  stage 7c: sigma_w against the tower, translated to the receptor"
+CURVE="${SIGMAW_CURVE:-results/sigma_w_curve_30m.json}"
+if [ -s "$CURVE" ]; then
+  ./docker/pyrun.sh - "$FPDIR/$TAG.json" "$SND" "$CURVE" "$ZTARGET" <<'PYSW' \
+      2>&1 | tee -a "$FPDIR/$TAG.txt"
+import json, sys
+fp, snd, curve, zt = sys.argv[1], sys.argv[2], sys.argv[3], float(sys.argv[4])
+d = json.load(open(fp)); c = json.load(open(curve)); s = json.load(open(snd))
+sw = d["stats"].get("sigma_w")
+H = float(s["surface"].get("shtfl_wm2", s["surface"].get("shtfl", 0.0)))
+b = min(c["bins"], key=lambda r: abs(r["h_median"] - H))
+q = b["sigma_w_30m"]
+inside = q["p25"] <= sw <= q["p75"]
+print(f"  LES sigma_w at the receptor {sw:.3f} m/s; tower H = {H:+.0f} W/m2 -> bin "
+      f"[{b['h_lo']:.0f}, {b['h_hi']:.0f}] (n = {b['n']})")
+print(f"  tower sigma_w({zt:.0f} m): median {q['p50']:.3f}, "
+      f"IQR [{q['p25']:.3f}, {q['p75']:.3f}]  -> "
+      f"{'INSIDE' if inside else 'OUTSIDE'}, {sw/q['p50']:.2f}x the median")
+json.dump({"sigma_w_les": sw, "H_wm2": H, "bin": b, "inside_iqr": bool(inside),
+           "ratio_to_median": sw / q["p50"]},
+          open(fp.replace(".json", ".sigmaw.json"), "w"), indent=1)
+print(f"  sigma_w gate: {'OK' if inside else 'OUTSIDE THE IQR'}")
+PYSW
+  SW_V=$(python3 -c "import json;print('OK' if json.load(open('$FPDIR/$TAG.sigmaw.json'))['inside_iqr'] else 'OUTSIDE')" 2>/dev/null || echo "UNJUDGED")
+  echo "  sigma_w acceptance: $SW_V"
+  if [ "$SW_V" != "OK" ]; then
+    echo "$TAG sigma_w-$SW_V" >> "$FPDIR/SUSPECT_CASES.txt"
+    [ "${SIGMAW_FATAL:-0}" = "1" ] && die "sigma_w outside the tower IQR for this H"
+  fi
+else
+  echo "  no $CURVE -- run bin/sigma_w_tower.py. NO VERDICT (not a pass)."
 fi
 
 # ---- 8. the training record ------------------------------------------------------

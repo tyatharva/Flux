@@ -13,6 +13,143 @@ Training targets come from FastEddy LES + a backward Lagrangian particle dispers
 Scope is deliberately narrow: this is a **site-calibrated emulator for one tower**. It has
 zero transfer to other sites, and that is an accepted, stated limitation. Do not add scope.
 
+## THE RECEPTOR IS AT 30 m AND THE GRID IS 122^3 @ 24 m — changed 2026-08-29
+
+**This reverses the two things most of this file is written around: the 10 m receptor and
+the 1952 m box. Read it before believing any absolute number below.** The real tower is
+still at 10 m. The MODEL receptor is now 30 m, and that is a **deliberate methodological
+choice for resolution adequacy**, not a correction — the emulator now predicts the
+footprint of a 30 m receptor at this site, which the physical instrument does not measure.
+Say so wherever the emulator is described.
+
+**WHY, and it is two measurements rather than an argument.**
+
+1. **The peak does not respond to meteorology.** Three 10 m target cases — three
+   soundings, three rotations, three achieved directions — put the peak at **48 m in all
+   three**, max/min **1.00x**, while A80 spanned **2.54x**. A peak that cannot move cannot
+   beat Kljun, whose peak does.
+2. **LES `sigma_w` at the receptor ran 2.33-2.99x the tower median with the floor
+   INACTIVE** (receptor factor 1.000, ~90% sub-grid). The near field was closure output,
+   not LES output.
+
+The cause is in this file already: the energy-containing eddy scale goes as `z` while
+`Delta` does not, so at `z/Delta ~ 1` the isotropic `(2/3)e_sgs` partition sets `sigma_w`.
+It was recorded as a risk ("the near field is closure-dominated at `z/Delta ~ 1`
+regardless — recorded, not gated") and it has now materialised as a measured failure. That
+is what supersedes "the grid decision is not to be reopened": **raise `z`, because refining
+`Delta` to `<= 2.9 m` costs ~22x and was ruled out long ago.**
+
+| | 10 m on 122^3 @ 16 m | **30 m on 122^3 @ 24 m** |
+|---|---|---|
+| domain | 1952 m | **2928 m** |
+| `dz_sfc` / receptor level | 3.9933 m, k = 2 | **8.5583 m, k = 3 at exactly 30.000000000 m** |
+| `d_zeta` / `verticalDeformFactor` | 20.576132 / 0.194059 | **24.691358 / 0.346601** (`zCeiling` **3000 m**) |
+| `Delta` / `z/Delta` | 10.09 m / 0.99 | **17.05 m / 1.76** |
+| `dt` (production) | 0.0146417 s | **0.0295858 s** = 5/169 s, `CFL_3d` 1.3442 |
+| **flat accuracy boundary, MEASURED** | ~1.51 | **between 1.55 and 1.60** — 17% margin |
+| cost, MEASURED | 0.94-0.99 GPU-h/sim-h | **0.481 GPU-h/sim-h** |
+| seed (3.0 sim-h) | ~2.9 h wall | **~87 min wall, 1.44 GPU-h** |
+| geometric-mean `z0` of the box | 0.1435 m | **0.0832 m** |
+| `z_i` band | 100-976 m | **300-1250 m**, coverage **75.0% -> 80.4%** of days (1370 -> **1469** cases) |
+
+`bin/vgrid.py --dx 24 --nx 122 --receptor 30 --k 3 --zceiling 3000` re-derives the grid;
+`runs/g24_base/base.in` is the template; `data/grid24_raised` is the production surface
+(`--pad 10`, the re-measured taper knee at this spacing) and `jobs24/` the seed library.
+
+**AND THE BOUNDARY IS NOT THE RETIRED 24 m GRID'S, EVEN AT THE SAME ANISOTROPY.** That grid
+had `dx/dz_sfc = 2.804` too, and its accuracy boundary was ~1.64; this one is ~1.575, and
+the transition is sharp (`k0/k1` 0.132 at 1.55, **8.511** at 1.60). Re-measure at every
+grid; never carry the number.
+
+**Five things reverse, and they are not all in our favour.**
+
+1. **THE ROUGHNESS-SUBLAYER PROBLEM LARGELY UN-HAPPENS.** An RSL over 2-3 m panels reaches
+   5-15 m; a 30 m receptor clears it by 2-6x. So **Kljun over the array is a legitimate
+   reference again**, the MOST-anchored `sigma_w` floor regains its justification, the
+   first model level (**4.28 m**) is above panel top rather than inside it, and tree cells
+   improve to `ln(z/z0) = 1.45` from 0.69. The section below headed "The roughness
+   sublayer, and what it invalidates" is about the retired configuration.
+2. **THE LAKE IS BACK, AND GATE A1 FAILS IN ONE REGIME.** The 2928 m box is **8.78% water
+   (1307 cells)** against 0.05% at 1952 m, and the worst-case footprint water share over
+   every direction and stability is **17.45%** against a 10% threshold — **FAIL**. But that
+   worst case is **very stable easterly**, and the corpus contains no stable cases at all
+   (`STABLE_REGIME_RESULT.md`). Over the regimes it does contain the worst case is
+   **7.38%** (neutral easterly), which passes. Both numbers are recorded; quoting only the
+   second would be the mistake this file exists to prevent. What is genuinely new is that
+   **easterly footprints now carry real water**, where at 10 m they carried 0.01%.
+3. **THE ARRAY IS NO LONGER IN THE FOOTPRINT FROM EVERY DIRECTION.** Kljun on the real map
+   at `z_m = 30 m`: array share **N 30.7% / E 0.04%** neutral, against **80.6% / 29.9%** at
+   10 m. `x_peak` runs 126-206 m over the corpus regimes while the array reaches only 60 m
+   east and west of the tower, so for E/W winds the peak is well past it. The N-vs-E ratio
+   is now **50-760x** rather than 2.69x. **"This tower measures the solar array in every
+   wind direction" is a 10 m statement and is false at 30 m** — the directional signal is
+   now presence-versus-absence, and Gate F must lean on absolute share by direction harder
+   than ever.
+4. **Containment improves and is no longer the worry it was at 30 m in a 4380 m box.**
+   Kljun `x90` at `z_m = 30`: very unstable 1373 m, unstable 1510 m, **neutral 1615 m**,
+   i.e. 47-55% of `L = 2928 m`. The fourth pass's LES 80% source area at 30 m measured
+   3810 m — but on the RETIRED closure, which inflated the convective footprint, and in a
+   box whose `z0` and land cover differ. **The flat/neutral containment gate is still owed
+   and is listed under Known limitations.**
+5. **`z_i` is no longer a nearly inert Kljun input.** Its `1/(1 - z_m/h)` channel is ~3x
+   stronger at 30 m than at 10 m.
+
+**THE INTEGRAL DOES NOT ASYMPTOTE TO 1. It asymptotes to `1 - z_m/z_i`** (Steinfeld et al.
+2008, after Horst & Weil 1992): the fraction `z_m/z_i` of the column lies below the
+receptor and its flux never crosses it. At 10 m in an 800 m CBL that is 1.25% and
+invisible; at 30 m it is **3.75%**, the size of effects this project routinely gates on.
+`bin/corpus_monitor.py` G2b now quotes it beside Kljun-on-identical-cells, which stays the
+primary reference because it also carries the domain truncation.
+
+**NEGATIVE FOOTPRINT VALUES ARE PHYSICAL AND NOTHING CLIPS THEM.** Audited and now
+asserted (`bin/test_negative_lobes.py`): the estimator is signed by construction
+(`lpdm/footprint.py:88`, and its docstring forbids `|w_release|`), CIC deposition takes
+signed weights, and the persisted array is unclipped. Measured across twelve production
+convective footprints the negative lobe carries **5.8-11.1% of |flux|**, and its centroid
+sits 2.5-5x further out than the positive lobe's — the wind-turning mechanism rather than
+the CBL elevated-maximum one. The `np.maximum(f, 0)` calls that exist are metric-side
+(overlap masks, positive-part moments) and deliberate.
+
+**THE TOWER `sigma_w` CHECK IS TRANSLATED TO 30 m AND IS NOW A GATE.**
+`bin/sigma_w_tower.py` inverts `sigma_w(10) = 1.25 u* phi_w(10/L)` for `u*` (fixed point,
+because `L` depends on `u*^3`), then predicts `sigma_w(30) = 1.25 u* phi_w(30/L)`; `u*` is
+constant through the surface layer and `H` is a surface flux, so only `phi_w` moves. `phi_w`
+is IMPORTED from `lpdm/sgs_floor.py` — a gate never reimplements the production function.
+The lift is **1.006-1.238x** and is above 1 in BOTH regimes, because the ratio is exactly
+`phi_w(30/L)/phi_w(10/L)` and `zeta` triples with height. At the convective end
+(`H` 143-429 W/m2) the tower says `sigma_w(30) = 0.848 m/s`, IQR **[0.772, 0.942]**, and
+`bin/run_corpus_case.sh` stage 7c REFUSES a case outside that IQR rather than reporting it.
+Two caveats, both stated rather than buried: the file carries no wind speed so the IQR spans
+~2x and nothing finer can be claimed; and on the STABLE side surface-layer MOST makes
+`sigma_w` rise with height at fixed `u*` where a real SBL has it fall, so those bins are an
+upper bound — costless here only because the corpus has no stable cases.
+
+**THE LPDM CAN RUN ON THE GPU, AND IT MATCHES THE CPU ONE.** `SRC/LPDM/CUDA/` on the
+`kegonsa` fork, built as `lib/liblpdm.so` and driven from `lpdm/gpu.py`; a VRAM ring buffer
+holds `t_back` of history at fp16 (4.2 MB per field per snapshot, six fields) and the
+backward ensemble integrates in-kernel with **fp64 particle state**. Acceptance
+(`bin/test_gpu_lpdm.py`, `results/gpu_lpdm_acceptance.txt`): backward well-mixed lowest-three
+**0.999 GPU against 0.995 CPU**, agreeing to 0.004 where three combined SE is 0.060; peak,
+centroid, A80 and integral all inside the CPU path's own half-vs-half floor; negative lobes
+preserved; **153x faster**. Forward D1 fails on that bring-up window in BOTH paths, which is
+what the control establishes — it is the window, not the port. **What is NOT yet wired is
+the in-FastEddy hook**: until the ring buffer is filled from the live device fields inside
+the time loop, a case still writes ~16.6 GB of scratch and reads it back, and eliminating
+that is the whole point of the port.
+
+**THE SEED BUDGET IS MEASURED, NOT ASSUMED.** The fixed 3.0 simulated hours was derived
+once, at 16 m, on `nbl-shallow`. Seeds now run open-ended with a **HARD 3.0 sim-h ceiling**
+and `jobs/seed_watch.sh` stops them as soon as the **oscillation-immune** limits are in
+band (`U/u*`, `sigma_v/u*`, `sigma_w/u*`, Kljun `x_peak` and `x90`); `TKE_BL/u*^2` and `z_i`
+are excluded from the criterion because they cannot be resolved at any window width in a
+3 h run and requiring them would mean never stopping. A DRIFTING verdict on any limit
+blocks the stop. A seed that has not entered band by the ceiling stops there and that IS
+the result — no extension, no respec. Neutral rungs get Steinfeld's spin-up accelerator:
+3000 s at `surflayer_wth = +0.05 K m/s`, then a restart with `htFlux` **zeroed in the file**
+(`bin/zero_htflux.py`), because `htFlux` is IO-registered and the .in cannot override it.
+
+---
+
 ## THE CORPUS IS FORCED BY HRRR, NOT BY CONUS404 — changed 2026-08-25
 
 **This reverses a rule stated throughout this file, so read it before believing anything
