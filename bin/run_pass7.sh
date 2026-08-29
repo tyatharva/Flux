@@ -38,6 +38,14 @@ export SEED_LIB=jobs24 ALLOW_INDETERMINATE=1 LPDM_WORKERS=12
 export ADJ_S=1800 WINDOW_S="${WINDOW_S:-2700}" TBACK="${TBACK:-900}"
 export TBACK_MARKS="${TBACK_MARKS:-150,300,450,600,750}"
 export KEEP_TD=100000
+# KEEP THE WINDOW FIELDS UNTIL THE NO-OP CONTROL HAS RUN. PROJECT_BRIEF.md's standing rule is to
+# quote the no-op control beside every gate result, and here it is load-bearing: the
+# deciding test asks whether the PEAK responds to meteorology, and at 86% sub-grid
+# (neutral) a peak can move because the closure's own stability function moved rather than
+# because the LES resolved different turbulence. Re-running each footprint with the floor
+# OFF separates the two -- and it can only be done while the fields are still on disk,
+# which is 15 GB per case for about twenty minutes.
+export KEEP_FIELDS=1
 
 die(){ echo "FATAL: $*" >&2; exit 1; }
 say(){ echo; echo "########## $* ##########"; date '+%F %H:%M:%S'; }
@@ -75,8 +83,33 @@ run_target(){   # tag  timestamp
   bash bin/run_corpus_case.sh "$TS" 2>&1 | tail -45
   [ -s "pairs/$TAG.json" ] || echo "  *** $TAG produced no pair" >&2
 }
+# THE NO-OP CONTROL, run while the fields are still on disk, and then the fields go.
+# Same window, same releases, same everything -- with the sigma_w floor OFF. Without it a
+# peak that moved between the two targets could have moved because the closure's own
+# stability function moved rather than because the LES resolved different turbulence, and
+# at 86% sub-grid (neutral) that is not a remote possibility.
+nofloor(){
+  local TAG="$1"
+  ls -1 "runs/$TAG"/window/*.[0-9]* >/dev/null 2>&1 || { echo "  no fields for $TAG"; return 0; }
+  local DTC
+  DTC=$(python3 -c "import json;print(json.load(open('results/forcing/$TAG.json'))['params']['dt'])") \
+    || { echo "  $TAG: no forcing dt"; return 0; }
+  say "$TAG: NO-OP CONTROL -- identical window, sigma_w floor OFF"
+  ./docker/pyrun.sh bin/stage5_footprint.py "runs/$TAG/window" --dt "$DTC" \
+      --tback "$TBACK" --cover-dir "data/case_grids/$TAG" \
+      --receptor-from "data/case_grids/$TAG" --fp16-cache \
+      --z-target "$ZTARGET" --exact-agl --rel-seconds 1800 \
+      --cover-groups 10 --outdir "${FPDIR:-results/corpus}" --tag "${TAG}_nofloor" \
+      2>&1 | grep -vE 'batch [0-9]+/' | tail -25
+  [ -s "${FPDIR:-results/corpus}/${TAG}_nofloor.json" ] \
+    || echo "  *** $TAG no-op control produced no json" >&2
+}
 run_target case_2023052519 "2023-05-25 19:00"
+nofloor    case_2023052519
 run_target case_2023121921 "2023-12-19 21:00"
+nofloor    case_2023121921
+# The fields have served both the production footprint and its control; release them.
+rm -f runs/case_2023052519/window/* runs/case_2023121921/window/* 2>/dev/null || true
 
 # ---------------------------------------------------------------- the deciding test
 say "THE DECIDING TEST"

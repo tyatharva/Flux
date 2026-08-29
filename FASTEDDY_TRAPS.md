@@ -812,3 +812,26 @@ to detect — until the release times were printed side by side.
 place, and preferably from the production one.** The fix was to rebuild the release times
 using the driver's own rule rather than a re-implementation of it, which is the same
 principle as "gates import the production function, they never reimplement it".
+
+### 19d. Editing a shell driver WHILE IT IS RUNNING corrupts it, silently and later
+
+`bash` does not read a script into memory. It reads it incrementally and remembers a BYTE
+OFFSET, so a driver that is blocked for ninety minutes inside a seed run resumes by seeking
+to an offset in a file that may no longer be the file it started. Insert twenty lines above
+that point and the next command it executes is the middle of a different one.
+
+This project's drivers are exactly the wrong shape for that: `bin/run_pass7.sh`,
+`bin/run_campaign.sh` and `jobs/run_seed.sh` all block for an hour or more inside a single
+child, and the temptation to improve the next stage while the current one runs is constant.
+It happened here -- `run_pass7.sh` was edited twice while blocked inside a 90-minute seed.
+
+**The rule: never edit a shell script that is currently executing.** The safe move, and the
+one taken, is to KILL THE WRAPPER ONLY -- the long-running child is a separate process and
+carries on, finishes its own artifact staging, and the wrapper is relaunched afterwards
+against a driver whose completed steps are all no-ops. That last property is what makes it
+safe, and it is why every stage in these drivers checks for its own artifact before doing
+anything (`have_seed`, `.window_complete`, `pairs/$TAG.json`).
+
+A python entry point does not have this problem -- CPython reads and compiles the whole
+file at import -- which is another reason to put logic in `bin/*.py` and leave the shell
+drivers as thin sequencing.
