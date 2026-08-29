@@ -1,0 +1,55 @@
+GPU-RESIDENT LPDM -- ACCEPTANCE, 2026-08-29.  VERDICT: PASS.
+
+Scored on runs/g24_ctlcbl/window (181 dumps, 900 s, convective, flat, 122^3 @ 24 m),
+receptor 30 m, t_back 450 s, production closure (multiplicative MOST floor, max factor
+3.31). Both paths read the SAME fp16 fields out of the same FieldSet and are handed the
+same floor table, the same release times and the same double-rotation angles, so what is
+being compared is the integrator.
+
+(d) INGEST -- kDerive vs lpdm/fields.py on one snapshot
+      eps      median rel 2.00e-03, p99 2.00e-03      PASS (tol 2e-2 / 2e-1)
+      dsig2dz  median rel 0.00e+00, p99 4.16e-04      PASS
+    Both sides are stored fp16, so ~1e-3 is the representation floor and the eps median
+    is sitting on it.
+
+(a) FOOTPRINT -- against the CPU path's OWN half-vs-half floor, never against zero
+      metric        CPU        GPU     |diff|   CPU floor   verdict
+      peak_r      145.99     169.71      23.72      25.99    PASS (m)
+      centroid_r  374.40     356.47      17.93     186.05    PASS (m)
+      area80       11.29      12.38       1.09      10.31    PASS (ha)
+      integral     0.9243     0.9929     0.0686     1.2006   PASS
+      array share   0.09%      0.08%      0.01      0.12     PASS (3 SE, 10 groups)
+      water share   3.25%      2.01%      1.24      0.00     NO VERDICT
+    The water row is unjudged for a stated reason rather than failed: its UNWRAPPED share
+    is 0.00%, i.e. every water touchdown got there through the periodic fold, so the
+    per-group floor is identically zero and there is nothing to score against. 4.4% of the
+    CPU footprint's |weight| came from folded touchdowns.
+
+(b) WELL-MIXED -- Gate D1 through both integrators, 200,000 particles, 2-1200 m released,
+    2-400 m scored, counting noise 2.46%
+      direction  path   max|r-1|    rms   lowest 3        verdict
+      backward   CPU       6.12%   2.59%   0.995 +/-1.41%  PASS
+      backward   GPU       6.08%   2.96%   0.999 +/-1.41%  PASS
+                 CPU vs GPU lowest-3 differ by 0.004 against 3 combined SE 0.060  AGREE
+      forward    CPU      13.26%   5.02%   1.093 +/-1.41%  FAIL
+      forward    GPU      12.03%   5.09%   1.095 +/-1.41%  FAIL
+                 CPU vs GPU lowest-3 differ by 0.002 against 3 combined SE 0.060  AGREE
+
+    THE FORWARD FAILURE IS THIS WINDOW, NOT THE PORT, AND THE CONTROL IS WHAT ESTABLISHES
+    THAT. The two paths agree to 0.002 in the lowest three bins against a combined 3 SE of
+    0.060 -- 30x inside it -- so whatever is wrong is wrong identically in both. The window
+    is a 900 s slice of a convective layer that was 1800 s old when it started, sampled at
+    t_back = 450 s: it is a bring-up artifact produced to have fields to test on, not a
+    stationary control. Gate D1 on the production closure still has to be run on a seed
+    window, and this does not substitute for it.
+
+(c) SIGN -- CPU |negative| share 9.00%, GPU 7.73%. Signed and the same size.  PASS
+
+COST: 9.3 s (CPU, 12 forked workers) vs 0.06 s (GPU) for 22,800 particles -- 153x. The
+deployment consequence is the one that mattered: a case's LPDM fields never reach disk, so
+the ~16.6 GB of scratch per case becomes ~1.6 MB of footprint and touchdowns.
+
+WHAT IS NOT YET DONE, stated: the in-FastEddy production path (ring buffer filled from the
+live device fields) is not wired into the time loop. What is validated here is the
+integrator and the ingest, driven through lib/liblpdm.so from lpdm/gpu.py. Until the
+in-process hook exists, the corpus still writes fields and reads them back.

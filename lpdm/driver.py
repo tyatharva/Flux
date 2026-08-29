@@ -58,7 +58,7 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
                       exact_agl=False, n_cover_groups=2, sgs_most_legacy=False,
                       sgs_most_form="multiplicative", sgs_subgrid_weight=True,
                       sgs_eps_consistent=True, require_rel_seconds=False,
-                      verbose=True):
+                      keep_touchdowns=0, verbose=True):
     """Release, integrate backward, accumulate on the STATIC north-up raster.
 
     THE RASTER IS THE LES GRID. Touchdowns are binned by their LES column index, folded
@@ -380,6 +380,28 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
     # need. Free, like the rest of the curve: it is a mask on touchdowns already in hand.
     cap_cov = {m: {k: 0.0 for k in (cover or {})} for m in marks}
     cap_cov_tot = {m: 0.0 for m in marks}
+    # ---- RAW TOUCHDOWNS, for the ML target ------------------------------------------
+    # The 122^2 raster is not the training target: binning is what makes the per-cell L1
+    # ~92% between two realisations of the SAME conditions, so a loss computed on it is
+    # mostly fitting Monte-Carlo noise. The target is a continuous density fitted to the
+    # touchdowns themselves (ML_TARGETS.md), and the fields are DELETED at the end of every
+    # case -- so a touchdown not captured here is gone for good.
+    #
+    # UNFOLDED coordinates. The raster folds modulo the domain because the LES world is
+    # tiled and the land-cover attribution folds the same way; the ML target wants the true
+    # displacement, which is what the wrap cap is measured against and what a density in
+    # map coordinates needs. Both are available: fold is a modulo away, unfolding is not.
+    #
+    # BOTTOM-k SUBSAMPLING, not "take the first k". Each touchdown draws an independent
+    # uniform key and the k smallest keys are kept, which is an exactly uniform sample
+    # without replacement, streams in one pass, and needs no advance knowledge of how many
+    # touchdowns there will be. Taking a prefix would sample the first release times only.
+    td_keep = int(keep_touchdowns)
+    td_res = dict(key=np.empty(0), dx=np.empty(0, np.float32), dy=np.empty(0, np.float32),
+                  wt=np.empty(0, np.float32), grp=np.empty(0, np.int16),
+                  age=np.empty(0, np.float32))
+    td_rng = np.random.default_rng(seed + 977)
+    td_sum_w = 0.0
     for b0 in range(0, len(times), batch_releases):
         tb = times[b0:b0 + batch_releases]
         n = len(tb) * n_per_release
@@ -422,6 +444,21 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
                (np.abs(res["td_y"] - yr) > 0.5 * fs.Ly)
         wrapped_w += wt[wrap].sum()
         rel_t = t[res["td_particle"]]          # release time of each touchdown
+        if td_keep:
+            _span = max(float(times[-1] - times[0]), 1e-9)
+            _g = np.clip(((rel_t - times[0]) / _span * NG).astype(np.int16), 0, NG - 1)
+            _k = td_rng.random(dx.size)
+            td_sum_w += float(wt.sum())
+            for _key, _val in (("key", _k), ("dx", dx.astype(np.float32)),
+                               ("dy", dy.astype(np.float32)),
+                               ("wt", wt.astype(np.float32)), ("grp", _g),
+                               ("age", (res.get("td_t") if res.get("td_t") is not None
+                                        else np.zeros(dx.size)).astype(np.float32))):
+                td_res[_key] = np.concatenate([td_res[_key], _val])
+            if td_res["key"].size > td_keep:
+                sel = np.argpartition(td_res["key"], td_keep)[:td_keep]
+                for _key in td_res:
+                    td_res[_key] = td_res[_key][sel]
         if cover:
             cover_tot += wt.sum()
             cover_tot_nw += wt[~wrap].sum()
@@ -499,6 +536,24 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
                wrapped_fraction=float(wrapped_w / max(full.sum_flux_all, 1e-30)),
                n_particles=full.n_particles, n_touchdown=n_td,
                wind_angle=float(np.degrees(ang)))
+    if td_keep:
+        # The sample is a FRACTION of the touchdowns; the exact pre-subsample totals are
+        # carried with it so the density can be renormalised to what the full ensemble
+        # produced rather than to the sample. `weight_scale` is what a sample weight must
+        # be multiplied by to reproduce the full estimator: sum(wt_sample)*scale/n_particles
+        # is the footprint integral over all space.
+        _ns = int(td_res["key"].size)
+        out["touchdowns"] = dict(
+            dx=td_res["dx"], dy=td_res["dy"], wt=td_res["wt"], grp=td_res["grp"],
+            age=td_res["age"], n_sample=_ns, n_touchdown_total=int(n_td),
+            n_particles=int(full.n_particles), n_release_groups=int(NG),
+            sum_wt_total=float(td_sum_w),
+            sum_wt_sample=float(td_res["wt"].sum()),
+            weight_scale=float(n_td / _ns) if _ns else float("nan"),
+            unfolded=True, signed=True,
+            domain=dict(Lx=float(fs.Lx), Ly=float(fs.Ly), dx=float(fs.dx), dy=float(fs.dy)),
+            receptor=dict(x=float(xr), y=float(yr), z_agl=float(zr - zg_r)),
+            wind_angle_deg=float(np.degrees(ang)))
     if split_halves:
         out["halves"] = [h1, h2]
     return out

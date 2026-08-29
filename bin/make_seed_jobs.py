@@ -238,7 +238,13 @@ FREE_LAPSE = 0.004       # K/m, the free-atmosphere lapse above the cap
 SBL_GRADIENT = 0.010     # K/m, a typical nocturnal surface inversion
 THETA_GRND = 300.0
 PRES_GRND = 97700.0      # Pa, the site's mean surface pressure (HRRR)
-Z0 = 0.1435              # geometric-mean z0 of the real map; the flat spin-up's scalar
+Z0 = 0.1435              # geometric-mean z0 of the real 122^2 @ 16 m map; DEFAULT ONLY.
+# THE GEOMETRIC MEAN IS A PROPERTY OF THE GRID, NOT OF THE PROJECT. At 24 m the same
+# WorldCover map over a 2928 m box gives 0.0832 m, 42% smaller -- a bigger box that
+# reaches the lake, and coarser cells that average tree and crop together. Carrying the
+# 16 m constant into a 24 m library would spin every seed up over the wrong surface and
+# nothing downstream would say so, which is this project's standing failure mode. Pass
+# --grid (preferred: read it off the map that will actually be used) or --z0.
 SPS = 0.0149             # measured s/step at 122^3 with a spin-up IO cadence
 CADENCE_SPINUP = 300.0   # s between stationarity dumps
 
@@ -307,7 +313,30 @@ def main():
     ap.add_argument("--zceiling", type=float, default=2500.0)
     ap.add_argument("--deform", type=float, default=0.194059)
     ap.add_argument("--cfl", type=float, default=1.35)
+    ap.add_argument("--receptor", type=float, default=10.0,
+                    help="receptor height the stationarity gate scores Kljun's geometry "
+                         "at. NOT decoration: bin/seed_stationarity.py defaults to 10 m "
+                         "on level k=2, so a 24 m library scored with the default would "
+                         "evaluate x_peak and x90 at the wrong height AND read sigma_w "
+                         "off the wrong level, and every number would still print.")
+    ap.add_argument("--receptor-k", type=int, default=2)
+    ap.add_argument("--grid", default=None,
+                    help="surface grid dir whose z0m.npy sets the spin-up's scalar "
+                         "surflayer_z0. Preferred over --z0: it reads the geometric mean "
+                         "off the map the corpus will actually run on.")
+    ap.add_argument("--z0", type=float, default=None,
+                    help=f"scalar surflayer_z0 for the flat spin-up (default {Z0} = the "
+                         f"16 m map). Ignored when --grid is given.")
     a = ap.parse_args()
+
+    if a.grid:
+        z0map = np.load(os.path.join(a.grid, "z0m.npy"))
+        z0 = float(np.exp(np.log(z0map).mean()))
+        print(f"surflayer_z0 = {z0:.4f} m, geometric mean of {a.grid}/z0m.npy")
+    else:
+        z0 = Z0 if a.z0 is None else float(a.z0)
+        print(f"surflayer_z0 = {z0:.4f} m  (no --grid given; "
+              f"{'the 16 m default' if a.z0 is None else 'from --z0'})")
 
     zc = les_levels(a.nz, a.zceiling, a.deform)
     dz_sfc = float(2.0 * zc[0])
@@ -357,7 +386,7 @@ def main():
                 # The .in carries the TARGET flux; jobs/run_seed.sh forces it to 0 for
                 # (retired) the warm-up that once ran the first segment neutral so
                 # cooling starts. See the docstring: a cold-started stable rung collapses.
-                "surflayer_wth": wth, "surflayer_z0": Z0,
+                "surflayer_wth": wth, "surflayer_z0": round(z0, 6),
                 "surflayer_idealsine": 0,
                 "coriolisLatitude": 42.957160,
                 "thetaPerturbationSwitch": 1,
@@ -410,6 +439,7 @@ def main():
                 "base_angle_deg": ang,
                 "target": {"zi_m": zi, "wth_virtual": wth, "G": gmag,
                            "G_dir_from_deg": float((270.0 - ang) % 360.0)},
+                "gate": {"zm": a.receptor, "k": a.receptor_k},
                 "run": {"dt": dt, "CFL_3d": cfl, "frqOutput": frq,
                         "cadence_s": frq * dt, "steps_total": total,
                         "n_segments": 1, "chained": False,

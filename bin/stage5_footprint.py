@@ -97,6 +97,16 @@ def main():
                          "against 30-minute observations. bin/run_corpus_case.sh passes "
                          "this; the retired fourth-pass drivers, which legitimately "
                          "released for 900 s, do not.")
+    ap.add_argument("--keep-touchdowns", type=int, default=0,
+                    help="persist this many raw touchdowns (uniform bottom-k subsample) "
+                         "to <outdir>/<tag>_touchdowns.npz. THE ML TARGET IS A CONTINUOUS "
+                         "DENSITY FITTED TO THESE, not the 122^2 raster -- binning is what "
+                         "makes the per-cell L1 ~92% between two realisations of the same "
+                         "conditions (ML_TARGETS.md). The window fields are deleted at the "
+                         "end of every case, so a touchdown not written here is gone. "
+                         "1e5 costs ~1.6 MB; 0 (default) keeps the old behaviour. Only the "
+                         "FIRST realisation is captured -- the second exists to measure a "
+                         "sampling floor, not to be trained on.")
     ap.add_argument("--tback-marks", default="",
                     help="comma-separated shorter t_back values to also score, e.g. "
                          "300,450,600,750 -- free, and it is what sizes a window")
@@ -210,7 +220,8 @@ def main():
                               sgs_most_form=a.sgs_most_form,
                               sgs_subgrid_weight=not a.no_subgrid_weight,
                               sgs_eps_consistent=not a.no_eps_consistent,
-                              n_cover_groups=a.cover_groups)
+                              n_cover_groups=a.cover_groups,
+                              keep_touchdowns=(a.keep_touchdowns if not runs else 0))
         if a.sgs_scale != 1.0:
             print("  SUB-GRID VARIANCE SCALED by %.3f (diagnostic)" % a.sgs_scale)
         if a.aniso:
@@ -275,6 +286,20 @@ def main():
     print(f"  source-area overlap vs Kljun:  80% {ov80*100:.0f}%   50% {ov50*100:.0f}%")
     print(f"  peak   LES {m_les['peak_x']:.0f} m   Kljun {m_kl['peak_x']:.0f} m")
     print(f"  integral over the raster:  LES {g0.integral():.2f}   Kljun {kl.sum()*g0.area:.2f}")
+    # THE FLUX-FOOTPRINT INTEGRAL DOES NOT ASYMPTOTE TO 1. It asymptotes to 1 - z_m/z_i
+    # (Steinfeld et al. 2008, after Horst & Weil 1992): in a boundary layer of finite depth
+    # the surface flux is not all that crosses the measurement height -- the fraction
+    # z_m/z_i of the column lies BELOW the receptor and its flux divergence never reaches
+    # it. At 10 m in an 800 m CBL that is 1.25% and invisible; at 30 m it is 3.75%, which
+    # is the size of the effects this project routinely gates on. Quoted alongside Kljun
+    # on the identical cells, which remains the primary reference because it also carries
+    # the domain truncation.
+    _asym = 1.0 - zm_agl / max(float(st["h"]), 1.0)
+    print(f"  integral vs the 1 - z_m/z_i asymptote: {_asym:.4f} "
+          f"(z_m {zm_agl:.1f} m, z_i {st['h']:.0f} m); "
+          f"LES/asymptote = {g0.integral()/_asym:.3f}, "
+          f"Kljun/asymptote = {kl.sum()*g0.area/_asym:.3f}")
+
     if a.sgs_most:
         print("  NOTE: the near-field peak is CONSTRAINED -- the MOST-anchored sigma_w "
               "floor is\n        anchored to surface-layer similarity, the same theory "
@@ -317,6 +342,9 @@ def main():
                les=m_les, kljun=m_kl, overlap_kljun=ov80, overlap50_kljun=ov50,
                integral_les=g0.integral(), integral_les_all=g0.integral_all(),
                integral_kljun=float(kl.sum() * g0.area),
+               integral_asymptote=float(_asym),
+               integral_over_asymptote=float(g0.integral() / _asym),
+               kljun_integral_over_asymptote=float(kl.sum() * g0.area / _asym),
                cover_share=r0.get("cover_share", {}),
                cover_share_nowrap=r0.get("cover_share_nowrap", {}),
                wrapped_fraction=r0.get("wrapped_fraction", None),
@@ -434,6 +462,36 @@ def main():
         print(f"  realisation-vs-realisation 80% overlap {ovr*100:.0f}%   "
               f"normalised L1 {num/den*100:.0f}%")
         out["floor"] = dict(overlap=ovr, l1_rel=float(num / den))
+
+    td = r0.get("touchdowns")
+    if td:
+        tdp = os.path.join(a.outdir, f"{a.tag}_touchdowns.npz")
+        np.savez_compressed(
+            tdp, dx=td["dx"], dy=td["dy"], wt=td["wt"], grp=td["grp"], age=td["age"],
+            meta=np.array([json.dumps({k: v for k, v in td.items()
+                                       if not isinstance(v, np.ndarray)})]))
+        # ASSERT ON THE ARTIFACT. A signed estimator whose sample has lost its negative
+        # side is not a sample of it, and the whole point of persisting touchdowns is to
+        # fit a density that HAS a negative side (fix 2). Report the split rather than
+        # assume it.
+        neg = float((td["wt"] < 0).mean())
+        print(f"\n  touchdowns: kept {td['n_sample']:,} of {td['n_touchdown_total']:,} "
+              f"({100.0*td['n_sample']/max(td['n_touchdown_total'],1):.2f}%), "
+              f"{100*neg:.1f}% carry a NEGATIVE weight, "
+              f"weight_scale {td['weight_scale']:.1f} -> {tdp} "
+              f"({os.path.getsize(tdp)/1e6:.2f} MB)")
+        # The sample must reproduce the full estimator's integral to within its own
+        # sampling error; if it does not, the subsample is not uniform.
+        i_full = td["sum_wt_total"] / max(td["n_particles"], 1)
+        i_samp = td["sum_wt_sample"] * td["weight_scale"] / max(td["n_particles"], 1)
+        print(f"    integral over all space: full ensemble {i_full:.4f}, "
+              f"from the sample {i_samp:.4f} ({100*(i_samp/i_full-1):+.2f}%)")
+        out["touchdowns"] = {k: (float(v) if isinstance(v, (int, float)) else v)
+                             for k, v in td.items() if not isinstance(v, np.ndarray)}
+        out["touchdowns"]["path"] = tdp
+        out["touchdowns"]["negative_weight_fraction"] = neg
+        out["touchdowns"]["integral_full"] = float(i_full)
+        out["touchdowns"]["integral_from_sample"] = float(i_samp)
 
     np.savez_compressed(
         os.path.join(a.outdir, f"{a.tag}.npz"),

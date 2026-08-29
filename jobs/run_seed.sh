@@ -47,11 +47,12 @@ die(){ echo "FATAL: $*" >&2; exit 1; }
 [ -f "$JOB/manifest.json" ] || die "no manifest.json in $JOB"
 [ -f "$JOB/seed.in" ] || die "no seed.in in $JOB"
 
-read -r NAME DT FRQ TOTAL WTH OUTBASE WALLMIN < <(python3 - "$JOB/manifest.json" <<'PYMAN'
+read -r NAME DT FRQ TOTAL WTH OUTBASE WALLMIN ZM ZK < <(python3 - "$JOB/manifest.json" <<'PYMAN'
 import json,sys
-m=json.load(open(sys.argv[1])); r=m["run"]
+m=json.load(open(sys.argv[1])); r=m["run"]; g=m.get("gate", {})
 print(m["job"], r["dt"], r["frqOutput"], r["steps_total"],
-      m["target"]["wth_virtual"], r["outFileBase"], r["projected_wall_min"])
+      m["target"]["wth_virtual"], r["outFileBase"], r["projected_wall_min"],
+      g.get("zm", 10.0), g.get("k", 2))
 PYMAN
 ) || die "manifest.json unreadable"
 
@@ -99,23 +100,92 @@ else
       Re-run with --restart-over to discard it and start from step 0, or move it aside."
     fi
   fi
+  # ---- Steinfeld spin-up accelerator (neutral rungs) -------------------------------
+  # Steinfeld et al. (2008) start a neutral LES with a surface temperature flux of
+  # ~0.05 K m/s for the first ~3000 s to trip the transition to resolved turbulence, then
+  # remove it. A neutral boundary layer has no buoyant production to organise the initial
+  # perturbation field, so it is the slowest regime to spin up -- h/u* ~ 1500 s here
+  # against T* ~ 350 s convectively -- and the accelerator is aimed exactly at that.
+  #
+  # IT COSTS ONE RESTART, AND THE RESTART IS THE DANGEROUS PART. htFlux is IO-registered,
+  # so the main invocation would inherit +0.05 from the burn-in dump whatever its .in says
+  # (FASTEDDY_TRAPS.md 17). bin/zero_htflux.py writes the zero into the FILE and reads it
+  # back, and the existing per-run htFlux assertion below is the second lock.
+  ACC_S="${SEED_ACCEL_S:-0}"
+  if [ "$ACC_S" != "0" ]; then
+    ACC_NT=$(python3 -c "print(int(round($ACC_S/$DT/$FRQ))*$FRQ)")
+    ACC_WTH="${SEED_ACCEL_WTH:-0.05}"
+    echo "  --- accelerator burn-in: $ACC_NT steps at surflayer_wth = $ACC_WTH"
+    sed -e "s|^Nt = .*|Nt = $ACC_NT|" \
+        -e "s|^inPath = .*|inPath = |" -e "s|^inFile = .*|inFile = |" \
+        -e "s|^surflayer_wth = .*|surflayer_wth = $ACC_WTH|" \
+        -e "s|^outFileBase = .*|outFileBase = ${OUTBASE}_ACC|" \
+        "$JOB/seed.in" > "$JOB/accel.in"
+    ./docker/run_case.sh "$JOB_REL" "accel.in" "$JOB/return/accel.log" || die "burn-in"
+    ACC_LAST="$JOB/output/${OUTBASE}_ACC.$ACC_NT"
+    [ -f "$ACC_LAST" ] || die "the burn-in wrote no dump at step $ACC_NT"
+    cp -f "$ACC_LAST" "$JOB/FE_ACC.0" || die "staging the burn-in restart"
+    ./docker/pyrun.sh bin/zero_htflux.py "${JOB_REL}/FE_ACC.0" --value "$WTH" \
+      || die "could not clear the burn-in htFlux out of the restart"
+    # ONE RUN PER DIRECTORY, OR IT IS NOT A SERIES (FASTEDDY_TRAPS.md 18c): the burn-in's
+    # dumps carry step numbers that overlap the main run's and would interleave into a
+    # single sorted "history" with two states at the same time.
+    rm -f "$JOB/output/${OUTBASE}_ACC".*
+  fi
   # A COLD START, so inPath/inFile are empty and surflayer_wth is whatever the .in says.
   # With no restart to read, htFlux CANNOT be inherited -- which is the point of retiring
   # the chain. The assertion below is kept anyway: it costs seconds once per run, and
   # PROJECT_BRIEF.md's standing rule is to validate the state the model actually loaded, never
   # the config handed to it.
-  sed -e "s|^Nt = .*|Nt = $TOTAL|" \
-      -e "s|^inPath = .*|inPath = |" -e "s|^inFile = .*|inFile = |" \
-      -e "s|^surflayer_wth = .*|surflayer_wth = $WTH|" \
-      "$JOB/seed.in" > "$JOB/run.in"
+  if [ "$ACC_S" != "0" ]; then
+    sed -e "s|^Nt = .*|Nt = $TOTAL|" \
+        -e "s|^inPath = .*|inPath = ./|" -e "s|^inFile = .*|inFile = FE_ACC.0|" \
+        -e "s|^surflayer_wth = .*|surflayer_wth = $WTH|" \
+        "$JOB/seed.in" > "$JOB/run.in"
+  else
+    sed -e "s|^Nt = .*|Nt = $TOTAL|" \
+        -e "s|^inPath = .*|inPath = |" -e "s|^inFile = .*|inFile = |" \
+        -e "s|^surflayer_wth = .*|surflayer_wth = $WTH|" \
+        "$JOB/seed.in" > "$JOB/run.in"
+  fi
   echo "  --- single invocation -> step $TOTAL ($(python3 -c "print(f'{$TOTAL*$DT/60:.0f}')") min simulated)"
   date '+%F %H:%M:%S'
-  ./docker/run_case.sh "$JOB_REL" "run.in" "$JOB/return/run.log" || die "the seed run"
+  rm -f "$JOB/output/.early_stop"
+  WATCH_PID=""
+  if [ "${SEED_EARLY_STOP:-1}" = "1" ]; then
+    # OPEN-ENDED WITH A CEILING. Nt is the ceiling; the watcher usually ends the run
+    # sooner and stamps the step it stopped at. See jobs/seed_watch.sh for why the
+    # criterion is the oscillation-immune limits only.
+    ./jobs/seed_watch.sh "$JOB" & WATCH_PID=$!
+  fi
+  ./docker/run_case.sh "$JOB_REL" "run.in" "$JOB/return/run.log"; RC_RUN=$?
+  [ -n "$WATCH_PID" ] && kill "$WATCH_PID" 2>/dev/null
+  # A container the watcher stopped exits non-zero, which is not a failure -- but a run
+  # that failed for any OTHER reason must still fail. Distinguish on the marker, and on
+  # the artifact, never on the exit status alone (FASTEDDY_TRAPS.md 12).
+  if [ "$RC_RUN" != "0" ] && [ ! -f "$JOB/output/.early_stop" ]; then
+    die "the seed run"
+  fi
   cat "$JOB/return/run.log" >> "$LOG"
 fi
 LAST=$(ls -1 "$JOB/output/$OUTBASE".* | sort -t. -k2 -n | tail -1)
 [ -n "$LAST" ] || die "the run wrote no dump"
-[ "${LAST##*.}" = "$TOTAL" ] || die "newest dump is step ${LAST##*.}, wanted $TOTAL"
+# EARLY STOP. With SEED_EARLY_STOP=1 a watcher scores the trailing window every 30
+# simulated minutes and stops the run as soon as the oscillation-immune limits are in
+# band, so the newest dump is legitimately short of Nt -- and Nt is then a CEILING rather
+# than a target. It stamps the step it stopped at, so "short" is only accepted when
+# something actually decided to stop there; a crash still fails, which is the distinction
+# that matters.
+if [ "${LAST##*.}" != "$TOTAL" ]; then
+  if [ -f "$JOB/output/.early_stop" ] && \
+     [ "$(cat "$JOB/output/.early_stop")" = "${LAST##*.}" ]; then
+    echo "  EARLY STOP at step ${LAST##*.} of a $TOTAL ceiling "
+    echo "    = $(python3 -c "print(f'{${LAST##*.}*$DT/3600:.2f}')") of "\
+         "$(python3 -c "print(f'{$TOTAL*$DT/3600:.2f}')") simulated hours"
+  else
+    die "newest dump is step ${LAST##*.}, wanted $TOTAL and no .early_stop marker matches"
+  fi
+fi
 # ASSERT ON THE ARTIFACT: the flux the run actually USED, not the one its .in asked for.
 ./docker/pyrun.sh - "${LAST#$ROOT/}" "$WTH" <<'PYCHK' || die "the run used the wrong surface flux"
 import sys, numpy as np
@@ -136,6 +206,7 @@ PYCHK
 # The gate scores the LAST 1.5 h, which is past the warm-up, so the flux it needs for the
 # Kljun terms is the TARGET one and not the zero the first segment ran under.
 ./docker/pyrun.sh bin/seed_stationarity.py "$JOB_REL/output" --dt "$DT" --wth "$WTH" \
+    --zm "$ZM" --k "$ZK" ${SCORE_H:+--score-h $SCORE_H} \
     --json "$JOB_REL/return/stationarity.json" --label "$NAME" \
     2>&1 | tee "$JOB/return/stationarity.txt"
 [ -s "$JOB/return/stationarity.json" ] \

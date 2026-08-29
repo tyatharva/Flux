@@ -1,0 +1,143 @@
+Time selection from 2208 candidate hours over 92 day(s)
+  screens: 300 m <= z_i <= 1250 m, |dz_i/dt| <= 15 %/h, z/L <= 0.00 (stable side only)
+  candidate hours valid: 445/2208 = 20.2%
+    z_i out of range        :  1074
+    z_i ok, too stable to run:  432   <-- the resolution ceiling; z/L > 0.00 laminarises at dx = 16 m
+    z_i+z/L ok but drifting  :   257   <-- the transition-bias screen; these would all be morning/evening
+
+  DAYS WITH A CASE : 74/92 = 80.4%
+  DAYS WITH NONE   : 18
+        17  z_i and z/L ok somewhere, but never stationary enough
+         1  z_i ok somewhere, but every such hour is too stable to run
+      e.g. 2023-02-26, 2023-04-07, 2023-04-11, 2023-04-15, 2023-05-21, 2023-05-29
+
+=== time of day chosen (UTC; local = UTC-6 CST / -5 CDT) ===
+  00Z    4 |############
+  01Z    0 |
+  02Z    0 |
+  03Z    2 |######
+  04Z    1 |###
+  05Z    1 |###
+  06Z    1 |###
+  07Z    1 |###
+  08Z    1 |###
+  09Z    1 |###
+  10Z    4 |############
+  11Z    0 |
+  12Z    2 |######
+  13Z    2 |######
+  14Z    2 |######
+  15Z    1 |###
+  16Z    3 |#########
+  17Z    7 |######################
+  18Z   13 |########################################
+  19Z    7 |######################
+  20Z    9 |############################
+  21Z    8 |#########################
+  22Z    4 |############
+  23Z    0 |
+
+=== TIME-OF-DAY SKEW: is the daytime convective population being thinned? ===
+  Stationarity is the binding screen now, and it rejects the morning and evening
+  transitions hardest. The convective midday is where the array's flux signal
+  lives, so a screen that quietly ate it would be the worst possible failure --
+  and it would look like a healthy 24-hour histogram while doing it.
+
+  LOCAL STANDARD TIME (UTC-6). Acceptance of every CANDIDATE hour, by local hour:
+    LST   cand   z_i ok   z/L ok  dz/dt ok     ALL   accept   convective share of candidates  
+  00h     92      37%      17%       65%       9      10%   ###
+  01h     92      40%      22%       66%      11      12%   ###
+  02h     92      37%      23%       59%      10      11%   ###
+  03h     92      30%      25%       66%      13      14%   ####
+  04h     92      30%      29%       58%      14      15%   ####
+  05h     92      28%      33%       51%      11      12%   ###
+  06h     92      32%      41%       38%      10      11%   ########
+  07h     92      45%      58%       37%      10      11%   ################
+  08h     92      63%      74%       28%      17      18%   ####################
+  09h     92      76%      92%       29%      20      22%   ##########################
+  10h     92      79%      97%       45%      34      37%   ############################
+  11h     92      74%      96%       51%      33      36%   ############################
+  12h     92      70%      97%       72%      42      46%   ############################
+  13h     92      66%      97%       79%      44      48%   #############################
+  14h     92      67%      96%       86%      48      52%   ###########################
+  15h     92      61%      83%       86%      38      41%   ######################
+  16h     92      55%      64%       77%      22      24%   #################
+  17h     92      57%      42%       65%      11      12%   #########
+  18h     92      62%      22%       49%      12      13%   ###
+  19h     92      55%      14%       29%       7       8%   ##
+  20h     92      47%      16%       40%       7       8%   ##
+  21h     92      45%      17%       54%       9      10%   ###
+  22h     92      39%      14%       57%       7       8%   ##
+  23h     92      37%      13%       61%       6       7%   ##
+
+  screen acceptance, convective (z/L < -0.02)      :  37.8%  (316/836)
+  screen acceptance, everything else               :   9.4%  (129/1372)
+  screen acceptance, CONVECTIVE MIDDAY (10-16 LST) :  42.1%  (216/513)
+
+  convective share of ALL candidate hours   :  37.9%
+  convective share of VALID candidate hours :  71.0%
+  convective share of SELECTED cases        :  68.9%
+  VERDICT: NOT THINNED -- selection is convective-richer than the record
+
+  local-hour histogram of SELECTED cases (LST):
+  00h*   1 |###
+  01h*   1 |###
+  02h*   1 |###
+  03h*   1 |###
+  04h*   4 |###########
+  05h*   0 |
+  06h    2 |######
+  07h    2 |######
+  08h    2 |######
+  09h    1 |###
+  10h    3 |########
+  11h    7 |###################
+  12h   13 |####################################
+  13h    7 |###################
+  14h    9 |#########################
+  15h    8 |######################
+  16h    4 |###########
+  17h    0 |
+  18h    4 |###########
+  19h*   0 |
+  20h*   0 |
+  21h*   2 |######
+  22h*   1 |###
+  23h*   1 |###
+       (* = outside 06-18 LST)
+
+=== coverage: direction x stability (cases) ===
+          v.unstable    unstable     neutral      stable    v.stable   total
+       N           0           2           1           0           0       3
+     NNE           2           2           1           0           0       5
+     ENE           2           5           2           0           0       9
+       E           0           3           1           0           0       4
+     ESE           0           2           1           0           0       3
+     SSE           1           4           1           0           0       6
+       S           2           3           2           0           0       7
+     SSW           1           6           3           0           0      10
+     WSW           0           4           2           0           0       6
+       W           0           4           2           0           0       6
+     WNW           1           3           3           0           0       7
+     NNW           1           3           4           0           0       8
+   total          10          41          23           0           0      74
+
+=== coverage: direction x z_i bin ===
+           shallow       mid      deep   total
+       N         0         2         1       3
+     NNE         0         4         1       5
+     ENE         0         5         4       9
+       E         0         2         2       4
+     ESE         0         2         1       3
+     SSE         0         4         2       6
+       S         0         6         1       7
+     SSW         0         3         7      10
+     WSW         0         4         2       6
+       W         0         3         3       6
+     WNW         0         4         3       7
+     NNW         0         4         4       8
+
+  48 of 180 cells occupied; thinnest occupied cell 1, fullest 4
+
+=== scaled to five years ===
+  80.4% of days carry a case -> 1469 cases from 1826 days

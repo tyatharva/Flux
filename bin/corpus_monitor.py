@@ -104,13 +104,38 @@ def score(d, cell_m=16.0):
         rows.append(("G2a integral saturates", None,
                      "no by_disp curve in this JSON; UNJUDGED"))
 
-    # ---- G2b: magnitude, against Kljun on the identical cells ----------------------
+    # ---- G2b: magnitude, against Kljun on the identical cells AND the asymptote -----
+    # THE FLUX-FOOTPRINT INTEGRAL DOES NOT ASYMPTOTE TO 1. Steinfeld et al. (2008), after
+    # Horst & Weil (1992): the ceiling is 1 - z_m/z_i, because the fraction z_m/z_i of the
+    # column lies below the receptor and its flux never crosses it. At the retired 10 m
+    # receptor that was 1.25% and invisible; at 30 m in an 800 m CBL it is 3.75%, the size
+    # of effects this project gates on. Kljun on the identical cells stays the PRIMARY
+    # reference because it also carries the domain truncation, which the asymptote does
+    # not; the asymptote is the physical ceiling the pair should sit under.
     I = d.get("integral_les")
     Ik = d.get("integral_kljun")
+    A = d.get("integral_asymptote")
+    if A is None:
+        zm = d.get("zm_agl") or d.get("zm")
+        h = ((d.get("stats") or {}).get("h"))
+        if zm and h:
+            A = 1.0 - float(zm) / float(h)
     if I is not None:
+        extra = (f"; Kljun on the same cells {Ik:.3f}" if Ik else "")
+        if A:
+            extra += (f"; asymptote 1 - z_m/z_i = {A:.4f}, LES/asymptote {I/A:.3f}")
         rows.append(("G2b integral magnitude", bool(INT_LO <= I <= INT_HI),
-                     f"{I:.3f} in [{INT_LO}, {INT_HI}]"
-                     + (f"; Kljun on the same cells {Ik:.3f}" if Ik else "")))
+                     f"{I:.3f} in [{INT_LO}, {INT_HI}]" + extra))
+    # G2c is REPORTED, NOT GATED, and deliberately so. An integral above the asymptote is
+    # not automatically wrong -- over sloping ground the residual is w_bar times the
+    # concentration integral and the footprint genuinely need not integrate to the
+    # asymptote (PROJECT_BRIEF.md) -- but it is the shape a broken closure makes, so the number
+    # belongs in every record.
+    if I is not None and A:
+        rows.append(("G2c integral vs asymptote", None,
+                     f"LES/asymptote {I/A:.3f}"
+                     + (f", Kljun/asymptote {Ik/A:.3f}" if Ik else "")
+                     + " -- REPORTED, not gated (a slope moves it legitimately)"))
 
     # ---- G3a: the peak is converged within the window ------------------------------
     dpk = (d.get("halves") or {}).get("dpeak")

@@ -1,4 +1,4 @@
-Description = 122^3 @ 24 m static domain, tower centred; receptor k=3 at exactly 30.000000 m
+Description = seed seed_cbl-mid_a060: flat uniform convective spin-up, z_i target 700 m, base angle 60 deg  # seed seed_cbl-mid_a060
 #--MPI_AALES
 numProcsX = 1 # Number of cores to be used for horizontal domain decomposition in X
 numProcsY = 1 # Number of cores to be used for horizontal domain decomposition in Y
@@ -7,11 +7,11 @@ tBx = 1 # kStride=1, so a warp must run along z; tBx>1 breaks coalescing (measur
 tBy = 2 # 1x2x64 = 128 threads, fastest of 9 legal shapes swept on this grid
 tBz = 64 # CUDA caps blockDim.z at 64; 128 is rejected by the device
 #--IO
-inPath = # Path where initial/restart file is read in from
-inFile = # name of the input file for coordinate system and initial or restart conditions
-outPath = ./output/ # Path where output files are to be written
-outFileBase = FE_G24 # Base name of the output file series as in (outFileBase).element-in-series
-frqOutput = 10140 # 300 s between dumps during spin-up (= 169*60)
+inPath =   # Path where initial/restart file is read in from
+inFile =   # name of the input file for coordinate system and initial or restart conditions
+outPath = ./output/  # Path where output files are to be written
+outFileBase = FE_SEED  # seed seed_cbl-mid_a060
+frqOutput = 10140  # 300 s between stationarity dumps
 ioOutputMode = 0 # 0: N-to-1 gather and write to a netcdf file, 1:N-to-N writes of FastEddy binary files
 #--GRID
 Nx = 122 # 122 x 24 m = 2928 m
@@ -22,15 +22,15 @@ d_xi = 24.0 # 24 m
 d_eta = 24.0 # 24 m
 d_zeta = 24.691358 # zCeiling = d_zeta*(Nz-0.5) = 3000 m (bin/vgrid.py)
 coordHorizHalos = 1 # switch to setup coordiante halos as periodic=1 or gradient-following=0
-topoFile = # A file containing topography (surface elevation in meters ASL)
+topoFile =   # A file containing topography (surface elevation in meters ASL)
 verticalDeformSwitch = 1 # switch to use vertical coordinate deformation 0=off, 1=on
 verticalDeformFactor = 0.346601 # dz_sfc = 8.5583 m; cell centre k=3 at EXACTLY 30.000000000 m
 verticalDeformQuadCoeff = 0.0 # pure cubic
 #--TIME_INTEGRATION
 timeMethod = 0 # Selector for time integration method. [0=RK3-WS2002 (default)]
-Nt = 121680 # PLACEHOLDER. Every driver overwrites this. One invocation per run; chaining retired.
-dt = 0.0295858 # = 5/169 s, so 5 s output is an integer step count; CFL_3d = 1.3442. BISECT THIS.
-NtBatch = 169
+Nt = 365040  # the whole run: 365040 steps in ONE invocation, no chaining
+dt = 0.0295858  # = 300/10140 s; CFL_3d = 1.3442
+NtBatch = 10140  # one 300 s dump per batch
 #--HYDRO_CORE
 ##------------: HYDRO_CORE Submodule Selectors ---
 #----------: Boundary Conditions Set ---
@@ -55,7 +55,7 @@ moistureCondBasePres = 1 #selector to use base pressure for microphysics
 moistureMPcallTscale = 1.0 # time scale for microphysics to be called
 ##------------: CORIOLIS ---
 coriolisSelector = 1  #Coriolis switch: 0 off, 1 on
-coriolisLatitude = 42.957160 # the surveyed tower latitude
+coriolisLatitude = 42.95716  # seed seed_cbl-mid_a060
 ## ----------: TURBULENCE ---
 turbulenceSelector = 1 # turbulence scheme selector: 0= none, 1= Lilly/Smagorinsky
 TKESelector = 1 # Prognostic TKE selector: 0= none, 1= Prognostic
@@ -75,13 +75,13 @@ dampingLayerSelector = 1 # Rayleigh damping layer selector: 0= off, 1= on.
 dampingLayerDepth = 500.0 # 17% of the 3000 m domain depth; clean domain to 2500 m
 ##----------: SURFACE LAYER ---
 surflayerSelector = 1 # surfacelayer selector: 0= off, 1= surface kinematic heat flux (surflayer_wth), 2=sking temperature rate (surflayer_tr)
-surflayer_z0 = 0.0832 # geometric-mean z0 of the real 122^2 @ 24 m WorldCover map
+surflayer_z0 = 0.083229  # seed seed_cbl-mid_a060
 surflayer_z0t = 0.01 # roughness length (temperature) when surflayerSelector > 0
-surflayer_wth = 0.0 # kinematic VIRTUAL heat flux (the run is dry; see PROJECT_BRIEF.md). 0 = neutral
+surflayer_wth = 0.11  # prescribed VIRTUAL kinematic heat flux (convective)
 surflayer_tr = -0.0 # temperature rate at the surface when surflayerSelector = 2 (>0 for warming; <0 for cooling)
 surflayer_wq = 0.0 # latent heat flux at the surface (kg/kg m s-1) when surflayerSelector = 1
 surflayer_qr = 0.0 # water vapor rate (kg/kg h-1) when surflayerSelector = 2
-surflayer_idealsine = 0 # selector for idealized sinusoidal surface heat flux or skin temperature forcing
+surflayer_idealsine = 0  # selector for idealized sinusoidal surface heat flux or skin temperature forcing
 surflayer_ideal_ts = 0.0 # start time in seconds for the idealized sinusoidal surface forcing
 surflayer_ideal_te = 43200 # end time in seconds for the idealized sinusoidal surface forcing
 surflayer_ideal_amp = 4.0 # maximum amplitude of the idealized sinusoidal surface forcing
@@ -90,33 +90,33 @@ surflayer_ideal_qte = 10.0 # end time in seconds for the idealized sinusoidal su
 surflayer_ideal_qamp = 2.0 # maximum amplitude of the idealized sinusoidal surface forcing (qv)
 surflayer_offshore = 0 # offshore selector: 0=off, 1=on
 #------------: BASE-STATE ---
-stabilityScheme = 2 # Scheme used to set hydrostatic, stability-dependent Base-State EOS fields
-temp_grnd = 300.0 # Air Temperature (K) at the ground used to set hydrostatic Base-State EOS fields
-pres_grnd = 100000.0 # Pressure (Pa) at the ground used to set hydrostatic Base-State EOS fields
-zStableBottom = 400.0 # mixed layer 0-400 m; L >= 4 z_i caps z_i at 488 m in a 1952 m box
-stableGradient = 0.08 # capping inversion, +8 K across 400-500 m
-zStableBottom2 = 500.0 # top of the capping inversion
-stableGradient2 = 0.004 # free-atmosphere lapse; sets the entrainment growth rate of z_i
-zStableBottom3 = 50000.0 # unused third layer
-stableGradient3 = 0.004
-thetaPerturbationSwitch = 1 # Switch to include initial theta perturbations: 0=off, 1=on
-thetaHeight = 300.0 # Height below which to include initial theta perturbations: (meters)
-thetaAmplitude = 0.25 # Maximum amplitude for theta perturbations: thetaAmplitude*[-1,+1] K
-U_g = 10.0 # Zonal (West-East) component of the geostrophic wind (m/s)
-V_g = 0.0 # Meridional (South-North) component of the geostrophic wind (m/s)
-z_Ug = 10000.0 # Height (m) above ground for linear geostrophic wind gradient (zonal component)
-z_Vg = 10000.0 # Height (m) above ground for linear geostrophic wind gradient (meridional component)
-Ug_grad = 0.0 # U_g gradient above z_Ug (ms-1/m)
-Vg_grad = 0.0 # V_g gradient above z_Vg (ms-1/m)
+stabilityScheme = 2  # Scheme used to set hydrostatic, stability-dependent Base-State EOS fields
+temp_grnd = 298.0118  # theta_grnd = 300.0 K at 97700 Pa
+pres_grnd = 97700.0  # seed seed_cbl-mid_a060
+zStableBottom = 700.0  # mixed layer 0-700 m: the CONTROL on z_i
+stableGradient = 0.08  # capping inversion, +8 K across 100 m
+zStableBottom2 = 800.0  # top of the capping inversion
+stableGradient2 = 0.004  # free-atmosphere lapse
+zStableBottom3 = 20000.0  # above the domain; the third segment is unused
+stableGradient3 = 0.004  # free-atmosphere lapse
+thetaPerturbationSwitch = 1  # Switch to include initial theta perturbations: 0=off, 1=on
+thetaHeight = 300.0  # seed the turbulence inside the mixed layer only
+thetaAmplitude = 0.25  # cold-start seeding
+U_g = 4.5  # G = 9.0 m/s at base angle 60 deg
+V_g = 7.794229  # geostrophic wind FROM 210 deg
+z_Ug = 10000.0  # Height (m) above ground for linear geostrophic wind gradient (zonal component)
+z_Vg = 10000.0  # Height (m) above ground for linear geostrophic wind gradient (meridional component)
+Ug_grad = 0.0  # U_g gradient above z_Ug (ms-1/m)
+Vg_grad = 0.0  # V_g gradient above z_Vg (ms-1/m)
 # ----------: LARGE SCALE FORCINGS ---
 lsfSelector = 1 # large-scale forcings ON: subsidence is the control on z_i
 lsf_horMnSubTerms = 1 # subsidence needs BOTH this and lsfSelector=1 (hydro_core.c:509)
 lsf_freq = 1.0 # large-scale forcing frequency (seconds)
-lsf_w_surf = 0.0 # m/h; the kernel divides by 3600 (cuda_largeScaleForcingsDevice.cu:229)
-lsf_w_lev1 = -25.0 # -0.0069 m/s at 500 m: fair-weather subsidence, 0.005-0.01 m/s
-lsf_w_lev2 = 0.0
-lsf_w_zlev1 = 500.0 # the inversion top, where subsidence must oppose entrainment
-lsf_w_zlev2 = 2000.0 # tapered to zero below the damping layer
+lsf_w_surf = 0.0  # m/h; the kernel divides by 3600 (cuda_largeScaleForcingsDevice.cu:229)
+lsf_w_lev1 = -25.0  # -25 m/h at z_i; opposes entrainment (the kernel divides by 3600)
+lsf_w_lev2 = 0.0  # seed seed_cbl-mid_a060
+lsf_w_zlev1 = 700.0  # the inversion, where subsidence must oppose entrainment
+lsf_w_zlev2 = 1400.0  # seed seed_cbl-mid_a060
 lsf_th_surf = 0.0 # no imposed cooling: the inversion, not an LSF, sets the equilibrium
 lsf_th_lev1 = 0.0
 lsf_th_lev2 = 0.0
