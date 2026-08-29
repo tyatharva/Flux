@@ -1,0 +1,32 @@
+PRE-TARGET GO/NO-GO: the sub-grid fraction of sigma_w^2 at the receptor.  VERDICT: GO.
+
+Measured on runs/g24_ctlcbl/window (181 dumps, 900 s, convective, flat, 122^3 @ 24 m),
+46 snapshots, resolved variance as the horizontal variance of w per level and sub-grid as
+(2/3) e_sgs -- the same partition the LPDM transports.
+
+     z (m)    resolved    sub-grid  sub-grid %
+       4.3     0.00241     0.24061       99.0%
+      12.8     0.01796     0.22389       92.6%
+      21.4     0.04898     0.14019       74.1%
+      30.0     0.08589     0.09493       52.5%   <-- the receptor
+      38.6     0.12837     0.06368       33.2%
+      47.3     0.16949     0.04883       22.4%
+      55.9     0.20956     0.03949       15.9%
+
+  AT THE RECEPTOR: 52.5% sub-grid, against the ~52% the reconfiguration predicted and
+  against ~90% at the retired 10 m receptor. z/Delta = 1.76 (Delta = 17.05 m) against 0.99.
+
+WHY THIS IS THE RIGHT LEADING INDICATOR. The 10 m configuration failed because the near
+field was closure output rather than LES output: at z/Delta ~ 1 the isotropic (2/3)e_sgs
+partition sets sigma_w, so the peak could not respond to meteorology. The sub-grid fraction
+is that statement as one number, and it is available from a control window before either
+target runs -- one number instead of two more GPU-hours.
+
+WHAT IT DOES NOT SAY. The closure is still doing real work. At this window's stability
+(L = -85.4 m, zeta = -0.35) the MOST anchor is 1.25 phi_w = 1.589 and the LES delivers
+sigma_w/u* = 1.016, 64% of it, so the floor is still active -- but its influence is now
+WEIGHTED by f_sgs = 0.525 rather than by ~0.90, which is what changes. And this particular
+window is a 900 s slice of a convective layer 1800 s old, still spinning up; the seed-based
+control will be the fair number.
+
+  window statistics: u* 0.419, sigma_w 0.425 m/s, h 524 m, L -85.4 m, U(30) 5.83 m/s
