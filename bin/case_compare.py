@@ -51,8 +51,22 @@ def load(tag):
                 pick=j(f"{PICKDIR}/{tag}.json"), frc=j(f"{FORCEDIR}/{tag}.json"))
 
 
-def tower_sigma_w(H, band=10.0, csv_path="data/raw/H_and_sigma_w.csv"):
-    """The measured sigma_w distribution at this sensible heat flux. A WEAK check."""
+def tower_sigma_w(H, band=10.0, csv_path="data/raw/H_and_sigma_w.csv",
+                  curve="results/sigma_w_curve_30m.json"):
+    """The measured sigma_w distribution at this sensible heat flux.
+
+    AT A 30 m RECEPTOR THE FILE CANNOT BE USED RAW. It is a 10 m sensor, and sigma_w grows
+    with height through the surface layer; bin/sigma_w_tower.py translates it by inverting
+    MOST for u* and re-predicting at 30 m, and its H-decile table is preferred here
+    whenever it exists. The raw 10 m band remains the fallback so this still works on the
+    retired configuration's records.
+    """
+    if os.path.exists(curve):
+        c = json.load(open(curve))
+        b = min(c["bins"], key=lambda r: abs(r["h_median"] - H))
+        q = b["sigma_w_%dm" % int(round(c["z_model"]))]
+        return dict(n=b["n"], p25=q["p25"], p50=q["p50"], p75=q["p75"],
+                    z=c["z_model"], translated=True)
     if not os.path.exists(csv_path):
         return None
     Hs, S = [], []
@@ -68,7 +82,7 @@ def tower_sigma_w(H, band=10.0, csv_path="data/raw/H_and_sigma_w.csv"):
     if m.sum() < 30:
         return None
     q = np.percentile(S[m], [25, 50, 75])
-    return dict(n=int(m.sum()), p25=q[0], p50=q[1], p75=q[2])
+    return dict(n=int(m.sum()), p25=q[0], p50=q[1], p75=q[2], z=10.0, translated=False)
 
 
 def row_of(c):
@@ -102,6 +116,13 @@ def row_of(c):
         centroid=les.get("centroid_dist"), bearing=les.get("centroid_bearing"),
         a80=les.get("area80_ha"), a80_klj=klj.get("area80_ha"),
         integral=fp.get("integral_les"), integral_klj=fp.get("integral_kljun"),
+        asym=fp.get("integral_asymptote"),
+        int_over_asym=fp.get("integral_over_asymptote"),
+        subgrid_recept=(1.0 - float(hl["f_res_at_receptor"]))
+                       if hl.get("f_res_at_receptor") is not None else
+                       (float(hl["f_sgs_at_receptor"])
+                        if hl.get("f_sgs_at_receptor") is not None else None),
+        half_dpeak=((fp.get("halves") or {}).get("dpeak")),
         share=share, share_se=se, overlap=fp.get("overlap_kljun"),
         fac_min=hl.get("fac_min"), fac_max=hl.get("fac_max"),
         z_fac_max=hl.get("z_fac_max"), fac_recept=hl.get("fac_at_receptor"),
@@ -140,6 +161,15 @@ def main():
               f"  centroid {f(r['centroid'],'{:.0f}')} m at {f(r['bearing'],'{:.1f}')} deg,"
               f"  A80 {f(r['a80'],'{:.2f}')} ha (Kljun {f(r['a80_klj'],'{:.2f}')}),"
               f"  integral {f(r['integral'])} (Kljun {f(r['integral_klj'])})")
+        if r.get("asym"):
+            print(f"              integral vs the 1 - z_m/z_i asymptote {f(r['asym'],'{:.4f}')}: "
+                  f"LES/asymptote {f(r['int_over_asym'])}"
+                  + (f", Kljun/asymptote {f(r['integral_klj']/r['asym'])}"
+                     if r['integral_klj'] else "")
+                  + "   -- the ceiling is NOT 1 (Steinfeld 2008)")
+        if r.get("half_dpeak") is not None:
+            print(f"              half-vs-half |dpeak| {abs(r['half_dpeak']):.0f} m "
+                  f"-- THIS CASE'S OWN sampling floor for the peak")
         sh = ("n/a" if r["share"] is None else
               f"{100*r['share']:.2f}%" + (f" +/- {100*r['share_se']:.2f}" if r["share_se"] else " (no SE)"))
         print(f"  array share {sh}   -- REPORTED, not gated; against 1.03% of the box by area")
@@ -161,13 +191,53 @@ def main():
             tw = tower_sigma_w(r["H_w"])
             if tw:
                 inside = tw["p25"] <= r["sigma_w"] <= tw["p75"]
-                print(f"  EXTERNAL    LES sigma_w(10 m) {r['sigma_w']:.3f} m/s vs the tower at "
+                zt = tw.get("z", 10.0)
+                print(f"  EXTERNAL    LES sigma_w({zt:.0f} m) {r['sigma_w']:.3f} m/s vs the tower"
+                      + (" TRANSLATED 10 -> %.0f m" % zt if tw.get("translated") else "")
+                      + f" at "
                       f"H = {r['H_w']:+.0f} W/m2: median {tw['p50']:.3f}, IQR "
                       f"[{tw['p25']:.3f}, {tw['p75']:.3f}] over {tw['n']} half-hours "
                       f"-> {'INSIDE' if inside else 'OUTSIDE'} the IQR "
                       f"({r['sigma_w']/tw['p50']:.2f}x the median). An order-of-magnitude "
                       f"check only: the file carries no wind speed and the IQR spans "
                       f"{tw['p75']/tw['p25']:.2f}x.")
+
+    if len(rows) == 2:
+        # THE DECIDING TEST. Pre-registered in results/deciding_test_preregistration.txt:
+        # does the peak MOVE between two cases, by more than each one's OWN half-vs-half
+        # floor, and in the order Kljun puts them? At the retired 10 m receptor it did not
+        # move at all -- 48 m in three cases, max/min 1.00x -- which is what this
+        # configuration exists to fix.
+        A, B = rows
+        pa, pb = A.get("peak_x"), B.get("peak_x")
+        ka, kb = A.get("peak_klj"), B.get("peak_klj")
+        fl = [abs(r["half_dpeak"]) for r in rows if r.get("half_dpeak") is not None]
+        print(f"\n=== THE DECIDING TEST: does the peak MOVE? ===")
+        if pa is None or pb is None:
+            print("  NO VERDICT -- one of the two cases has no peak")
+        else:
+            d = abs(pa - pb)
+            tol = max(fl) if fl else float("nan")
+            moved = bool(np.isfinite(tol) and d > tol)
+            ordered = (None if (ka is None or kb is None) else
+                       bool((pa - pb) * (ka - kb) > 0))
+            print(f"  LES peaks {pa:.0f} and {pb:.0f} m -> |dpeak| {d:.0f} m")
+            print(f"  against the LARGER of the two cases' own half-vs-half floors "
+                  f"{tol:.0f} m  -> {'MOVED' if moved else 'DID NOT MOVE'}")
+            print(f"  the floor rests on ONE difference per case ({len(fl)} in total), so "
+                  f"it is a\n  1-degree-of-freedom estimate -- read the margin, not just "
+                  f"the verdict. Individual\n  floors: "
+                  + ", ".join(f"{abs(r['half_dpeak']):.0f} m" for r in rows
+                              if r.get('half_dpeak') is not None))
+            print(f"  Kljun puts them at {f(ka,'{:.0f}')} and {f(kb,'{:.0f}')} m; "
+                  f"the LES ordering {'MATCHES' if ordered else 'does NOT match'} it")
+            if moved and ordered:
+                print("  VERDICT: the peak responds to meteorology at this receptor "
+                      "height.")
+            else:
+                print("  VERDICT: THE PEAK DOES NOT RESPOND. The receptor is still "
+                      "closure-dominated and\n           the configuration has not "
+                      "worked. Stop and report it.")
 
     if len(rows) > 1:
         print(f"\n=== case-to-case spread over {len(rows)} cases ===")
@@ -176,7 +246,9 @@ def main():
                 ("fac_max", "floor max"), ("fsgs_recept", "f_sgs at receptor"),
                 ("fsgs_peak", "f_sgs at floor peak"), ("h", "achieved h (m)"),
                 ("dwdir_window", "drift in window (deg/h)"),
-                ("ustar", "u*"), ("sigma_w", "sigma_w(10 m)")]
+                ("int_over_asym", "integral / asymptote"),
+                ("half_dpeak", "own |dpeak| floor (m)"),
+                ("ustar", "u*"), ("sigma_w", "sigma_w at the receptor")]
         print(f"  {'metric':22}{'min':>11}{'median':>11}{'max':>11}{'max/min':>10}")
         for k, nm in keys:
             v = np.array([r[k] for r in rows if r[k] is not None], float)

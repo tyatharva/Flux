@@ -1,0 +1,517 @@
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 11.8.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+Obtaining parameters from ./run.in
+Successfully opened ./run.in and read 129 lines.
+Warning more than 10000 entries were requested for the parameters hash table.
+Consider changing the requested table size in the PARAMETERS module.
+WARNING: optional parameter ioLPDMmode defaulted to 0.
+WARNING: optional parameter ioLPDMfullFrq defaulted to 0.
+WARNING: optional parameter towerIOSelector defaulted to 0.
+WARNING: optional parameter gridFile defaulted to NULL.
+WARNING: optional parameter pgfSelector defaulted to 1.
+WARNING: optional parameter buoyancySelector defaulted to 1.
+WARNING: optional parameter ceilingAdvectionBC defaulted to 0.
+WARNING: optional parameter surflayer_stab defaulted to 0.
+WARNING: optional parameter surflayer_z0tdyn defaulted to 1.
+WARNING: optional parameter surflayer_offshore_visc defaulted to 1.
+WARNING: optional parameter canopySelector defaulted to 0.
+WARNING: optional parameter cellpertSelector defaulted to 0.
+WARNING: optional parameter filter_6thdiff_hori defaulted to 0.
+WARNING: optional parameter filter_divdamp defaulted to 0.
+WARNING: optional parameter NhydroAuxScalars defaulted to 0.
+WARNING: optional parameter physics_oneRKonly defaulted to 1.
+Rank 0/1:  [rankXid, rankYid] = [0,0]
+mpi_rank_world--0/1 inFile = FE_ACC.0 !!
+mpi_rank_world--0/1 Obtaining devices...
+Obtaining properties for 1 devices...
+
+mpi_rank_world--0/1 assigned accelerator device 0/1...
+Device Number:          0
+---------------------------------------------------------------------
+
+__General__
+   Name                               : NVIDIA GeForce RTX 4080
+   Compute Capability                 : 8.9
+   Clock Rate                         : 2535000
+   Number of multiprocessors          : 76
+   Max Threads/multiprocessor         : 1536
+   Concurrent Copy/Execution          : Yes
+   Concurrent Kernels                 : 1
+   Compute Mode                       : 0
+   Kernel Timeout Enabled             : Yes
+   Integrated                         : No
+   Host Memory Mapping                : Yes
+
+__Configuration__
+   Registers/Block                    : 65536
+   Warp Size                          : 32
+   Max Threads/Block                  : 1024
+   Max Block-extent / Dimension       :         1024         1024           64
+   Max Grid-extent / Dimension        :   2147483647        65535        65535
+
+__Memory__
+   Tot. Global Memory (GB) / (B)      :   15.54803 / 3809673216
+   Shared Mem/Block   (GB) / (B)      :    0.00005 / 49152
+   Constant Memory    (GB) / (B)      :    0.00006 / 65536
+   Max 1-D Texture                    :       131072
+   Max 2-D Texture                    :       131072        65536
+   Max 3-D Texture                    :        16384        16384        16384
+   Texture Alignment  (B)             : 512
+   Max Memory pitch                   : 2147483647
+
+mpi_rank_world--0/1 done!
+mpi_rank_world--0/1 Assigning threadPerBlock.[xyz]
+mpi_rank_world--0/1 done!
+Nxp = 122, Nyp = 122, Nzp = 122
+****Spatial loop-index Mins & Maxs ****  (i,j,k)-min = (3,3,3) & (i,j,k)-max = (125,125,125)
+Entering hydro_coreInit:------
+WARNING: parameter surflayer_qskin_input was not found but was requested for printing.
+WARNING: parameter surflayer_offshore_opt was not found but was requested for printing.
+WARNING: parameter filter_6thdiff_hori_coeff was not found but was requested for printing.
+hydro_coreInit: allocating/registering arrays/fields with IO
+hydro_coreInit:hydroFlds[0] = rho stored at 0x78abc37f7080, has been registered with IO.
+hydro_coreInit:hydroFlds[1] = u stored at 0x78abc3ff7080, has been registered with IO.
+hydro_coreInit:hydroFlds[2] = v stored at 0x78abc47f7080, has been registered with IO.
+hydro_coreInit:hydroFlds[3] = w stored at 0x78abc4ff7080, has been registered with IO.
+hydro_coreInit:hydroFlds[4] = theta stored at 0x78abc57f7080, has been registered with IO.
+hydro_coreInit:Field = pressure stored at 0x78abc2ff6080, has been registered with IO.
+hydro_coreInit:sgstkeScalars[0] = TKE_0 stored at 0x78abbfff4080, has been registered with IO.
+hydro_coreInit: allocating internal arrays
+hydro_coreInit:Field = tskin stored at 0x5da88c294b00, has been registered with IO.
+hydro_coreInit:Field = fricVel stored at 0x5da88c274980, has been registered with IO.
+hydro_coreInit:Field = htFlux stored at 0x5da88c284a00, has been registered with IO.
+hydro_coreInit:Field = invOblen stored at 0x5da88c2a4b80, has been registered with IO.
+hydro_coreInit:Field = z0m stored at 0x5da88c2b4c00, has been registered with IO.
+hydro_coreInit:Field = z0t stored at 0x5da88c2c4d00, has been registered with IO.
+mpi_rank_world--0/1: in timeInit(), simTime_it = 0 and simTime =         0.000000 !
+:Variable = time stored at 0x5da880cbaa58, has been registered with IO.
+
+## time_test
+Description=seed seed_nbl-deep_a000: flat uniform neutral spin-up, z_i target 550 m, base angle 0 deg # ## A description of this input file.
+## FEMPI parameters---
+numProcsX=1        # ## Number of cores to be used for horizontal domain decomposition in X
+numProcsY=1        # ## Number of cores to be used for horizontal domain decomposition in Y
+## IO parameters---
+ioOutputMode=0     # ## 0: N-to-1 gather and write to a netCDF file, 1:N-to-N writes of FastEddy binary files
+inPath=./          # ## Path where initial/restart file is read in from
+inFile=FE_ACC.0    # ## name of the input file for coordinate system and initial or restart conditions
+outPath=./output/  # ## Path where output files are to be written
+outFileBase=FE_SEED # ## Base name of the output file series as in (outFileBase).element-in-series
+frqOutput=10140    # ## frequency (in timesteps) at which to produce output; should be an even multiple of NtBatch
+towerIOSelector=0  # (DEFAULTED) ## Virtual Tower IO-Selector: 0=off, 1=on 
+## FECUDA parameters---
+tBx=1              # ## Number of threads in x-dimension.
+tBy=2              # ## Number of threads in y-dimension.
+tBz=64             # ## Number of threads in z-dimension.
+## GRID parameters---
+gridFile=          # (DEFAULTED) ## A file containing a complete grid specification
+topoFile=          # ## A file containing terrain(surface elevation in meters ASL)
+Nx=122             # ## Number of discretised domain elements in the x (zonal) direction.
+Ny=122             # ## Number of discretised domain elements in the y (meridional) direction.
+Nz=122             # ## Number of discretised domain elements in the z (vertical) direction.
+Nh=3               # ## Number of halo cells to be used (dependent on largest stencil extent).
+d_xi=24            # ## Computational domain fixed resolution in the 'i' direction.
+d_eta=24           # ## Computational domain fixed resolution in the 'j' direction.
+d_zeta=24.6914     # ## Computational domain fixed resolution in the 'k' direction.
+coordHorizHalos=1  # ## switch to setup coordinate halos as periodic=1 or gradient-following=0.
+verticalDeformSwitch=1 # ## switch to use vertical coordinate deformation 0=off, 1=on
+verticalDeformFactor=0.346601 # ## deformation factor (0.0=max compression,  1.0=no compression)
+verticalDeformQuadCoeff=0 # ## deformation factor (0.0=max compression,  1.0=no compression)
+## HYDRO_CORE parameters---
+## ----------: HYDRO_CORE Submodule Selectors ---
+## ----------: Boundary Conditions Set ---
+hydroBCs=2         # ## Selector for hydro BC set. 1= LAD, Dirichlet lateral, ceiling and surface, 2 = periodic-horizontal & ABL-vertical
+hydroForcingWrite=0 # ## Switch for writing output of hydroFldsFrhs for prognostic fields. 0 = off, 1=on
+hydroSubGridWrite=0 # ## Switch for writing output of Tauij fields. 0 = off, 1=on
+hydroForcingLog=0  # ## Switch for logging Frhs summary metrics. 0 = off, 1=on
+## ----------: PRESSURE GRADIENT FORCE ---
+pgfSelector=1      # (DEFAULTED) ## Pressure Gradient Force (pgf) selector: 0=off, 1=on
+## ----------: BUOYANCY ---
+buoyancySelector=1 # (DEFAULTED) ## Buoyancy force  selector: 0=off, 1=on
+## ----------: CORIOLIS ---
+coriolisSelector=1 # ## Corilis force selector: 0= none, 1= horiz. terms, 2= horiz. & vert. terms
+coriolisLatitude=42.9572 # ## Characteristic latitude in degrees from equator of the LES domain
+## ----------: TURBULENCE ---
+turbulenceSelector=1 # ## turbulence scheme selector: 0= none, 1= Lilly/Smagorinsky 
+TKESelector=1      # ## Prognostic TKE selector: 0= none, 1= Prognostic, 2= requires canopySelector=1
+TKEAdvSelector=3   # ## advection scheme for SGSTKE equation
+TKEAdvSelector_b_hyb=0 # ## hybrid advection scheme parameter
+c_k=0.1            # ## Lilly model constant used for turbulenceSelector = 1 and TKESelector > 0
+## ----------: ADVECTION ---
+advectionSelector=3 # ## advection scheme selector: 0=1st-order upwind, 1=3rd-order QUICK, 2=hybrid 3rd-4th order, 3=hybrid 5th-6th order, 4=3rd-order WENO, 5=5th-order WENO, 6=2nd-order centered
+ceilingAdvectionBC=0 # (DEFAULTED) ## selector to allow advection through the domain ceiling 1=on, 0=off (w-ceiling = 0)
+b_hyb=0            # ## hybrid advection scheme parameter: 0.0= lower-order upwind, 1.0=higher-order centered, 0.0 < b_hyb < 1.0 = hybrid
+## ----------: DIFFUSION ---
+diffusionSelector=0 # ## diffusivity selector: 0= none, 1= const.
+## ----------: SURFACE LAYER ---
+surflayerSelector=1 # ## surfacelayer selector: 0=off, 1=surface kinematic heat flux (surflayer_wth), 2=skin temperature rate (surflayer_tr)
+surflayer_z0=0.083229 # ## roughness length (momentum) when surflayerSelector > 0
+surflayer_z0t=0.01 # ## roughness length (temperature) when surflayerSelector > 0
+surflayer_wth=0    # ## kinematic sensible heat flux at the surface when surflayerSelector = 1
+surflayer_idealsine=0 # ## selector for idealized sinusoidal surface heat flux or skin temperature forcing: 0= off, 1= on
+surflayer_stab=0   # (DEFAULTED) ## exchange coeffcient stability correction selector: 0= on, 1= off
+surflayer_z0tdyn=1 # (DEFAULTED) ## dynamic z0t calculation following Zilitinkevich (1995) approach: 0= off, 1= constant Zilitinkevich coeff, 2= variable Zilitinkevich coeff
+## ----------: OFFSHORE ROUGHNESS ---
+surflayer_offshore=0 # ## offshore selector: 0=off, 1=on
+## ----------: CANOPY MODEL ---
+canopySelector=0   # (DEFAULTED) ## canopy selector: 0= off, 1= on
+## ----------: LARGE-SCALE FORCINGS MODEL ---
+lsfSelector=1      # ## large-scale forcings selector: 0= off, 1= on
+lsf_w_surf=0       # ## large-scale forcing to w at the first specified level
+lsf_w_lev1=0       # ## large-scale forcing w at height 1
+lsf_w_lev2=0       # ## large-scale forcing w at height 2
+lsf_w_zlev1=550    # ## large-scale forcing w height 1
+lsf_w_zlev2=1100   # ## large-scale forcing w height 2
+lsf_th_surf=0      # ## large-scale forcing to theta at the first specified level
+lsf_th_lev1=0      # ## large-scale forcing theta at height 1
+lsf_th_lev2=0      # ## large-scale forcing theta at height 2
+lsf_th_zlev1=500   # ## large-scale forcing theta height 1
+lsf_th_zlev2=2000  # ## large-scale forcing theta height 2
+lsf_qv_surf=-0.0432 # ## large-scale forcing to qv at the first specified level
+lsf_qv_lev1=-0.0432 # ## large-scale forcing qv at height 1
+lsf_qv_lev2=0      # ## large-scale forcing qv at height 2
+lsf_qv_zlev1=300   # ## large-scale forcing qv height 1
+lsf_qv_zlev2=500   # ## large-scale forcing qv height 2
+lsf_horMnSubTerms=1 # ## large-scale subsidence terms Switch: 0= off, 1= on
+lsf_freq=1         # ## large-scale forcing frequency (seconds)
+## ----------: MOISTURE ---
+moistureSelector=0 # ## moisture selector: 0= off, 1= on
+## ----------: EXPLICIT FILTERS ---
+filterSelector=1   # ## explicit filter selector: 0=off, 1=on
+filter_6thdiff_vert=1 # ## vertical 6th-order filter on w selector: 0=off, 1=on
+filter_6thdiff_vert_coeff=0.03 # ## vertical 6th-order filter factor: 0.0=off, 1.0=full
+filter_6thdiff_hori=0 # (DEFAULTED) ## horizontal 6th-order filter on rho,theta,qv selector: 0=off, 1=on
+filter_divdamp=0   # (DEFAULTED) ## divergence damping selector: 0=off, 1=on
+## ----------: CELL PERTURBATION METHOD ---
+cellpertSelector=0 # (DEFAULTED) ## CP method selector: 0= off, 1= on
+## ----------: RAYLEIGH DAMPING LAYER ---
+dampingLayerSelector=1 # ## Rayleigh damping layer selector: 0= off, 1= on.
+dampingLayerDepth=500 # ## Rayleigh damping layer depth in meters
+## ----------: AUXILIARY SCALARS ---
+NhydroAuxScalars=0 # (DEFAULTED) ## Number of prognostic auxiliary scalar fields
+## ----------: BASE-STATE ---
+stabilityScheme=2  # ## Scheme used to set hydrostatic, stability-dependent Base-State EOS fields
+temp_grnd=298.012  # ## Air Temperature (K) at the ground used to set hydrostatic Base-State EOS fields
+pres_grnd=97700    # ## Pressure (Pa) at the ground used to set hydrostatic Base-State EOS fields
+zStableBottom=550  # ## Height (m) of the first stable upper-layer when stabilityScheme = 2
+stableGradient=0.08 # ## Vertical gradient (K/m) of the first stable upper-layer when stabilityScheme = 2
+zStableBottom2=650 # ## Height (m) of the second stable upper-layer when stabilityScheme = 2
+zStableBottom3=20000 # ## Height (m) of the third stable upper-layer when stabilityScheme = 2
+stableGradient2=0.004 # ## Vertical gradient (K/m) of the second stable upper-layer when stabilityScheme = 2
+stableGradient3=0.004 # ## Vertical gradient (K/m) of the third stable upper-layer when stabilityScheme = 2
+U_g=12             # ## Zonal (West-East) component of the geostrophic wind (m/s).
+V_g=0              # ## Meridional (South-North) component of the geostrophic wind (m/s).
+z_Ug=10000         # ## Height (m) above ground for linear geostrophic wind gradient (zonal component).
+z_Vg=10000         # ## Height (m) above ground for linear geostrophic wind gradient (meridional component).
+Ug_grad=0          # ## U_g gradient above z_Ug (ms-1/m).
+Vg_grad=0          # ## V_g gradient above z_Vg (ms-1/m).
+thetaPerturbationSwitch=1 # ## Switch to include initial theta perturbations: 0=off, 1=on
+thetaHeight=300    # ## Height below which to include initial theta perturbations: (meters)
+thetaAmplitude=0.25 # ## Maximum amplitude for theta perturbations: thetaAmplitude*[-1,+1] K
+physics_oneRKonly=1 # (DEFAULTED) ## selector to apply physics RHS forcing only at the latest RK stage: 0= off, 1= on
+## TIME_INTEGRATION parameters---
+timeMethod=0       # ## Selector for time integration method. [0=RK3-WS2002 (default)]
+Nt=365040          # ## Number of timesteps to perform.
+dt=0.0295858       # ## timestep resolution in seconds.
+NtBatch=10140      # ## Number of timesteps to compute in batch launch, must have NtBatch <= Nt.
+
+moistureMPcallTscale = 1.0   # NOT VALIDATED
+c_s = 0.18   # NOT VALIDATED
+nu_0 = 0.0   # NOT VALIDATED
+moistureCond = 3   # NOT VALIDATED
+moistureAdvSelectorQi = 2   # NOT VALIDATED
+moistureAdvSelectorQv = 2   # NOT VALIDATED
+surflayer_qr = 0.0   # NOT VALIDATED
+surflayer_tr = -0.0   # NOT VALIDATED
+surflayer_wq = 0.0   # NOT VALIDATED
+moistureNvars = 2   # NOT VALIDATED
+moistureCondTscale = 1.0   # NOT VALIDATED
+moistureAdvSelectorQv_b = 0.0   # NOT VALIDATED
+surflayer_ideal_qamp = 2.0   # NOT VALIDATED
+surflayer_ideal_amp = 4.0   # NOT VALIDATED
+surflayer_ideal_qte = 10.0   # NOT VALIDATED
+surflayer_ideal_qts = 1.75   # NOT VALIDATED
+surflayer_ideal_te = 43200   # NOT VALIDATED
+surflayer_ideal_ts = 0.0   # NOT VALIDATED
+moistureCondBasePres = 1   # NOT VALIDATED
+moistureSGSturb = 1   # NOT VALIDATED
+Input parameters passed verification.
+Reading coordinates and input conditions from FE_ACC.0
+Attempting to open inFileName = ./FE_ACC.0
+inFileName = ./FE_ACC.0 as 4 dimensions
+Opened inFileName = ./FE_ACC.0 with ncid = 65536
+Established dimension ids of xIndex,yIndex,zIndex = 3, 2, 1
+Reading IO-registered variable fields from inFileName = ./FE_ACC.0
+Checking for xPos...
+Next registered var in list to get is ptr->name = xPos, from ptr->ncvarid = 3
+nc_get_vara() for  ptr->name = xPos, from ptr-ncvarid = 3,
+ into ioBuffField = 0x0x78abb60fe010, for transpose into field = 0x0x78abe0cd2080 
+Variable field = xPos has nDims = 4
+Variable field = xPos has dimid(0) = 0: start, count => 0, 1
+Variable field = xPos has dimid(1) = 1: start, count => 0, 122
+Variable field = xPos has dimid(2) = 2: start, count => 0, 122
+Variable field = xPos has dimid(3) = 3: start, count => 0, 122
+Attempting for field = xPos with start = 0,0,0,0 and count = 1,122,122,122
+Checking for yPos...
+Next registered var in list to get is ptr->name = yPos, from ptr->ncvarid = 4
+nc_get_vara() for  ptr->name = yPos, from ptr-ncvarid = 4,
+ into ioBuffField = 0x0x78abb60fe010, for transpose into field = 0x0x78abe04d1080 
+Variable field = yPos has nDims = 4
+Variable field = yPos has dimid(0) = 0: start, count => 0, 1
+Variable field = yPos has dimid(1) = 1: start, count => 0, 122
+Variable field = yPos has dimid(2) = 2: start, count => 0, 122
+Variable field = yPos has dimid(3) = 3: start, count => 0, 122
+Attempting for field = yPos with start = 0,0,0,0 and count = 1,122,122,122
+Checking for zPos...
+Next registered var in list to get is ptr->name = zPos, from ptr->ncvarid = 5
+nc_get_vara() for  ptr->name = zPos, from ptr-ncvarid = 5,
+ into ioBuffField = 0x0x78abb60fe010, for transpose into field = 0x0x78abc97ff080 
+Variable field = zPos has nDims = 4
+Variable field = zPos has dimid(0) = 0: start, count => 0, 1
+Variable field = zPos has dimid(1) = 1: start, count => 0, 122
+Variable field = zPos has dimid(2) = 2: start, count => 0, 122
+Variable field = zPos has dimid(3) = 3: start, count => 0, 122
+Attempting for field = zPos with start = 0,0,0,0 and count = 1,122,122,122
+Checking for topoPos...
+Next registered var in list to get is ptr->name = topoPos, from ptr->ncvarid = 6
+nc_get_vara() for  ptr->name = topoPos, from ptr-ncvarid = 6,
+ into ioBuffField = 0x0x78abb60fe010, for transpose into field = 0x0x5da88c1f8380 
+Variable field = topoPos has nDims = 3
+Variable field = topoPos has dimid(0) = 0: start, count => 0, 1
+Variable field = topoPos has dimid(1) = 2: start, count => 0, 122
+Variable field = topoPos has dimid(2) = 3: start, count => 0, 0
+Attempting for field = topoPos with start = 0,0,0,0 and count = 1,122,122,0
+Checking for lat...
+Next registered var in list to get is ptr->name = lat, from ptr->ncvarid = 7
+nc_get_vara() for  ptr->name = lat, from ptr-ncvarid = 7,
+ into ioBuffField = 0x0x78abb60fe010, for transpose into field = 0x0x5da88c21b000 
+Variable field = lat has nDims = 3
+Variable field = lat has dimid(0) = 0: start, count => 0, 1
+Variable field = lat has dimid(1) = 2: start, count => 0, 122
+Variable field = lat has dimid(2) = 3: start, count => 0, 0
+Attempting for field = lat with start = 0,0,0,0 and count = 1,122,122,0
+Checking for lon...
+Next registered var in list to get is ptr->name = lon, from ptr->ncvarid = 8
+nc_get_vara() for  ptr->name = lon, from ptr-ncvarid = 8,
+ into ioBuffField = 0x0x78abb60fe010, for transpose into field = 0x0x5da88c22b100 
+Variable field = lon has nDims = 3
+Variable field = lon has dimid(0) = 0: start, count => 0, 1
+Variable field = lon has dimid(1) = 2: start, count => 0, 122
+Variable field = lon has dimid(2) = 3: start, count => 0, 0
+Attempting for field = lon with start = 0,0,0,0 and count = 1,122,122,0
+Checking for rho...
+Next registered var in list to get is ptr->name = rho, from ptr->ncvarid = 9
+nc_get_vara() for  ptr->name = rho, from ptr-ncvarid = 9,
+ into ioBuffField = 0x0x78abb60fe010, for transpose into field = 0x0x78abc37f7080 
+Variable field = rho has nDims = 4
+Variable field = rho has dimid(0) = 0: start, count => 0, 1
+Variable field = rho has dimid(1) = 1: start, count => 0, 122
+Variable field = rho has dimid(2) = 2: start, count => 0, 122
+Variable field = rho has dimid(3) = 3: start, count => 0, 122
+Attempting for field = rho with start = 0,0,0,0 and count = 1,122,122,122
+Checking for u...
+Next registered var in list to get is ptr->name = u, from ptr->ncvarid = 10
+nc_get_vara() for  ptr->name = u, from ptr-ncvarid = 10,
+ into ioBuffField = 0x0x78abb60fe010, for transpose into field = 0x0x78abc3ff7080 
+Variable field = u has nDims = 4
+Variable field = u has dimid(0) = 0: start, count => 0, 1
+Variable field = u has dimid(1) = 1: start, count => 0, 122
+Variable field = u has dimid(2) = 2: start, count => 0, 122
+Variable field = u has dimid(3) = 3: start, count => 0, 122
+Attempting for field = u with start = 0,0,0,0 and count = 1,122,122,122
+Checking for v...
+Next registered var in list to get is ptr->name = v, from ptr->ncvarid = 11
+nc_get_vara() for  ptr->name = v, from ptr-ncvarid = 11,
+ into ioBuffField = 0x0x78abb60fe010, for transpose into field = 0x0x78abc47f7080 
+Variable field = v has nDims = 4
+Variable field = v has dimid(0) = 0: start, count => 0, 1
+Variable field = v has dimid(1) = 1: start, count => 0, 122
+Variable field = v has dimid(2) = 2: start, count => 0, 122
+Variable field = v has dimid(3) = 3: start, count => 0, 122
+Attempting for field = v with start = 0,0,0,0 and count = 1,122,122,122
+Checking for w...
+Next registered var in list to get is ptr->name = w, from ptr->ncvarid = 12
+nc_get_vara() for  ptr->name = w, from ptr-ncvarid = 12,
+ into ioBuffField = 0x0x78abb60fe010, for transpose into field = 0x0x78abc4ff7080 
+Variable field = w has nDims = 4
+Variable field = w has dimid(0) = 0: start, count => 0, 1
+Variable field = w has dimid(1) = 1: start, count => 0, 122
+Variable field = w has dimid(2) = 2: start, count => 0, 122
+Variable field = w has dimid(3) = 3: start, count => 0, 122
+Attempting for field = w with start = 0,0,0,0 and count = 1,122,122,122
+Checking for theta...
+Next registered var in list to get is ptr->name = theta, from ptr->ncvarid = 13
+nc_get_vara() for  ptr->name = theta, from ptr-ncvarid = 13,
+ into ioBuffField = 0x0x78abb60fe010, for transpose into field = 0x0x78abc57f7080 
+Variable field = theta has nDims = 4
+Variable field = theta has dimid(0) = 0: start, count => 0, 1
+Variable field = theta has dimid(1) = 1: start, count => 0, 122
+Variable field = theta has dimid(2) = 2: start, count => 0, 122
+Variable field = theta has dimid(3) = 3: start, count => 0, 122
+Attempting for field = theta with start = 0,0,0,0 and count = 1,122,122,122
+Checking for pressure...
+Next registered var in list to get is ptr->name = pressure, from ptr->ncvarid = 14
+nc_get_vara() for  ptr->name = pressure, from ptr-ncvarid = 14,
+ into ioBuffField = 0x0x78abb60fe010, for transpose into field = 0x0x78abc2ff6080 
+Variable field = pressure has nDims = 4
+Variable field = pressure has dimid(0) = 0: start, count => 0, 1
+Variable field = pressure has dimid(1) = 1: start, count => 0, 122
+Variable field = pressure has dimid(2) = 2: start, count => 0, 122
+Variable field = pressure has dimid(3) = 3: start, count => 0, 122
+Attempting for field = pressure with start = 0,0,0,0 and count = 1,122,122,122
+Checking for TKE_0...
+Next registered var in list to get is ptr->name = TKE_0, from ptr->ncvarid = 15
+nc_get_vara() for  ptr->name = TKE_0, from ptr-ncvarid = 15,
+ into ioBuffField = 0x0x78abb60fe010, for transpose into field = 0x0x78abbfff4080 
+Variable field = TKE_0 has nDims = 4
+Variable field = TKE_0 has dimid(0) = 0: start, count => 0, 1
+Variable field = TKE_0 has dimid(1) = 1: start, count => 0, 122
+Variable field = TKE_0 has dimid(2) = 2: start, count => 0, 122
+Variable field = TKE_0 has dimid(3) = 3: start, count => 0, 122
+Attempting for field = TKE_0 with start = 0,0,0,0 and count = 1,122,122,122
+Checking for tskin...
+Next registered var in list to get is ptr->name = tskin, from ptr->ncvarid = 16
+nc_get_vara() for  ptr->name = tskin, from ptr-ncvarid = 16,
+ into ioBuffField = 0x0x78abb60fe010, for transpose into field = 0x0x5da88c294b00 
+Variable field = tskin has nDims = 3
+Variable field = tskin has dimid(0) = 0: start, count => 0, 1
+Variable field = tskin has dimid(1) = 2: start, count => 0, 122
+Variable field = tskin has dimid(2) = 3: start, count => 0, 0
+Attempting for field = tskin with start = 0,0,0,0 and count = 1,122,122,0
+Checking for fricVel...
+Next registered var in list to get is ptr->name = fricVel, from ptr->ncvarid = 17
+nc_get_vara() for  ptr->name = fricVel, from ptr-ncvarid = 17,
+ into ioBuffField = 0x0x78abb60fe010, for transpose into field = 0x0x5da88c274980 
+Variable field = fricVel has nDims = 3
+Variable field = fricVel has dimid(0) = 0: start, count => 0, 1
+Variable field = fricVel has dimid(1) = 2: start, count => 0, 122
+Variable field = fricVel has dimid(2) = 3: start, count => 0, 0
+Attempting for field = fricVel with start = 0,0,0,0 and count = 1,122,122,0
+Checking for htFlux...
+Next registered var in list to get is ptr->name = htFlux, from ptr->ncvarid = 18
+nc_get_vara() for  ptr->name = htFlux, from ptr-ncvarid = 18,
+ into ioBuffField = 0x0x78abb60fe010, for transpose into field = 0x0x5da88c284a00 
+Variable field = htFlux has nDims = 3
+Variable field = htFlux has dimid(0) = 0: start, count => 0, 1
+Variable field = htFlux has dimid(1) = 2: start, count => 0, 122
+Variable field = htFlux has dimid(2) = 3: start, count => 0, 0
+Attempting for field = htFlux with start = 0,0,0,0 and count = 1,122,122,0
+Checking for invOblen...
+Next registered var in list to get is ptr->name = invOblen, from ptr->ncvarid = 19
+nc_get_vara() for  ptr->name = invOblen, from ptr-ncvarid = 19,
+ into ioBuffField = 0x0x78abb60fe010, for transpose into field = 0x0x5da88c2a4b80 
+Variable field = invOblen has nDims = 3
+Variable field = invOblen has dimid(0) = 0: start, count => 0, 1
+Variable field = invOblen has dimid(1) = 2: start, count => 0, 122
+Variable field = invOblen has dimid(2) = 3: start, count => 0, 0
+Attempting for field = invOblen with start = 0,0,0,0 and count = 1,122,122,0
+Checking for z0m...
+Next registered var in list to get is ptr->name = z0m, from ptr->ncvarid = 20
+nc_get_vara() for  ptr->name = z0m, from ptr-ncvarid = 20,
+ into ioBuffField = 0x0x78abb60fe010, for transpose into field = 0x0x5da88c2b4c00 
+Variable field = z0m has nDims = 3
+Variable field = z0m has dimid(0) = 0: start, count => 0, 1
+Variable field = z0m has dimid(1) = 2: start, count => 0, 122
+Variable field = z0m has dimid(2) = 3: start, count => 0, 0
+Attempting for field = z0m with start = 0,0,0,0 and count = 1,122,122,0
+Checking for z0t...
+Next registered var in list to get is ptr->name = z0t, from ptr->ncvarid = 21
+nc_get_vara() for  ptr->name = z0t, from ptr-ncvarid = 21,
+ into ioBuffField = 0x0x78abb60fe010, for transpose into field = 0x0x5da88c2c4d00 
+Variable field = z0t has nDims = 3
+Variable field = z0t has dimid(0) = 0: start, count => 0, 1
+Variable field = z0t has dimid(1) = 2: start, count => 0, 122
+Variable field = z0t has dimid(2) = 3: start, count => 0, 0
+Attempting for field = z0t with start = 0,0,0,0 and count = 1,122,122,0
+Checking for time...
+Next registered var in list to get is ptr->name = time, from ptr->ncvarid = 22
+nc_get_vara() for  ptr->name = time, from ptr-ncvarid = 22,
+ into ioBuffField = 0x0x78abb60fe010, for transpose into field = 0x0x5da880cbaa58 
+Variable field = time has nDims = 1
+Variable field = time has dimid(0) = 0: start, count => 0, 1
+Attempting for field = time with start = 0,0,0,0 and count = 1,122,122,0
+Done Reading IO-registered variable fields from inFileName = ./FE_ACC.0
+Success in reading from inFileName = ./FE_ACC.0
+mpi_rank_world--0/1 grid-Coord-gen(), else-coordHorizHalos = 1!
+mpi_rank_world--0/1 coordHalos, Western-Eastern Boundaries!
+mpi_rank_world--0/1 coordHalos, Southern-Northern Boundaries!
+stabilityScheme == 2: Base State setup complete.
+Rank 0/1: Profile preparations complete!
+cuda_gridDeviceSetup:-- (i,j,k)Min, ()Max = (3,3,3), (125,125,125)
+fecuda_SetBlocksPerGrid: tBlock = {1, 2, 64}
+fecuda_SetBlocksPerGrid: grid = {128, 64, 2}
+lsf_horMnSubTerms = 1, setting up for 5 phi-fields.cuda_hydroCoreDeviceSetup() complete.
+cuda_towersDeviceSetup: NelemsTowers = -1639418304, NelemsTowersSurf = 0
+0/1 cuda_hydroCoreDeviceSecondaryStageSetup(): BdyUpdateSteps = 0 
+Initializations complete after   0.5345 (s).
+Main Time: Advancing simulation timestep = 0... and time =    0.00000
+
+_____________________#######_________  STATE-SUMMARY @ it = 0 _________#######____________________ 
+
+			!!!!!	  HYDRO_CORE 	 !!!!! 
+Field 	|	 max	     --(i,j,k)		 |	  min	     --(i,j,k)		 |	 mean
+---------------------------------------------------------------------------------------------------------
+********-----
+ Model Fields -
+ ********-----
+rho	Rank 0/1:       1.14049470 	 (26,49,3)	 |        0.84088683 	 (58,75,124)	 |       1.03104484 
+-----
+u	Rank 0/1:      12.68878460 	 (99,105,54)	 |        3.32890534 	 (102,17,3)	 |      11.19887638 
+-----
+v	Rank 0/1:       3.14610863 	 (69,57,23)	 |       -2.60557127 	 (8,99,26)	 |       0.09435371 
+-----
+w	Rank 0/1:       3.49132085 	 (40,52,20)	 |       -2.25594401 	 (124,24,30)	 |       0.00008765 
+-----
+theta	Rank 0/1:     317.40353394 	 (58,75,124)	 |      299.68719482 	 (112,16,52)	 |     307.56610107 
+-----
+press	Rank 0/1:      20.92968750 	 (95,102,53)	 |        7.63281250 	 (72,57,20)	 |      15.97760010 
+-----
+TKE_0	Rank 0/1:       1.65002441 	 (16,24,4)	 |        0.00000000 	 (8,24,7)	 |       0.03943358 
+Dumping state at timestep = 0...
+Dumped state at timestep = 0...
+Rank 0/1: Batch complete results sent via cudaMemcpyDeviceToHost.
+
+			!!!!!	  TIMESTEP PERFORMANCE  	 !!!!! 
+ Total Time (s) | Batch Steps 	| Time/step (s) | Comp./step (s) | IO Time (s)
+---------------------------------------------------------------------------------------------------------
+   143.8743 	|    10140 	|    0.0142 	|    0.0142 	 |   0.164448 
+
+********************************************************************************************************
+Main Time: Advancing simulation timestep = 10140... and time =  300.00000
+
+_____________________#######_________  STATE-SUMMARY @ it = 10140 _________#######____________________ 
+
+			!!!!!	  HYDRO_CORE 	 !!!!! 
+Field 	|	 max	     --(i,j,k)		 |	  min	     --(i,j,k)		 |	 mean
+---------------------------------------------------------------------------------------------------------
+********-----
+ Model Fields -
+ ********-----
+rho	Rank 0/1:       1.14100277 	 (3,96,3)	 |        0.84088284 	 (111,94,124)	 |       1.03106904 
+-----
+u	Rank 0/1:      12.72481155 	 (64,27,54)	 |        3.29073787 	 (32,104,3)	 |      11.14289474 
+-----
+v	Rank 0/1:       3.01564240 	 (18,22,46)	 |       -2.35304785 	 (29,99,24)	 |       0.11398357 
+-----
+w	Rank 0/1:       3.42036676 	 (10,15,37)	 |       -2.33886480 	 (48,95,23)	 |       0.00003474 
+-----
+theta	Rank 0/1:     317.40386963 	 (111,94,124)	 |      299.60440063 	 (89,62,53)	 |     307.56338501 
+-----
+press	Rank 0/1:      20.24218750 	 (28,12,53)	 |        9.03906250 	 (110,57,28)	 |      15.43008423 
+-----
+TKE_0	Rank 0/1:       1.48165882 	 (30,110,4)	 |        0.00000000 	 (91,98,7)	 |       0.03583555 
+Dumping state at timestep = 10140...
+Dumped state at timestep = 10140...

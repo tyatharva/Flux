@@ -128,6 +128,12 @@ def main():
                             "sampling floor (PROJECT_BRIEF.md)"},
         "diagnostics": {"integral_les": fp.get("integral_les"),
                         "integral_kljun": fp.get("integral_kljun"),
+                        # THE ASYMPTOTE IS 1 - z_m/z_i, NOT 1 (Steinfeld et al. 2008,
+                        # after Horst & Weil 1992). At 30 m in an 800 m boundary layer
+                        # that is 3.75%, the size of effects this project gates on.
+                        "integral_asymptote": fp.get("integral_asymptote"),
+                        "integral_over_asymptote": fp.get("integral_over_asymptote"),
+                        "touchdowns": fp.get("touchdowns"),
                         "overlap80_kljun": fp.get("overlap_kljun"),
                         "cover_share": fp.get("cover_share", {}),
                         # THE SHARE TRAVELS WITH ITS OWN SAMPLING SPREAD. A share quoted
