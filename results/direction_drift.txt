@@ -49,10 +49,19 @@
     |drift| vs h/u* : MONOTONE  7.79  5.63  4.04
     A monotone ordering of 3 points arises by chance with probability 0.333 -- a candidate to watch, not a relationship. And where several candidates order the seeds identically, three points cannot separate them.
 
-  case                    seed                      pick gap  achieved gap  widened by
-  case_2023031014         seed_nbl-shallow_a000         11.3          21.8       +10.5
-  e2e_20230118            seed_cbl-mid_a030             14.1          36.0       +21.8
-  n = 2 cases. The WIDENING is one-signed in both, off different rungs and on opposite sides of the compass.
+  case                      pick gap  ach gap  widened  seed rate  WINDOW rate   ratio
+  case_2023031014               11.3     21.8    +10.5       +nan         +nan     nan
+  case_2023032207                1.5      7.0     +5.5      -7.79       -10.09    1.29
+  case_2023101222                1.4     15.7    +14.4      -7.79       -21.31    2.73
+  e2e_20230118                  14.1     36.0    +21.8       +nan         +nan     nan
+  n = 4 cases.
+
+  DOES THE CASE INHERIT THE SEED'S DRIFT? Measured directly for the first time,
+  on the two cases whose windows recorded a per-dump direction. The answer is
+  YES IN SIGN AND NO IN MAGNITUDE: both windows back, as the seed was backing
+  at freeze, but 1.3x and 2.7x faster. So the ballistic model behind
+  bin/pick_seed.py's projection points the right way and UNDER-CORRECTS, and
+  the residual is the scatter the denser base angles exist to absorb.
 
   === AND ONE THING FOLLOWS WITHOUT ANY FIT ===
   A drift that is one-signed and of order 10-20 deg by the time the window is

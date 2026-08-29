@@ -149,12 +149,22 @@ def predictors(rows, cases):
           f"order the seeds identically, three points cannot separate them.")
     if cases:
         P("")
-        P(f"  {'case':24}{'seed':24}{'pick gap':>10}{'achieved gap':>14}{'widened by':>12}")
+        P(f"  {'case':24}{'pick gap':>10}{'ach gap':>9}{'widened':>9}"
+          f"{'seed rate':>11}{'WINDOW rate':>13}{'ratio':>8}")
         for c in cases:
-            P(f"  {c['tag']:24}{str(c['seed']):24}{c['pick_gap']:10.1f}"
-              f"{c['ach_gap']:14.1f}{c['widened']:+12.1f}")
-        P(f"  n = {len(cases)} cases. The WIDENING is one-signed in both, off different "
-          f"rungs and on opposite sides of the compass.")
+            sr, wr = c.get("seed_rate"), c.get("window_rate")
+            rat = (wr / sr) if (sr and wr) else float("nan")
+            P(f"  {c['tag']:24}{c['pick_gap']:10.1f}{c['ach_gap']:9.1f}"
+              f"{c['widened']:+9.1f}{(sr if sr is not None else float('nan')):+11.2f}"
+              f"{(wr if wr is not None else float('nan')):+13.2f}{rat:8.2f}")
+        P(f"  n = {len(cases)} cases.")
+        P("")
+        P("  DOES THE CASE INHERIT THE SEED'S DRIFT? Measured directly for the first time,")
+        P("  on the two cases whose windows recorded a per-dump direction. The answer is")
+        P("  YES IN SIGN AND NO IN MAGNITUDE: both windows back, as the seed was backing")
+        P("  at freeze, but 1.3x and 2.7x faster. So the ballistic model behind")
+        P("  bin/pick_seed.py's projection points the right way and UNDER-CORRECTS, and")
+        P("  the residual is the scatter the denser base angles exist to absorb.")
     P("")
     P("  === AND ONE THING FOLLOWS WITHOUT ANY FIT ===")
     P("  A drift that is one-signed and of order 10-20 deg by the time the window is")
@@ -189,9 +199,18 @@ def collect_cases(pairdir="pairs", pickdir="results/pick"):
         pk = sd.get("d_dir_deg")
         if pk is None:
             continue
+        # the drift measured ACROSS the case's own window, if stage 5 recorded it
+        wr = None
+        fp = os.path.join("results", "corpus", os.path.basename(p))
+        if os.path.exists(fp):
+            try:
+                wr = json.load(open(fp)).get("dwdir_dt_window_deg_per_h")
+            except (OSError, ValueError):
+                wr = None
         out.append(dict(tag=os.path.basename(p)[:-5], seed=sd.get("job"),
                         pick_gap=float(pk), ach_gap=abs(float(g)),
-                        widened=abs(float(g)) - float(pk)))
+                        widened=abs(float(g)) - float(pk),
+                        seed_rate=sd.get("dwdir_dt_deg_per_h"), window_rate=wr))
     return out
 
 

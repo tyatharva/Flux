@@ -174,8 +174,14 @@ def window_stats(paths, k_recept):
         zlev = z
         n += 1
         uv_series.append((float(Uk), float(Vk)))
+        # `p`, THE MAIN LOOP'S VARIABLE -- not `_p`, which belongs to the zsrc search
+        # above and stays bound to the FIRST file carrying zPos because that loop breaks.
+        # Using it here stamped every dump with step 123120, so the time axis had zero
+        # span and the fitted drift came out +19.3 and +59.9 deg/h on two cases whose
+        # direction was actually BACKING by 14.9 and 7.2 deg. A plausible number from a
+        # stale variable, with nothing complaining -- the house failure mode.
         try:
-            step_series.append(int(str(_p).rsplit(".", 1)[1]))
+            step_series.append(int(str(p).rsplit(".", 1)[1]))
         except (ValueError, IndexError):
             step_series.append(n - 1)
     U /= n; V /= n; uu /= n; vv /= n; ww /= n; uv /= n; esgs /= n

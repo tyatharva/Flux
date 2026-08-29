@@ -290,7 +290,15 @@ def main():
     _wd = st.get("wdir_per_dump") or []
     _sp = st.get("step_per_dump") or []
     dwdir_window = None
-    if len(_wd) >= 4 and len(_sp) == len(_wd):
+    # REFUSE A DEGENERATE TIME AXIS RATHER THAN FITTING THROUGH IT. A stale loop variable
+    # stamped every dump with the same step, and a least-squares slope over a zero-span
+    # abscissa returns a large finite number -- +19.3 and +59.9 deg/h on two cases whose
+    # direction was in fact backing. The check is one line and the failure was silent.
+    if _sp and len(set(_sp)) <= 1:
+        print(f"  *** direction drift NOT COMPUTED: all {len(_sp)} dumps report step "
+              f"{_sp[0]}, so the time axis has zero span. A slope through that is a "
+              f"number, not a rate.")
+    if len(_wd) >= 4 and len(_sp) == len(_wd) and len(set(_sp)) > 1:
         _t = np.asarray(_sp, float) * float(a.dt) / 3600.0
         _y = np.unwrap(np.radians(np.asarray(_wd, float)))
         _A = np.vstack([_t, np.ones(_t.size)]).T

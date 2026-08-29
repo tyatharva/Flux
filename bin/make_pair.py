@@ -165,12 +165,6 @@ def main():
                     float(((float(st["wdir"]) - float(lab["predicted_10m_dir_deg"])
                             + 180.0) % 360.0) - 180.0), 2))},
         }
-        if ch.get("gate_state") == "INDETERMINATE":
-            rec.setdefault("warnings", []).append(
-                "the seed this pair restarts from has UNESTABLISHED stationarity: "
-                + ", ".join(ch.get("gate_indeterminate") or [])
-                + " could not be resolved against their own limits in a 3.0 h spin-up. "
-                  "Nothing was drifting; nothing was established either.")
         if fc.get("representable") is False:
             rec.setdefault("warnings", []).append(
                 "the sounding's z_i exceeds what the domain supports; this pair is "
@@ -200,6 +194,15 @@ def main():
                        "seed_dir_frozen_deg": ch.get("seed_dir_frozen_deg"),
                        "dwdir_dt_deg_per_h": ch.get("dwdir_dt_deg_per_h"),
                        "project_h": ch.get("project_h")}
+        # THE WARNING BELONGS WHERE `ch` EXISTS. It was written into the --forcing block,
+        # which runs BEFORE the seed is read, so it raised UnboundLocalError and killed
+        # stage 8 on two finished cases -- after the GPU and the LPDM had both succeeded.
+        if ch.get("gate_state") == "INDETERMINATE":
+            rec.setdefault("warnings", []).append(
+                "the seed this pair restarts from has UNESTABLISHED stationarity: "
+                + ", ".join(ch.get("gate_indeterminate") or [])
+                + " could not be resolved against their own limits in a 3.0 h spin-up. "
+                  "Nothing was drifting; nothing was established either.")
 
     os.makedirs(a.outdir, exist_ok=True)
     if a.copy_npz:
