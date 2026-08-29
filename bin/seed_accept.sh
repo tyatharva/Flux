@@ -105,7 +105,11 @@ say "7. rotation check (static; every corpus case is picked on this convention)"
 
 # ---- 8. direction: backing, drift, and the projection ----------------------------
 say "8. Ekman backing and direction drift"
-./docker/pyrun.sh bin/direction_drift.py 2>&1 | tail -30 | tee_
+# THE LIBRARY IS AN ARGUMENT, NOT A DEFAULT. direction_drift.py defaults to jobs/, which
+# is the retired 16 m library; scoring a 24 m seed against 16 m seeds' drift rates would
+# pool two different grids into one "library mean" and report it without complaint.
+./docker/pyrun.sh bin/direction_drift.py --library "$(dirname "$JOB")" \
+    2>&1 | tail -30 | tee_
 
 # ---- 9. CONVECTIVE ONLY: is the box organising the thermals? ----------------------
 # cbl-deep sits at L/z_i = 2.05, the corpus floor and just outside the 2.28 Phase E
@@ -118,6 +122,14 @@ if [ "$REGIME" = "convective" ]; then
 else
   say "9. lock-in diagnostic: N/A, this rung is $REGIME"
 fi
+
+# ---- 10. WHEN WOULD IT HAVE BEEN DONE? -------------------------------------------
+# The live watcher's scoring window is a trailing FRACTION of the elapsed time, so on a
+# 3.0 h ceiling it never reaches the 2.0 h width the trends need to resolve. This is the
+# retrospective measurement, at a FIXED width, and it is what actually sets the budget.
+say "10. the measured budget: a fixed-width window swept over end times"
+./docker/pyrun.sh bin/seed_budget.py "${JOB#$ROOT/}" --width "${BUDGET_WIDTH:-2.0}" \
+    2>&1 | tee_
 
 say "battery complete -> $OUT"
 date '+%F %H:%M:%S' | tee_
