@@ -757,3 +757,58 @@ library.
 the record. A return directory with neither a verdict nor a restart is reported as an
 UNFINISHED JOB rather than falling back to its index entry, which would present a run that
 got part way and stopped as one that never started.
+
+---
+
+## 19. A GRID CONSTANT THAT IS REALLY A GRID PROPERTY — five instances in one day
+
+Moving the receptor to 30 m and the grid to 24 m surfaced the same defect five times, in
+five different files, and **every instance would have produced a plausible number rather
+than an error**. They are collected here because the shape is the point, not any one of
+them:
+
+> **A number that was correct for one grid, written as a literal, is a bug the moment a
+> second grid exists — and the failure is silent, because the literal is still a number of
+> the right kind.**
+
+| file | the literal | what it should be | what it would have done |
+|---|---|---|---|
+| `bin/make_seed_jobs.py` | `Z0 = 0.1435` | geometric-mean `z0` of the grid's own `z0m.npy` (**0.0832** at 24 m, 42% smaller — the box now reaches the lake and coarser cells average tree with crop) | spun **every seed in the library** up over the wrong surface |
+| `bin/seed_stationarity.py` | `--zm 10.0 --k 2` defaults | the manifest's `gate.zm` / `gate.k` | scored Kljun `x_peak`/`x90` at 10 m and read `sigma_w` off level k=2 (**21.4 m**) instead of the receptor |
+| `bin/sounding_to_forcing.py` | `zm_recept = 10.0`, `z0 = 0.1435` | read off `<grid>/meta.npy` and `<grid>/z0m.npy` | `z_i_min = 10 z_m` would have been **100 m instead of 300 m**, admitting cases whose receptor is outside the surface layer |
+| `bin/ozmidov.py` (via `seed_accept.sh`) | `--dx 16.0 --receptor 10.0` defaults | the manifest's `grid.dx` and `gate.zm` | scored `L_O/Delta` at the wrong height with the wrong `Delta` |
+| `bin/seed_accept.sh` | `LAST = "$OUTBASE.$TOTAL"` | the newest dump on disk | with open-ended seeds, `Nt` is a **ceiling**, so this file often does not exist |
+
+**The fix is the same in every case and it is not "pass a flag": read the value off the
+ARTIFACT the run will actually use.** The grid directory already carries `meta.npy` and
+`z0m.npy`; the job manifest now carries `gate: {zm, k}` and `grid: {dx, nz, zceiling,
+deform, domain_m, surflayer_z0}`. A flag can be forgotten; a value read from the file the
+case runs on cannot disagree with it.
+
+### 19b. A z/L column is at SOME height, and the column name does not say which
+
+`results/selected_times*.tsv` has a column `zm_over_L`. It is `z/L` **at 10 m**, because
+`bin/select_times.py:classify(..., zm=10.0)` — and a scan that read it as a 30 m value
+understated every unstable case by exactly a factor of three, putting the most convective
+hour in the corpus at `30/L = -1.59` when it is really `-4.76`. It changed which candidate
+looked most convective and therefore which target got chosen. Caught because the resulting
+Kljun `x_peak` range (121-169 m) looked implausibly narrow and was re-derived; the
+corrected range is 103-169 m.
+
+**Whenever a normalised quantity is stored, store the height with it or put it in the
+name.** This is the ratio rule's cousin: a ratio whose reference is unstated is a number
+whose meaning depends on a file you have to go and read.
+
+### 19c. A comparison harness that builds its own version of the thing being compared
+
+`bin/test_gpu_lpdm.py` released the GPU ensemble over `[t0 + t_back, t0 + t_back +
+rel_seconds]` while `lpdm/driver.py` releases over `[t_last - rel_seconds, t_last]`. Both
+are 76 release times, both are "the same configuration" by inspection, and they are a
+different 300 seconds of a spinning-up convective layer. It showed up as a **27% integral
+gap** between CPU and GPU and looked exactly like a port bug — the thing the harness exists
+to detect — until the release times were printed side by side.
+
+**A harness that compares two implementations must derive their shared inputs from ONE
+place, and preferably from the production one.** The fix was to rebuild the release times
+using the driver's own rule rather than a re-implementation of it, which is the same
+principle as "gates import the production function, they never reimplement it".
