@@ -151,10 +151,28 @@ def window_stats(paths, k_recept):
             if "htFlux" in ds.variables:
                 hfx += float(g("htFlux").mean())
             else:
-                iLm = float(g("invOblen").mean())
-                us_ = float(g("fricVel").mean())
-                th_ = float(g("theta")[0].mean())
-                hfx += (-(us_ ** 3) * th_ * iLm / (KAPPA * G)) if abs(iLm) > 1e-12 else 0.0
+                # PER CELL, THEN AVERAGE -- NEVER THE OTHER WAY ROUND.
+                #
+                # invOblen is 1/L = -kappa g htFlux/(u*^3 theta) (cuda_surfaceLayerDevice.cu
+                # :426). Averaging THAT and then multiplying by a mean u*^3 is the mean of a
+                # RATIO whose denominator is u*^3, so the average is dominated by whichever
+                # cells happen to have the smallest friction velocity -- and over a
+                # heterogeneous surface with a strong flux there are always some.
+                #
+                # MEASURED, on case_2023052519 (convective, w'th_v' = 0.291 K m/s over the
+                # raised surface): the mean-of-the-ratio form returned hfx = 43.09 K m/s and
+                # therefore L = -0.17 m, against a true -25 m. That is a factor of 148, it
+                # went straight into Kljun's x_peak and into the sigma_w floor's zeta, and
+                # NOTHING complained -- every downstream number was finite and plausible.
+                # The earlier 10 m cases hid it because their fluxes were near zero, where
+                # the two forms agree.
+                #
+                # The per-cell product is exact by construction: -u*_c^3 theta iL_c/(kappa g)
+                # IS htFlux_c, so its mean is the mean surface flux and nothing else.
+                iL_ = g("invOblen")
+                us_ = g("fricVel")
+                th_ = g("theta")[0]
+                hfx += float((-(us_ ** 3) * th_ * iL_ / (KAPPA * G)).mean())
             th0 += float(g("theta")[0].mean())
         ur, vr, wr = lev(u), lev(v), lev(w)
         Uk, Vk = ur.mean(), vr.mean()
