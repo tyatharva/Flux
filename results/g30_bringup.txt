@@ -19,3 +19,12 @@
   1.30      0.0297170    0.130     OK        OK
   1.40      0.0320029    0.130     OK        OK
   1.45      0.0331459    0.130     OK        OK
+  1.50      0.0342888    0.130     OK        OK
+  1.55      0.0354318    8.857     OK        REJECT
+  1.60      0.0365748    8.433     OK        REJECT
+  1.65      0.0377177    8.078     OK        REJECT
+  1.70      0.0388607    7.591     OK        REJECT
+
+  k0/k1 < 1 is the accuracy criterion (~0.27 when correct; ~9 means dt is too large).
+  Production takes the boundary with ~10% margin and lands the 5 s cadence on an
+  INTEGER step count, which is what run_window.sh asserts.

@@ -24,13 +24,34 @@ its window to a filesystem. Read this before believing any absolute number below
 | domain | 2928 m | **3660 m** |
 | vertical grid | `d_zeta` 24.691358, factor 0.346601, `dz_sfc` 8.5583 m, k = 3 at exactly 30.000000000 m | **IDENTICAL** |
 | `Delta` / `z/Delta` | 17.02 m / 1.76 | **19.78 m / 1.52** |
-| `dx/dz_sfc` | 2.804 (boundary 1.55-1.60) | **3.505 — re-measured, never carried** |
-| cost, MEASURED | 0.481 GPU-h/sim-h | **0.495 GPU-h/sim-h** (0.0147 s/step) |
+| `dx/dz_sfc` | 2.804 (boundary 1.55-1.60) | **3.505** |
+| **flat accuracy boundary, MEASURED** | 1.55-1.60 | **between 1.50 and 1.55** |
+| **production `dt`** | 0.0295858 (CFL 1.3442) | **0.0308642 = 5/162 s, CFL_3d 1.3502** |
+| cost, MEASURED | 0.481 GPU-h/sim-h | **0.479 GPU-h/sim-h** at the production `dt` (14.781 ms/step) |
 | geometric-mean `z0` | 0.0832 m | **0.0615 m** (more lake) |
 | water in the box | 8.78% | **13.61% (2026 cells)** |
 | array in the box | 0.50% | **0.30% (44 cells)** |
 | taper knee, MEASURED | pad 10 | **pad 12** — real geography to 1470 m |
 | per-case scratch | ~20 GB | **~3 MB** |
+
+**AND THE ACCURACY BOUNDARY DOES NOT INTERPOLATE WITH GRID ANISOTROPY.** Measured
+2026-08-30 (`results/g30_bringup.txt`), a ladder from CFL_3d 1.30 to 1.70 branched off a
+developed state: `k0/k1` is **0.130 at 1.30, 1.40, 1.45 and 1.50**, and **8.857 at 1.55**,
+8.433 at 1.60, 8.078 at 1.65, 7.591 at 1.70. A factor of **68 across 0.05 of CFL**, and
+`turb_alive` reads OK at every rung, so `k0/k1` is the only check that sees it.
+
+| grid | `dx/dz_sfc` | boundary |
+|---|---|---|
+| 122^3 @ 16 m | 4.007 | ~1.51 |
+| 122^3 @ 24 m | 2.804 | 1.55-1.60 |
+| **122^3 @ 30 m** | **3.505** | **1.50-1.55** |
+
+**This grid's anisotropy sits BETWEEN the other two and its boundary sits at the BOTTOM of
+their range.** So anisotropy is not the control variable either, and the standing rule
+survives in its strongest form: the boundary is a property of the grid and must be
+re-measured on every one of them. Production takes 1.3502, exactly 10.0% below the last
+clean rung, and 5/162 s lands the 5 s cadence, the 300 s spin-up cadence, a 2.0 sim-h case
+and a 3.0 sim-h seed all on integer step counts.
 
 `bin/vgrid.py --dx 30 --nx 122 --receptor 30 --k 3 --zceiling 3000` re-derives it;
 `runs/g30_base/base.in` is the template; `data/grid30_raised` is the production surface and

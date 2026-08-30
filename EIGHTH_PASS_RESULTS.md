@@ -1,7 +1,7 @@
 # Eighth pass — 122³ @ 30 m, the in-process hand-off, two footprints per case
 
-**In progress, 2026-08-30.** Phase 0 is complete and committed; Phase 1 (the 30 m
-bring-up) is running. Everything below is measured unless it says otherwise.
+**In progress, 2026-08-30.** Phases 0 and 1 are complete and committed. Everything below
+is measured unless it says otherwise.
 
 ---
 
@@ -16,7 +16,7 @@ so only the horizontal spacing changes. `Delta` 19.78 m, `z/Delta` **1.52**,
 | | 24 m (retired) | **30 m** |
 |---|---|---|
 | domain | 2928 m | **3660 m** |
-| cost, MEASURED | 0.481 GPU-h/sim-h | **0.497** (14.781 ms/step) |
+| cost, MEASURED | 0.481 GPU-h/sim-h | **0.479** at the production `dt` (14.781 ms/step) |
 | geometric-mean `z0` | 0.0832 m | **0.0615 m** |
 | water in the box | 8.78% | **13.61%** (2026 cells) |
 | array in the box | 0.50% | **0.30%** (44 cells) |
@@ -36,6 +36,45 @@ more box for **3%**. A relative claim against Kljun does not need full containme
 parity number is what makes that defensible: **the LES retains 0.874 of its asymptote
 against Kljun's 0.867 on identical cells**, so both models lose the same tail. The
 acceptance is that the neutral integral **saturates by 2.5 L**, not that it is complete.
+
+### The flat `dt` accuracy boundary, and what it says about the rule
+
+A ladder from CFL_3d 1.30 to 1.70, branched off a developed state (`results/g30_bringup.txt`):
+
+| CFL_3d | `dt` (s) | `k0/k1` | turb_alive | verdict |
+|---|---|---|---|---|
+| 1.30 | 0.0297170 | **0.130** | OK | OK |
+| 1.40 | 0.0320029 | **0.130** | OK | OK |
+| 1.45 | 0.0331459 | **0.130** | OK | OK |
+| 1.50 | 0.0342888 | **0.130** | OK | OK |
+| 1.55 | 0.0354318 | **8.857** | OK | **REJECT** |
+| 1.60 | 0.0365748 | 8.433 | OK | REJECT |
+| 1.65 | 0.0377177 | 8.078 | OK | REJECT |
+| 1.70 | 0.0388607 | 7.591 | OK | REJECT |
+
+**The boundary is between 1.50 and 1.55 — a factor of 68 in `k0/k1` across 0.05 of CFL.**
+`turb_alive` reads OK at every rung, including the four that are grid-scale acoustic noise,
+which is exactly why PROJECT_BRIEF.md pairs the two checks: `k0/k1` is the only one that sees this
+failure, and `turb_alive` is the only one that sees a dead boundary layer.
+
+**And it does not interpolate with anisotropy:**
+
+| grid | `dx/dz_sfc` | boundary |
+|---|---|---|
+| 122³ @ 16 m | 4.007 | ~1.51 |
+| 122³ @ 24 m | 2.804 | 1.55–1.60 |
+| **122³ @ 30 m** | **3.505** | **1.50–1.55** |
+
+This grid's anisotropy sits *between* the other two and its boundary sits at the *bottom*
+of their range. Anisotropy was the last remaining candidate for a rule that would let the
+number be predicted; it is not one. **The boundary is a property of the grid and must be
+measured on every grid** — which is what PROJECT_BRIEF.md already said, now on a third independent
+data point.
+
+**Production: `dt = 5/162 s = 0.0308642`, CFL_3d 1.3502**, exactly 10.0% below the last
+clean rung. 5/162 lands the 5 s cadence, the 300 s spin-up cadence, a 2.0 sim-h case
+(233,280 steps) and a 3.0 sim-h seed (349,920) all on integer step counts.
+**0.479 GPU-h per simulated hour** at that `dt`.
 
 ---
 
@@ -161,7 +200,6 @@ splitting on the tag.
 1. **The GPU acceptance of the hand-off** — `lpdmOnlineSelector = 2`, CPU-from-disk vs
    GPU-from-ring within the half-vs-half floor, and Gate D1 well-mixed both directions both
    regimes through the ring. **If either fails, fall back to the CPU path and say so.**
-2. **The flat `dt` boundary at this grid** — running. Never carried between grids.
 3. **The containment acceptance**: the neutral integral must saturate by 2.5 L.
 4. **The deciding test, re-run.** The 24 m result does not certify this grid.
 5. **Gate D1 on a seed window** on the production closure.

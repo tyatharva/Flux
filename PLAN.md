@@ -16,7 +16,7 @@
 | 0 | `lpdm/dumpsrc.py` + `bin/test_dumpsrc.py` | **PASS bit-identical**; caught a real step-parsing bug |
 | 0 | `SRC/IO/io_lpdmonline.c` + `lpdm/ringsrc.py` + `bin/test_ringsrc.py` | **PASS bit-identical**; caught a mixed flux estimator |
 | 0 | `stage5_footprint.py --ring` end to end | **PASS 0.00e+00** on an identical 60-snapshot window |
-| **1** | 30 m bring-up: cost, flat `dt` boundary, k0/k1, turb_alive | **cost 0.495 GPU-h/sim-h measured**; ladder running |
+| **1** | 30 m bring-up: cost, flat `dt` boundary, k0/k1, turb_alive | **PASS** — boundary **1.50-1.55**, production `dt` = 5/162 s (CFL 1.3502, 10.0% margin), **0.479 GPU-h/sim-h** |
 | 1 | B5 restart injection, static rotation check | pending |
 | **2** | seeds `cbl-deep`, `nbl-deep` (3.0 sim-h ceiling) | pending |
 | **3** | flat/neutral control: regression, D1-neutral, **containment at 2.5 L** | pending |
