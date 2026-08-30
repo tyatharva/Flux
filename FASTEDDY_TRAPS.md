@@ -875,3 +875,49 @@ a different hat:
 And the confirmation that made it certain rather than probable: the corrected window mean
 reproduces the case grid's own `htFlux.npy` domain mean to four decimals. **An independent
 artifact agreeing to four digits is what turns a plausible fix into a verified one.**
+
+## §20 — the in-process hand-off, and the three things it cost before it worked
+
+Added 2026-08-30 with `SRC/IO/io_lpdmonline.c`. None of these produced an error message on
+their own; all three produced a plausible wrong number or a silent stall, which is this
+file's whole subject.
+
+**20a. A container gets 64 MB of `/dev/shm`, whatever the host has.** The host tmpfs is
+32 GB; a 60-snapshot staging attempt died at 2.2 GB with `ENOSPC`. Worse, the failure lands
+wherever the *writer* happens to be — for the producer that is mid-window, hundreds of
+dumps in, after the GPU time is already spent. All three container wrappers now mount the
+host staging root explicitly, **at an identical path inside and out**, because
+`lpdmOnlineDir` is written into the `.in` that FastEddy reads in one container and polled
+by the analysis in another: a path that means two different things in two containers is
+the same shape as a constant duplicated on both sides of an interface.
+
+**20b. Backpressure must be counted, not flagged.** The first version had the producer
+block while a `backlog` file existed — and nothing created it. Had it been wired to a flag
+the consumer sets, the LES's memory bound would have depended on the consumer still being
+alive to clear it, so a dead consumer would have filled tmpfs and killed the run several
+hundred dumps later, far from the cause. The producer now counts `snap.*.ok` in the
+directory itself and says what it is waiting for; a dead consumer stalls the LES loudly.
+
+**20c. `window_stats` was mixing two surface-flux estimators inside one window, and had
+been for as long as `ioLPDMfullFrq` has existed.** It used the `htFlux` variable when a
+dump carried it and derived the flux per cell otherwise, on the premise (written in the
+code) that `ioLPDMmode` never writes `htFlux`. That premise is stale: `ioLPDMfullFrq`
+writes a FULL dump at every multiple of its setting, and a full dump carries `htFlux`. On
+`case_2023052519`, 2 of 12 sampled dumps took one branch and 10 took the other, so the
+window mean was a mean of neither. **The two agree to 1.3e-7, so nothing published is
+visibly wrong — what was wrong is that the estimator depended on the OUTPUT MODE**, which
+is the "a diagnostic is only as scale-free as its reference" rule with the reference being
+an IO setting. Now derived per cell for every dump under every mode.
+
+It was found by the ring, which carries no `htFlux` and therefore could not reproduce the
+mixture — a second implementation of the same read disagreeing with the first is how a
+branch nobody knew was there becomes visible. That is an argument for the indirection in
+`lpdm/dumpsrc.py` rather than against it: one reader, two sources, and a test that demands
+bit-identity between them.
+
+**And the general form, which is the reason this section exists at all:** a snapshot the
+producer stages incompletely is indistinguishable, downstream, from a good one — the
+consumer would interpolate the previous step's field and produce a plausible footprint.
+`lpdmOnlineFlush` therefore REFUSES a partial snapshot rather than writing what it has, and
+the consumer checks `np.isfinite` on every 3-D field it reads. Both are cheap; neither
+would exist if the format had been trusted.

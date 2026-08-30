@@ -128,3 +128,37 @@ build time — but decide knowing the number is 21–35%, not 2%.
 **By LES run, never by sample** (PROJECT_BRIEF.md). The effective sample size for generalisation is
 the number of *runs*. With touchdowns as the target this is even more important than it was
 with rasters: a random split over touchdowns would put the same window on both sides.
+
+## Two footprints per case, and the split rule that follows — 2026-08-30
+
+**A case now runs 2.0 simulated hours and yields TWO footprints**, over disjoint field
+intervals (1800 s adjustment, then windows at 1800–4500 s and 4500–7200 s; window 2's
+releases begin 900 s = `t_back` after window 1's end, so no field is shared). They are
+persisted as `pairs/<case>_w0.json` and `_w1.json`, each carrying `parent` and
+`window_index`.
+
+**Why, and it is not to get more data cheaply.** Re-running an identical case — same
+restart, forcing, rotation and code — gave integral 1.463 → 1.019 and array share
+5.65% → 1.07%. That is turbulence REALISATION variance, and every error floor this project
+quotes is measured *within* one realisation and is therefore too small. A second window is
+a second draw at nearly the same condition for 0.75 h instead of a whole extra case.
+
+**For the model this is a feature, not noise to be averaged away.** A noisy target is a
+sample from the conditional distribution rather than a wrong target, and the density this
+document proposes is fitted to samples — so two draws from one condition are exactly what
+it wants. Averaging is for REPORTED numbers only (array share and the like), and those are
+quoted with the across-realisation spread beside them.
+
+**THE SPLIT RULE TIGHTENS: split by PARENT CASE, never by window and never by touchdown.**
+PROJECT_BRIEF.md already says split by LES run; with two windows per run, `<case>_w0` and
+`<case>_w1` share a seed, an adjustment, a sounding and a surface, so putting one in train
+and the other in validation would leak almost everything that makes them what they are.
+The effective sample size for generalisation is the number of PARENTS — ~1469 — and not the
+~2900 pairs.
+
+**What is measured on the first case that does this, and reported either way:** whether the
+two windows are statistically independent (from the release groups' own decorrelation
+ladder, and from |w0 − w1| against the within-footprint half-vs-half floor), and how far
+`z_i` drifts between them. Near-replicates at one condition reduce realisation noise at that
+condition; two different conditions are coverage and do NOT reduce it — in which case the
+corpus still owes condition-bin averaging. `bin/window_independence.py`.

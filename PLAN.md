@@ -1,3 +1,100 @@
+# Staged Plan — EIGHTH PASS, 122^3 @ 30 m, the in-process hand-off, two footprints per case
+
+> **THE SEVENTH PASS ANSWERED ITS QUESTION: THE PEAK MOVES.** 144 m and 288 m on two
+> pre-registered targets, six times the larger case's own half-vs-half floor, ordering
+> matching Kljun, and identical with the `sigma_w` floor OFF — so the LES moved it, not the
+> closure. That settles the 30 m receptor. What it left open is three things, and this pass
+> is those three.
+
+## Where this pass stands
+
+| phase | item | verdict |
+|---|---|---|
+| **0** | grid solve, surfaces at the re-measured taper knee (pad 12) | **done** |
+| 0 | **Gate A1' water at 3660 m** | **FAIL 11.58% over corpus regimes** — and it is the SITE, not the box (below) |
+| 0 | a priori resolution cost of dx 24 -> 30, no GPU | **done** — 87.2% of resolved variance kept at a 4dx filter |
+| 0 | `lpdm/dumpsrc.py` + `bin/test_dumpsrc.py` | **PASS bit-identical**; caught a real step-parsing bug |
+| 0 | `SRC/IO/io_lpdmonline.c` + `lpdm/ringsrc.py` + `bin/test_ringsrc.py` | **PASS bit-identical**; caught a mixed flux estimator |
+| 0 | `stage5_footprint.py --ring` end to end | **PASS 0.00e+00** on an identical 60-snapshot window |
+| **1** | 30 m bring-up: cost, flat `dt` boundary, k0/k1, turb_alive | **cost 0.495 GPU-h/sim-h measured**; ladder running |
+| 1 | B5 restart injection, static rotation check | pending |
+| **2** | seeds `cbl-deep`, `nbl-deep` (3.0 sim-h ceiling) | pending |
+| **3** | flat/neutral control: regression, D1-neutral, **containment at 2.5 L** | pending |
+| **4** | two dual-output 2.0 h cases: in-process acceptance, D1-convective, window independence, peak-motion re-check | pending |
+
+## Why 3660 m, and what it costs
+
+The containment gate FAILED for neutral at 2928 m (`CONTAINMENT_RESULT.md`). 186^2 @ 24 m
+buys full containment at **+132%** (820 -> 2150 GPU-h); 122^3 @ 30 m buys 25% more box for
+**3%**. A relative claim against Kljun does not need full containment, and the parity number
+is what makes that defensible: **LES 0.874 of its asymptote against Kljun's 0.867 on
+identical cells.** Acceptance is that the neutral integral SATURATES by 2.5 L, not that it
+is complete.
+
+**GATE A1 FAILS AND THE BIGGER BOX IS WHY — but not in the way that would argue for
+shrinking it.** Corpus-regime worst case 11.58% (neutral easterly) against 7.38% for the
+same direction and regime at 2928 m, while Kljun's `x90` moved only 1615 -> 1665 m. The
+physical footprint is the same; the 2928 m box was replacing the lake between 1464 and
+1830 m east with a periodic re-sample of its own land. **The old PASS was truncation.**
+Recorded as a site limitation; ~20% of the wind rose (E and NE) carries 6-12% water and
+every other direction carries ~0%.
+
+## The three items
+
+1. **THE IN-PROCESS HAND-OFF — built, CPU-tested, GPU acceptance owed.** `~20 GB` of window
+   scratch per case becomes `~3 MB`. Two things the design settled that the brief assumed
+   otherwise: the ring holds a FULL WINDOW (541 slots, 6 fields, 12.0 GB) rather than
+   `t_back` (180 slots, 4.0 GB), because the `sigma_w` floor is built from whole-window
+   statistics and a shorter ring forces the floor onto partial ones — an estimator change
+   wearing a plumbing change's clothes; and the route into the VRAM ring is host memory
+   over tmpfs rather than CUDA IPC, because the validated fill entry point takes host
+   pointers and the hop costs ~4 ms per 5 s of model time.
+2. **THE GRID**, above.
+3. **TWO FOOTPRINTS PER CASE.** 1800 s adjustment + two 2700 s windows; window 2's releases
+   begin 900 s after window 1's end, so the two windows' FIELD INTERVALS ARE DISJOINT by
+   construction. Both are separate training pairs, tagged by parent, always on the same
+   side of the split. Two things get measured on the first case that does it, and both get
+   reported: **(a)** are the two windows independent — from the 20 release groups'
+   decorrelation ladder, and from |w0 - w1| against the within-footprint half-vs-half floor
+   (~floor x sqrt2 if independent, ~0 if near-duplicates); **(b)** how far `z_i` drifts
+   between them — near-replicates at one condition REDUCE realisation noise, two conditions
+   are coverage and do NOT, and which one it is decides whether the corpus still owes
+   condition-bin averaging.
+
+## Acceptance for the hand-off, on the GPU
+
+Run at `lpdmOnlineSelector = 2` so one LES produces both paths from bit-identical buffers —
+the only way to score the hand-off without comparing across two turbulence realisations,
+which on this project differ by 44% in the integral.
+
+- **(a)** CPU-from-disk vs GPU-from-ring, per footprint, within the half-vs-half floor.
+- **(b)** Gate D1 well-mixed, both directions, both regimes, THROUGH the ring.
+- **(c)** signed weights preserved; negative-lobe share reported on both paths.
+- **(d)** fp16 parity is inherent to (a): disk is CF-packed 16-bit, the ring is IEEE fp16,
+  and the ring is the more accurate of the two.
+- plus `window_stats`-from-disk vs from-ring, which is what catches a slot-ordering or
+  rho-division error in the producer.
+
+**If (a) or (b) fails: fall back to the CPU path with dumps, and say so.**
+
+## Stop rules
+
+- In-process (a) or (b) fails -> CPU fallback, said plainly.
+- **Peak separation collapses at dx 30 -> stop; that is a grid decision and it is the
+  user's.** The 24 m deciding-test result does NOT certify this grid: the sub-grid fraction
+  is re-measured at every grid and never carried.
+- Water gate over 10% in corpus regimes -> already true, recorded, not a blocker.
+
+## Still deferred, still required before any corpus
+
+1. **Gate D1 on the production closure, both regimes, both directions, on a SEED window.**
+   Acceptance (b) exercises it through the ring, which is necessary and not sufficient.
+2. **Rung re-spacing.** `nbl-shallow`'s 300 m target sits on the `z_i` floor.
+3. **`zCeiling`.** The 3660 m width would support `z_i` to 1830 m at `L >= 2 z_i`; the band
+   stays 300-1250 m because the VERTICAL sets it. Flagged, not done.
+
+---
+
 # Staged Plan — SEVENTH PASS, 30 m receptor on 122^3 @ 24 m
 
 > **THE SIXTH PASS'S CONFIGURATION IS RETIRED, 2026-08-29.** The 10 m receptor produced a

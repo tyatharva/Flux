@@ -13,6 +13,123 @@ Training targets come from FastEddy LES + a backward Lagrangian particle dispers
 Scope is deliberately narrow: this is a **site-calibrated emulator for one tower**. It has
 zero transfer to other sites, and that is an accepted, stated limitation. Do not add scope.
 
+## THE GRID IS 122^3 @ 30 m (3660 m) AND THE LES HANDS FIELDS OVER IN RAM — changed 2026-08-30
+
+**The receptor stays at 30 m and everything the block below says about WHY is unchanged.
+What changes is the horizontal spacing, the box, and the fact that a case no longer writes
+its window to a filesystem. Read this before believing any absolute number below.**
+
+| | 122^3 @ 24 m (retired) | **122^3 @ 30 m** |
+|---|---|---|
+| domain | 2928 m | **3660 m** |
+| vertical grid | `d_zeta` 24.691358, factor 0.346601, `dz_sfc` 8.5583 m, k = 3 at exactly 30.000000000 m | **IDENTICAL** |
+| `Delta` / `z/Delta` | 17.02 m / 1.76 | **19.78 m / 1.52** |
+| `dx/dz_sfc` | 2.804 (boundary 1.55-1.60) | **3.505 — re-measured, never carried** |
+| cost, MEASURED | 0.481 GPU-h/sim-h | **0.495 GPU-h/sim-h** (0.0147 s/step) |
+| geometric-mean `z0` | 0.0832 m | **0.0615 m** (more lake) |
+| water in the box | 8.78% | **13.61% (2026 cells)** |
+| array in the box | 0.50% | **0.30% (44 cells)** |
+| taper knee, MEASURED | pad 10 | **pad 12** — real geography to 1470 m |
+| per-case scratch | ~20 GB | **~3 MB** |
+
+`bin/vgrid.py --dx 30 --nx 122 --receptor 30 --k 3 --zceiling 3000` re-derives it;
+`runs/g30_base/base.in` is the template; `data/grid30_raised` is the production surface and
+`bin/g30_bringup.sh` measures the cost and the `dt` boundary.
+
+**WHY 3660 m AND NOT 186^2 @ 24 m (4464 m).** The containment gate FAILED for neutral at
+2928 m: the flat control's integral needed 1.5 domain lengths to stop growing and the wrap
+cap removed 6.1%. 186^2 @ 24 m buys full containment at **+132%** (820 -> 2150 GPU-h), which
+a RELATIVE claim against Kljun does not need — and the parity number is what makes that
+defensible: **the LES retains 0.874 of its asymptote against Kljun's 0.867 on identical
+cells**, so both models lose the same tail and the comparison stays fair. 122^3 @ 30 m buys
+25% more box for **3% more cost**, and the acceptance is that the neutral integral
+SATURATES by 2.5 L rather than that it is complete.
+
+**GATE A1 FAILS, AND IT IS THE SITE RATHER THAN THE BOX — 2026-08-30.** Worst case over
+every direction and stability **25.93%**; over the regimes the corpus actually contains
+**11.58%** (neutral easterly), against a 10% threshold and against **7.38%** for the SAME
+direction and regime at 2928 m. **Kljun's `x90` is 1665 m against 1615 m — the physical
+footprint did not change.** What changed is that a 3660 m box holds it and a 2928 m box did
+not: the lake between 1464 and 1830 m east was being replaced by a periodic re-sample of
+the box's own land. **So the 2928 m PASS was truncation, and shrinking the box to recover
+it would be passing the gate by hiding what it asks about.** Recorded as a site limitation.
+Easterly and north-easterly cases are ~20% of the wind rose and carry 6-12% water; every
+other direction carries ~0%.
+
+**AND COARSENING TO 30 m COSTS LESS RESOLUTION THAN z/Delta SUGGESTS — measured with no
+GPU at all.** `bin/subgrid_apriori.py` splits the 2-D spectrum of `w` on the receptor level
+of the windows already on disk at each candidate grid's cutoff:
+
+| to `dx` | `Delta` | `z/Delta` | kept @2dx | kept @4dx | kept @6dx |
+|---|---|---|---|---|---|
+| 24 (reference) | 17.02 | 1.76 | 100.0% | 94.6% | 78.3% |
+| **30** | **19.75** | **1.52** | **99.7%** | **87.2%** | **64.7%** |
+| 36 | 22.30 | 1.35 | 98.8% | 78.3% | 53.4% |
+
+Neutral agrees to a point (86.2% at 4dx). So the sub-grid fraction moves **52.5% -> ~56%
+convective and 86.4% -> ~87% neutral** — a real cost, and nowhere near the ~90% that made a
+10 m receptor closure output. Read it as a LOWER bound on the degradation: a coarser run
+also makes different large scales.
+
+**THE LES HANDS ITS FIELDS TO THE LPDM IN RAM. There is no window on disk.**
+`SRC/IO/io_lpdmonline.c` on the fork, behind `lpdmOnlineSelector` (PARAM_OPTIONAL, default
+0, so every tutorial case and every existing `.in` is bit-identical):
+
+- **1 = stage only** (production), **2 = stage AND write netCDF** (acceptance, one run
+  producing both paths from the same bytes), 0 = off.
+- Snapshots are taken from `ioBuffField` at exactly the point the netCDF writer would
+  consume it — interior, halos trimmed, transposed to `kji`, rho-divided — and staged as
+  one raw file per output step in a tmpfs directory. `lpdm/ringsrc.py` reads them,
+  `lpdm/dumpsrc.py` presents them to the readers as `MemDump`s, and
+  `lpdmDevicePushSnapshotHost` fills the VRAM ring.
+- **A full `ioLPDMfullFrq` dump still writes everything.** It is the only artifact a staged
+  run leaves, and the `htFlux`/`z0m` read-back assertions, `k0/k1` and `turb_alive` all
+  score it.
+- **A pause is not a restart** — no exit, no re-read, no IO-registered field overwritten —
+  so `FASTEDDY_TRAPS.md` §17 does not reach it. It exists because the `sigma_w` floor is
+  built from WHOLE-WINDOW statistics, so the ensemble cannot be released until the last
+  snapshot of the window is in the ring. **That is also why the ring holds a full window
+  (541 slots, 6 fields, 12.0 GB) and not `t_back` (180 slots, 4.0 GB): a 900 s ring forces
+  integration at each release time, which forces the floor onto partial-window statistics
+  — an estimator change wearing a plumbing change's clothes.**
+- **Why tmpfs files and not CUDA IPC**: `lpdmDevicePushSnapshotHost` takes HOST pointers by
+  design — the wrap-pad, the fp16 cast and the eps/dsig2dz derivation are the device
+  kernels already validated against the CPU path. A host hop is inherent to that API and
+  costs ~4 ms of PCIe per 5 s of model time against ~2.5 s of compute. **The ring is still
+  in VRAM; only the route into it is host memory.**
+- **Docker gives a container 64 MB of `/dev/shm`.** The host tmpfs is mounted explicitly in
+  all three container wrappers at an IDENTICAL path inside and out, because `lpdmOnlineDir`
+  is written into one container's `.in` and polled from another.
+
+**MEASURED: the ring path and the file path agree to 0.00e+00** on an identical
+60-snapshot window — integral, asymptote, wrapped fraction, and every `window_stats` field.
+`bin/test_dumpsrc.py` and `bin/test_ringsrc.py` assert BIT-IDENTITY rather than a tolerance,
+because there is no physics between the two paths and the correct tolerance is exactly zero.
+**Producer/consumer agreement still needs a real LES at `lpdmOnlineSelector = 2` and is the
+GPU acceptance; the CPU tests say so rather than letting a green tick imply it.**
+
+**AND `window_stats` WAS MIXING TWO FLUX ESTIMATORS INSIDE ONE WINDOW.** It took the
+`htFlux` branch when a dump carried `htFlux` and derived it per cell otherwise, on the
+premise that `ioLPDMmode` never writes `htFlux`. That premise is stale: `ioLPDMfullFrq`
+writes a FULL dump at every multiple, and a full dump carries it — so on
+`case_2023052519`, 2 of 12 sampled dumps took one branch and 10 took the other, and the
+window mean was a mean of neither. The two agree to **1.3e-7**, so nothing published is
+visibly wrong; what was wrong is that the estimator depended on the OUTPUT MODE. Now
+derived per cell for every dump under every mode. Found by the ring, which carries no
+`htFlux` and so could not reproduce the mixture.
+
+**A CASE IS 2.0 SIMULATED HOURS AND YIELDS TWO FOOTPRINTS.** Re-running an identical case
+gave integral 1.463 -> 1.019 and array share 5.65% -> 1.07%: that is turbulence REALISATION
+variance, and every floor this project quotes is within-realisation and therefore too
+small. Rather than repeat runs, a case now runs 1800 s adjustment + two 2700 s windows and
+takes a second footprint over the later one. Efficiency goes from 1.25 h per footprint to
+1.0 h with no extra spin-up. **Both footprints are separate training pairs, tagged by
+parent, always on the same side of the split**; averaging is for REPORTED numbers only,
+quoted with the across-realisation spread. The peak separation was 144 m in both
+realisations, so the deciding test's verdict is realisation-independent.
+
+---
+
 ## THE RECEPTOR IS AT 30 m AND THE GRID IS 122^3 @ 24 m — changed 2026-08-29
 
 **This reverses the two things most of this file is written around: the 10 m receptor and
