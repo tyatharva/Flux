@@ -1,0 +1,23 @@
+
+=== containment: g24_flatnbl.json ===
+  z_m 30.0 m, z_i 643 m, u* 0.410, L +inf m, W at the receptor -0.0218 m/s
+  [FAIL] C1 integral saturates by 1 L     I(0.75L) 0.716 -> I(1L) 0.785, +8.8% over the last quarter-domain (<= 2%)
+  [ok  ] C2 x80 inside the box            x80 1557 m against 80% of L = 2342 m (L = 2928 m)
+  [FAIL] C3 what the cap hides            I(3L)/I(1L) - 1 = +6.1% -- the influence the cap removes. Large and positive = wrap double-counting; near zero = the cap is not doing anything and the footprint is contained.
+  [??  ]    integral vs 1 - z_m/z_i       0.833 / 0.9534 = 0.874. Truncation can only push this BELOW 1; above 1 is advective non-closure or an elevated maximum.
+
+=== containment: case_2023052519_uncapped.json ===
+  z_m 28.5 m, z_i 1229 m, u* 0.461, L -26.2 m, W at the receptor -0.1407 m/s
+  [ok  ] C1 integral saturates by 1 L     I(0.75L) 1.020 -> I(1L) 1.034, +1.4% over the last quarter-domain (<= 2%)
+  [ok  ] C2 x80 inside the box            x80 776 m against 80% of L = 2342 m (L = 2928 m)
+  [ok  ] C3 what the cap hides            I(3L)/I(1L) - 1 = +0.8% -- the influence the cap removes. Large and positive = wrap double-counting; near zero = the cap is not doing anything and the footprint is contained.
+  [??  ]    integral vs 1 - z_m/z_i       1.043 / 0.9768 = 1.067. Truncation can only push this BELOW 1; above 1 is advective non-closure or an elevated maximum.
+
+=== containment: case_2023121921_uncapped.json ===
+  z_m 28.5 m, z_i 937 m, u* 0.570, L -737.6 m, W at the receptor +0.2430 m/s
+  [FAIL] C1 integral saturates by 1 L     I(0.75L) 0.696 -> I(1L) 0.750, +7.3% over the last quarter-domain (<= 2%)
+  [ok  ] C2 x80 inside the box            x80 1581 m against 80% of L = 2342 m (L = 2928 m)
+  [FAIL] C3 what the cap hides            I(3L)/I(1L) - 1 = +15.8% -- the influence the cap removes. Large and positive = wrap double-counting; near zero = the cap is not doing anything and the footprint is contained.
+  [??  ]    integral vs 1 - z_m/z_i       0.868 / 0.9696 = 0.896. Truncation can only push this BELOW 1; above 1 is advective non-closure or an elevated maximum.
+
+  4 failure(s)
