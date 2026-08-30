@@ -22,6 +22,8 @@ from __future__ import annotations
 import numpy as np
 from netCDF4 import Dataset
 
+from .dumpsrc import MemDump, open_dump, step_of
+
 KAPPA = 0.4
 G = 9.81
 
@@ -122,7 +124,7 @@ def window_stats(paths, k_recept):
     # (bin/stage4_wellmixed.py takes paths[::n]) should not depend on which end it kept.
     zsrc = None
     for _p in paths:
-        with Dataset(_p) as _ds:
+        with open_dump(_p) as _ds:
             if "zPos" in _ds.variables:
                 zsrc = _p
                 break
@@ -131,7 +133,7 @@ def window_stats(paths, k_recept):
             "no dump in this series carries zPos, so the receptor level cannot be "
             "located. Under ioLPDMmode only the first file of a run and the "
             "ioLPDMfullFrq multiples do -- see bin/run_window.sh.")
-    with Dataset(zsrc) as ds0:
+    with open_dump(zsrc) as ds0:
         z = np.squeeze(np.asarray(ds0["zPos"][:], dtype=np.float64))[:, 0, 0]
     nz = len(z)
     k0 = int(np.clip(k0, 0, nz - 1))
@@ -139,7 +141,7 @@ def window_stats(paths, k_recept):
     f1 = fr if k1 > k0 else 0.0
     lev = lambda a: (1.0 - f1) * a[k0] + f1 * a[k1]      # receptor-level 2-D slice
     for p in paths:
-        with Dataset(p) as ds:
+        with open_dump(p) as ds:
             g = lambda v: np.squeeze(np.asarray(ds[v][:], dtype=np.float64))
             u, v, w = g("u"), g("v"), g("w")
             e = np.maximum(g("TKE_0"), 0.0)
@@ -198,9 +200,21 @@ def window_stats(paths, k_recept):
         # span and the fitted drift came out +19.3 and +59.9 deg/h on two cases whose
         # direction was actually BACKING by 14.9 and 7.2 deg. A plausible number from a
         # stale variable, with nothing complaining -- the house failure mode.
+        # AND IT IS PARSED BY dumpsrc.step_of, NOT BY rsplit HERE. A handle is not
+        # always a path: the in-process ring hands this function MemDump objects, whose
+        # str() has no trailing ".<step>" -- so the rsplit raised, the except swallowed
+        # it, and the series silently became 0,1,2,... The time axis then spans 9 STEPS
+        # instead of 82,134, and every rate derived from it is out by four orders of
+        # magnitude. Same shape as the stale-variable bug described just above, and
+        # bin/test_dumpsrc.py is what caught it: the fallback is kept for a handle that
+        # genuinely has no step, but it now SAYS SO instead of quietly returning an index.
         try:
-            step_series.append(int(str(p).rsplit(".", 1)[1]))
-        except (ValueError, IndexError):
+            step_series.append(step_of(p))
+        except (AttributeError, ValueError, IndexError):
+            if n == 1:
+                print(f"  WARNING: dump handle {p!r} carries no timestep; the step series "
+                      f"falls back to the dump INDEX, so any rate derived from it is in "
+                      f"units of dumps, not steps.")
             step_series.append(n - 1)
     U /= n; V /= n; uu /= n; vv /= n; ww /= n; uv /= n; esgs /= n
     sgs = (2.0 / 3.0) * esgs        # isotropic sub-grid variance per component

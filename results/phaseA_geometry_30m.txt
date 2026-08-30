@@ -1,0 +1,145 @@
+Kljun FFP on the REAL 122 x 122 @ 30 m map (data/grid30_raised)
+  tower cell (61,61);  geometric-mean z0 = 0.0615 m;  d at the tower = 0.000 m
+  land cover: crop 43.5%, tree 25.9%, grass 14.8%, built 2.2%, water 13.6%, array 0.30%
+  real terrain reaches 1470 m from the tower (12-cell taper); land cover is NOT tapered and is real to the seam
+
+=== z_m = 30.0 m (geometric) ===
+  stability       dir  x_peak    x90    ARRAY   water   >real   >930m
+  very unstable     N     135   1431   26.35%   0.00%   3.23%  12.23%
+  very unstable    NE     135   1431    5.04%   6.23%   5.95%  14.68%
+  very unstable     E     135   1431    0.01%   9.29%   3.23%  12.23%
+  very unstable    SE     135   1431    0.60%   0.04%   6.02%  14.75%
+  very unstable     S     135   1431    1.36%   0.00%   3.44%  12.41%
+  very unstable    SW     135   1431    2.34%   0.00%   6.11%  14.83%
+  very unstable     W     135   1431    1.61%   0.00%   3.44%  12.41%
+  very unstable    NW     135   1431   11.47%   0.00%   6.02%  14.75%
+  unstable          N     155   1562   27.01%   0.00%   3.65%  13.81%
+  unstable         NE     155   1562    2.31%   7.64%   6.97%  16.79%
+  unstable          E     155   1562    0.00%  10.60%   3.65%  13.81%
+  unstable         SE     155   1562    0.29%   0.02%   7.06%  16.87%
+  unstable          S     155   1562    0.61%   0.00%   3.88%  14.02%
+  unstable         SW     155   1562    1.53%   0.00%   7.15%  16.95%
+  unstable          W     155   1562    0.67%   0.00%   3.88%  14.02%
+  unstable         NW     155   1562    7.51%   0.00%   7.06%  16.87%
+  neutral           N     172   1664   27.54%   0.00%   4.01%  15.17%
+  neutral          NE     172   1664    0.85%   8.99%   7.87%  18.61%
+  neutral           E     172   1664    0.00%  11.58%   4.01%  15.17%
+  neutral          SE     172   1664    0.14%   0.02%   7.96%  18.69%
+  neutral           S     172   1664    0.27%   0.00%   4.27%  15.40%
+  neutral          SW     172   1664    1.08%   0.00%   8.06%  18.78%
+  neutral           W     172   1664    0.28%   0.00%   4.27%  15.40%
+  neutral          NW     172   1664    4.65%   0.00%   7.96%  18.69%
+  stable            N     215   1888   17.04%   0.00%   5.07%  18.87%
+  stable           NE     215   1888    0.63%  10.63%   9.66%  22.80%
+  stable            E     215   1888    0.00%  14.57%   5.07%  18.87%
+  stable           SE     215   1888    0.01%   0.02%   9.77%  22.90%
+  stable            S     215   1888    0.02%   0.00%   5.39%  19.15%
+  stable           SW     215   1888    0.17%   0.00%   9.90%  23.01%
+  stable            W     215   1888    0.02%   0.00%   5.39%  19.15%
+  stable           NW     215   1888    2.70%   0.00%   9.77%  22.90%
+  very stable       N     400   2508    3.62%   0.00%   9.43%  33.27%
+  very stable      NE     400   2508    0.00%  20.50%  17.97%  39.62%
+  very stable       E     400   2508    0.00%  25.93%   9.43%  33.27%
+  very stable      SE     400   2508    0.00%   0.04%  18.16%  39.76%
+  very stable       S     400   2508    0.00%   0.00%  10.02%  33.71%
+  very stable      SW     400   2508    0.00%   0.00%  18.36%  39.91%
+  very stable       W     400   2508    0.00%   0.00%  10.02%  33.71%
+  very stable      NW     400   2508    0.04%   0.00%  18.16%  39.76%
+
+=== z_m = 30.0 m (effective, z - d) ===
+  stability       dir  x_peak    x90    ARRAY   water   >real   >930m
+  very unstable     N     135   1431   26.35%   0.00%   3.23%  12.23%
+  very unstable    NE     135   1431    5.04%   6.23%   5.95%  14.68%
+  very unstable     E     135   1431    0.01%   9.29%   3.23%  12.23%
+  very unstable    SE     135   1431    0.60%   0.04%   6.02%  14.75%
+  very unstable     S     135   1431    1.36%   0.00%   3.44%  12.41%
+  very unstable    SW     135   1431    2.34%   0.00%   6.11%  14.83%
+  very unstable     W     135   1431    1.61%   0.00%   3.44%  12.41%
+  very unstable    NW     135   1431   11.47%   0.00%   6.02%  14.75%
+  unstable          N     155   1562   27.01%   0.00%   3.65%  13.81%
+  unstable         NE     155   1562    2.31%   7.64%   6.97%  16.79%
+  unstable          E     155   1562    0.00%  10.60%   3.65%  13.81%
+  unstable         SE     155   1562    0.29%   0.02%   7.06%  16.87%
+  unstable          S     155   1562    0.61%   0.00%   3.88%  14.02%
+  unstable         SW     155   1562    1.53%   0.00%   7.15%  16.95%
+  unstable          W     155   1562    0.67%   0.00%   3.88%  14.02%
+  unstable         NW     155   1562    7.51%   0.00%   7.06%  16.87%
+  neutral           N     172   1664   27.54%   0.00%   4.01%  15.17%
+  neutral          NE     172   1664    0.85%   8.99%   7.87%  18.61%
+  neutral           E     172   1664    0.00%  11.58%   4.01%  15.17%
+  neutral          SE     172   1664    0.14%   0.02%   7.96%  18.69%
+  neutral           S     172   1664    0.27%   0.00%   4.27%  15.40%
+  neutral          SW     172   1664    1.08%   0.00%   8.06%  18.78%
+  neutral           W     172   1664    0.28%   0.00%   4.27%  15.40%
+  neutral          NW     172   1664    4.65%   0.00%   7.96%  18.69%
+  stable            N     215   1888   17.04%   0.00%   5.07%  18.87%
+  stable           NE     215   1888    0.63%  10.63%   9.66%  22.80%
+  stable            E     215   1888    0.00%  14.57%   5.07%  18.87%
+  stable           SE     215   1888    0.01%   0.02%   9.77%  22.90%
+  stable            S     215   1888    0.02%   0.00%   5.39%  19.15%
+  stable           SW     215   1888    0.17%   0.00%   9.90%  23.01%
+  stable            W     215   1888    0.02%   0.00%   5.39%  19.15%
+  stable           NW     215   1888    2.70%   0.00%   9.77%  22.90%
+  very stable       N     400   2508    3.62%   0.00%   9.43%  33.27%
+  very stable      NE     400   2508    0.00%  20.50%  17.97%  39.62%
+  very stable       E     400   2508    0.00%  25.93%   9.43%  33.27%
+  very stable      SE     400   2508    0.00%   0.04%  18.16%  39.76%
+  very stable       S     400   2508    0.00%   0.00%  10.02%  33.71%
+  very stable      SW     400   2508    0.00%   0.00%  18.36%  39.91%
+  very stable       W     400   2508    0.00%   0.00%  10.02%  33.71%
+  very stable      NW     400   2508    0.04%   0.00%  18.16%  39.76%
+
+=== the directional discriminator is weaker than the idealised table said ===
+PROJECT_BRIEF.md's array shares are CROSSWIND-INTEGRATED fractions inside the array's
+upwind reach along a line from the tower. The tower is INSIDE a 2-D rectangle, so
+flux arriving from crosswind angles still lands on the array and the real 2-D share
+is larger -- and the N-vs-E/W RATIO, which is what Gate F leans on, is smaller.
+  stability             N       E     N/E   (z_m = 30.0 m, real map)
+  very unstable     26.3%    0.0% 3244.16x
+  unstable          27.0%    0.0%76483.54x
+  neutral           27.5%    0.0%2973945.63x
+  stable            17.0%    0.0%278023146592900.50x
+  PROJECT_BRIEF.md quotes ~3.7x for neutral from the idealised table; the real map gives
+  the number above. Gate F should lean on ABSOLUTE share by direction, not the ratio.
+
+=== how much displacement height is worth ===
+  d at the tower = 0.00 m, so z_m goes 30.0 -> 30.0 m.
+  stability       dir z_m=30.0 z_m=30.0   delta    rel
+  very unstable     N   26.35%   26.35%   +0.00   1.00x
+  very unstable     E    0.01%    0.01%   +0.00   1.00x
+  very unstable     S    1.36%    1.36%   +0.00   1.00x
+  very unstable     W    1.61%    1.61%   +0.00   1.00x
+  unstable          N   27.01%   27.01%   +0.00   1.00x
+  unstable          E    0.00%    0.00%   +0.00   1.00x
+  unstable          S    0.61%    0.61%   +0.00   1.00x
+  unstable          W    0.67%    0.67%   +0.00   1.00x
+  neutral           N   27.54%   27.54%   +0.00   1.00x
+  neutral           E    0.00%    0.00%   +0.00   1.00x
+  neutral           S    0.27%    0.27%   +0.00   1.00x
+  neutral           W    0.28%    0.28%   +0.00   1.00x
+  stable            N   17.04%   17.04%   +0.00   1.00x
+  stable            E    0.00%    0.00%   +0.00   1.00x
+  stable            S    0.02%    0.02%   +0.00   1.00x
+  stable            W    0.02%    0.02%   +0.00   1.00x
+  very stable       N    3.62%    3.62%   +0.00   1.00x
+  very stable       S    0.00%    0.00%   +0.00   1.00x
+  very stable       W    0.00%    0.00%   +0.00   1.00x
+  This is far above any sampling floor, so the array's share is partly a MODELLING
+  CHOICE until d is handled. It is handled on the LPDM and Kljun side here; whether
+  it also belongs in the LES terrain is the --raise-topo sensitivity in Phase F.
+
+=== near-field resolution at dx = 30 m ===
+  The peak sits a few cells from the tower, which is what a 10 m receptor means.
+  stability         x_peak   cells
+  very unstable       135m     4.5
+  unstable            155m     5.2
+  neutral             172m     5.7
+  stable              215m     7.2
+  very stable         400m    13.3
+  Recorded, not gated: the grid is set by corpus economics and the near field is
+  closure-dominated at z/Delta ~ 1 regardless. It does bound how sharply the CNF
+  target can represent the peak.
+
+=== GATE A1: water share ===
+  worst-case water share over every direction and stability: 25.93%
+  threshold 10%.  FAIL -- the domain is too small; bring the lake back in

@@ -35,14 +35,21 @@ import numpy as np
 from netCDF4 import Dataset
 from scipy.ndimage import map_coordinates
 
+from .dumpsrc import MemDump, open_dump, step_of
+
 KAPPA = 0.4
 C_E = 0.93          # FastEddy default dissipation constant (l_corr_ce path reduces to this
                     # in neutral conditions, where l = Delta)
 G = 9.81
 
 
-def _step_of(path: str) -> int:
-    return int(re.search(r"\.(\d+)$", path).group(1))
+def _step_of(path) -> int:
+    """Absolute timestep of a dump HANDLE -- a netCDF path or an in-RAM MemDump.
+
+    Delegated to lpdm/dumpsrc.py so the path and ring sources cannot drift apart on how a
+    time axis is built; that axis sets every release time and every interpolation weight.
+    """
+    return step_of(path)
 
 
 def dump_series(outdir: str, base: str = None) -> list[str]:
@@ -85,7 +92,7 @@ class FieldSet:
         # than assuming; bin/domain_adequacy.py already had to learn this.
         geom = None
         for _p in self.paths:
-            with Dataset(_p) as _ds:
+            with open_dump(_p) as _ds:
                 if "zPos" in _ds.variables and "xPos" in _ds.variables:
                     geom = _p
                     break
@@ -95,7 +102,7 @@ class FieldSet:
                 "first file of a run and the ioLPDMfullFrq multiples do -- see "
                 "bin/run_window.sh, which sets ioLPDMfullFrq so the first SURVIVING "
                 "dump is full-form when the adjustment period is discarded.")
-        with Dataset(geom) as ds:
+        with open_dump(geom) as ds:
             zpos = np.squeeze(np.asarray(ds["zPos"][:], dtype=np.float64))
             xpos = np.squeeze(np.asarray(ds["xPos"][:], dtype=np.float64))
             ypos = np.squeeze(np.asarray(ds["yPos"][:], dtype=np.float64))
@@ -148,7 +155,7 @@ class FieldSet:
         delta = (self.dx * self.dy * dzc[:, None, None]) ** (1.0 / 3.0)
 
         for n, p in enumerate(self.paths):
-            with Dataset(p) as ds:
+            with open_dump(p) as ds:
                 g = lambda v: np.squeeze(np.asarray(ds[v][:], dtype=np.float32))
                 uu, vv, ww = g("u"), g("v"), g("w")
                 ee = np.maximum(g("TKE_0"), 0.0)
