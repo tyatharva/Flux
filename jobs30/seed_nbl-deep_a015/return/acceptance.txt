@@ -1,0 +1,218 @@
+  the run stopped at step 340200 of a 349920 ceiling = 2.92 of 3.00 simulated hours
+########## acceptance battery: seed_nbl-deep_a015 (neutral) ##########
+2026-08-30 18:25:32
+
+=== 1. the log: CORRUPTED / NaN / Inf, and the completion banner ===
+  CORRUPTED: 0
+  #NaN: 0
+  #Inf: 0
+  completion banner: present
+
+=== 2. seed_report: cost, artifact, the seven limits ===
+=== seed seed_nbl-deep_a015: nbl-deep (neutral), base angle 15 deg ===
+
+--- cost, against the projection the other 14 are budgeted on ---
+  349920 steps x dt 0.0308642 = 3.000 simulated hours
+  MEASURED off the dumps: 14.826 ms/step
+  from 36 dump mtimes, no pauses
+  planned                 14.900 ms/step   (-0.5%)
+  implied wall for the whole chain 1.441 h
+  wall-to-sim ratio 0.480 GPU-h per simulated hour
+    vs the manifest projection 1.019  (-52.9%)
+    vs the sanctioned SEED CLASS 0.953 (-49.6%)  -> IN CLASS  (1.44 h against a 3.0 sim-h class of ~2.86 h)
+  ONE invocation, 86.5 min wall (planner projected 86.9; chaining is retired, there is no per-run cap)
+  the library at this rate: 15 x 1.44 h = 21.6 GPU-h  (projected 43)
+
+--- the seven stationarity limits, scored on the last 2.0 h ---
+  quantity                            mean      trend   limit    used  verdict
+  z_i                             678.5499     +5.76%     3.0    192%  DRIFTING
+  TKE_BL/u*^2                       1.4877     +7.43%     5.0    149%  INDETERMINATE
+  sigma_w/u* at the receptor        1.1016     -1.16%     2.0     58%  INDETERMINATE
+  Kljun x_peak                    178.7195     -0.27%     1.0     27%  ok
+  Kljun x90                      1493.4753     -0.14%     1.0     14%  ok
+  sigma_v/u*                        2.1980     +0.33%     3.0     11%  INDETERMINATE
+  U/u* (Kljun Pi_4)                16.3580     +0.00%     1.0      0%  ok
+  ALL SEVEN: FAIL  -- DRIFTING: z_i  -- INDETERMINATE: TKE_BL/u*^2, sigma_w/u* at the receptor, sigma_v/u*
+  BINDS LAST: z_i at 192% of its limit (+5.76 %/h against 3.0)
+  reported, not gated: u* -1.31 %/h, U(10 m) -1.31 %/h, wind direction -5.83 deg/h, TKE_column/u*^2 (retired form) +10.01 %/h, domain TKE +7.43 %/h, peak resolved TKE -0.60 %/h, z_i, 5% of the running peak +3.81 %/h
+
+--- is the stable boundary layer still turbulent? ---
+  column-integrated TKE 335.333 -> 174.756 m3/s2; trend over the last half +5.8 %/h
+  u* 0.5737 -> 0.3934 m/s   (min over the run 0.3910)
+  turb-alive OK: max e_res/U_ref^2=4.67e-03 at k=5  u*=0.3934  U_ref=12.03  (e_res/u*^2=4.37, reported only)  u* trend -0.9 %/h, final/peak 69%
+  TURBULENCE ALIVE: OK
+  k0/k1 at the last dump 0.132   (must be < 1; ~9 means dt too large)
+    ^ note this passed at 0.442 on a FULLY COLLAPSED SBL. k0/k1 is a dt check;
+      the line above it is the physics check. Read both.
+
+--- achieved vs asked ---
+  geostrophic forcing FROM 255.0 deg (base angle 15)
+  achieved receptor wind FROM 236.0 deg  ->  Ekman backing +19.0 deg  (measured 12-24 deg neutrally, 7-13 convectively)
+  z_i 679 m against a 550 m target
+  u* 0.3934,  U 6.427 m/s,  sigma_w 0.4273
+
+--- what comes home ---
+  accel.log                      0.04 MB
+  acceptance.txt                 0.00 MB
+  manifest.json                  0.00 MB
+  run.log                        0.09 MB
+  seed.log                       0.09 MB
+  seed_restart.nc               73.27 MB
+  stationarity.json              0.00 MB
+  stationarity.txt               0.00 MB
+  restart 73.3 MB against the 73.3 MB estimate (-0.0%)
+  return/ total 73.5 MB
+
+  wrote jobs30/seed_nbl-deep_a015/return/seed_report.json
+
+=== 3. k0/k1 (accuracy CFL; ~9 means dt is past the boundary) ===
+  k0/k1 OK (0.132 < 1.0): k0/k1= 0.132  ww[0]=3.734e-04 ww[1]=2.829e-03 (z=4.3,12.8 m)
+
+=== 4. turb_alive (the physics check; a SKIP is not a PASS) ===
+  turb-alive OK: max e_res/U_ref^2=4.67e-03 at k=5  u*=0.3934  U_ref=12.03  (e_res/u*^2=4.37, reported only)  u* trend -0.7 %/h, final/peak 69%
+  VERDICT: OK
+  (a SKIP is not a PASS: k0/k1 is a dt check and stayed at 0.442 through a stable
+   seed whose boundary layer had died -- this is the physics check)
+
+=== 5. Ozmidov scale in Delta at the receptor (the stable rungs died at 3.57) ===
+=== Ozmidov / resolution, FE_SEED.340200 ===
+  dx = 30.0 m, u* = 0.3934 m/s
+         z   Delta         N        eps       L_O   L_O/D   f_res         ww
+       4.3   19.75   0.00036  9.000e-03  14000.83  708.85   0.002  3.734e-04
+      12.8   19.76   0.00042  1.152e-02  12488.27  632.15   0.011  2.829e-03
+      21.4   19.77   0.00052  7.943e-03   7546.72  381.82   0.041  8.633e-03
+      30.0   19.78   0.00061  5.830e-03   5066.33  256.13   0.092  1.677e-02
+      38.6   19.80   0.00068  3.757e-03   3491.78  176.35   0.187  2.854e-02
+      47.3   19.83   0.00071  2.569e-03   2689.19  135.64   0.301  4.131e-02
+      55.9   19.86   0.00073  1.785e-03   2136.46  107.60   0.424  5.556e-02
+      64.6   19.89   0.00074  1.335e-03   1824.10   91.71   0.526  6.919e-02
+      73.4   19.93   0.00073  1.026e-03   1624.02   81.49   0.611  8.202e-02
+      82.2   19.97   0.00072  8.092e-04   1486.21   74.40   0.675  9.292e-02
+      91.1   20.02   0.00069  6.445e-04   1390.83   69.46   0.726  1.019e-01
+     100.1   20.08   0.00066  5.239e-04   1347.47   67.11   0.764  1.087e-01
+     109.1   20.14   0.00064  4.366e-04   1302.29   64.67   0.793  1.142e-01
+     118.2   20.20   0.00062  3.743e-04   1239.99   61.39   0.815  1.188e-01
+     127.4   20.27   0.00060  3.279e-04   1247.53   61.56   0.832  1.227e-01
+     136.7   20.34   0.00058  2.873e-04   1225.01   60.23   0.847  1.258e-01
+     146.1   20.41   0.00058  2.493e-04   1125.76   55.15   0.861  1.279e-01
+     155.6   20.49   0.00059  2.153e-04   1029.25   50.22   0.873  1.291e-01
+     165.2   20.58   0.00061  1.878e-04    918.29   44.63   0.883  1.297e-01
+     175.0   20.67   0.00063  1.678e-04    824.37   39.89   0.890  1.299e-01
+     184.9   20.76   0.00066  1.530e-04    727.05   35.03   0.895  1.294e-01
+     194.9   20.85   0.00071  1.408e-04    625.69   30.01   0.899  1.282e-01
+     205.0   20.95   0.00076  1.310e-04    542.58   25.90   0.902  1.261e-01
+     215.3   21.05   0.00080  1.218e-04    487.19   23.14   0.904  1.233e-01
+     225.7   21.16   0.00081  1.138e-04    460.58   21.77   0.905  1.197e-01
+     236.4   21.27   0.00083  1.069e-04    436.19   20.51   0.905  1.157e-01
+     247.1   21.38   0.00085  1.007e-04    407.91   19.08   0.905  1.116e-01
+     258.1   21.50   0.00086  9.454e-05    384.98   17.91   0.905  1.074e-01
+     269.2   21.62   0.00089  8.796e-05    354.10   16.38   0.906  1.034e-01
+     280.5   21.74   0.00094  8.203e-05    312.60   14.38   0.907  1.001e-01
+     292.0   21.86   0.00100  7.704e-05    278.24   12.73   0.908  9.755e-02
+     303.7   21.99   0.00104  7.242e-05    253.89   11.55   0.909  9.585e-02
+     315.7   22.12   0.00108  6.854e-05    233.86   10.57   0.911  9.482e-02
+     327.8   22.25   0.00113  6.505e-05    212.14    9.53   0.913  9.410e-02
+     340.1   22.38   0.00119  6.254e-05    192.98    8.62   0.914  9.333e-02
+     352.7   22.52   0.00125  6.062e-05    176.03    7.82   0.914  9.190e-02
+     365.5   22.66   0.00134  5.917e-05    157.70    6.96   0.913  8.917e-02
+     378.6   22.80   0.00144  5.837e-05    140.24    6.15   0.909  8.490e-02
+     391.9   22.94   0.00154  5.824e-05    126.29    5.50   0.903  7.936e-02
+
+  L_O/Delta, whole stratified column to 400 m (n=39):  min 5.50  median 39.89  max 708.85
+    ^ REPORTED, NOT SCORED. L_O/Delta rises steeply with height because N
+      falls, so this median flatters a layer whose surface region is starved.
+  L_O/Delta, SURFACE LAYER (z <= 50 m, n=6):  min 135.64  median 318.97  max 708.85   |  at the 30 m receptor: 256.13
+  VERDICT: resolved band at the receptor: L_O/Delta 256.13 >= 10.0
+  resolved fraction of sigma_w^2: 0.092 at z = 30.0 m  (receptor);  0.041 at 21.4 m,  0.187 at 38.6 m
+  GABLS1 (Beare et al. 2006) runs this regime at dx = 6.25 m: 4.8x finer, 111x the cells for this domain.
+
+=== 6. Gate C2: restart with Nt = restart step, re-dump, diff byte-for-byte ===
+########## GATE C2: restart seed_restart.nc at step 349920, re-dump, diff ##########
+  k0/k1 OK (0.132 < 1.0): k0/k1= 0.132  ww[0]=3.734e-04 ww[1]=2.829e-03 (z=4.3,12.8 m)
+  turb-alive OK: max e_res/U_ref^2=4.67e-03 at k=5  u*=0.3934  U_ref=12.03  (e_res/u*^2=4.37, reported only)
+  RUN OK (exit 0, no CORRUPTED, no NaN/Inf, completion banner, k0/k1 < 1, turbulence alive)
+  re-dump: FE_C2.349920
+  23 variables compared, 0 differ, worst 0.000e+00
+  GATE C2: PASS -- bit-for-bit
+
+=== 7. rotation check (static; every corpus case is picked on this convention) ===
+=== 90-degree rotation check on seed_restart.nc ===
+  fields present: u, v, w, theta, TKE_0, rho, pressure   shape (122, 122, 122)
+
+  1. four 90-deg turns == identity, bit-for-bit: PASS
+
+  rot 1  (90 deg CCW of the flow)
+    2. file == rotate_stack(src), bit-for-bit: PASS
+    3. slab-mean wind vector: max relative departure from the exact turn 0.00e+00
+       the FROM bearing moved +270.000000 deg; pick_seed.py subtracts 90 -> want 270: PASS
+    4. scalar slab moments invariant: worst relative change 1.06e-15   (TKE_0.mean 1.8e-17, TKE_0.var 1.3e-17, theta.mean 0.0e+00, theta.var 2.7e-16, w.mean 1.1e-15, w.var 2.1e-16)
+
+  rot 2  (180 deg CCW of the flow)
+    2. file == rotate_stack(src), bit-for-bit: PASS
+    3. slab-mean wind vector: max relative departure from the exact turn 0.00e+00
+       the FROM bearing moved +180.000000 deg; pick_seed.py subtracts 180 -> want 180: PASS
+    4. scalar slab moments invariant: worst relative change 2.66e-16   (TKE_0.mean 1.8e-17, TKE_0.var 1.3e-17, theta.mean 0.0e+00, theta.var 2.7e-16, w.mean 0.0e+00, w.var 2.1e-16)
+
+  rot 3  (270 deg CCW of the flow)
+    2. file == rotate_stack(src), bit-for-bit: PASS
+    3. slab-mean wind vector: max relative departure from the exact turn 0.00e+00
+       the FROM bearing moved +90.000000 deg; pick_seed.py subtracts 270 -> want 90: PASS
+    4. scalar slab moments invariant: worst relative change 1.06e-15   (TKE_0.mean 1.8e-17, TKE_0.var 5.0e-17, theta.mean 0.0e+00, theta.var 1.3e-16, w.mean 1.1e-15, w.var 2.1e-16)
+
+  ROTATION CHECK: PASS
+  wrote jobs30/seed_nbl-deep_a015/return/rotation_check.json
+
+=== 8. Ekman backing and direction drift ===
+  case_2023101222                1.4     15.7    +14.4      -7.79       -21.31    2.73
+  case_2023111718_w0            18.2     11.5     -6.8      -1.50       -12.93    8.60
+  case_2023111718_w1            18.2      2.1    -16.2      -1.50       -13.07    8.69
+  case_2023121921               31.5     21.5    -10.0      -4.71        +8.37   -1.78
+  e2e_20230118                  14.1     36.0    +21.8       +nan         +nan     nan
+  n = 8 cases.
+
+  DOES THE CASE INHERIT THE SEED'S DRIFT? Measured directly for the first time,
+  on the two cases whose windows recorded a per-dump direction. The answer is
+  YES IN SIGN AND NO IN MAGNITUDE: both windows back, as the seed was backing
+  at freeze, but 1.3x and 2.7x faster. So the ballistic model behind
+  bin/pick_seed.py's projection points the right way and UNDER-CORRECTS, and
+  the residual is the scatter the denser base angles exist to absorb.
+
+  === AND ONE THING FOLLOWS WITHOUT ANY FIT ===
+  A drift that is one-signed and of order 10-20 deg by the time the window is
+  sampled is NOT a spacing that 30-degree base angles deliver +/- 15 deg on.
+  Twelve library directions at 30 deg give a worst-case gap of 15 deg only if the
+  seeds sit where they were placed; a variable 10-20 deg one-signed excursion
+  makes the worst case 25-35 deg, and on the DOMINANT SKILL AXIS.
+
+  Projection (bin/pick_seed.py) removes the MEAN of that excursion and leaves its
+  SCATTER, so it is a partial fix and cannot be the whole one. The honest fix is
+  DENSER BASE ANGLES: 6 base angles at 15 deg = 24 library directions, worst-case
+  7.5 deg before drift and ~15 after, which is what 3 angles were believed to give.
+  Cost: 30 seeds instead of 15, i.e. ~86 GPU-h instead of ~43, against a corpus of
+  ~1700 GPU-h -- 2.5% of the total to fix the axis the emulator is judged on.
+  PROPOSED, NOT APPLIED.
+
+  wrote results/direction_drift.txt
+
+=== 9. lock-in diagnostic: N/A, this rung is neutral ===
+
+=== 10. the measured budget: a fixed-width window swept over end times ===
+=== seed_nbl-deep_a015: when would it have been done? ===
+  36 dumps, run reached 2.92 simulated hours; fixed scoring window 2.00 h
+  criterion: EVERY oscillation-immune limit resolvable AND inside its threshold, and
+  nothing DRIFTING. TKE_BL/u*^2 and z_i are excluded -- they decorrelate on the eddy
+  turnover and cannot be resolved at any width in a 3 h run.
+
+   end (h)  n dumps   immune ok  indet  drift  verdict
+      2.00       24     0/5          5      0  wait
+      2.25       27     0/5          5      0  wait
+      2.50       30     0/5          5      0  wait
+      2.75       33     0/5          5      1  wait  [z_i]
+
+  NOT IN BAND ANYWHERE up to 2.92 h. The rung needs more than the ceiling, and
+  the honest report is the margin at the ceiling rather than a stop time. This is a
+  RESULT, not a failure of the measurement.
+  wrote jobs30/seed_nbl-deep_a015/return/budget.json
+
+=== battery complete -> /home/atyagi/Flux/jobs30/seed_nbl-deep_a015/return/acceptance.txt ===
+2026-08-30 18:25:48

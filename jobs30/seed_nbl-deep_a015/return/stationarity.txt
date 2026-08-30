@@ -1,0 +1,39 @@
+  seed_nbl-deep_a015: 36 dumps to 2.92 simulated hours = 0.17 inertial periods (2pi/f = 17.6 h)
+
+  z_i is the height where resolved TKE falls below a FIXED 0.01 m2/s2 (gated); the 5%-of-running-peak depth is reported beside it and is the currency lpdm/les_stats.py:window_stats uses for the corpus input.
+
+        window       u*   U(10)    U/u*   sw/u*  TKE/u*^2    z_i    dir
+   0.0-1.0       0.4573   7.496  16.442   1.110     0.687    670  250.9
+   1.0-2.0       0.3992   6.534  16.368   1.109     0.784    660  244.0
+   2.0-3.0       0.3947   6.452  16.348   1.094     0.845    697  238.2
+
+  === GATED: the footprint's controlling parameters, last 2.0 h ===
+  U/u* (Kljun Pi_4)              16.3580    +0.00 %/h  (limit 1)    0.00% per 40-min window   ok
+    ^ trend SE 0.23 %/h (AR(1)-corrected, n_eff 7.9 of 24 dumps); |trend| is 0.0 SE from zero and the limit is 4.3 SE away
+  sigma_v/u*                      2.1980    +0.33 %/h  (limit 3)    0.22% per 40-min window   INDETERMINATE
+    ^ trend SE 1.59 %/h (AR(1)-corrected, n_eff 6.9 of 24 dumps); |trend| is 0.2 SE from zero and the limit is 1.7 SE away  -- INDETERMINATE: 3 SE of separation is required and there is 1.7. This limit cannot tell PASS from FAIL on this window, so it asserts neither
+  sigma_w/u* at the receptor      1.1016    -1.16 %/h  (limit 2)    0.77% per 40-min window   INDETERMINATE
+    ^ trend SE 0.82 %/h (AR(1)-corrected, n_eff 5.5 of 24 dumps); |trend| is 1.4 SE from zero and the limit is 1.0 SE away  -- INDETERMINATE: 3 SE of separation is required and there is 1.0. This limit cannot tell PASS from FAIL on this window, so it asserts neither
+  TKE_BL/u*^2                     1.4877    +7.43 %/h  (limit 5)    4.95% per 40-min window   INDETERMINATE
+    ^ trend SE 4.79 %/h (AR(1)-corrected, n_eff 3.0 of 24 dumps); |trend| is 1.6 SE from zero and the limit is 0.5 SE away  -- INDETERMINATE: 3 SE of separation is required and there is 0.5. This limit cannot tell PASS from FAIL on this window, so it asserts neither
+  z_i                           678.5499    +5.76 %/h  (limit 3)    3.84% per 40-min window   DRIFTING
+    ^ trend SE 0.51 %/h (AR(1)-corrected, n_eff 11.0 of 24 dumps); |trend| is 11.3 SE from zero and the limit is 5.4 SE away
+    ^ on 5 distinct model level(s) spanning 76 m across the window
+  Kljun x_peak                  178.7195    -0.27 %/h  (limit 1)    0.18% per 40-min window   ok
+    ^ trend SE 0.22 %/h (AR(1)-corrected, n_eff 8.8 of 24 dumps); |trend| is 1.2 SE from zero and the limit is 3.4 SE away
+  Kljun x90                    1493.4753    -0.14 %/h  (limit 1)    0.09% per 40-min window   ok
+    ^ trend SE 0.11 %/h (AR(1)-corrected, n_eff 8.8 of 24 dumps); |trend| is 1.2 SE from zero and the limit is 7.9 SE away
+
+  === REPORTED, not gated: the mean flow rides the inertial oscillation ===
+  u*                              0.3969    -1.31 %/h
+  U(10 m)                         6.4931    -1.31 %/h
+  wind direction                241.0852    -5.83 deg/h
+  TKE_column/u*^2 (retired form)    0.8145   +10.01 %/h
+  domain TKE                      0.1282    +7.43 %/h
+  peak resolved TKE               0.6432    -0.60 %/h
+  z_i, 5% of the running peak   625.4112    +3.81 %/h
+  ^ the direction row is the DRIFT AT FREEZE. bin/pick_seed.py projects it forward to the window's own midpoint rather than assuming the adjustment closes a gap; measured, the adjustment WIDENS one.
+  x_peak spans 177.5-180.1 m across the scored window, against a 30 m raster cell.
+
+  SEED STATIONARITY: FAIL -- still drifting: z_i; and INDETERMINATE: sigma_v/u*, sigma_w/u* at the receptor, TKE_BL/u*^2
+  wrote jobs30/seed_nbl-deep_a015/return/stationarity.json

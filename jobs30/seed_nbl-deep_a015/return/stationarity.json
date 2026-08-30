@@ -1,0 +1,168 @@
+{
+ "label": "seed_nbl-deep_a015",
+ "pass": false,
+ "n_indeterminate": 3,
+ "indeterminate": [
+  "sigma_v/u*",
+  "sigma_w/u* at the receptor",
+  "TKE_BL/u*^2"
+ ],
+ "drifting": [
+  "z_i"
+ ],
+ "resolve_se": 3.0,
+ "dt": 0.0308642,
+ "wth": 0.0,
+ "score_h": 2.0,
+ "n_dumps": 36,
+ "t_end_h": 2.9166669,
+ "gated": [
+  {
+   "name": "U/u* (Kljun Pi_4)",
+   "mean": 16.35796990616709,
+   "trend_pct_per_h": 0.0015881885115986945,
+   "limit": 1.0,
+   "ok": true,
+   "trend_se_pct_per_h": 0.23206404228282135,
+   "n_eff": 7.856229004768337,
+   "resolvable": true,
+   "margin_se": 4.302311558770556,
+   "verdict": "ok"
+  },
+  {
+   "name": "sigma_v/u*",
+   "mean": 2.198025483493866,
+   "trend_pct_per_h": 0.3272761126111952,
+   "limit": 3.0,
+   "ok": null,
+   "trend_se_pct_per_h": 1.588065063196096,
+   "n_eff": 6.890694202153644,
+   "resolvable": false,
+   "margin_se": 1.6830065400530594,
+   "verdict": "INDETERMINATE"
+  },
+  {
+   "name": "sigma_w/u* at the receptor",
+   "mean": 1.101599250477087,
+   "trend_pct_per_h": -1.1600423423237445,
+   "limit": 2.0,
+   "ok": null,
+   "trend_se_pct_per_h": 0.818819421264166,
+   "n_eff": 5.500355402613193,
+   "resolvable": false,
+   "margin_se": 1.02581550444841,
+   "verdict": "INDETERMINATE"
+  },
+  {
+   "name": "TKE_BL/u*^2",
+   "mean": 1.4877076248997863,
+   "trend_pct_per_h": 7.4254670444921365,
+   "limit": 5.0,
+   "ok": null,
+   "trend_se_pct_per_h": 4.7883505986504336,
+   "n_eff": 3.0,
+   "resolvable": false,
+   "margin_se": 0.5065349736871271,
+   "verdict": "INDETERMINATE"
+  },
+  {
+   "name": "z_i",
+   "mean": 678.5498758951823,
+   "trend_pct_per_h": 5.757220840610831,
+   "limit": 3.0,
+   "ok": false,
+   "trend_se_pct_per_h": 0.5079588037628486,
+   "n_eff": 11.030052943727974,
+   "resolvable": true,
+   "margin_se": 5.428040266623862,
+   "verdict": "DRIFTING",
+   "n_levels": 5,
+   "level_span_m": 76.11444091796875
+  },
+  {
+   "name": "Kljun x_peak",
+   "mean": 178.71946565566,
+   "trend_pct_per_h": -0.2663075788251318,
+   "limit": 1.0,
+   "ok": true,
+   "trend_se_pct_per_h": 0.2160462049332744,
+   "n_eff": 8.767962295183166,
+   "resolvable": true,
+   "margin_se": 3.395997728363098,
+   "verdict": "ok"
+  },
+  {
+   "name": "Kljun x90",
+   "mean": 1493.4752580292406,
+   "trend_pct_per_h": -0.13541974862501466,
+   "limit": 1.0,
+   "ok": true,
+   "trend_se_pct_per_h": 0.11005668777822666,
+   "n_eff": 8.766614157783833,
+   "resolvable": true,
+   "margin_se": 7.855772046467418,
+   "verdict": "ok"
+  }
+ ],
+ "reported": [
+  {
+   "name": "u*",
+   "mean": 0.39694382548798585,
+   "trend_pct_per_h": -1.3118479993881742,
+   "unit": "%/h"
+  },
+  {
+   "name": "U(10 m)",
+   "mean": 6.49305871245934,
+   "trend_pct_per_h": -1.307721637162453,
+   "unit": "%/h"
+  },
+  {
+   "name": "wind direction",
+   "mean": 241.08515247239896,
+   "trend_deg_per_h": -5.826037535201809,
+   "unit": "deg/h"
+  },
+  {
+   "name": "TKE_column/u*^2 (retired form)",
+   "mean": 0.8144896777473969,
+   "trend_pct_per_h": 10.006888321838298,
+   "unit": "%/h"
+  },
+  {
+   "name": "domain TKE",
+   "mean": 0.12823955137581391,
+   "trend_pct_per_h": 7.425908357836851,
+   "unit": "%/h"
+  },
+  {
+   "name": "peak resolved TKE",
+   "mean": 0.6431955411110021,
+   "trend_pct_per_h": -0.598200137179367,
+   "unit": "%/h"
+  },
+  {
+   "name": "z_i, 5% of the running peak",
+   "mean": 625.4111989339193,
+   "trend_pct_per_h": 3.8063425117238743,
+   "unit": "%/h"
+  }
+ ],
+ "final": {
+  "ustar": 0.39344529608638495,
+  "U": 6.426638780953646,
+  "zi": 678.5498758951823,
+  "zi_definition": "fixed resolved-TKE threshold 0.01 m2/s2 (gated)",
+  "zi_peakfrac": 625.4111989339193,
+  "tke_peak": 0.6431955411110021,
+  "wdir": 235.9506089437541,
+  "dwdir_dt_deg_per_h": -5.826037535201809,
+  "dwdir_scored_over_h": 2.0,
+  "sigma_v": 0.8845416611425326,
+  "sigma_w": 0.42725342904145697,
+  "theta0": 300.29360256999837,
+  "x_peak": 177.98221830667214,
+  "x90": 1490.3361258597047
+ },
+ "last_dump": "FE_SEED.340200"
+}

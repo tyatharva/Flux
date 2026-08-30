@@ -94,7 +94,7 @@ def regime_of(wth):
 
 
 def load_library(index_path, library_dir, available_only=False,
-                 allow_indeterminate=False, exclude=()):
+                 allow_indeterminate=False, allow_drifting=False, exclude=()):
     """Prefer each job's RETURNED manifest (it carries `achieved`); fall back to the index.
 
     The fallback is not silent. A seed with no achieved block is matched on its TARGET, and
@@ -112,6 +112,7 @@ def load_library(index_path, library_dir, available_only=False,
             f"path.")
     seeds, have, rejected, unbuilt, incomplete = [], set(), [], [], []
     indeterminate, indeterminate_blocked, excluded_by_hand = [], [], []
+    drifting_used = []
     if os.path.isdir(library_dir):
         for m in sorted(glob.glob(os.path.join(library_dir, "*", "return",
                                                "manifest.json"))):
@@ -163,6 +164,28 @@ def load_library(index_path, library_dir, available_only=False,
                 if only_indet and allow_indeterminate:
                     s["_gate_state"] = "INDETERMINATE"
                     indeterminate.append((s["job"], indet))
+                elif s.get("_drifting") and allow_drifting:
+                    # A NARROW, LOUD, DEFAULT-OFF OPT-IN, AND IT IS NOT THE SAME
+                    # CONCESSION AS --allow-indeterminate.
+                    #
+                    # Why it exists at all: PLAN.md item 0aa predicted, from a
+                    # scoring-window sweep, that z_i in the NEUTRAL rungs is "TRENDING AWAY
+                    # from band ... a longer run resolves these into a FAIL, not a pass".
+                    # seed_nbl-deep_a015 at 2.917 sim-h duly resolved it -- +5.76 %/h
+                    # against a 3 %/h limit -- so the refusal above makes the NEUTRAL half
+                    # of the corpus unbuildable at any affordable spin-up, and a neutral
+                    # Ekman layer's depth genuinely does keep growing for several inertial
+                    # periods (35-50 simulated hours; PROJECT_BRIEF.md makes the same argument for
+                    # u*, whose fix was to gate on a RATIO -- and z_i is the one gated
+                    # quantity with no ratio to take).
+                    #
+                    # What it does NOT do is call the seed stationary. gate_state is
+                    # stamped DRIFTING on every pair, make_pair.py writes a warning into
+                    # the training record, and the corpus driver never sets this. It is for
+                    # a labelled validation case, and whether the corpus should use it is a
+                    # DESIGN DECISION that belongs to the user, with these numbers.
+                    s["_gate_state"] = "DRIFTING"
+                    drifting_used.append((s["job"], s["_drifting"]))
                 else:
                     (indeterminate_blocked if only_indet else rejected).append(
                         s["job"] if not only_indet else (s["job"], indet))
@@ -210,6 +233,13 @@ def load_library(index_path, library_dir, available_only=False,
         print(f"  EXCLUDED BY REQUEST ({len(excluded_by_hand)}): "
               f"{', '.join(sorted(excluded_by_hand))} -- named on the command line, not "
               f"rejected by any gate.")
+    for job, lim in drifting_used:
+        print(f"  *** USING A DRIFTING SEED: {job} is DRIFTING in {', '.join(lim)} and was "
+              f"admitted by --allow-drifting. That is a STRONGER defect than "
+              f"INDETERMINATE: the seed is KNOWN to be moving in a footprint-controlling "
+              f"parameter, so this case starts mid-transient and the 30-minute adjustment "
+              f"is not there to absorb it. Every pair built on it carries "
+              f"seed.gate_state = DRIFTING. The corpus driver does not set this flag.")
     if rejected:
         print(f"  EXCLUDED {len(rejected)} seed(s) whose gate found a limit DRIFTING: "
               f"{', '.join(sorted(rejected))}")
@@ -348,6 +378,16 @@ def main():
     ap.add_argument("--exclude", default=None,
                     help="comma-separated seed job names to exclude explicitly, "
                          "regardless of their gate verdict. Named in the output.")
+    ap.add_argument("--allow-drifting", action="store_true",
+                    help="admit a seed with a DRIFTING limit. NOT the same concession as "
+                         "--allow-indeterminate: a drifting seed is KNOWN to be moving in a "
+                         "footprint-controlling parameter, where an indeterminate one is "
+                         "merely unestablished. It exists because z_i in the neutral rungs "
+                         "trends AWAY from band as the run lengthens (PLAN.md 0aa predicted "
+                         "exactly this), so the default refusal makes the neutral half of "
+                         "the corpus unbuildable at any affordable spin-up. gate_state is "
+                         "stamped DRIFTING on every pair and the corpus driver never sets "
+                         "this. Whether the corpus should is the user's decision.")
     ap.add_argument("--allow-indeterminate", action="store_true",
                     help="admit seeds whose gate returned INDETERMINATE (no limit "
                          "drifting, but the trend estimator cannot resolve its own "
@@ -372,6 +412,7 @@ def main():
 
     seeds = load_library(a.index, a.library, available_only=a.available_only,
                          allow_indeterminate=a.allow_indeterminate,
+                         allow_drifting=a.allow_drifting,
                          exclude=set(x for x in (a.exclude or "").split(",") if x))
     meas = measured_backing(seeds)
     per, by_reg = meas

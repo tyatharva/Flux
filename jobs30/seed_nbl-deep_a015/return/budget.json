@@ -1,0 +1,42 @@
+{
+ "job": "seed_nbl-deep_a015",
+ "width_h": 2.0,
+ "t_end_max_h": 2.9166669,
+ "first_in_band_h": null,
+ "rows": [
+  {
+   "t_end_h": 2.0,
+   "n_dumps": 24,
+   "immune_ok": 0,
+   "immune_indeterminate": 5,
+   "drifting": [],
+   "in_band": false
+  },
+  {
+   "t_end_h": 2.25,
+   "n_dumps": 27,
+   "immune_ok": 0,
+   "immune_indeterminate": 5,
+   "drifting": [],
+   "in_band": false
+  },
+  {
+   "t_end_h": 2.5,
+   "n_dumps": 30,
+   "immune_ok": 0,
+   "immune_indeterminate": 5,
+   "drifting": [],
+   "in_band": false
+  },
+  {
+   "t_end_h": 2.75,
+   "n_dumps": 33,
+   "immune_ok": 0,
+   "immune_indeterminate": 5,
+   "drifting": [
+    "z_i"
+   ],
+   "in_band": false
+  }
+ ]
+}

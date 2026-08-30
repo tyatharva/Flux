@@ -144,6 +144,7 @@ PICK=results/pick/$TAG.json
     --library "${SEED_LIB:-jobs}" --index "${SEED_LIB:-jobs}/index.json" \
     $([ "${SEED_ANY:-0}" = "1" ] || echo --available-only) \
     $([ "${ALLOW_INDETERMINATE:-1}" = "1" ] && echo --allow-indeterminate) \
+    $([ "${ALLOW_DRIFTING:-0}" = "1" ] && echo --allow-drifting) \
     ${SEED_EXCLUDE:+--exclude "$SEED_EXCLUDE"} || true
 # === ALLOW_INDETERMINATE IS ON BY DEFAULT, BECAUSE INDETERMINATE IS THE LIBRARY'S
 # === NORMAL STATE AND NOT AN EXCEPTION ============================================
