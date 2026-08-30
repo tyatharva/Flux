@@ -8,15 +8,17 @@
              instant the pair's own direction LABEL refers to.
 
   rung          job                        G from  freeze    drift  window  b_frz  b_win   nom
+  cbl-deep      seed_cbl-deep_a000          270.0  260.97    -4.71  257.05  +9.03 +12.95  22.1
   nbl-deep      seed_nbl-deep_a000          270.0  249.87    -6.13  244.76 +20.13 +25.24  23.5
 
+  cbl-deep       backing at freeze  +9.03 deg (n=1), drift  -4.71 deg/h (n=1)
   nbl-deep       backing at freeze +20.13 deg (n=1), drift  -6.13 deg/h (n=1)
-  LIBRARY        backing at freeze +20.13 deg (n=1)
+  LIBRARY        backing at freeze +14.58 deg (n=2)
 
   === IS THE NOMINAL WRONG, OR WAS IT READ AT THE WRONG INSTANT? ===
-    nominal                       +23.50 deg
-    measured AT FREEZE            +20.13 deg   error  3.37 deg = 11% of a 30 deg library bin
-    measured AT THE WINDOW        +25.24 deg   error  1.74 deg = 6% of a 30 deg library bin
+    nominal                       +22.82 deg
+    measured AT FREEZE            +14.58 deg   error  8.25 deg = 27% of a 30 deg library bin
+    measured AT THE WINDOW        +19.10 deg   error  3.73 deg = 12% of a 30 deg library bin
 
     THE ANGLE WAS RIGHT; THE INSTANT WAS WRONG. Most of the apparent error
     in the nominal is the seed continuing to back between its freeze and
@@ -32,12 +34,13 @@
            spaced set of 12. Only a drift that DIFFERS between rungs moves the
            effective spacing, and that is what the per-rung column above is for.
     Revisit when the per-rung drifts span a usable fraction of the 30 deg bin.
-    Samples so far: 1.
+    Samples so far: 2.
 
   === WHAT PREDICTS THE DRIFT RATE? ===
   seed                          drift      u*     z_i  h/u* (s)  |drift|*h/u*
+  seed_cbl-deep_a000            -4.71  0.5406    1065      1971         2.579
   seed_nbl-deep_a000            -6.13  0.4058     634      1563         2.663
-  n = 1 seeds with a measured rate.  NO FIT IS REPORTED: with n <= 3 any predictor explains the data exactly and the correlation is an artifact of the sample size, not a result.
+  n = 2 seeds with a measured rate.  NO FIT IS REPORTED: with n <= 3 any predictor explains the data exactly and the correlation is an artifact of the sample size, not a result.
 
   case                      pick gap  ach gap  widened  seed rate  WINDOW rate   ratio
   case_2023031014               11.3     21.8    +10.5       +nan         +nan     nan

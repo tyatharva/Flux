@@ -76,11 +76,17 @@ bash bin/seed_accept.sh jobs24/seed_cbl-deep_a000 2>&1 | tail -70
 # PRE-REGISTERED. A is convective off cbl-deep (Kljun x_peak 119 m), B is near-neutral off
 # nbl-deep (160 m); the LES peaks must differ by more than each case's own half-vs-half
 # floor and order the same way.
-run_target(){   # tag  timestamp
+run_target(){   # tag  timestamp -- THE TIMESTAMP MUST BE YYYY-MM-DDTHH:MM. A space
+  # instead of the T survives run_corpus_case.sh's separator strip, so the tag comes out
+  # "case_20230525 1" and the run refuses -- loudly, which is the only good thing about it.
   local TAG="$1" TS="$2"
+  case "$TS" in *T*) ;; *) echo "FATAL: '$TS' needs a T between date and time" >&2
+                           return 64;; esac
+  # AND THE TAG THE DRIVER DERIVES MUST BE THE ONE THIS FUNCTION CHECKS FOR. Pass it
+  # explicitly rather than trusting two independent derivations to agree.
   if [ -s "pairs/$TAG.json" ]; then echo "  $TAG already paired; skipping"; return 0; fi
   say "target $TAG at $TS"
-  bash bin/run_corpus_case.sh "$TS" 2>&1 | tail -45
+  bash bin/run_corpus_case.sh "$TS" "$TAG" 2>&1 | tail -45
   [ -s "pairs/$TAG.json" ] || echo "  *** $TAG produced no pair" >&2
 }
 # THE NO-OP CONTROL, run while the fields are still on disk, and then the fields go.
@@ -104,9 +110,9 @@ nofloor(){
   [ -s "${FPDIR:-results/corpus}/${TAG}_nofloor.json" ] \
     || echo "  *** $TAG no-op control produced no json" >&2
 }
-run_target case_2023052519 "2023-05-25 19:00"
+run_target case_2023052519 "2023-05-25T19:00"
 nofloor    case_2023052519
-run_target case_2023121921 "2023-12-19 21:00"
+run_target case_2023121921 "2023-12-19T21:00"
 nofloor    case_2023121921
 # The fields have served both the production footprint and its control; release them.
 rm -f runs/case_2023052519/window/* runs/case_2023121921/window/* 2>/dev/null || true

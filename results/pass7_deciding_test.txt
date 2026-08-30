@@ -1,0 +1,26 @@
+
+=== case_2023052519  (seed None rot None, gate unjudged) ===
+  footprint   peak n/a m (Kljun n/a),  centroid n/a m at n/a deg,  A80 n/a ha (Kljun n/a),  integral n/a (Kljun n/a)
+  array share n/a   -- REPORTED, not gated; against 1.03% of the box by area
+  closure     floor n/a-n/a peaking at z=n/a m;  AT THE RECEPTOR factor n/a, n/a;  f_sgs at the floor's peak n/a;  sigma_w/u* n/a
+  seed        z_i n/a -> requested 970 -> ACHIEVED n/a m   (achieved-requested n/a m)
+              dir n/a -> requested 54.0 -> ACHIEVED n/a deg  (achieved-requested n/a deg, pick gap was n/a)
+              drift: seed at freeze n/a deg/h;  ACROSS THIS WINDOW n/a deg/h   -- does the case inherit the seed's rate?
+
+=== case_2023121921  (seed None rot None, gate unjudged) ===
+  footprint   peak n/a m (Kljun n/a),  centroid n/a m at n/a deg,  A80 n/a ha (Kljun n/a),  integral n/a (Kljun n/a)
+  array share n/a   -- REPORTED, not gated; against 1.03% of the box by area
+  closure     floor n/a-n/a peaking at z=n/a m;  AT THE RECEPTOR factor n/a, n/a;  f_sgs at the floor's peak n/a;  sigma_w/u* n/a
+  seed        z_i n/a -> requested 447 -> ACHIEVED n/a m   (achieved-requested n/a m)
+              dir n/a -> requested 198.5 -> ACHIEVED n/a deg  (achieved-requested n/a deg, pick gap was n/a)
+              drift: seed at freeze n/a deg/h;  ACROSS THIS WINDOW n/a deg/h   -- does the case inherit the seed's rate?
+
+=== THE DECIDING TEST: does the peak MOVE? ===
+  NO VERDICT -- one of the two cases has no peak
+
+=== case-to-case spread over 2 cases ===
+  metric                        min     median        max   max/min
+
+  READ THE SHARE SPREAD AGAINST ITS OWN SE, NOT AS A RANGE. Each case's
+  array share carries a 3-4 point standard error over 10 release groups, so
+  a several-point difference between cases is not necessarily a difference.

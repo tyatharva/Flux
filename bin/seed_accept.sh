@@ -122,8 +122,18 @@ JOB_REL_DIR="$(dirname "${JOB#$ROOT/}")"
 # the stationarity limits cannot see -- so it is diagnosed directly, on the spectrum.
 if [ "$REGIME" = "convective" ]; then
   say "9. lock-in: the 2-D spectrum of w at mid-depth (mode-1 share, r at L/2)"
-  DUMPS=$(ls -1 "$JOB/output/$OUTBASE".* | sort -t. -k2 -n | tail -4 | tr '\n' ' ')
+  # REPO-RELATIVE. $JOB is absolute, the container mounts the repo at /work, and an
+  # absolute HOST path does not exist inside it -- domain_adequacy.py then threw a
+  # FileNotFoundError into a tee'd stream and the lock-in table printed its HEADER and no
+  # rows. A diagnostic that prints an empty table is worse than one that fails, because it
+  # looks like "nothing to report". Same defect as the direction_drift call above.
+  DUMPS=$(ls -1 "$JOB/output/$OUTBASE".[0-9]* | sort -t. -k2 -n | tail -4 \
+          | sed "s|^$ROOT/||" | tr '\n' ' ')
   ./docker/pyrun.sh bin/domain_adequacy.py spectra $DUMPS 2>&1 | tee_
+  # ASSERT ON THE ARTIFACT: the table must have rows. It printed its header and nothing
+  # else when the dump paths were wrong, and an empty lock-in table reads as "no lock-in".
+  grep -qE '^ +FE_[A-Z_]+\.[0-9]+' "$OUT" \
+    || echo "  *** the lock-in table produced NO ROWS -- this is not a clean result" | tee_
 else
   say "9. lock-in diagnostic: N/A, this rung is $REGIME"
 fi

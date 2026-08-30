@@ -43,11 +43,15 @@
 --- what comes home ---
   accel.log                      0.04 MB
   acceptance.txt                 0.00 MB
+  budget.json                    0.00 MB
   manifest.json                  0.00 MB
+  rotation_check.json            0.00 MB
   run.log                        0.09 MB
   seed.log                       0.09 MB
+  seed_report.json               0.00 MB
   seed_restart.nc               73.27 MB
   stationarity.json              0.00 MB
   stationarity.txt               0.00 MB
+  turb_alive.json                0.00 MB
   restart 73.3 MB against the 73.3 MB estimate (-0.0%)
   return/ total 73.5 MB
