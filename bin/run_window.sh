@@ -65,13 +65,22 @@ echo "###   frqOutput = $FRQ ($CAD s), $(python3 -c "print($TOT//$FRQ+1)") dumps
 # by hand ahead of a campaign and one produced by the campaign are only ever reused when
 # they are the same window -- a different dt, length, restart, terrain or forcing does not
 # match and the LES runs.
-STAMP="$TOT|$DT|$WIN|$TOPO|$UG|$VG|$SKIP_NT|$(basename "$RST")|$(stat -c%s "$RST")"
-if [ -f "$D/window/.window_complete" ] && \
+STAMP="$TOT|$DT|$WIN|$TOPO|$UG|$VG|$SKIP_NT|$(basename "$RST")|$(stat -c%s "$RST")|${RING_DIR:-}"
+if [ -z "${RING_DIR:-}" ] && [ -f "$D/window/.window_complete" ] && \
    [ "$(cat "$D/window/.window_complete")" = "$STAMP" ] && \
    [ "$(ls -1 "$D"/window/*.[0-9]* 2>/dev/null | wc -l)" -eq "$(((TOT-SKIP_NT)/FRQ + 1))" ]; then
   echo "--- window already complete and identically configured; reusing $(ls -1 $D/window/*.[0-9]* | wc -l) dumps"
   echo "---   ($D/window/.window_complete matches; delete it to force a re-run)"
   exit 0
+fi
+# REUSE IS DISABLED UNDER RING_DIR, and it has to be. The consumer is a SEPARATE process
+# blocking on snapshots that this run stages; a reused window stages nothing at all, so the
+# consumer would poll an empty directory and die on its 300 s stall timeout with a message
+# about a dead producer -- which would be true, and completely misleading. A ring window is
+# always run.
+if [ -n "${RING_DIR:-}" ] && [ -f "$D/window/.window_complete" ]; then
+  echo "--- RING_DIR is set, so the completed-window shortcut is skipped: the consumer is a"
+  echo "---   separate process waiting on snapshots only a real run produces."
 fi
 
 rm -f "$D"/window/*
@@ -130,6 +139,53 @@ for kv in "dt|$DT" "Nt|$TOT" "NtBatch|$FRQ" "frqOutput|$FRQ" "inPath|./" \
 done
 FULLFRQ="$TOT"; [ "$SKIP_NT" -gt 0 ] && FULLFRQ="$SKIP_NT"
 printf 'ioLPDMmode = 1\nioLPDMfullFrq = %d\n' "$FULLFRQ" >> "$D/win1.in"
+
+# ---- THE IN-PROCESS HAND-OFF ------------------------------------------------------------
+# RING_DIR turns on SRC/IO/io_lpdmonline.c: every output step is also staged as one raw
+# snapshot in a tmpfs directory, and the run BLOCKS at RING_PAUSE1/RING_PAUSE2 until the
+# consumer has integrated that window and written a resume marker.
+#
+# SELECTOR 2 IS THE DEFAULT HERE AND THAT IS DELIBERATE. 1 stages only and is what a
+# production corpus case wants -- ~3 MB written instead of ~20 GB. 2 stages AND writes the
+# netCDF dumps, from the SAME buffers, which is the only way to score the hand-off against
+# the file path without comparing two turbulence realisations (measured on this project at
+# 44% in the integral). It also keeps every post-run assertion below alive, because they
+# read the dumps. Validation runs at 2; the corpus will run at 1 once 2 has passed.
+if [ -n "${RING_DIR:-}" ]; then
+  RING_SELECTOR="${RING_SELECTOR:-2}"
+  RING_QUEUE="${RING_QUEUE:-4}"
+  mkdir -p "$RING_DIR" || die "cannot make the staging directory $RING_DIR"
+  # A STALE MARKER IS WORSE THAN A MISSING ONE. A leftover pause.<step> or done from a
+  # killed run makes the next consumer return instantly with an empty or truncated window,
+  # which looks like a short window rather than like a bug.
+  rm -f "$RING_DIR"/snap.* "$RING_DIR"/geom.* "$RING_DIR"/pause.* "$RING_DIR"/resume.* \
+        "$RING_DIR"/done "$RING_DIR"/meta.txt
+  {
+    printf 'lpdmOnlineSelector = %d\n' "$RING_SELECTOR"
+    printf 'lpdmOnlineDir = %s\n' "$RING_DIR"
+    printf 'lpdmOnlineQueue = %d\n' "$RING_QUEUE"
+    [ -n "${RING_PAUSE1:-}" ] && printf 'lpdmOnlinePause1 = %d\n' "$RING_PAUSE1"
+    [ -n "${RING_PAUSE2:-}" ] && printf 'lpdmOnlinePause2 = %d\n' "$RING_PAUSE2"
+  } >> "$D/win1.in"
+  # EVERY PAUSE STEP MUST BE A STEP THE RUN ACTUALLY REACHES AND OUTPUTS AT, or the LES
+  # never pauses, the consumer waits out its stall timeout, and the case dies 40 minutes in
+  # with a message about a dead producer. FastEddy's loop is `for(it=...; it < Nt;
+  # it+=NtBatch)` with a final pause at it == Nt outside it, so a valid pause step is a
+  # multiple of frqOutput in (0, Nt].
+  for ps in "${RING_PAUSE1:-}" "${RING_PAUSE2:-}"; do
+    [ -n "$ps" ] || continue
+    [ "$((ps % FRQ))" -eq 0 ] || die "ring pause step $ps is not a multiple of frqOutput $FRQ, so the LES never pauses there"
+    [ "$ps" -gt 0 ] && [ "$ps" -le "$TOT" ] || die "ring pause step $ps is outside (0, $TOT]"
+  done
+  for kv in "lpdmOnlineSelector|$RING_SELECTOR" "lpdmOnlineDir|$RING_DIR" \
+            "lpdmOnlineQueue|$RING_QUEUE"; do
+    k="${kv%%|*}"; v="${kv#*|}"
+    got=$(grep -m1 "^$k = " "$D/win1.in" | sed "s|^$k = ||")
+    [ "$got" = "$v" ] || die "win1.in has $k = '$got', asked for '$v'"
+  done
+  echo "--- in-process hand-off: selector $RING_SELECTOR, queue $RING_QUEUE, staging $RING_DIR"
+  echo "---   pauses at ${RING_PAUSE1:-none} and ${RING_PAUSE2:-none} of $TOT steps"
+fi
 [ -n "$EXTRA" ] && cat "$EXTRA" >> "$D/win1.in"
 echo "--- single invocation: 0 -> $TOT"
 ./docker/run_case.sh "$D" "win1.in" "$L/$(basename $D)_win1.log" \
@@ -141,6 +197,18 @@ rm -f "$D"/FE_RST.*
 # t[0] + t_back, so a field written while the flow was still settling is indistinguishable
 # from one written after. Deleting them is the guarantee; asserting on what SURVIVED is
 # how we know the deletion happened.
+if [ -n "${RING_DIR:-}" ] && [ "${RING_SELECTOR:-2}" = "1" ]; then
+  # SELECTOR 1 WRITES NO netCDF AT ALL -- that is the whole point of it -- so there are no
+  # dumps to discard, count or read geometry from. The checks below are not skipped
+  # silently: they are replaced by the consumer's own, which sees the identical buffers.
+  # stage5_footprint.py asserts the streamed cadence and the delivered snapshot count, and
+  # the surface read-back moves to the case driver's own assertion on the staged z0m.
+  echo "--- selector 1: no netCDF written, so the dump-count and geometry assertions below"
+  echo "---   do not apply. The consumer asserts the cadence and the snapshot count instead."
+  printf '%s' "$STAMP" > "$D/window/.window_complete"
+  echo "--- window complete (staged only)"
+  exit 0
+fi
 if [ "$SKIP_NT" -gt 0 ]; then
   for f in "$D"/window/FE_WIN.*; do
     n="${f##*.}"

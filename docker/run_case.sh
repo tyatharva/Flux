@@ -68,7 +68,16 @@ mkdir -p "$(dirname "$LOG")"
 # mismatch this project keeps paying for. Created on demand; a no-op when unused.
 FLUX_RINGROOT="${FLUX_RINGROOT:-/dev/shm/flux}"
 mkdir -p "${FLUX_RINGROOT}" 2>/dev/null || true
-docker run --gpus all --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
+# A NAME, SO THE CONTAINER CAN BE STOPPED BY SOMETHING OTHER THAN LUCK.
+# The in-process hand-off runs this in the BACKGROUND while the LPDM consumes in the
+# foreground, and a driver that has to abandon the case kills the shell it launched -- which
+# does NOT stop the container. Measured: a killed smoke run left FastEddy holding the GPU,
+# and the next run was refused by the guard above with no hint of why. The name is derived
+# from the case directory, and the guard above already forbids two FastEddy runs at once, so
+# it cannot collide with a legitimate second run.
+FE_NAME="${FE_CONTAINER_NAME:-flux-fe-$(echo "$CASE_DIR" | tr -c 'A-Za-z0-9_.-' '-')}"
+docker rm -f "$FE_NAME" >/dev/null 2>&1 || true
+docker run --gpus all --rm --name "$FE_NAME" --user "$(id -u):$(id -g)" -e HOME=/tmp \
   -v ${FLUX_ROOT}:/work -v ${FLUX_RINGROOT}:${FLUX_RINGROOT} -w "/work/${CASE_DIR}" flux-fasteddy:cuda118 \
   mpirun -np 1 /work/FastEddy-model-5.0.1/SRC/FEMAIN/FastEddy "./${CASE_FILE}" > "$LOG" 2>&1
 RC=$?

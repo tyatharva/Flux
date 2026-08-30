@@ -78,6 +78,10 @@ KEEP_TD="${KEEP_TD:-100000}"
 ADJ_S="${ADJ_S:-1800}"
 WINDOW_S="${WINDOW_S:-2400}"
 TBACK="${TBACK:-$(cat results/tback_production.txt 2>/dev/null || echo 600)}"
+# REL_S is the RELEASE period, 1800 s = the EC averaging period by definition.
+# It is an env var only so a smoke run can exercise the machinery on a short
+# window; a production case never sets it.
+REL_S="${REL_S:-1800}"
 D="runs/$TAG"
 L="${LOGDIR:-${TMPDIR:-/tmp}/flux-logs}"; mkdir -p "$L"
 die(){ echo "FATAL: $*" >&2; exit 1; }
@@ -211,11 +215,72 @@ frq=int(round(5.0/$DT)); print(int(round($ADJ_S/$DT/frq))*frq)")
 # 101 s short and compute_footprint took t_last from the dumps that existed. With two
 # windows it cannot be absorbed: window 1 would be asked for fields past the end of the run
 # and would come up short at exactly the end, where the releases are.
-RUN_S=$(python3 -c "print(f'{$A_NT*$DT + ${N_WINDOWS:-1}*$WINDOW_S:.3f}')")
+# ---- THE WINDOW SCHEDULE, AND WHY CONSECUTIVE WINDOWS ARE ONE OUTPUT INTERVAL APART ----
+#
+# Naively, window WI spans [A_NT + WI*W_NT, A_NT + (WI+1)*W_NT] and consecutive windows
+# SHARE their boundary dump. On the disk path that is harmless -- nothing is deleted, so
+# both windows can read it. **Through the ring it is not possible**: the consumer deletes
+# each snapshot as it reads it, which is what releases the producer's backpressure, so
+# window 0 consumes the boundary and window 1 starts one interval late. Its field span is
+# then W_NT - FRQ, its release period comes out one output interval short, and --strict-rel
+# refuses it -- correctly, and after the GPU time is spent. MEASURED on the first two-window
+# ring run: 195.0 s of releases against the 200 s asked for.
+#
+# So the windows are spaced W_NT + FRQ apart and the run is one interval longer per extra
+# window. Every window then owns a full W_NT of fields and delivers exactly
+# W_NT/FRQ + 1 snapshots, on BOTH paths -- which also keeps the CPU-from-disk vs
+# GPU-from-ring acceptance a comparison of the same window rather than of two schedules.
+# N_WINDOWS = 1 is arithmetically unchanged.
+FRQ_NT=$(python3 -c "print(int(round(5.0/$DT)))")
+W_NT=$(python3 -c "print(int(round($WINDOW_S/$DT/$FRQ_NT))*$FRQ_NT)")
+NW_EXPECT=$(python3 -c "print($W_NT//$FRQ_NT + 1)")
+TOT_NT=$(python3 -c "print($A_NT + (${N_WINDOWS:-1}-1)*($W_NT+$FRQ_NT) + $W_NT)")
+RUN_S=$(python3 -c "print(f'{$TOT_NT*$DT:.3f}')")
+win_t0(){ python3 -c "print(f'{($A_NT + $1*($W_NT+$FRQ_NT))*$DT:.3f}')"; }
+win_t1(){ python3 -c "print(f'{($A_NT + $1*($W_NT+$FRQ_NT) + $W_NT)*$DT:.3f}')"; }
 echo "  ${RUN_S}s total = ${ADJ_S}s adjust + ${N_WINDOWS:-1} x (${TBACK}s t_back + $(python3 -c "print($WINDOW_S-$TBACK)")s releases)"
-SKIP_S="$ADJ_S" BASE="$D/case.in" bin/run_window.sh "$D" "$D/FE_RST.0" "$DT" "$RUN_S" \
-    ./topo.bin "$UG" "$VG" || die "adjustment+window"
-rm -f "$D/FE_RST.0"
+echo "  each window is $W_NT steps = $NW_EXPECT dumps; consecutive windows are one output interval ($FRQ_NT steps) apart"
+
+# ---- RING=1: THE LES AND THE LPDM RUN AT THE SAME TIME, IN TWO CONTAINERS ---------------
+#
+# The in-process hand-off (SRC/IO/io_lpdmonline.c) stages every output step into a tmpfs
+# directory that both containers mount at an IDENTICAL path, and blocks the LES at each
+# window boundary until the consumer has integrated that window. So the LES cannot be a
+# blocking call any more: it is backgrounded here and bin/stage5_footprint.py --ring is the
+# foreground process, once per window.
+#
+# THE PAUSE STEPS ARE COMPUTED FROM THE SAME ARITHMETIC AS THE WINDOW BOUNDS, not written
+# down twice. A pause at a step the run never outputs at means the LES sails past it, the
+# consumer waits out its 300 s stall timeout, and the case dies with a message about a dead
+# producer -- so run_window.sh checks each one against frqOutput and Nt before launching.
+if [ "${RING:-0}" = "1" ]; then
+  RING_DIR="${RING_DIR:-${FLUX_RINGROOT:-/dev/shm/flux}/$TAG}"
+  export RING_DIR RING_SELECTOR="${RING_SELECTOR:-2}" RING_QUEUE="${RING_QUEUE:-4}"
+  # The pause is the LAST step of each window, i.e. the step whose snapshot completes it.
+  export RING_PAUSE1=$(( A_NT + W_NT ))
+  [ "${N_WINDOWS:-1}" -ge 2 ] && export RING_PAUSE2=$(( A_NT + (W_NT+FRQ_NT) + W_NT ))
+  echo "  RING: staging to $RING_DIR, selector $RING_SELECTOR, pauses at "\
+"${RING_PAUSE1}${RING_PAUSE2:+ and $RING_PAUSE2} of $TOT_NT"
+  LESLOG="$L/${TAG}_les.log"
+  ( SKIP_S="$ADJ_S" BASE="$D/case.in" bin/run_window.sh "$D" "$D/FE_RST.0" "$DT" "$RUN_S" \
+      ./topo.bin "$UG" "$VG" > "$LESLOG" 2>&1; echo $? > "$D/.les_rc" ) &
+  LES_PID=$!
+  echo "  LES backgrounded as pid $LES_PID, log $LESLOG"
+  # If the LES dies before it stages anything the consumer would sit for 300 s and then
+  # blame the producer. It would be right, but the log is what says why -- so surface it.
+  # STOPPING THE SHELL IS NOT STOPPING THE LES. run_window.sh launches FastEddy in a
+  # container; killing the subshell leaves the container running, holding the GPU, and the
+  # next run is then REFUSED by run_case.sh's concurrency guard with no hint of why.
+  # Measured exactly that on the first ring smoke run. Stop the container by name.
+  FE_CONTAINER_NAME="flux-fe-$(echo "$D" | tr -c 'A-Za-z0-9_.-' '-')"
+  export FE_CONTAINER_NAME
+  trap 'kill $LES_PID 2>/dev/null; docker rm -f "$FE_CONTAINER_NAME" >/dev/null 2>&1;
+        wait $LES_PID 2>/dev/null' EXIT
+else
+  SKIP_S="$ADJ_S" BASE="$D/case.in" bin/run_window.sh "$D" "$D/FE_RST.0" "$DT" "$RUN_S" \
+      ./topo.bin "$UG" "$VG" || die "adjustment+window"
+  rm -f "$D/FE_RST.0"
+fi
 
 # ---- 6b. ASSERT ON THE STATE THE DUMPS CARRY, NOT ON THE .in ----------------------
 # The surface reaches FastEddy only through the restart file, and the restart READ
@@ -228,6 +293,13 @@ rm -f "$D/FE_RST.0"
 # For a NEUTRAL case this is the whole ballgame: htFlux is zero everywhere, so the array's
 # entire signal is the z0 contrast, and a run that silently fell back to a uniform z0 would
 # produce a clean, complete, perfectly plausible case with no array in it.
+# WITH THE RING, THIS MOVES AFTER THE RUN. The dumps do not exist yet -- the LES is still
+# going, and at selector 1 it will never write any. The check is not dropped: it runs after
+# the wait below, on the dumps selector 2 produced, and what covers the window in the
+# meantime is that the consumer reads z0m and invOblen out of every staged snapshot and
+# window_stats derives the surface flux from them, so a run on the wrong surface shows up
+# in stage 7b and 7c rather than passing quietly.
+surface_readback(){
 EARLY=$(ls -1 "$D"/window/FE_WIN.[0-9]* 2>/dev/null | sed 's/.*\.//' | sort -n | head -1)
 [ -n "$EARLY" ] || die "stage 6 left no window dumps"
 ./docker/pyrun.sh - "$D/window/FE_WIN.$EARLY" "$GRID" <<'PYSURF' || die "the window ran on the wrong surface"
@@ -265,6 +337,8 @@ if bad:
     print("FATAL: " + "; ".join(bad), file=sys.stderr)
     raise SystemExit(1)
 PYSURF
+}
+if [ "${RING:-0}" != "1" ]; then surface_readback; fi
 
 # ---- 7-8, ONCE PER SAMPLING WINDOW -------------------------------------------------
 # A case runs N_WINDOWS sampling windows back to back inside ONE FastEddy invocation, and
@@ -301,14 +375,22 @@ echo "  ---- window $WI: fields ${W_TMIN}-${W_TMAX} s, tag $WTAG ----"
 # retired passes' results stay where they are and stay tracked -- they are the record.
 say "$WTAG  stage 7: backward LPDM"
 FPDIR="${FPDIR:-results/corpus}"; mkdir -p "$FPDIR"
+# THE SOURCE IS THE STAGING DIRECTORY, NOT THE WINDOW DIRECTORY, when the ring is driving.
+# stage5 then blocks on the live LES: it consumes each snapshot as it is staged, releases
+# it, integrates at the pause, and writes the resume marker. At selector 2 the netCDF dumps
+# are ALSO on disk, so a failure here is recoverable by re-running this stage without
+# --ring -- which is the entire reason the validation runs at 2 rather than 1.
+S5SRC="$D/window"; S5RING=""
+if [ "${RING:-0}" = "1" ]; then S5SRC="$RING_DIR"; S5RING="--ring"; fi
 LPDM_WORKERS="${LPDM_WORKERS:-8}" \
-./docker/pyrun.sh bin/stage5_footprint.py "$D/window" --dt "$DT" --tback "$TBACK" \
+./docker/pyrun.sh bin/stage5_footprint.py "$S5SRC" $S5RING --dt "$DT" --tback "$TBACK" \
     --sgs-most --cover-dir "$GRID" --receptor-from "$GRID" --fp16-cache \
-    --z-target "$ZTARGET" ${EXACT_AGL:+--exact-agl} --rel-seconds 1800 --strict-rel \
+    --z-target "$ZTARGET" ${EXACT_AGL:+--exact-agl} --rel-seconds "${REL_S:-1800}" --strict-rel \
     --cover-groups "${COVER_GROUPS:-10}" \
     --keep-touchdowns "$KEEP_TD" \
     ${TBACK_MARKS:+--tback-marks "$TBACK_MARKS"} \
     --t-min "$W_TMIN" --t-max "$W_TMAX" \
+    ${S5RING:+--ring-expect $NW_EXPECT} \
     --outdir "$FPDIR" --tag "$WTAG" 2>&1 | grep -vE 'batch [0-9]+/' > "$FPDIR/$WTAG.txt"
 [ -s "$FPDIR/$WTAG.json" ] || { tail -12 "$FPDIR/$WTAG.txt" >&2
   die "stage 7 produced no footprint json"; }
@@ -399,15 +481,53 @@ fi
 # ---- 8. the training record ------------------------------------------------------
 say "$WTAG  stage 8: assemble the pair"
 ./docker/pyrun.sh bin/make_pair.py --tag "$WTAG" --footprint "$FPDIR/$WTAG.json" \
-    --forcing "$FRC" --seed "$PICK" --grid "$GRID" --outdir pairs || true
+    --forcing "$FRC" --seed "$PICK" --grid "$GRID" --outdir pairs \
+    --npz-dir "${NPZ_DIR:-pairs_npz}" || true
 [ -s "pairs/$WTAG.json" ] || die "stage 8 wrote no pair"
 }
 
 for WI in $(seq 0 $(( ${N_WINDOWS:-1} - 1 ))); do
-  T0=$(python3 -c "print(f'{$A_NT*$DT + $WI*$WINDOW_S:.3f}')")
-  T1=$(python3 -c "print(f'{$A_NT*$DT + ($WI+1)*$WINDOW_S:.3f}')")
+  T0=$(win_t0 "$WI"); T1=$(win_t1 "$WI")
   run_one_window "$WI" "$T0" "$T1"
 done
+
+# ---- THE LES IS STILL RUNNING IF THE RING DROVE IT -------------------------------------
+# The last window's resume marker lets it finish its final steps and write its final
+# restartable dump; nothing above waited for that. Wait now, score its exit, and only then
+# run the surface read-back that stage 6b defers under RING -- it needs the dumps.
+if [ "${RING:-0}" = "1" ]; then
+  say "$TAG  waiting for the LES to finish after the last window"
+  wait "$LES_PID" 2>/dev/null
+  trap - EXIT
+  LES_RC=$(cat "$D/.les_rc" 2>/dev/null || echo 1)
+  rm -f "$D/.les_rc" "$D/FE_RST.0"
+  echo "  LES exited $LES_RC (log $LESLOG)"
+  tail -6 "$LESLOG" 2>/dev/null | sed 's/^/    /'
+  [ "$LES_RC" = "0" ] || die "the LES failed after the windows were taken (see $LESLOG)"
+  # WHAT THE HAND-OFF COST THE LES, from its own log rather than from the consumer's clock.
+  # FASTEDDY'S OWN STDOUT, NOT run_window.sh's. run_case.sh redirects the container to
+  # /tmp/flux-logs/<case>_win1.log and only the scoring lines come back up the pipe, so
+  # the pause/resume/backpressure record lives there. Grepping $LESLOG finds nothing and
+  # says nothing, which is the quietest possible way to lose the measurement.
+  FELOG="/tmp/flux-logs/$(basename "$D")_win1.log"
+  echo "  the LES's own hand-off record ($FELOG):"
+  grep -E 'lpdmOnline: (PAUSED|RESUMED|BLOCKED|finished|staging)' "$FELOG" \
+    | sed 's/^/    /' || echo "    (none -- the hand-off never engaged)"
+  # STAGED vs WRITTEN, at selector 2. Both come from the same buffers, so a mismatch is a
+  # lost snapshot on one path or the other and it would be invisible in the footprints.
+  if [ "${RING_SELECTOR:-2}" != "1" ]; then
+    _staged=$(grep -oP 'finished, \K[0-9]+' "$FELOG" | tail -1)
+    _written=$(grep -cE '^Dumped state' "$FELOG")
+    echo "    staged $_staged snapshots against $_written netCDF dumps written"
+    [ -n "$_staged" ] && [ "$_staged" = "$_written" ] \
+      || echo "    *** staged/written MISMATCH -- one path lost a snapshot" >&2
+  fi
+  if [ "${RING_SELECTOR:-2}" != "1" ]; then
+    say "$TAG  stage 6b (deferred): did the run use this case's surface?"
+    surface_readback
+  fi
+  rm -rf "$RING_DIR"
+fi
 
 # ---- 8b. are the two windows two draws, or one draw written twice? -----------------
 # Only measurable when there are two, and the answer decides whether the extra 0.75 h per

@@ -64,6 +64,16 @@ def describe(name, g, fy, xc, res):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("dirs", nargs="+")
+    ap.add_argument("--ring-expect", type=int, default=None,
+                    help="how many snapshots this window will receive. Required with "
+                         "--ring: the field cache is allocated before the first snapshot "
+                         "arrives, and the count cannot be discovered from the stream "
+                         "without holding the whole window. The driver knows it exactly "
+                         "from the pause steps and the cadence -- window 0 gets "
+                         "W_NT/frqOutput + 1 (both endpoints), and every later window one "
+                         "fewer, because its first endpoint was the PREVIOUS window's last "
+                         "snapshot and was consumed and deleted there. The delivered count "
+                         "is asserted against this, never trusted.")
     ap.add_argument("--ring", action="store_true",
                     help="treat each positional argument as an in-process STAGING "
                          "directory (SRC/IO/io_lpdmonline.c) rather than a directory of "
@@ -222,14 +232,48 @@ def main():
                 return 2
             # ---- THE HOST-SIDE COST, MEASURED RATHER THAN ASSERTED ---------------------
             hostwatch = HostWatch(d).start()
-            n_expect = ring.expected_snapshots(a.t_min, a.t_max, a.dt)
+            n_derived = ring.expected_snapshots(a.t_min, a.t_max, a.dt)
+            n_expect = a.ring_expect if a.ring_expect is not None else n_derived
+            if a.ring_expect is None:
+                print("FATAL: --ring needs --ring-expect. The count differs by one between "
+                      "the first window and the rest -- window 0 owns both its endpoints, "
+                      "a later window's first endpoint was consumed by its predecessor -- "
+                      "and guessing it would either allocate a slot that never fills "
+                      "(uninitialised memory in the interpolator) or refuse a correct run.",
+                      file=sys.stderr)
+                return 2
+            skipped = [0]
+
+            def window_stream(it, t_lo, t_hi, dt, half):
+                """Drain everything, KEEP only this window's snapshots.
+
+                The producer stages from step 0 -- io_netcdf.c:1042 calls it from the writer
+                and there is no start step -- so window 0's stream carries the whole
+                ADJUSTMENT period in front of it. Those snapshots still have to be read, or
+                the producer blocks at its queue depth and the LES stalls; what they must
+                not do is enter the cache or the statistics. Reading and releasing costs one
+                snapshot of transient RAM each and keeps the backpressure flowing, which is
+                exactly what the disk path's --t-min filter does, one step earlier.
+                """
+                for h in it:
+                    t = _step_of(h) * dt
+                    if t < t_lo - half or t > t_hi + half:
+                        skipped[0] += 1
+                        rel = getattr(h, "release", None)
+                        if rel is not None:
+                            rel()
+                        continue
+                    yield h
+
             fs = FieldSet(None, a.dt, verbose=False, cache_dtype=ctype, defer_load=True,
-                          stream=ring.iter_until_pause(),
+                          stream=window_stream(ring.iter_until_pause(), a.t_min, a.t_max,
+                                               a.dt, 0.5 * a.dt),
                           nt=n_expect, geom_dump=MemDump(ring.geometry(), step=0))
             paths = fs.paths            # filled snapshot by snapshot during load()
             print(f"  expecting {n_expect} snapshots over "
                   f"{a.t_min:.0f}-{a.t_max:.0f} s at a "
-                  f"{ring.meta.frq_output * a.dt:.1f} s cadence")
+                  f"{ring.meta.frq_output * a.dt:.1f} s cadence"
+                  f"{'' if n_expect == n_derived else f' ({n_derived} from both endpoints; this window owns one of them)'}")
         else:
             paths = dump_series(d)
             for bound, name, lower in ((a.t_min, "--t-min", True),
@@ -300,6 +344,10 @@ def main():
         fs.load(stats=acc, release_handles=ring is not None)
         t_load = time.time() - t0
         if ring is not None:
+            if skipped[0]:
+                print(f"  drained and dropped {skipped[0]} snapshots outside "
+                      f"{a.t_min:.0f}-{a.t_max:.0f} s (the adjustment period; the producer "
+                      f"stages from step 0 and blocks if they are not read)")
             pause_step = ring.last_pause_step
             if pause_step is None:
                 print(f"FATAL: {d} ended without a pause marker, so the LES finished "
