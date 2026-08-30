@@ -282,8 +282,16 @@ def _grid_z0(grid_dir):
     p = os.path.join(grid_dir or "", "z0m.npy")
     if os.path.exists(p):
         return float(np.exp(np.log(np.load(p)).mean()))
-    print(f"  WARNING: no {p}; assuming z0 = 0.1435 m for the Obukhov label")
-    return 0.1435
+    # REFUSE RATHER THAN GUESS. 0.1435 was the 122^2 @ 16 m value and it is 0.0615 at
+    # 30 m -- the box takes in more lake. A grid constant used on the wrong grid is
+    # FASTEDDY_TRAPS.md 19, and a WARNING is not enough: the run continues, the Obukhov
+    # label comes out wrong by a plausible amount, and it reaches the pair. The caller
+    # always has a grid; if the grid has no z0m.npy then the surface was never built and
+    # nothing downstream should proceed on a literal.
+    raise SystemExit(
+        f"FATAL: no {p}. The geometric-mean z0 is a property of the grid this case runs "
+        f"on and there is no safe default -- it is 0.1435 m at 16 m and 0.0615 m at 30 m. "
+        f"Build the surface with bin/prep_surface.py, or pass --z0 explicitly.")
 
 
 def build(snd, grid_dir, nz, zceiling, c1, dx, cfl, match_10m, w_low, z_low,
