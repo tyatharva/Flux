@@ -921,3 +921,27 @@ consumer would interpolate the previous step's field and produce a plausible foo
 `lpdmOnlineFlush` therefore REFUSES a partial snapshot rather than writing what it has, and
 the consumer checks `np.isfinite` on every 3-D field it reads. Both are cheap; neither
 would exist if the format had been trusted.
+
+**20d. §19d again, and this time to a script I was not editing.** §19d says: do not edit a
+shell script while bash is executing it, because bash reads by byte offset and resuming
+after an insertion lands mid-command. What happened here is the same mechanism at one
+remove. `bin/g30_bringup.sh` was blocked inside `./docker/run_case.sh`, which was itself
+blocked inside its `docker run`. Adding the tmpfs mount (§20a) inserted eight lines into
+`docker/run_case.sh` **above** that point. When the container exited, bash resumed
+`run_case.sh` at its saved offset — now eight lines earlier in meaning — and **ran the same
+`docker run` a second time**, starting a fresh 15-minute cold start on top of the one that
+had just finished.
+
+The symptom was not an error. It was a log that restarted at step 10000 after reaching
+58000, a `FE_BU.62000` next to a `FE_BU.0` written two seconds later, and one `run_case.sh`
+pid owning two sequential containers. **The generalisation §19d was missing: the rule is
+not "do not edit the script you launched", it is "do not edit ANY script in the call tree
+of a running job."** A driver, its helper, and the helper's helper are all open files.
+
+**20e. The final dump is not at step `Nt`.** FastEddy's loop is
+`for(it = simTime_it; it < Nt; it = it + NtBatch)`, so it overshoots to the first `NtBatch`
+multiple at or past `Nt` — a run asking for 60571 with `NtBatch = 2000` ends at **62000**.
+Naming the expected artifact `FE_BU.$Nt` therefore names a file that never exists, and the
+failure surfaces as "no developed state" *after* the GPU time has been spent. Take the
+newest dump of the one run family instead, which is what `bin/seed_accept.sh` already had
+to learn and what `bin/g30_bringup.sh` now does.

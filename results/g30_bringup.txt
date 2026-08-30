@@ -2,3 +2,17 @@
   KFAC 43.74600, so dt = CFL_3d/43.74600.  dx/dz_sfc = 3.505.
 
 === step 1: 1800 s cold start at CFL_3d 1.30 (dt 0.0297170, 60571 steps) ===
+  (already present; skipped)
+  developed state: runs/g30_bringup/output/FE_BU.62000 (step 62000, requested 60571)
+
+=== measured cost ===
+  4 dumps, 62000 steps
+  14.781 ms/step measured
+  -> 0.497 GPU-h per simulated hour
+  -> a 2.0 sim-h two-window case is 0.99 GPU-h (60 min wall)
+  -> a 3.0 sim-h seed is 1.49 GPU-h (90 min wall)
+
+=== the FLAT dt accuracy boundary, branched from step 62000 ===
+  NOT assumed. dx/dz_sfc 3.505 sits between 16 m's 4.007 (boundary ~1.51) and
+  24 m's 2.804 (1.55-1.60), so ~1.53 is a guess and the ladder is the answer.
+  CFL_3d    dt (s)       k0/k1     turb      verdict

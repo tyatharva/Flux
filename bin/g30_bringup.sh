@@ -32,7 +32,20 @@ mkdir -p "$BU/output" || die "cannot make $BU"
 [ -f "$BASE" ] || die "no template at $BASE"
 # ONE RUN PER DIRECTORY (TRAPS 18c): a directory that has held two runs holds two families
 # with overlapping step numbers, and sorting their union on the step interleaves them.
-rm -f "$BU"/output/*
+# The FE_DT ladder rungs are always cleared; the FE_BU cold start is REUSED when a complete
+# one is present, because it is 15 minutes of GPU and a killed ladder should not cost it
+# twice. "Complete" means a dump at or past the requested step, not merely a dump.
+rm -f "$BU"/output/FE_DT.*
+DT0_CHK=$(python3 -c "print(f'{1.30/$KFAC:.7f}')")
+NT0_CHK=$(python3 -c "print(int(round($SPIN_S/$DT0_CHK)))")
+HAVE=$(ls -1 "$BU"/output/FE_BU.[0-9]* 2>/dev/null | sort -t. -k2 -n | tail -1)
+if [ -n "$HAVE" ] && [ "${HAVE##*.}" -ge "$NT0_CHK" ] 2>/dev/null; then
+  echo "  reusing the completed cold start at ${HAVE##*.} steps (>= $NT0_CHK)"
+  SKIP_SPINUP=1
+else
+  rm -f "$BU"/output/FE_BU.*
+  SKIP_SPINUP=0
+fi
 
 DT0=$(python3 -c "print(f'{1.30/$KFAC:.7f}')")
 NT0=$(python3 -c "print(int(round($SPIN_S/$DT0)))")
@@ -42,6 +55,8 @@ echo "=== 30 m BRING-UP: 122^3 @ 30 m = 3660 m, receptor k=3 at 30.000000 m ==="
 echo "  KFAC $KFAC, so dt = CFL_3d/$KFAC.  dx/dz_sfc = 3.505."
 echo
 echo "=== step 1: ${SPIN_S} s cold start at CFL_3d 1.30 (dt $DT0, $NT0 steps) ==="
+if [ "$SKIP_SPINUP" = "1" ]; then echo "  (already present; skipped)"; fi
+if [ "$SKIP_SPINUP" != "1" ]; then
 sed -e "s|^dt = .*|dt = $DT0|" -e "s|^Nt = .*|Nt = $NT0|" \
     -e 's|^NtBatch = .*|NtBatch = 2000|' -e 's|^frqOutput = .*|frqOutput = 20000|' \
     -e 's|^outFileBase = .*|outFileBase = FE_BU|' \
@@ -60,8 +75,16 @@ for kv in "dt|$DT0" "Nt|$NT0" "outFileBase|FE_BU" "surflayer_wth|0.06" "U_g|7.0"
   [ "$got" = "$v" ] || die "bu.in has $k = '$got', asked for '$v'"
 done
 ./docker/run_case.sh "$BU" bu.in "$L/g30_bu.log" 2>&1 | tail -12
-SEED_DUMP="$BU/output/FE_BU.$NT0"
-[ -f "$SEED_DUMP" ] || die "no developed state at $SEED_DUMP"
+fi
+# THE FINAL DUMP IS NOT AT STEP Nt. FastEddy's loop is `for(it=...; it<Nt; it+=NtBatch)`,
+# so it overshoots to the first NtBatch multiple at or past Nt -- here 62000, not 60571.
+# Naming the file by the requested step gives a path that never exists, and the failure
+# lands as "no developed state" AFTER the GPU time is spent. Take the NEWEST dump of this
+# ONE run family instead, which is what bin/seed_accept.sh already had to learn.
+SEED_DUMP=$(ls -1 "$BU"/output/FE_BU.[0-9]* 2>/dev/null | sort -t. -k2 -n | tail -1)
+[ -n "$SEED_DUMP" ] && [ -f "$SEED_DUMP" ] || die "no developed state in $BU/output"
+STEP0="${SEED_DUMP##*.}"
+echo "  developed state: $SEED_DUMP (step $STEP0, requested $NT0)"
 
 echo
 echo "=== measured cost ==="
@@ -80,16 +103,16 @@ print(f"  -> a 3.0 sim-h seed is {3.0*gph:.2f} GPU-h ({3.0*gph*60:.0f} min wall)
 PY
 
 echo
-echo "=== the FLAT dt accuracy boundary, branched from step $NT0 ==="
+echo "=== the FLAT dt accuracy boundary, branched from step $STEP0 ==="
 echo "  NOT assumed. dx/dz_sfc 3.505 sits between 16 m's 4.007 (boundary ~1.51) and"
 echo "  24 m's 2.804 (1.55-1.60), so ~1.53 is a guess and the ladder is the answer."
 printf "  %-9s %-12s %-9s %-9s %s\n" "CFL_3d" "dt (s)" "k0/k1" "turb" "verdict"
-NT=$((NT0 + 4000))
+NT=$((STEP0 + 4000))
 for cfl in 1.30 1.40 1.45 1.50 1.55 1.60 1.65 1.70; do
   DTT=$(python3 -c "print(f'{$cfl/$KFAC:.7f}')")
   sed -e "s|^dt = .*|dt = $DTT|" -e "s|^Nt = .*|Nt = $NT|" -e 's|^NtBatch = .*|NtBatch = 4000|' \
       -e 's|^frqOutput = .*|frqOutput = 4000|' -e 's|^inPath = .*|inPath = ./output/|' \
-      -e "s|^inFile = .*|inFile = FE_BU.$NT0|" \
+      -e "s|^inFile = .*|inFile = FE_BU.$STEP0|" \
       -e 's|^outFileBase = .*|outFileBase = FE_DT|' \
       -e 's|^surflayer_wth = .*|surflayer_wth = 0.06|' \
       -e 's|^zStableBottom = .*|zStableBottom = 450.0|' \
