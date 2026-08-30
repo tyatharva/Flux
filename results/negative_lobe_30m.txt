@@ -1,0 +1,51 @@
+THE NEGATIVE LOBE AT A 30 m RECEPTOR: it is wind turning, and the CBL elevated-maximum
+mechanism does not appear.  Measured 2026-08-29 on the two production targets, from the
+persisted touchdown samples (unfolded, signed, 100,000 each).
+
+WHY IT WAS WORTH ASKING. Fix 2 established that nothing clips the negative values and
+measured 5.8-11.1% of |flux| across twelve 10 m convective footprints. The two mechanisms
+that produce them sit in DIFFERENT PLACES, so the radial profile identifies which is acting:
+an elevated concentration maximum in a CBL is NEAR-field (air arriving at the receptor from
+above has not been in contact with the surface close in), wind turning with height is
+FAR-field and off to one side.
+
+  radius (m)     CONVECTIVE case_2023052519      NEAR-NEUTRAL case_2023121921
+                 n      |neg| share              n      |neg| share
+     0 - 100    3238        0.1%                   43        0.0%
+   100 - 200   15683        4.3%                 1151        2.2%
+   200 - 400   23689       16.5%                 8973       13.2%
+   400 - 800   24316       27.0%                25719       30.8%
+   800 - 1500  20992       32.6%                26147       38.0%
+  1500 - 3000  12082       39.3%                37967       43.1%
+
+  negative-weight centroid   1004 m   vs positive 589 m
+                             1433 m   vs positive 1167 m
+
+  totals: 33.0% of touchdowns and 20.9% of |weight| negative (convective)
+          40.1% of touchdowns and 35.0% of |weight| negative (near-neutral)
+
+THE NEAR FIELD IS NOT NEGATIVE. 0.1% and 0.0% inside 100 m, rising monotonically with
+radius. There is no elevated-maximum signature, and it should not be expected: the receptor
+sits at z/z_i = 0.023 (convective) and 0.030 (neutral), deep in the surface layer, where a
+SURFACE source has no concentration maximum above the receptor to produce one. The whole
+negative lobe is the wind-turning mechanism -- a parcel descending through an Ekman layer
+arrives from a bearing rotated relative to the receptor-level wind, so its touchdowns land
+to one side and, being the downward branch, enter the flux with the opposite sign.
+
+WHAT THIS DECIDES FOR THE ML TARGET, and it decides it against the naive route.
+
+  raster share of |flux|      2.32%  (convective)   2.03%  (near-neutral)
+  TOUCHDOWN share of |weight| 20.9%                 35.0%
+
+The raster hides an order of magnitude, because within a 24 m cell the positive and negative
+touchdowns cancel before anything is written down. The target this project has chosen -- a
+continuous density fitted to the points -- sees the uncancelled version, where a fifth to a
+third of the mass is negative. A single non-negative normalizing flow cannot represent that,
+and dropping the negatives would discard 21-35% of the signed mass, concentrated in the far
+field, i.e. it would systematically shorten every footprint.
+
+  The favourable half: the negative component is BROAD, SMOOTH and FAR-FIELD -- monotone in
+  radius with no structure inside 200 m. A signed decomposition f = w+ p+ - w- p- therefore
+  needs only a wide, simple p- , which is the cheapest of the three candidates in
+  ML_TARGETS.md rather than the most fragile. Decide at build time, but decide knowing the
+  number is 21-35% and that the shape is easy.

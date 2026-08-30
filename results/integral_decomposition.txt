@@ -1,0 +1,52 @@
+SEPARATING THE TWO INTEGRAL FAILURES.  2026-08-29.
+
+THE QUESTION. The convective target integrated to 1.463 and the near-neutral one to 0.888
+against a physical ceiling of 1 - z_m/z_i ~ 0.97. Truncation explains 0.888; it cannot
+produce 1.463, because a finite backward time and a finite domain can only LOSE influence.
+The two are different problems and the by-displacement decomposition separates them -- but
+only if the wrap cap is RAISED, because production retires a trajectory at one domain
+length and the curve past 1 L is then flat by construction.
+
+Run with --max-disp 8784 m = 3 L (bin/stage5_footprint.py, new flag).
+
+  displacement      CONVECTIVE case_2023052519      NEAR-NEUTRAL case_2023121921
+     0.25 L                 0.814                            0.366
+     0.50 L                 0.995                            0.573
+     0.75 L                 1.020                            0.696
+     1.00 L  <- the cap     1.034                            0.750
+     1.25 L                 1.038                            0.792
+     1.50 L                 1.044                            0.829
+     2.00 L                 1.043                            0.862
+     2.50 L                 1.043                            0.879
+     3.00 L                 1.043                            0.868
+
+CONVECTIVE: IT SATURATES.  +1.4% over the last quarter-domain before the cap, and +0.8%
+over the whole two domain lengths past it. The cap is removing essentially nothing. The
+integral settles at 1.043 = 1.067x the 1 - z_m/z_i ceiling, and since neither truncation nor
+wrap can put it there, what is left is the advective non-closure -- w_bar at the receptor is
+-0.141 m/s, a real mean subsidence over sloping ground, and PROJECT_BRIEF.md already states that
+the turbulent flux there genuinely is not the surface flux. THAT IS PHYSICS AND IT STAYS.
+
+NEAR-NEUTRAL: IT KEEPS CLIMBING.  +7.3% over the last quarter-domain before the cap and
++15.8% over the two lengths past it, still rising at 2.5 L. Every one of those touchdowns
+is a trajectory that has travelled further than the domain repeats, so it is re-sampling
+turbulence it already sampled: WRAP DOUBLE-COUNTING, and the cap is right to remove it.
+The consequence is not that the cap is wrong -- it is that the capped 0.750 is a TRUNCATED
+estimate of a footprint the box does not contain. Both containment gates fail:
+
+  [ok  ] C1 saturates by 1 L     convective  +1.4%  (<= 2%)
+  [FAIL] C1 saturates by 1 L     neutral     +7.3%
+  [ok  ] C2 x80 inside the box   convective   776 m against 2342 m
+  [ok  ] C2 x80 inside the box   neutral     1581 m against 2342 m
+  [ok  ] C3 what the cap hides   convective  +0.8%
+  [FAIL] C3 what the cap hides   neutral    +15.8%
+
+  Note C2 PASSES for the neutral case while C1 and C3 fail. x80 is a crosswind-INTEGRATED
+  1-D measure and it fits; the INTEGRAL does not, because the last 20% of the influence
+  lives in a long thin tail that x80 does not see. Scoring containment on x80 alone would
+  have called this contained.
+
+AND THE HEADLINE 1.463 WAS NOT A STABLE NUMBER. See results/les_realisation_spread.txt: a
+second run of the identical case -- same restart, same forcing, same rotation, same code --
+gives 1.019 rather than 1.463. Both values are reported; the 1.067x above is realisation 2,
+which is the one with the uncapped ladder beside it.

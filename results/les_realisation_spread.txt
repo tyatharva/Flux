@@ -1,0 +1,59 @@
+HOW REPRODUCIBLE IS A CORPUS TARGET?  Measured 2026-08-29, and the answer is: the peak is,
+the integral and the array share are not.
+
+WHY IT CAME UP. Both target cases were run twice -- the second time only because the window
+fields had been released and the wrap diagnostic needed them back. The two runs start from a
+BIT-IDENTICAL restart, use the same .in, the same surface, the same rotation and the same
+code. FastEddy is not bitwise reproducible (PROJECT_BRIEF.md: ~1e-4 relative in velocity after 200
+steps, from non-associative GPU reductions), and over 152,100 steps that grows into a
+different eddy field with the same statistics. Nobody had measured what it does to a
+FOOTPRINT.
+
+  quantity                 convective r1 / r2        near-neutral r1 / r2
+  peak                     144 / 168 m  (1 cell)     288 / 312 m  (1 cell)
+  A80                      20.22 / 15.49 ha (1.31x)  23.21 / 27.76 ha (1.20x)
+  centroid                 334 / 380 m               335 / (r2 not scored)
+  INTEGRAL                 1.463 / 1.019  (1.44x)    0.888 / 0.740  (1.20x)
+  array share              5.65 / 1.07 %             1.14 / 0.47 %
+  its within-window SE     1.44 / 2.79               0.37 / 0.08
+  u*                       0.4568 / 0.4614 (+1.0%)   0.5681 / 0.5695 (+0.2%)
+  sigma_w                  0.6593 / 0.6515 (-1.2%)   0.6356 / 0.6334 (-0.3%)
+  z_i                      1229 / 1229 m             937 / 937 m
+  w_bar at the receptor    -0.0994 / -0.1407         +0.3423 / +0.2430
+
+THE CONTROL THAT MAKES THIS INTERPRETABLE. Two independent LPDM ensembles on the SAME saved
+fields (`stage5_footprint.py <window> <window>`, seeds 0 and 1) give:
+
+  integral 1.0192 vs 1.0756   -- 5.5%
+  peak     (144, 48) vs (144, 48)  -- IDENTICAL
+  A80      15.5 vs 15.1 ha    -- 2.6%
+  80% source-area overlap 56%, normalised per-cell L1 41%
+
+So the ESTIMATOR contributes 5.5% to the integral and nothing to the peak. The 44% and 20%
+swings above are the LES REALISATION, four to eight times larger.
+
+WHAT FOLLOWS, and it is three things.
+
+1. THE ERROR MODEL HAS A HOLE. Every floor this project quotes -- half-vs-half, the
+   10-group cover-share SE, realisation-vs-realisation -- measures sampling WITHIN one flow
+   realisation. A corpus of 1469 cases samples 1469 DIFFERENT realisations, and the spread
+   across them is the one that matters for what a model can learn. It was never measured
+   because nothing ever ran the same case twice.
+
+2. THE INTEGRAL AND THE ARRAY SHARE ARE THE FRAGILE ONES, and both are quantities this
+   project reports as results. The array share moved 5.65% -> 1.07% on the convective case;
+   that difference is 1.5 combined SE, so it is not formally significant, but the SE it is
+   being judged against (1.44 and 2.79 points) is itself the within-window one and is
+   therefore the wrong yardstick.
+
+3. THE PEAK IS ROBUST, AND SO IS THE DECIDING TEST. Both peaks moved by exactly one raster
+   cell between realisations (144 -> 168 and 288 -> 312), and the SEPARATION between the two
+   cases is 144 m in BOTH realisations -- identical. The deciding test's verdict does not
+   depend on which realisation is used, which is the strongest thing that can be said about
+   it with two of them.
+
+WHAT IS NOT ESTABLISHED. n = 2 per case. The mechanism is not identified: u*, sigma_w and
+z_i agree to ~1% between realisations, so the swing is not in the bulk statistics, and
+w_bar at the receptor -- a single-column 30-minute mean of a turbulent quantity, one of the
+worst-converged things an LES produces -- moved 41% and 29%. That is a candidate, not a
+finding: with three (w_bar, integral) points the relation is not even monotone.
