@@ -1,0 +1,129 @@
+  1082 dumps: FE_WIN.58680 .. FE_WIN.234883
+    loaded 1/1082  FE_WIN.58680
+    loaded 26/1082  FE_WIN.62755
+    loaded 51/1082  FE_WIN.66830
+    loaded 76/1082  FE_WIN.70905
+    loaded 101/1082  FE_WIN.74980
+    loaded 126/1082  FE_WIN.79055
+    loaded 151/1082  FE_WIN.83130
+    loaded 176/1082  FE_WIN.87205
+    loaded 201/1082  FE_WIN.91280
+    loaded 226/1082  FE_WIN.95355
+    loaded 251/1082  FE_WIN.99430
+    loaded 276/1082  FE_WIN.103505
+    loaded 301/1082  FE_WIN.107580
+    loaded 326/1082  FE_WIN.111655
+    loaded 351/1082  FE_WIN.115730
+    loaded 376/1082  FE_WIN.119805
+    loaded 401/1082  FE_WIN.123880
+    loaded 426/1082  FE_WIN.127955
+    loaded 451/1082  FE_WIN.132030
+    loaded 476/1082  FE_WIN.136105
+    loaded 501/1082  FE_WIN.140180
+    loaded 526/1082  FE_WIN.144255
+    loaded 551/1082  FE_WIN.148330
+    loaded 576/1082  FE_WIN.152405
+    loaded 601/1082  FE_WIN.156480
+    loaded 626/1082  FE_WIN.160555
+    loaded 651/1082  FE_WIN.164630
+    loaded 676/1082  FE_WIN.168705
+    loaded 701/1082  FE_WIN.172780
+    loaded 726/1082  FE_WIN.176855
+    loaded 751/1082  FE_WIN.180930
+    loaded 776/1082  FE_WIN.185005
+    loaded 801/1082  FE_WIN.189080
+    loaded 826/1082  FE_WIN.193155
+    loaded 851/1082  FE_WIN.197230
+    loaded 876/1082  FE_WIN.201305
+    loaded 901/1082  FE_WIN.205380
+    loaded 926/1082  FE_WIN.209455
+    loaded 951/1082  FE_WIN.213530
+    loaded 976/1082  FE_WIN.217605
+    loaded 1001/1082  FE_WIN.221680
+    loaded 1026/1082  FE_WIN.225755
+    loaded 1051/1082  FE_WIN.229830
+    loaded 1076/1082  FE_WIN.233905
+    loaded 1082/1082  FE_WIN.234883
+  field cache 47.93 GB, 122x122x122, dt_dump=5.03 s, window 1811-7249 s (85 s to load)
+  MOST floor ON [multiplicative, f_sgs-weighted, eps-consistent]: factor 1.00-2.26 over the column, 1.918 at the receptor (d=0.00 m)
+  floor active below z=269 m (the model's own sigma_w^2 peak, 0.9597 m2/s2)
+  floor-induced turnovers in sigma_w^2 below the peak: 0 (worst +0.00%) -- must be 0
+      z(m)   resolved     (2/3)e   factor  sigma_w^2       d/dz
+       4.3     0.0154     0.2815     1.27     0.3727   +0.01031
+      38.6     0.2123     0.1214     2.26     0.4866   +0.00000
+      73.4     0.4665     0.0562     1.72     0.5632   +0.00458
+     109.1     0.6534     0.0422     1.38     0.7117   +0.00360
+     146.1     0.7802     0.0372     1.17     0.8238   +0.00249
+     184.9     0.8634     0.0346     1.07     0.9004   +0.00152
+     225.7     0.9114     0.0333     1.02     0.9453   +0.00069
+     269.2     0.9272     0.0325     1.00     0.9597   +0.00003
+     315.7     0.9153     0.0322     1.00     0.9475   -0.00052
+     365.5     0.8766     0.0319     1.00     0.9085   -0.00105
+     419.2     0.8095     0.0316     1.00     0.8411   -0.00146
+     477.1     0.7126     0.0313     1.00     0.7438   -0.00188
+
+  --- well-mixed test BACKWARD (the mode footprints use) ---
+  released uniformly over 2-1200 m; scored over 2-400 m
+      z (m)   final/initial
+       11.9           0.891   |#################
+       31.8           1.031   |####################
+       51.8           0.965   |###################
+       71.6           1.063   |#####################
+       91.5           1.012   |####################
+      111.4           0.978   |###################
+      131.3           1.014   |####################
+      151.2           0.904   |##################
+      171.1           0.955   |###################
+      191.1           1.015   |####################
+      210.9           0.947   |##################
+      230.8           0.984   |###################
+      250.8           0.985   |###################
+      270.6           0.982   |###################
+      290.5           0.906   |##################
+      310.4           0.935   |##################
+      330.3           0.974   |###################
+      350.2           0.898   |#################
+      370.1           1.131   |######################
+      390.0           0.984   |###################
+  ~666 particles per bin initially; 1-sigma counting noise 5.48%
+  max |ratio-1| = 13.06%   rms = 6.13%   lowest 3 bins = 0.961
+  GATE: PASS  (max deviation < max(10%, 4 sigma); lowest 3 bins within max(5%, 3 sigma))
+  (2859 integrator steps, 8 s)
+
+  --- well-mixed test FORWARD (control) ---
+  released uniformly over 2-1200 m; scored over 2-400 m
+      z (m)   final/initial
+       11.9           0.997   |###################
+       31.8           1.110   |######################
+       51.8           1.037   |####################
+       71.6           1.194   |#######################
+       91.5           1.121   |######################
+      111.4           1.102   |######################
+      131.3           1.005   |####################
+      151.2           0.977   |###################
+      171.1           1.000   |####################
+      191.1           1.046   |####################
+      210.9           0.933   |##################
+      230.8           0.989   |###################
+      250.8           0.913   |##################
+      270.6           1.050   |#####################
+      290.5           1.028   |####################
+      310.4           0.938   |##################
+      330.3           1.015   |####################
+      350.2           0.951   |###################
+      370.1           1.058   |#####################
+      390.0           0.897   |#################
+  ~666 particles per bin initially; 1-sigma counting noise 5.48%
+  max |ratio-1| = 19.39%   rms = 7.58%   lowest 3 bins = 1.047
+  GATE: PASS  (max deviation < max(10%, 4 sigma); lowest 3 bins within max(5%, 3 sigma))
+  (2876 integrator steps, 8 s)
+
+  BOTH DIRECTIONS: PASS  (asymmetry is the primary diagnostic; backward alone proves nothing)
+
+  --- backward transit time from the 28 m receptor ---
+  receptor z = 30.00 m (level k=3)
+  reached the surface within 900 s: 37.7% of 20000 particles
+  transit time (s): p5=33  p25=74  p50=118  p75=183  p95=312
+  median 2.0 min at z = 30.0 m. Transit scales roughly as z/sigma_w, so the 30 m receptor's 180-290 s should fall to ~60-95 s here; this median is what sizes t_back and therefore the window.
+
+  STAGE 4 GATE: FAIL

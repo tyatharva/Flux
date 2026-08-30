@@ -201,6 +201,137 @@ Both dates are inside HRRR v4 (from 2020-12-02).
 
 *(runs in progress; this section is completed as they land)*
 
+### Run 2 — convective target `case_2023111718`, two windows, through the live ring
+
+**Ran end to end at production scale.** 234 883 steps = 2.0 sim-h + one output interval,
+1442 snapshots, both pauses fired and resumed, LES exited 0, 16:36:49 wall.
+
+**The hand-off, measured on a live LES:**
+
+| | |
+|---|---|
+| staged snapshots vs netCDF dumps written | **1442 vs 1442** |
+| snapshots expected vs delivered, per window | **541 vs 541** |
+| adjustment snapshots drained and dropped | 360 |
+| streamed cadence | 5.0000 s, margin **0.000%** of a 0.5 s bar |
+| release period | **1800.0000 s**, margin **+0.00e+00 s** |
+| **peak staging directory** | **58.3 MB = 1.6 snapshots (2 files)**, against a queue depth of 4 (146 MB) and a whole window of **19.7 GB** |
+| **peak consumer host RSS** | **12.45 GB** = the 11.98 GB field cache + one snapshot, against **~31.7 GB** before the streaming fix |
+| **LES pause per window boundary** | **45.4 s** |
+| window load | 2345 s, i.e. LES-limited and therefore free |
+
+**Acceptance (a): CPU-from-disk vs from-ring — PASS at 0.27× the run's own half-vs-half
+floor.**
+
+| observable | ring | disk | \|diff\| | × floor |
+|---|---|---|---|---|
+| peak | 180 m | 180 m | **0** | 0.00 |
+| centroid | 350.0 m | 356.8 m | 6.8 m | 0.23 |
+| A80 | 14.40 ha | 14.85 ha | 0.45 ha | 0.01 |
+| x80 | 570.2 m | 578.2 m | 8.0 m | 0.27 |
+| integral | 0.9827 | 0.9974 | 0.0147 | 0.015 of the asymptote |
+| **array share** | **25.47%** | **25.45%** | **0.02 points** | 0.00 |
+
+**(c)** the negative-lobe weight fraction is **0.390 on both paths** — signed weights
+preserved. **(d)** fp16 parity is what (a) measures: the disk path is CF-packed to 16 bit
+and the ring is raw fp32. And `window_stats` — the check that would catch a slot-ordering
+or rho-division error in the producer — agrees to **1.3e-07 relative across 20 scalars**,
+i.e. fp32 roundoff.
+
+**Acceptance (b): Gate D1 well-mixed, production closure, BOTH directions — PASS.**
+max \|ratio − 1\| **19.39%**, rms 7.58%, lowest three bins **1.047**, against a 5.48%
+counting-noise floor and a max(10%, 4σ = 21.9%) bar. **This is the deferred item PLAN.md
+records as having no evidence at this grid; the convective half now has it.**
+The script's composite verdict prints FAIL, and it is worth saying why: it is
+`ok and frac > 0.5`, where `frac = 37.7%` is the fraction of 20 000 particles reaching the
+surface within a 900 s `t_limit`. That is a `t_back`-sizing statistic against a picked
+constant, not a statement about the closure.
+
+**The footprint, and the array signal the northerly choice was for:**
+
+| | w0 | w1 |
+|---|---|---|
+| peak | **180 m** | **180 m** |
+| centroid | 350 m at 324.7° | 354 m at 316.0° |
+| A80 | 14.4 ha | 27.9 ha |
+| integral | 0.983 | 1.021 |
+| **array share** | **25.47%** (unwrapped 26.12%) | **19.49%** (20.72%) |
+| achieved direction | 335.3° | 325.9° |
+| achieved `h` | 986 m | 1063 m |
+| `L` | −53.3 m | −46.1 m |
+| **sub-grid fraction of σ_w² at the receptor** | **59.3%** | **57.7%** |
+
+The array is **0.30% of the box by area**, so 25.47% is an **85× enrichment** — against
+1.07% for the pre-registered easterly 24 m target. Kljun on identical cells gives peak
+150 m, A80 23.2 ha, integral 0.894. The sub-grid fraction lands at 59.3% against ~56%
+predicted a priori from the spectra.
+
+**THE NO-OP CONTROL: the peak is the LES's, not the closure's.** The identical window
+recomputed with the σ_w floor OFF:
+
+| | floor ON | floor OFF |
+|---|---|---|
+| **peak** | **180 m** | **180 m** |
+| x80 | 570 m | 701 m |
+| A80 | 14.4 ha | 19.9 ha |
+| array share | 25.47% | 18.11% (**+7.37 points** from the floor) |
+| integral | 0.983 | 0.959 |
+
+The peak does not move; the shape does. The +7.37 points is consistent with the +8.40
+recorded at 10 m.
+
+**Containment (cap raised to 3 L = 10 980 m):** C1 **FAIL at +2.1%** over the last
+quarter-domain against a 2% bar — i.e. marginally at it; C2 ok (x80 599 m against 2928 m);
+C3 ok (+1.1% hidden by the cap). The integral over the `1 − z_m/z_i` asymptote is **1.050**,
+above 1, which truncation cannot cause: the receptor sits in mean subsidence
+(**W = −0.160 m/s**), which is the advective non-closure this project already measures with
+the right sign. **The binding containment case is the flat/neutral control, not this one.**
+
+**Two windows: near-duplicate in shape, but a different condition.** `bin/window_independence.py`:
+
+| observable | w0 | w1 | \|diff\| | floor | × floor |
+|---|---|---|---|---|---|
+| peak | 180.0 | 180.0 | 0.0 | 30.0 | **0.00** |
+| centroid | 350.0 | 353.9 | 3.8 | 331.2 | 0.01 |
+| x80 | 570.2 | 735.5 | 165.3 | 439.8 | 0.38 |
+| array share (group mean) | 32.88% | 19.95% | 12.93 pts | 7.55 | 1.71 (inside 3 SE) |
+
+Median \|diff\|/floor **0.19** → NEAR-DUPLICATE. The release groups' own lagged
+autocorrelation puts the decorrelation time at **180 s** and the two windows' release
+periods are **1800 s** apart, so they are independent draws — and yet the footprints agree
+to a fifth of the within-window floor. **The realisation variance that motivated the
+two-window design is far smaller here than the 44% on record**: the integrals are 0.983 and
+1.021, 3.8% apart, against 1.463 → 1.019 measured on an identical 24 m re-run.
+
+**`z_i` moved +77 m between the windows**, so the pair is **coverage, not replication**: it
+does not reduce noise at a fixed condition, and the corpus still owes averaging within
+condition bins. *(Note: the independence tool compares the MEAN over release groups, which
+is why its w0 array share reads 32.88% where the pooled ensemble share is 25.47%. Both are
+legitimate; the pooled value is the share, the group statistics are the comparison basis.)*
+
+**σ_w against the tower — OUTSIDE the IQR at 0.68× the median, and the reason is not what
+it looks like.** LES σ_w 0.575 m/s against a tower median of 0.848 for the +179 W/m² bin.
+The obvious explanation, a wind-speed mismatch, is **wrong**: the bin's `ustar_median` is
+**0.457** against this case's **0.468**, matched to 2.4%. The real decomposition:
+
+| | σ_w/u* | ζ at 30 m | 1.25·φ_w at that ζ |
+|---|---|---|---|
+| tower bin | 1.855 | −0.737 | 1.844 |
+| this case (LES, unfloored) | **1.230** | −0.532 | **1.718** |
+
+Two things follow. The tower curve **is** MOST — `bin/sigma_w_tower.py` inverts
+σ_w(10) = 1.25 u* φ_w for u* and re-predicts at 30 m, so its 1.855 is its own 1.844 — and
+part of the gap is that the bin sits at a more unstable ζ than this case. Corrected for
+that, the LES still resolves-plus-models only **0.716×** what MOST wants at its own
+stability. The σ_w floor lifts the receptor value to **1.51 u*, i.e. 0.88× MOST**, closing
+about half the gap. **This is the opposite sign to the 10 m failure**, where the LES ran
+2.33–2.99× HIGH with the floor inactive.
+
+**Which of the three this is:** a **measurement**. Not the model breaking, not the physics
+breaking. The stage-7c gate is doing its job — refusing to call a case clean when its σ_w
+is outside the tower's band — and the band is a MOST extrapolation conditioned on heat flux
+alone, which PROJECT_BRIEF.md already records as spanning ~2×.
+
 ### Run 1 — convective seed `seed_cbl-mid_a015`, 1.0 sim-h ceiling
 
 Ran clean: 106 920 steps = **0.917 sim-h** in one invocation (the ceiling rounds DOWN to a
