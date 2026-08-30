@@ -1,5 +1,41 @@
 # The seed library and the sounding-forced corpus
 
+> **RE-COSTED AT 122^3 @ 30 m WITH TWO WINDOWS PER CASE AND NO DISK — 2026-08-30.**
+> Three changes land together and they move the corpus economics more than any of them
+> does alone. Every number below this block that quotes 24 m, one window, or per-case
+> scratch is superseded.
+>
+> | | 24 m, one window, disk | **30 m, two windows, in RAM** |
+> |---|---|---|
+> | domain | 2928 m | **3660 m** |
+> | cost, MEASURED | 0.481 GPU-h/sim-h | **0.495 GPU-h/sim-h** |
+> | case length | 4500 s = 1.25 sim-h | **7200 s = 2.0 sim-h** |
+> | GPU-h per case | 0.60 | **0.99** |
+> | footprints per case | 1 | **2** |
+> | **GPU-h per FOOTPRINT** | **0.60** | **0.50** |
+> | scratch written per case | ~9.4 GB | **~3 MB** |
+> | scratch over the corpus | **~14 TB** | **~4 GB** |
+> | corpus, 1469 cases | ~880 GPU-h, 1469 pairs | **~1455 GPU-h, ~2938 pairs** |
+>
+> **The second window is 20% cheaper per footprint, not free.** It costs 0.75 simulated
+> hours and reuses the seed, the adjustment, the sounding and the surface. Whether it is
+> worth having is a MEASURED question and not a costing one -- `bin/window_independence.py`
+> asks whether the two windows are two draws or one draw written twice, and reports the
+> answer either way. Their release periods are separated by 900 s = `t_back`, so their
+> FIELD intervals are disjoint by construction; that makes independence possible, not
+> certain.
+>
+> **AND THE PAIRS ARE NOT INDEPENDENT SAMPLES FOR SPLITTING PURPOSES.** `<case>_w0` and
+> `<case>_w1` share everything upstream of the window, so `split_key` is the PARENT and the
+> effective sample size for generalisation stays **~1469**, not ~2938. That is enforced in
+> `bin/make_pair.py`, not merely written down.
+>
+> **The ~14 TB is the number that made the hand-off the priority.** It was never a speed
+> problem -- IO is ~3% of compute -- it was that a rented GPU's scratch performance and
+> quota are the one thing this plan could not measure in advance. `SRC/IO/io_lpdmonline.c`
+> removes it: the LES hands each snapshot to the LPDM in RAM and only the final restartable
+> dump, the footprints, the touchdowns and the pairs are written.
+
 > **THE LIBRARY MOVED TO 30 m / 24 m, 2026-08-29 — `jobs24/`, not `jobs/`.** The 15 (later
 > 30) seeds in `jobs/` were built for a 10 m receptor on a 1952 m box and none of them
 > transfers: different `d_zeta`, different `dt`, different domain, different surface `z0`.
