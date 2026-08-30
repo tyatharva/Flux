@@ -62,7 +62,8 @@ class FieldSet:
     """A window of FastEddy dumps held in RAM, with 4-D (t,z,y,x) linear interpolation."""
 
     def __init__(self, paths, dt_model, verbose=True, store_dtype=None,
-                 cache_dtype=np.float32):
+                 cache_dtype=np.float32, defer_load=False,
+                 stream=None, nt=None, geom_dump=None):
         # store_dtype emulates FastEddy writing the LPDM's four fields at reduced
         # precision (PLAN.md Stage 3: fp16 on write takes a 37.5-min window from 82 GB to
         # 16 GB). None = full fp32, as written today.
@@ -77,11 +78,44 @@ class FieldSet:
         # too; at 361 dumps the fp32 cache is 37 GB and fits, so it is not worth doing.
         # Kept because the storage argument still holds for the FILES on disk.
         self.cache_dtype = cache_dtype
-        self.paths = list(paths)
-        steps = np.array([_step_of(p) for p in self.paths], dtype=np.float64)
-        self.t = steps * dt_model                     # seconds of model time
-        self.dt_dump = float(np.diff(self.t).mean()) if len(self.t) > 1 else 0.0
-        nt = len(self.paths)
+        # STREAMED OR BATCHED, AND THE DIFFERENCE IS WHETHER THE WINDOW IS EVER RESIDENT.
+        #
+        # Batched (`paths`) is the original: a list of handles, all available up front, so
+        # the time axis is built immediately and the geometry is found by scanning them.
+        # That is right for netCDF dumps on disk, which is where the CPU-vs-ring acceptance
+        # comparison lives.
+        #
+        # Streamed (`stream` + `nt` + `geom_dump`) is what the in-process hand-off needs:
+        # the snapshots do not exist yet. `nt` sizes the cache in advance -- derivable from
+        # the schedule, see RingConsumer.expected_snapshots, and asserted against what
+        # actually arrives -- and `geom_dump` supplies the coordinates the scan would
+        # otherwise have looked for, which the ring publishes separately as geom.raw before
+        # any snapshot is staged. The time axis is then filled slot by slot in load().
+        self._stream = stream
+        if stream is not None:
+            if nt is None:
+                raise ValueError(
+                    "a streamed FieldSet needs nt up front: the field cache is allocated "
+                    "before the first snapshot arrives and the count cannot be discovered "
+                    "from the stream without holding the whole window, which is the thing "
+                    "streaming exists to avoid. See RingConsumer.expected_snapshots.")
+            if geom_dump is None:
+                raise ValueError(
+                    "a streamed FieldSet needs geom_dump: the coordinate fields are what "
+                    "locate the receptor level, and scanning the snapshots for them would "
+                    "mean reading the window twice. The ring publishes them as geom.raw "
+                    "before staging anything -- see RingConsumer.geometry.")
+            self.paths = []                 # filled as snapshots arrive
+            nt = int(nt)
+            self.t = np.empty(nt, dtype=np.float64)
+            self.dt_dump = 0.0              # set in load(), once the axis exists
+        else:
+            self.paths = list(paths)
+            steps = np.array([_step_of(p) for p in self.paths], dtype=np.float64)
+            self.t = steps * dt_model                     # seconds of model time
+            self.dt_dump = float(np.diff(self.t).mean()) if len(self.t) > 1 else 0.0
+            nt = len(self.paths)
+        self.dt_model = float(dt_model)
 
         # GEOMETRY IS NOT NECESSARILY IN paths[0]. Under ioLPDMmode the static geometry
         # (xPos/yPos/zPos/topoPos) is written to the FIRST FILE OF THE RUN and to any
@@ -90,8 +124,8 @@ class FieldSet:
         # the window as ONE invocation and DELETES the adjustment dumps, so the run's
         # first file is routinely gone by the time this reads. Search the series rather
         # than assuming; bin/domain_adequacy.py already had to learn this.
-        geom = None
-        for _p in self.paths:
+        geom = geom_dump
+        for _p in (self.paths if geom is None else ()):
             with open_dump(_p) as _ds:
                 if "zPos" in _ds.variables and "xPos" in _ds.variables:
                     geom = _p
@@ -142,6 +176,40 @@ class FieldSet:
                              "the vertical map is not the assumed zDeform form")
         self.zk = self.Fk.copy()          # flat-terrain level heights
 
+        self.nt = nt
+        self._verbose = verbose
+        self.mem_gb = 0.0
+        # LOADING IS A SEPARATE STEP SO THE WINDOW NEED NOT BE HELD TWICE.
+        #
+        # Everything above is GEOMETRY, and geometry is what locates the receptor level --
+        # so a caller that needs `k_recept` BEFORE reading any snapshot (which is what
+        # streaming the in-process hand-off requires, because `window_stats` has to
+        # accumulate at that level as each snapshot goes by rather than in a second pass
+        # over snapshots that no longer exist) can construct with defer_load=True, take the
+        # receptor indices off the geometry, and then call load().
+        #
+        # defer_load=False is the default and reproduces the original constructor exactly.
+        if not defer_load:
+            self.load()
+
+    def load(self, stats=None, release_handles=False):
+        """Read every snapshot into the field cache. Called by __init__ unless deferred.
+
+        `stats` -- an `lpdm.les_stats.WindowAccumulator`. Given one, each dump is fed to it
+        inside THIS pass, which is what makes `release_handles` possible: `window_stats`
+        used to re-open every dump a second time, and with the in-process hand-off a second
+        pass means nothing can be freed until both are done.
+
+        `release_handles` -- drop each snapshot's arrays once it has been consumed. For
+        netCDF paths this is a no-op (the file was closed anyway). For the in-process
+        `MemDump`s it is the difference between a **19.7 GB** resident window and one or two
+        snapshots: `RingConsumer.drain_until_pause` returns all 541 of them and this object
+        used to retain the list for its own lifetime, on top of its own 12.0 GB cache.
+        After this, the handles still carry their step -- the time axis is intact -- but
+        their fields are gone and touching one raises rather than returning something stale.
+        """
+        nt, nz, ny, nx = self.nt, self.nz, self.ny, self.nx
+        verbose = self._verbose
         shape = (nt, nz, ny + 1, nx + 1)
         alloc = lambda: np.empty(shape, dtype=self.cache_dtype)
         self.u, self.v, self.w = alloc(), alloc(), alloc()
@@ -154,8 +222,27 @@ class FieldSet:
         dzc = np.gradient(self.zk)
         delta = (self.dx * self.dy * dzc[:, None, None]) ** (1.0 / 3.0)
 
-        for n, p in enumerate(self.paths):
+        src = self._stream if self._stream is not None else self.paths
+        n = -1
+        for n, p in enumerate(src):
+            if self._stream is not None:
+                # STREAMED: the handle only exists now, so the time axis is filled now.
+                if n >= nt:
+                    raise ValueError(
+                        f"the stream delivered more than the {nt} snapshots this cache was "
+                        f"sized for. nt came from the schedule "
+                        f"(RingConsumer.expected_snapshots); one of the two is wrong, and "
+                        f"silently growing the window would change which 30 minutes the "
+                        f"releases cover.")
+                self.paths.append(p)
+                self.t[n] = _step_of(p) * self.dt_model
             with open_dump(p) as ds:
+                # THE WINDOW STATISTICS ARE ACCUMULATED HERE, INSIDE THE ONE PASS, and
+                # deliberately BEFORE this loop reads anything of its own -- the
+                # accumulator's arithmetic is then bit-for-bit the batch loop's, which
+                # bin/test_streaming.py asserts at exactly zero tolerance.
+                if stats is not None:
+                    stats.add(ds, step=_step_of(p))
                 g = lambda v: np.squeeze(np.asarray(ds[v][:], dtype=np.float32))
                 uu, vv, ww = g("u"), g("v"), g("w")
                 ee = np.maximum(g("TKE_0"), 0.0)
@@ -189,8 +276,30 @@ class FieldSet:
                 dst[n] = self._pad(src)
             for dst, src in ((self.ustar, us), (self.z0m, z0), (self.invL, iL)):
                 dst[n] = self._pad2(src)
+            # RELEASED ONLY AFTER EVERY CONSUMER OF THIS SNAPSHOT HAS RUN: the statistics
+            # accumulator above and the cache fill just now. Both are inside this `with`,
+            # so there is no way to add a third consumer that quietly reads a freed handle
+            # -- it would raise here rather than return stale data.
+            if release_handles:
+                rel = getattr(p, "release", None)
+                if rel is not None:
+                    rel()
             if verbose and (n % 25 == 0 or n == nt - 1):
-                print(f"    loaded {n+1}/{nt}  {os.path.basename(p)}", flush=True)
+                print(f"    loaded {n+1}/{nt}  {os.path.basename(str(p))}", flush=True)
+
+        # ASSERT ON WHAT ARRIVED, NOT ON WHAT WAS PROMISED. A window one dump short is a
+        # real failure mode here -- FASTEDDY_TRAPS.md 18b is a whole entry about half a
+        # millisecond of it -- and a short stream would otherwise leave the tail of the
+        # cache as uninitialised np.empty, which is finite, plausible garbage.
+        got = n + 1
+        if got != nt:
+            raise ValueError(
+                f"the stream delivered {got} snapshots against the {nt} this window was "
+                f"sized for. The tail of the field cache is uninitialised memory, so this "
+                f"cannot be tolerated: it would interpolate against plausible garbage "
+                f"rather than fail.")
+        if self._stream is not None:
+            self.dt_dump = float(np.diff(self.t).mean()) if nt > 1 else 0.0
 
         self.mem_gb = sum(a.nbytes for a in
                           (self.u, self.v, self.w, self.e, self.eps, self.dsig2dz)) / 1e9

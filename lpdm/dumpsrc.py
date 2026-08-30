@@ -62,17 +62,24 @@ class MemDump:
     delete.
     """
 
-    __slots__ = ("_a", "step")
+    __slots__ = ("_a", "step", "_released")
 
     def __init__(self, arrays, step):
         self._a = dict(arrays)
         self.step = int(step)
+        self._released = False
 
     # -- the reader interface, and deliberately nothing more ------------------------------
     def __getitem__(self, k):
+        self._check_live(k)
         return self._a[k]
 
     def __contains__(self, k):
+        # A RELEASED SNAPSHOT ANSWERS 'no' TO EVERY PRESENCE TEST, which is a silently
+        # wrong answer rather than a missing one -- FieldSet's geometry scan is exactly
+        # `"zPos" in ds`, and it would walk the whole series finding nothing and then
+        # raise about the wrong thing. Raise here instead.
+        self._check_live(k)
         return k in self._a
 
     def __enter__(self):
@@ -83,7 +90,35 @@ class MemDump:
 
     @property
     def variables(self):
+        self._check_live("variables")
         return self._a
+
+    def _check_live(self, what):
+        if self._released:
+            raise KeyError(
+                f"snapshot at step {self.step} was released, so '{what}' is gone. A "
+                f"streamed window drops each snapshot once it has been consumed into the "
+                f"field cache and the window-statistics accumulator; anything needing a "
+                f"second pass over the raw fields has to run inside that first pass. See "
+                f"MemDump.release and lpdm/fields.py:FieldSet.load.")
+
+    # -- releasing, which is what keeps a streamed window off the host --------------------
+    def release(self):
+        """Drop this snapshot's arrays so the RAM behind them can be reclaimed.
+
+        A `MemDump` is 36.5 MB at 122^3 with five 3-D and three 2-D fields, and a 2700 s
+        window is 541 of them -- **19.7 GB if the consumer keeps them all**, which is what
+        `RingConsumer.drain_until_pause` returns and what `FieldSet` used to retain for its
+        own lifetime on top of its 12.0 GB cache. Deleting the tmpfs file releases the
+        PRODUCER's backpressure and nothing else; only dropping these references releases
+        the consumer's own memory.
+
+        Safe to call twice, and safe to call while the caller still holds the handle: what
+        goes away is the data, so a later `ds["u"]` raises a KeyError naming the snapshot
+        rather than returning something stale.
+        """
+        self._a = {}
+        self._released = True
 
     # -- convenience for building one from a real dump, which is how the test works -------
     @classmethod

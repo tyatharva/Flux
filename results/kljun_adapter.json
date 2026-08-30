@@ -1,0 +1,209 @@
+{
+ "zm": 30.0,
+ "z0": 0.0615,
+ "nx": 2000,
+ "ffp_path": "/work/third_party/FFP/calc_footprint_FFP.py",
+ "tol": 1e-09,
+ "worst_A": 9.41419622711305e-16,
+ "pass": true,
+ "raster": {
+  "integral": 0.8941470891978858,
+  "max_rel_f_ci_on_raster": 0.006215257338189813,
+  "max_rel_if_scored_against_cell_centres": 0.8000845530884532,
+  "peak_cell_x": -135.0,
+  "peak_cell_x_cellavg_reference": -135.0,
+  "x_peak_profile": -119.30622946518568
+ },
+ "cases": [
+  {
+   "case": "convective target (case_2023052519)",
+   "A": {
+    "peak": 1.5589308465204747e-05,
+    "max_abs": 1.3552527156068805e-20,
+    "max_abs_over_peak": 8.693475522867466e-16,
+    "max_rel_where_significant": 1.611951205927082e-14,
+    "x_peak_official": 119.30622946518568,
+    "x_peak_adapter": 119.30622946518568
+   },
+   "B": {
+    "x_peak_ffp": 119.30622946518568,
+    "x_peak_ours": 119.30622946518568,
+    "x_peak_ratio": 1.0,
+    "max_rel_f_ci": 6.327879286336824e-15,
+    "max_rel_sigma_y": 6.6133869447863685e-16,
+    "sigma_y_ratio_ours_over_ffp": 1.0
+   }
+  },
+  {
+   "case": "near-neutral target (case_2023121921)",
+   "A": {
+    "peak": 2.5192721663072263e-05,
+    "max_abs": 2.371692252312041e-20,
+    "max_abs_over_peak": 9.41419622711305e-16,
+    "max_rel_where_significant": 1.598359542522201e-14,
+    "x_peak_official": 160.7056207903725,
+    "x_peak_adapter": 160.7056207903725
+   },
+   "B": {
+    "x_peak_ffp": 160.7056207903725,
+    "x_peak_ours": 160.7056207903725,
+    "x_peak_ratio": 1.0,
+    "max_rel_f_ci": 4.559481502418566e-15,
+    "max_rel_sigma_y": 7.186499714085456e-16,
+    "sigma_y_ratio_ours_over_ffp": 0.9999999999999999
+   }
+  },
+  {
+   "case": "strongly convective, shallow",
+   "A": {
+    "peak": 1.3121228909874548e-05,
+    "max_abs": 1.1858461261560205e-20,
+    "max_abs_over_peak": 9.037614801945852e-16,
+    "max_rel_where_significant": 1.567533081761077e-14,
+    "x_peak_official": 119.3358591658417,
+    "x_peak_adapter": 119.3358591658417
+   },
+   "B": {
+    "x_peak_ffp": 119.3358591658417,
+    "x_peak_ours": 119.3358591658417,
+    "x_peak_ratio": 1.0,
+    "max_rel_f_ci": 1.2946603939939744e-14,
+    "max_rel_sigma_y": 7.070555519781642e-16,
+    "sigma_y_ratio_ours_over_ffp": 1.0000000000000002
+   }
+  },
+  {
+   "case": "convective, deep",
+   "A": {
+    "peak": 1.823879247780389e-05,
+    "max_abs": 1.6940658945086007e-20,
+    "max_abs_over_peak": 9.288256865525677e-16,
+    "max_rel_where_significant": 1.6105097561453785e-14,
+    "x_peak_official": 118.8739489641524,
+    "x_peak_adapter": 118.8739489641524
+   },
+   "B": {
+    "x_peak_ffp": 118.8739489641524,
+    "x_peak_ours": 118.8739489641524,
+    "x_peak_ratio": 1.0,
+    "max_rel_f_ci": 3.114421372344445e-15,
+    "max_rel_sigma_y": 6.42629149035048e-16,
+    "sigma_y_ratio_ours_over_ffp": 1.0
+   }
+  },
+  {
+   "case": "weakly unstable",
+   "A": {
+    "peak": 1.6886744817774185e-05,
+    "max_abs": 1.3552527156068805e-20,
+    "max_abs_over_peak": 8.025541513367372e-16,
+    "max_rel_where_significant": 1.594739383739654e-14,
+    "x_peak_official": 164.8719106896497,
+    "x_peak_adapter": 164.8719106896497
+   },
+   "B": {
+    "x_peak_ffp": 164.8719106896497,
+    "x_peak_ours": 164.8719106896497,
+    "x_peak_ratio": 1.0,
+    "max_rel_f_ci": 3.239653894895558e-15,
+    "max_rel_sigma_y": 6.514300734012925e-16,
+    "sigma_y_ratio_ours_over_ffp": 1.0
+   }
+  },
+  {
+   "case": "L = -4000 (inside the official's oln)",
+   "A": {
+    "peak": 1.7790385754915896e-05,
+    "max_abs": 1.3552527156068805e-20,
+    "max_abs_over_peak": 7.617893924713762e-16,
+    "max_rel_where_significant": 1.509192620205405e-14,
+    "x_peak_official": 185.1398524292757,
+    "x_peak_adapter": 185.1398524292757
+   },
+   "B": {
+    "x_peak_ffp": 185.1398524292757,
+    "x_peak_ours": 185.1398524292757,
+    "x_peak_ratio": 1.0,
+    "max_rel_f_ci": 2.8947539811842573e-15,
+    "max_rel_sigma_y": 6.845797940664749e-16,
+    "sigma_y_ratio_ours_over_ffp": 1.0
+   }
+  },
+  {
+   "case": "L = -50000 (OUTSIDE oln -- the divergence)",
+   "A": {
+    "peak": 2.2200980559379232e-05,
+    "max_abs": 2.0328790734103208e-20,
+    "max_abs_over_peak": 9.156708497505943e-16,
+    "max_rel_where_significant": 1.5939304232138252e-14,
+    "x_peak_official": 185.1398524292757,
+    "x_peak_adapter": 185.1398524292757
+   },
+   "B": {
+    "x_peak_ffp": 185.1398524292757,
+    "x_peak_ours": 185.1398524292757,
+    "x_peak_ratio": 1.0,
+    "max_rel_f_ci": 2.8947539811842573e-15,
+    "max_rel_sigma_y": 0.22448979591836804,
+    "sigma_y_ratio_ours_over_ffp": 1.2244897959183672
+   }
+  },
+  {
+   "case": "L = +inf, the flat/neutral control",
+   "A": {
+    "peak": 1.742757460410748e-05,
+    "max_abs": 1.3552527156068805e-20,
+    "max_abs_over_peak": 7.776484946376089e-16,
+    "max_rel_where_significant": 1.731888627457312e-14,
+    "x_peak_official": 209.64407691296512,
+    "x_peak_adapter": 209.64407691296512
+   },
+   "B": {
+    "x_peak_ffp": 209.64407691296512,
+    "x_peak_ours": 209.64407691296512,
+    "x_peak_ratio": 1.0,
+    "max_rel_f_ci": 6.444142952087125e-15,
+    "max_rel_sigma_y": 0.250000000000001,
+    "sigma_y_ratio_ours_over_ffp": 1.25
+   }
+  },
+  {
+   "case": "stable, +200 (corpus excludes these; scored anyway)",
+   "A": {
+    "peak": 8.436045435914068e-06,
+    "max_abs": 6.776263578034403e-21,
+    "max_abs_over_peak": 8.032511950666345e-16,
+    "max_rel_where_significant": 1.7525333065143373e-14,
+    "x_peak_official": 255.24614321582803,
+    "x_peak_adapter": 255.24614321582803
+   },
+   "B": {
+    "x_peak_ffp": 255.24614321582803,
+    "x_peak_ours": 255.24614321582803,
+    "x_peak_ratio": 1.0,
+    "max_rel_f_ci": 6.3074735553070626e-15,
+    "max_rel_sigma_y": 6.008186139511735e-16,
+    "sigma_y_ratio_ours_over_ffp": 1.0
+   }
+  },
+  {
+   "case": "z0 branch rather than umean",
+   "A": {
+    "peak": 1.6697498311230396e-05,
+    "max_abs": 1.3552527156068805e-20,
+    "max_abs_over_peak": 8.116501588117336e-16,
+    "max_rel_where_significant": 1.5293653695816237e-14,
+    "x_peak_official": 150.04773072733911,
+    "x_peak_adapter": 150.04773072733911
+   },
+   "B": {
+    "x_peak_ffp": 150.04773072733911,
+    "x_peak_ours": 150.04773072733911,
+    "x_peak_ratio": 1.0,
+    "max_rel_f_ci": 3.27596208365448e-15,
+    "max_rel_sigma_y": 6.657839368632365e-16,
+    "sigma_y_ratio_ours_over_ffp": 1.0
+   }
+  }
+ ]
+}

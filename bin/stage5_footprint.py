@@ -29,8 +29,11 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lpdm import kljun
-from lpdm.driver import compute_footprint
+from lpdm.driver import compute_footprint, receptor_indices
+from lpdm.dumpsrc import MemDump
 from lpdm.fields import FieldSet, dump_series, _step_of
+from lpdm.hostwatch import HostWatch, ShmGuard
+from lpdm.les_stats import WindowAccumulator
 from lpdm.ringsrc import RingConsumer
 from lpdm.footprint import source_area_overlap
 
@@ -185,6 +188,7 @@ def main():
     marks = tuple(float(v) for v in a.tback_marks.split(",") if v.strip())
 
     runs = []
+    handoffs = []
     for d in a.dirs:
         # THE LES IS HELD AT ITS PAUSE UNTIL THIS FOOTPRINT IS FINISHED, and that is
         # deliberate rather than lazy. Releasing it early would overlap the LES and the
@@ -193,35 +197,58 @@ def main():
         # ~12 GB has to be free before the next window can be pushed into it. At the
         # measured 153x the integration is short against the window it consumed.
         ring = RingConsumer(d) if a.ring else None
-        pause_step = None
+        pause_step, hostwatch, shm_info, acc = None, None, None, None
+        handoff, t_load, pause_t0 = None, float("nan"), None
+        ctype = np.float16 if a.fp16_cache else np.float32
         if ring is not None:
-            paths, pause_step = ring.drain_until_pause()
-            if not paths:
-                print(f"FATAL: {d} delivered no snapshots", file=sys.stderr)
+            # ---- THE STAGING FILESYSTEM, CHECKED BEFORE ANYTHING IS STAGED -------------
+            # Docker's default /dev/shm is 64 MB and a snapshot here is 36.5 MB. Without
+            # this the case runs for forty minutes and then dies on ENOSPC mid-window; with
+            # it the refusal is at second zero and names the figure it needs.
+            shm_info = ShmGuard(d, ring.meta.snap_bytes, ring.meta.queue).check(fatal=True)
+            print(f"\n=== {d}: in-process hand-off ===")
+            print(f"  staging fs: {shm_info['free_bytes']/1e6:.0f} MB free of "
+                  f"{shm_info['total_bytes']/1e6:.0f} MB, need "
+                  f">= {shm_info['need_bytes']/1e6:.0f} MB "
+                  f"({ring.meta.queue} queued x {ring.meta.snap_bytes/1e6:.1f} MB + 2 "
+                  f"margin) -- OK")
+            if a.t_min is None or a.t_max is None:
+                print("FATAL: --ring needs --t-min and --t-max. The cache is allocated "
+                      "before the first snapshot arrives, so the snapshot count has to "
+                      "come from the schedule; without the bounds it can only be "
+                      "discovered by holding the whole window, which is what streaming "
+                      "exists to avoid.", file=sys.stderr)
                 return 2
+            # ---- THE HOST-SIDE COST, MEASURED RATHER THAN ASSERTED ---------------------
+            hostwatch = HostWatch(d).start()
+            n_expect = ring.expected_snapshots(a.t_min, a.t_max, a.dt)
+            fs = FieldSet(None, a.dt, verbose=False, cache_dtype=ctype, defer_load=True,
+                          stream=ring.iter_until_pause(),
+                          nt=n_expect, geom_dump=MemDump(ring.geometry(), step=0))
+            paths = fs.paths            # filled snapshot by snapshot during load()
+            print(f"  expecting {n_expect} snapshots over "
+                  f"{a.t_min:.0f}-{a.t_max:.0f} s at a "
+                  f"{ring.meta.frq_output * a.dt:.1f} s cadence")
         else:
             paths = dump_series(d)
-        for bound, name, lower in ((a.t_min, "--t-min", True), (a.t_max, "--t-max", False)):
-            if bound is None:
-                continue
-            if lower:
-                keep = [p for p in paths if _step_of(p) * a.dt >= bound - 0.5 * a.dt]
-            else:
-                keep = [p for p in paths if _step_of(p) * a.dt <= bound + 0.5 * a.dt]
-            if len(keep) != len(paths):
-                print(f"  {name} {bound:.0f} s dropped {len(paths)-len(keep)} of "
-                      f"{len(paths)} dumps outside this window")
-            if not keep:
-                print(f"FATAL: {name} {bound:.0f} s leaves no fields in {d}",
-                      file=sys.stderr)
-                return 2
-            paths = keep
-        print(f"\n=== {d}: {len(paths)} {'staged snapshots' if ring else 'dumps'} ===")
-        t0 = time.time()
-        fs = FieldSet(paths, a.dt, verbose=False,
-                      cache_dtype=np.float16 if a.fp16_cache else np.float32)
-        print(f"  cache {fs.mem_gb:.2f} GB, window {fs.t[0]:.0f}-{fs.t[-1]:.0f} s "
-              f"(cadence {fs.dt_dump:.1f} s), loaded in {time.time()-t0:.0f} s")
+            for bound, name, lower in ((a.t_min, "--t-min", True),
+                                       (a.t_max, "--t-max", False)):
+                if bound is None:
+                    continue
+                if lower:
+                    keep = [p for p in paths if _step_of(p) * a.dt >= bound - 0.5 * a.dt]
+                else:
+                    keep = [p for p in paths if _step_of(p) * a.dt <= bound + 0.5 * a.dt]
+                if len(keep) != len(paths):
+                    print(f"  {name} {bound:.0f} s dropped {len(paths)-len(keep)} of "
+                          f"{len(paths)} dumps outside this window")
+                if not keep:
+                    print(f"FATAL: {name} {bound:.0f} s leaves no fields in {d}",
+                          file=sys.stderr)
+                    return 2
+                paths = keep
+            print(f"\n=== {d}: {len(paths)} dumps ===")
+            fs = FieldSet(paths, a.dt, verbose=False, cache_dtype=ctype, defer_load=True)
         cover = None
         if a.cover_dir:
             z0 = np.load(os.path.join(a.cover_dir, "z0m.npy"))
@@ -256,8 +283,54 @@ def main():
             m_ = np.load(os.path.join(a.receptor_from, 'meta.npy'), allow_pickle=True).item()
             rij = (m_['itower'], m_['jtower'])
             print(f"  receptor pinned to the TOWER cell (i,j) = {rij}")
+        # ---- THE LOAD, AND FOR THE RING IT IS THE STREAM ------------------------------
+        # Everything above is geometry and static surface, and none of it needs a field --
+        # which is what lets the receptor level be located BEFORE the first snapshot
+        # arrives. That ordering is the whole trick: `window_stats` has to accumulate at
+        # the receptor level as each snapshot goes past, because a second pass over
+        # snapshots that were released as they were consumed is not available.
+        t0 = time.time()
+        if ring is not None:
+            i_r0, j_r0, k_r0 = receptor_indices(fs, a.z_target, ij=rij,
+                                                exact_agl=a.exact_agl)
+            acc = WindowAccumulator(fs.zpos[:, 0, 0], k_r0)
+            print(f"  receptor level k = {k_r0:.4f}; streaming, releasing each snapshot "
+                  f"as it is consumed")
+        fs.load(stats=acc, release_handles=ring is not None)
+        t_load = time.time() - t0
+        if ring is not None:
+            pause_step = ring.last_pause_step
+            if pause_step is None:
+                print(f"FATAL: {d} ended without a pause marker, so the LES finished "
+                      f"rather than handing this window over. A window that was never "
+                      f"paused was never complete.", file=sys.stderr)
+                return 2
+            # THE LES IS BLOCKED FROM THIS INSTANT UNTIL resume(). Timed from the pause
+            # marker's own mtime rather than from now, so the ~2 ms the consumer takes to
+            # notice it is counted against the hand-off and not hidden by it.
+            try:
+                pause_t0 = os.path.getmtime(os.path.join(d, f"pause.{pause_step}"))
+            except OSError:
+                pause_t0 = time.time()
+        print(f"  cache {fs.mem_gb:.2f} GB, window {fs.t[0]:.0f}-{fs.t[-1]:.0f} s "
+              f"(cadence {fs.dt_dump:.1f} s), loaded in {t_load:.0f} s")
+        if a.strict_rel and ring is not None:
+            # THE STREAM'S OWN CADENCE, ASSERTED. run_window.sh derives dt so frqOutput*dt
+            # lands the output cadence on an integer step count, and FASTEDDY_TRAPS.md 18b
+            # is a whole entry about scoring that against a constant instead of against a
+            # tenth of the measured interval. Same rule here.
+            want = ring.meta.frq_output * a.dt
+            if abs(fs.dt_dump - want) > 0.1 * want:
+                print(f"FATAL: the streamed cadence is {fs.dt_dump:.4f} s against "
+                      f"{want:.4f} s from the ring meta -- a dump was lost or duplicated",
+                      file=sys.stderr)
+                return 2
+            print(f"  cadence {fs.dt_dump:.4f} s against {want:.4f} s expected, margin "
+                  f"{abs(fs.dt_dump - want) / want * 100:.3f}% of a {0.1 * want:.3f} s bar")
+        st_pre = acc.finish() if acc is not None else None
         from lpdm.model import SURFACE_LAYER_ANISO
-        r = compute_footprint(fs, paths, z_target=a.z_target, exact_agl=a.exact_agl,
+        r = compute_footprint(fs, paths, stats=st_pre,
+                              z_target=a.z_target, exact_agl=a.exact_agl,
                               n_per_release=a.nrel, dt_release=a.dtrel,
                               t_back=a.tback, c0=a.c0, seed=len(runs), cover=cover,
                               aniso=SURFACE_LAYER_ANISO if a.aniso else None,
@@ -277,7 +350,29 @@ def main():
             # reporting below. The window's arrays are already held here, so nothing the
             # LES does next can disturb them.
             ring.resume(pause_step)
-            print(f"  released the LES at step {pause_step}")
+            pause_s = (time.time() - pause_t0) if pause_t0 else float("nan")
+            print(f"  released the LES at step {pause_step} after {pause_s:.1f} s paused")
+            hw = hostwatch.stop() if hostwatch is not None else {}
+            # WHAT THE HAND-OFF ACTUALLY COST THE HOST. Reported, never gated: a threshold
+            # here would be a number picked rather than derived, and the measurement is the
+            # point. Steady state should be one or two snapshots of staging and a resident
+            # set dominated by the field cache -- if either is a window's worth, the stream
+            # is not streaming.
+            snap_mb = ring.meta.snap_bytes / 1e6
+            print(f"  host peak RSS {hw.get('peak_rss_gb', float('nan')):.2f} GB "
+                  f"(field cache {fs.mem_gb:.2f} GB + {snap_mb:.1f} MB/snapshot)")
+            print(f"  staging dir peak {hw.get('peak_staging_mb', float('nan')):.1f} MB = "
+                  f"{hw.get('peak_staging_mb', 0.0) / max(snap_mb, 1e-9):.1f} snapshots, "
+                  f"against a producer queue depth of {ring.meta.queue} "
+                  f"({ring.meta.queue * snap_mb:.0f} MB) and a whole window of "
+                  f"{len(paths) * snap_mb / 1e3:.1f} GB")
+            handoff = {"pause_step": int(pause_step), "pause_seconds": float(pause_s),
+                       "load_seconds": float(t_load), "shm": shm_info,
+                       "snapshots": len(paths), "snap_bytes": int(ring.meta.snap_bytes),
+                       "queue_depth": int(ring.meta.queue),
+                       "window_bytes_if_retained": int(len(paths) * ring.meta.snap_bytes),
+                       "cache_gb": float(fs.mem_gb)}
+            handoff.update(hw)
         if a.sgs_scale != 1.0:
             print("  SUB-GRID VARIANCE SCALED by %.3f (diagnostic)" % a.sgs_scale)
         if a.aniso:
@@ -308,6 +403,7 @@ def main():
         print(f"  integral of f_flux over the raster = {r['grid'].integral():.3f} "
               f"(all touchdowns {r['grid'].integral_all():.3f})")
         runs.append((d, fs, r))
+        handoffs.append(handoff)
         del fs.u, fs.v, fs.w, fs.e, fs.eps, fs.dsig2dz
 
     d0, fs0, r0 = runs[0]
@@ -389,6 +485,10 @@ def main():
               f"in its manifest; whether the case inherits it is the open question in "
               f"bin/direction_drift.py.")
 
+    # THE HAND-OFF'S OWN COST, IN THE RECORD. The argument for the in-process path
+    # is that it removes ~20 GB of scratch per case; that is a claim about a
+    # measurement, so the measurement travels with the footprint rather than living
+    # in a log that is deleted with the fields.
     out = dict(dirs=a.dirs, zm=zm, zm_agl=zm_agl, d_recept=st.get("d_recept", 0.0),
                dwdir_dt_window_deg_per_h=dwdir_window,
                wdir_per_dump=[float(x) for x in _wd],
@@ -398,6 +498,7 @@ def main():
                les=m_les, kljun=m_kl, overlap_kljun=ov80, overlap50_kljun=ov50,
                integral_les=g0.integral(), integral_les_all=g0.integral_all(),
                integral_kljun=float(kl.sum() * g0.area),
+               handoff=[h for h in handoffs if h],
                integral_asymptote=float(_asym),
                # THE CAP THAT WAS USED, recorded so a reader can tell a run made AT the cap
                # from one made past it. Without it the by-displacement ladder's flat tail is

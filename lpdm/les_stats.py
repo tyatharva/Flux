@@ -83,195 +83,252 @@ def bl_depth(tk, z, thresh=None, frac=0.05, damp_frac=DAMP_FRAC):
     return float(z[k_pk + ab[0]]) if len(ab) else float(z[k_min])
 
 
-def window_stats(paths, k_recept):
-    """Ensemble statistics over a series of dumps, at the receptor level.
+def zlevels_of(paths):
+    """The static level-height column, from the first dump in the series that carries it.
 
-    `k_recept` may be FRACTIONAL. It has to be, once the surface build can raise topoPos
-    by the displacement height over the array: the receptor is pinned to a fixed height
-    above BARE GROUND, so over a raised patch it sits between two model levels rather than
-    on one. The receptor-level moments are then taken from the linearly interpolated
-    field, which is exactly what the LPDM's own 4-D interpolation does at that height --
-    interpolating the finished variances instead would be a different quantity.
+    Level heights are STATIC, so they are read ONCE rather than from every dump -- but NOT
+    necessarily from paths[0]. Under ioLPDMmode the coordinate geometry goes to the first
+    file of a RUN and to the ioLPDMfullFrq multiples; a target case runs the adjustment and
+    the window as one invocation and DELETES the adjustment dumps, so the run's first file
+    is routinely gone by the time this reads. bin/run_window.sh sets ioLPDMfullFrq so the
+    first SURVIVING dump is full-form and asserts that it is, which makes paths[0] correct
+    in production -- but lpdm/fields.py already had to learn to search rather than assume,
+    and a caller that subsamples the series (bin/stage4_wellmixed.py takes paths[::n])
+    should not depend on which end it kept.
     """
-    kf = float(k_recept)
-    k0 = int(np.floor(kf))
-    fr = kf - k0
-    U = V = 0.0
-    uu = vv = ww = uv = 0.0
-    esgs = 0.0
-    tke_prof = None
-    ww_prof = None          # resolved sigma_w^2(z), horizontal variance per level
-    esgs_prof = None        # mean sub-grid TKE(z)
-    zlev = None
-    ust = hfx = th0 = 0.0
-    n = 0
-    # PER-DUMP DIRECTION, SO THE DRIFT INSIDE THE WINDOW CAN BE MEASURED AT ALL.
-    # The seed library's dominant skill axis is direction, and the one thing measured
-    # about it -- that the 30-minute adjustment WIDENS a gap rather than closing it --
-    # rests on comparing a window MEAN against a requested value. That says the gap moved
-    # but not how fast, and the window's own fields are deleted at the end of every case,
-    # so it cannot be recovered afterwards. Two floats per dump make the rate recoverable
-    # from the training record instead of from fields that no longer exist.
-    uv_series, step_series = [], []
-    # Level heights are STATIC, so they are read ONCE rather than from every dump -- but
-    # NOT necessarily from paths[0]. Under ioLPDMmode the coordinate geometry goes to the
-    # first file of a RUN and to the ioLPDMfullFrq multiples; a target case runs the
-    # adjustment and the window as one invocation and DELETES the adjustment dumps, so the
-    # run's first file is routinely gone by the time this reads. bin/run_window.sh sets
-    # ioLPDMfullFrq so the first SURVIVING dump is full-form and asserts that it is, which
-    # makes paths[0] correct in production -- but lpdm/fields.py already had to learn to
-    # search rather than assume, and a caller that subsamples the series
-    # (bin/stage4_wellmixed.py takes paths[::n]) should not depend on which end it kept.
-    zsrc = None
     for _p in paths:
         with open_dump(_p) as _ds:
             if "zPos" in _ds.variables:
-                zsrc = _p
-                break
-    if zsrc is None:
-        raise KeyError(
-            "no dump in this series carries zPos, so the receptor level cannot be "
-            "located. Under ioLPDMmode only the first file of a run and the "
-            "ioLPDMfullFrq multiples do -- see bin/run_window.sh.")
-    with open_dump(zsrc) as ds0:
-        z = np.squeeze(np.asarray(ds0["zPos"][:], dtype=np.float64))[:, 0, 0]
-    nz = len(z)
-    k0 = int(np.clip(k0, 0, nz - 1))
-    k1 = min(k0 + 1, nz - 1)
-    f1 = fr if k1 > k0 else 0.0
-    lev = lambda a: (1.0 - f1) * a[k0] + f1 * a[k1]      # receptor-level 2-D slice
-    for p in paths:
-        with open_dump(p) as ds:
-            g = lambda v: np.squeeze(np.asarray(ds[v][:], dtype=np.float64))
-            u, v, w = g("u"), g("v"), g("w")
-            e = np.maximum(g("TKE_0"), 0.0)
-            ust += float(g("fricVel").mean())
-            # THE SURFACE FLUX IS DERIVED PER CELL FOR EVERY DUMP, AND THE BRANCH THAT
-            # USED htFlux WHEN IT HAPPENED TO BE PRESENT IS GONE.
-            #
-            # It read "htFlux is not written by the fork's ioLPDMmode, so fall back to
-            # invOblen", and that premise was stale: ioLPDMfullFrq writes a FULL dump at
-            # every multiple of its setting, and a full dump carries htFlux. So a lean
-            # window silently mixed TWO estimators -- measured on case_2023052519, 2 of 12
-            # sampled dumps took the htFlux branch and 10 took the derived one -- and the
-            # window mean was a mean of neither. The two agree to 1.3e-7 here, so nothing
-            # downstream was ever wrong by a visible amount; what was wrong is that the
-            # estimator depended on the IO MODE, which is the "a diagnostic is only as
-            # scale-free as its reference" rule wearing a different hat. Found by
-            # bin/test_ringsrc.py, because the in-process ring carries no htFlux and so
-            # could not reproduce the mixture.
-            #
-            # Deriving everywhere is not a compromise: as the note below says, the
-            # per-cell product IS htFlux_c, so this is the same quantity computed the same
-            # way for every dump under every output mode.
-            if True:
-                # PER CELL, THEN AVERAGE -- NEVER THE OTHER WAY ROUND.
-                #
-                # invOblen is 1/L = -kappa g htFlux/(u*^3 theta) (cuda_surfaceLayerDevice.cu
-                # :426). Averaging THAT and then multiplying by a mean u*^3 is the mean of a
-                # RATIO whose denominator is u*^3, so the average is dominated by whichever
-                # cells happen to have the smallest friction velocity -- and over a
-                # heterogeneous surface with a strong flux there are always some.
-                #
-                # MEASURED, on case_2023052519 (convective, w'th_v' = 0.291 K m/s over the
-                # raised surface): the mean-of-the-ratio form returned hfx = 43.09 K m/s and
-                # therefore L = -0.17 m, against a true -25 m. That is a factor of 148, it
-                # went straight into Kljun's x_peak and into the sigma_w floor's zeta, and
-                # NOTHING complained -- every downstream number was finite and plausible.
-                # The earlier 10 m cases hid it because their fluxes were near zero, where
-                # the two forms agree.
-                #
-                # The per-cell product is exact by construction: -u*_c^3 theta iL_c/(kappa g)
-                # IS htFlux_c, so its mean is the mean surface flux and nothing else.
-                iL_ = g("invOblen")
-                us_ = g("fricVel")
-                th_ = g("theta")[0]
-                hfx += float((-(us_ ** 3) * th_ * iL_ / (KAPPA * G)).mean())
-            th0 += float(g("theta")[0].mean())
+                return np.squeeze(np.asarray(_ds["zPos"][:], dtype=np.float64))[:, 0, 0]
+    raise KeyError(
+        "no dump in this series carries zPos, so the receptor level cannot be "
+        "located. Under ioLPDMmode only the first file of a run and the "
+        "ioLPDMfullFrq multiples do -- see bin/run_window.sh.")
+
+
+class WindowAccumulator:
+    """`window_stats` as a ONE-PASS accumulator, so a window need not be held in RAM.
+
+    WHY THIS SHAPE. `window_stats(paths, k)` opened every dump a SECOND time, after
+    `FieldSet` had already opened every one to build its cache. With netCDF handles that
+    costs a re-read; with the in-process hand-off it costs 19.7 GB, because the snapshots
+    are `MemDump`s and a second pass means nothing can be released until both passes are
+    done. Streaming needs the two passes fused into one.
+
+    **The estimator is not re-implemented and is not re-ordered.** `window_stats` below is
+    now a thin loop over this class, so there is exactly one implementation of the
+    arithmetic and the batch and streamed results are bit-identical rather than
+    approximately equal -- which `bin/test_streaming.py` asserts, at zero tolerance,
+    because there is no physics between the two.
+
+    `k_recept` may be FRACTIONAL. It has to be, once the surface build can raise topoPos by
+    the displacement height over the array: the receptor is pinned to a fixed height above
+    BARE GROUND, so over a raised patch it sits between two model levels rather than on
+    one. The receptor-level moments are taken from the linearly interpolated FIELD, which
+    is exactly what the LPDM's own 4-D interpolation does at that height -- interpolating
+    the finished variances instead would be a different quantity, which is also why this
+    class needs `k_recept` UP FRONT and cannot defer the level choice to `finish()`.
+    """
+
+    def __init__(self, z, k_recept):
+        self.z = np.asarray(z, dtype=np.float64)
+        kf = float(k_recept)
+        k0 = int(np.floor(kf))
+        fr = kf - k0
+        nz = len(self.z)
+        self.kf = kf
+        self.k0 = int(np.clip(k0, 0, nz - 1))
+        self.k1 = min(self.k0 + 1, nz - 1)
+        self.f1 = fr if self.k1 > self.k0 else 0.0
+        self.U = self.V = 0.0
+        self.uu = self.vv = self.ww = self.uv = 0.0
+        self.esgs = 0.0
+        self.tke_prof = None
+        self.ww_prof = None       # resolved sigma_w^2(z), horizontal variance per level
+        self.esgs_prof = None     # mean sub-grid TKE(z)
+        self.zlev = None
+        self.ust = self.hfx = self.th0 = 0.0
+        self.n = 0
+        # PER-DUMP DIRECTION, SO THE DRIFT INSIDE THE WINDOW CAN BE MEASURED AT ALL.
+        # The seed library's dominant skill axis is direction, and the one thing measured
+        # about it -- that the 30-minute adjustment WIDENS a gap rather than closing it --
+        # rests on comparing a window MEAN against a requested value. That says the gap
+        # moved but not how fast, and the window's own fields are deleted at the end of
+        # every case, so it cannot be recovered afterwards. Two floats per dump make the
+        # rate recoverable from the training record instead of from fields that no longer
+        # exist.
+        self.uv_series, self.step_series = [], []
+
+    def _lev(self, a):
+        """The receptor-level 2-D slice of a 3-D field."""
+        return (1.0 - self.f1) * a[self.k0] + self.f1 * a[self.k1]
+
+    def add(self, ds, step=None):
+        """Accumulate one OPEN dump. `ds` is whatever `open_dump` returned."""
+        z = self.z
+        g = lambda v: np.squeeze(np.asarray(ds[v][:], dtype=np.float64))
+        u, v, w = g("u"), g("v"), g("w")
+        e = np.maximum(g("TKE_0"), 0.0)
+        self.ust += float(g("fricVel").mean())
+        # THE SURFACE FLUX IS DERIVED PER CELL FOR EVERY DUMP, AND THE BRANCH THAT
+        # USED htFlux WHEN IT HAPPENED TO BE PRESENT IS GONE.
+        #
+        # It read "htFlux is not written by the fork's ioLPDMmode, so fall back to
+        # invOblen", and that premise was stale: ioLPDMfullFrq writes a FULL dump at
+        # every multiple of its setting, and a full dump carries htFlux. So a lean
+        # window silently mixed TWO estimators -- measured on case_2023052519, 2 of 12
+        # sampled dumps took the htFlux branch and 10 took the derived one -- and the
+        # window mean was a mean of neither. The two agree to 1.3e-7 here, so nothing
+        # downstream was ever wrong by a visible amount; what was wrong is that the
+        # estimator depended on the IO MODE, which is the "a diagnostic is only as
+        # scale-free as its reference" rule wearing a different hat. Found by
+        # bin/test_ringsrc.py, because the in-process ring carries no htFlux and so
+        # could not reproduce the mixture.
+        #
+        # Deriving everywhere is not a compromise: as the note below says, the
+        # per-cell product IS htFlux_c, so this is the same quantity computed the same
+        # way for every dump under every output mode.
+        #
+        # PER CELL, THEN AVERAGE -- NEVER THE OTHER WAY ROUND.
+        #
+        # invOblen is 1/L = -kappa g htFlux/(u*^3 theta) (cuda_surfaceLayerDevice.cu
+        # :426). Averaging THAT and then multiplying by a mean u*^3 is the mean of a
+        # RATIO whose denominator is u*^3, so the average is dominated by whichever
+        # cells happen to have the smallest friction velocity -- and over a
+        # heterogeneous surface with a strong flux there are always some.
+        #
+        # MEASURED, on case_2023052519 (convective, w'th_v' = 0.291 K m/s over the
+        # raised surface): the mean-of-the-ratio form returned hfx = 43.09 K m/s and
+        # therefore L = -0.17 m, against a true -25 m. That is a factor of 148, it
+        # went straight into Kljun's x_peak and into the sigma_w floor's zeta, and
+        # NOTHING complained -- every downstream number was finite and plausible.
+        # The earlier 10 m cases hid it because their fluxes were near zero, where
+        # the two forms agree.
+        #
+        # The per-cell product is exact by construction: -u*_c^3 theta iL_c/(kappa g)
+        # IS htFlux_c, so its mean is the mean surface flux and nothing else.
+        iL_ = g("invOblen")
+        us_ = g("fricVel")
+        th_ = g("theta")[0]
+        self.hfx += float((-(us_ ** 3) * th_ * iL_ / (KAPPA * G)).mean())
+        self.th0 += float(g("theta")[0].mean())
+        lev = self._lev
         ur, vr, wr = lev(u), lev(v), lev(w)
         Uk, Vk = ur.mean(), vr.mean()
-        U += Uk; V += Vk
-        uu += ((ur - Uk) ** 2).mean()
-        vv += ((vr - Vk) ** 2).mean()
-        uv += ((ur - Uk) * (vr - Vk)).mean()
-        esgs += float(lev(e).mean())
-        ww += ((wr - wr.mean()) ** 2).mean()
+        self.U += Uk
+        self.V += Vk
+        self.uu += ((ur - Uk) ** 2).mean()
+        self.vv += ((vr - Vk) ** 2).mean()
+        self.uv += ((ur - Uk) * (vr - Vk)).mean()
+        self.esgs += float(lev(e).mean())
+        self.ww += ((wr - wr.mean()) ** 2).mean()
         pr = lambda a: a - a.mean(axis=(-2, -1), keepdims=True)
         t = 0.5 * ((pr(u) ** 2) + (pr(v) ** 2) + (pr(w) ** 2)).mean(axis=(-2, -1))
-        tke_prof = t if tke_prof is None else tke_prof + t
+        self.tke_prof = t if self.tke_prof is None else self.tke_prof + t
         wp = (pr(w) ** 2).mean(axis=(-2, -1))
         ep = e.mean(axis=(-2, -1))
-        ww_prof = wp if ww_prof is None else ww_prof + wp
-        esgs_prof = ep if esgs_prof is None else esgs_prof + ep
-        zlev = z
-        n += 1
-        uv_series.append((float(Uk), float(Vk)))
-        # `p`, THE MAIN LOOP'S VARIABLE -- not `_p`, which belongs to the zsrc search
-        # above and stays bound to the FIRST file carrying zPos because that loop breaks.
-        # Using it here stamped every dump with step 123120, so the time axis had zero
-        # span and the fitted drift came out +19.3 and +59.9 deg/h on two cases whose
-        # direction was actually BACKING by 14.9 and 7.2 deg. A plausible number from a
-        # stale variable, with nothing complaining -- the house failure mode.
-        # AND IT IS PARSED BY dumpsrc.step_of, NOT BY rsplit HERE. A handle is not
-        # always a path: the in-process ring hands this function MemDump objects, whose
-        # str() has no trailing ".<step>" -- so the rsplit raised, the except swallowed
-        # it, and the series silently became 0,1,2,... The time axis then spans 9 STEPS
-        # instead of 82,134, and every rate derived from it is out by four orders of
-        # magnitude. Same shape as the stale-variable bug described just above, and
-        # bin/test_dumpsrc.py is what caught it: the fallback is kept for a handle that
-        # genuinely has no step, but it now SAYS SO instead of quietly returning an index.
-        try:
-            step_series.append(step_of(p))
-        except (AttributeError, ValueError, IndexError):
-            if n == 1:
-                print(f"  WARNING: dump handle {p!r} carries no timestep; the step series "
+        self.ww_prof = wp if self.ww_prof is None else self.ww_prof + wp
+        self.esgs_prof = ep if self.esgs_prof is None else self.esgs_prof + ep
+        self.zlev = z
+        self.n += 1
+        self.uv_series.append((float(Uk), float(Vk)))
+        # THE STEP IS PASSED IN, NOT PARSED HERE, and the reason is a bug that produced a
+        # plausible wrong number. The batch loop below used to parse it off the handle
+        # inside this body, and an earlier version of that used `_p` -- the variable the
+        # zPos SEARCH left bound to the first file it found -- so every dump was stamped
+        # with the same step, the time axis had zero span, and the fitted direction drift
+        # came out +19.3 and +59.9 deg/h on two cases whose direction was actually BACKING
+        # by 14.9 and 7.2 deg.
+        #
+        # AND A HANDLE IS NOT ALWAYS A PATH: the in-process ring hands these readers
+        # MemDump objects, whose str() has no trailing ".<step>", so a rsplit raised, the
+        # except swallowed it, and the series silently became 0,1,2,... -- a time axis
+        # spanning 9 STEPS instead of 82,134, and every rate off by four orders of
+        # magnitude. bin/test_dumpsrc.py is what caught it. The fallback for a handle that
+        # genuinely has no step is kept, and it SAYS SO instead of quietly returning an
+        # index.
+        if step is None:
+            if self.n == 1:
+                print(f"  WARNING: this dump handle carries no timestep; the step series "
                       f"falls back to the dump INDEX, so any rate derived from it is in "
                       f"units of dumps, not steps.")
-            step_series.append(n - 1)
-    U /= n; V /= n; uu /= n; vv /= n; ww /= n; uv /= n; esgs /= n
-    sgs = (2.0 / 3.0) * esgs        # isotropic sub-grid variance per component
-    ust /= n; hfx /= n; th0 /= n
-    tke_prof /= n
-    ww_prof /= n
-    esgs_prof /= n
+            self.step_series.append(self.n - 1)
+        else:
+            self.step_series.append(int(step))
 
-    wdir = (270.0 - np.degrees(np.arctan2(V, U))) % 360.0     # meteorological
-    spd = float(np.hypot(U, V))
-    # rotate the (co)variances into the mean-wind frame: sigma_v is the CROSSWIND one
-    ang = np.arctan2(V, U)
-    ca, sa = np.cos(ang), np.sin(ang)
-    # Kljun's sigma_v is the CROSSWIND fluctuation, so the full rotation is needed --
-    # dropping the u'v' cross term biases it whenever the stress tensor is not aligned
-    # with the grid, which in an Ekman layer it never quite is.
-    sig_v_res = max(sa * sa * uu - 2.0 * sa * ca * uv + ca * ca * vv, 0.0)
-    sig_v = float(np.sqrt(sig_v_res + sgs))
-    # boundary-layer height: highest level with resolved TKE above 5% of its maximum
-    # 5% of the profile's own peak, bounded by the decay minimum -- see bl_depth above for
-    # why the bound is not optional. This is the corpus input `h` and the currency
-    # bin/pick_seed.py matches seeds in; the seed GATE uses a fixed threshold instead,
-    # because it scores a trend and a peak-normalised threshold moves with the peak
-    # (FASTEDDY_TRAPS.md 16).
-    h = bl_depth(tke_prof, z, frac=0.05)
-    # AND IT MUST NEVER BE THE TOP OF THE COLUMN. `h` is a corpus INPUT and it also sets
-    # the sigma_w floor's mixed-layer blend, so a fallback value does not announce itself
-    # anywhere downstream -- it just makes a plausible footprint out of the wrong closure.
-    # bl_depth cannot return z[-1] any more; this asserts that it did not.
-    if h >= 0.98 * float(z[-1]):
-        raise ValueError(
-            f"h came out {h:.0f} m against a column top of {z[-1]:.0f} m. That is the "
-            f"estimator failing to find a boundary layer, not a 2.5 km one: it would go "
-            f"into the training record as a feature and into the sigma_w floor as the "
-            f"mixed-layer blend height. See lpdm/les_stats.py:bl_depth.")
-    L = (-ust ** 3 * th0 / (KAPPA * G * hfx)) if abs(hfx) > 1e-6 else np.inf
-    return dict(z=z, z_recept=float(lev(z)), k_recept=kf, u_mean=spd, wdir=float(wdir),
-                sigma_u=float(np.sqrt(uu + sgs)), sigma_v=sig_v,
-                sigma_w=float(np.sqrt(ww + sgs)),
-                sigma_v_resolved=float(np.sqrt(sig_v_res)),
-                sigma_w_resolved=float(np.sqrt(ww)), e_sgs=float(esgs),
-                ustar=float(ust), htFlux=float(hfx), theta0=float(th0),
-                L=float(L), h=h, tke_prof=tke_prof, n_dumps=n,
-                wdir_per_dump=[float((270.0 - np.degrees(np.arctan2(v_, u_))) % 360.0)
-                               for (u_, v_) in uv_series],
-                step_per_dump=[int(x) for x in step_series],
-                ww_prof=ww_prof, esgs_prof=esgs_prof, zlev=zlev,
-                U=float(U), V=float(V))
+    def finish(self):
+        """The window's statistics. Identical to what the batch loop always returned."""
+        n = self.n
+        if not n:
+            raise ValueError("no dumps were accumulated; there is no window to describe")
+        z = self.z
+        U, V = self.U / n, self.V / n
+        uu, vv, ww, uv = self.uu / n, self.vv / n, self.ww / n, self.uv / n
+        esgs = self.esgs / n
+        sgs = (2.0 / 3.0) * esgs        # isotropic sub-grid variance per component
+        ust, hfx, th0 = self.ust / n, self.hfx / n, self.th0 / n
+        tke_prof = self.tke_prof / n
+        ww_prof = self.ww_prof / n
+        esgs_prof = self.esgs_prof / n
+
+        wdir = (270.0 - np.degrees(np.arctan2(V, U))) % 360.0     # meteorological
+        spd = float(np.hypot(U, V))
+        # rotate the (co)variances into the mean-wind frame: sigma_v is the CROSSWIND one
+        ang = np.arctan2(V, U)
+        ca, sa = np.cos(ang), np.sin(ang)
+        # Kljun's sigma_v is the CROSSWIND fluctuation, so the full rotation is needed --
+        # dropping the u'v' cross term biases it whenever the stress tensor is not aligned
+        # with the grid, which in an Ekman layer it never quite is.
+        sig_v_res = max(sa * sa * uu - 2.0 * sa * ca * uv + ca * ca * vv, 0.0)
+        sig_v = float(np.sqrt(sig_v_res + sgs))
+        # boundary-layer height: highest level with resolved TKE above 5% of its maximum
+        # 5% of the profile's own peak, bounded by the decay minimum -- see bl_depth above
+        # for why the bound is not optional. This is the corpus input `h` and the currency
+        # bin/pick_seed.py matches seeds in; the seed GATE uses a fixed threshold instead,
+        # because it scores a trend and a peak-normalised threshold moves with the peak
+        # (FASTEDDY_TRAPS.md 16).
+        h = bl_depth(tke_prof, z, frac=0.05)
+        # AND IT MUST NEVER BE THE TOP OF THE COLUMN. `h` is a corpus INPUT and it also
+        # sets the sigma_w floor's mixed-layer blend, so a fallback value does not announce
+        # itself anywhere downstream -- it just makes a plausible footprint out of the
+        # wrong closure. bl_depth cannot return z[-1] any more; this asserts that it did
+        # not.
+        if h >= 0.98 * float(z[-1]):
+            raise ValueError(
+                f"h came out {h:.0f} m against a column top of {z[-1]:.0f} m. That is the "
+                f"estimator failing to find a boundary layer, not a 2.5 km one: it would "
+                f"go into the training record as a feature and into the sigma_w floor as "
+                f"the mixed-layer blend height. See lpdm/les_stats.py:bl_depth.")
+        L = (-ust ** 3 * th0 / (KAPPA * G * hfx)) if abs(hfx) > 1e-6 else np.inf
+        return dict(z=z, z_recept=float(self._lev(z)), k_recept=self.kf, u_mean=spd,
+                    wdir=float(wdir),
+                    sigma_u=float(np.sqrt(uu + sgs)), sigma_v=sig_v,
+                    sigma_w=float(np.sqrt(ww + sgs)),
+                    sigma_v_resolved=float(np.sqrt(sig_v_res)),
+                    sigma_w_resolved=float(np.sqrt(ww)), e_sgs=float(esgs),
+                    ustar=float(ust), htFlux=float(hfx), theta0=float(th0),
+                    L=float(L), h=h, tke_prof=tke_prof, n_dumps=n,
+                    wdir_per_dump=[float((270.0 - np.degrees(np.arctan2(v_, u_))) % 360.0)
+                                   for (u_, v_) in self.uv_series],
+                    step_per_dump=[int(x) for x in self.step_series],
+                    ww_prof=ww_prof, esgs_prof=esgs_prof, zlev=self.zlev,
+                    U=float(U), V=float(V))
+
+
+def window_stats(paths, k_recept):
+    """Ensemble statistics over a series of dumps, at the receptor level.
+
+    A THIN LOOP OVER `WindowAccumulator`, so the batch and the streamed paths are the same
+    arithmetic in the same order rather than two implementations that agree. The public
+    signature and the returned dict are unchanged; every existing caller and gate keeps
+    working, and `bin/test_streaming.py` asserts the two routes are bit-identical.
+    """
+    acc = WindowAccumulator(zlevels_of(paths), k_recept)
+    for p in paths:
+        with open_dump(p) as ds:
+            try:
+                step = step_of(p)
+            except (AttributeError, ValueError, IndexError):
+                step = None
+            acc.add(ds, step=step)
+    return acc.finish()

@@ -58,7 +58,7 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
                       exact_agl=False, n_cover_groups=2, sgs_most_legacy=False,
                       sgs_most_form="multiplicative", sgs_subgrid_weight=True,
                       sgs_eps_consistent=True, require_rel_seconds=False,
-                      keep_touchdowns=0, verbose=True):
+                      keep_touchdowns=0, verbose=True, stats=None):
     """Release, integrate backward, accumulate on the STATIC north-up raster.
 
     THE RASTER IS THE LES GRID. Touchdowns are binned by their LES column index, folded
@@ -89,7 +89,30 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
                          np.array([float(j_r)]))[0])
     zg_r = float(fs.ground(np.array([float(i_r)]), np.array([float(j_r)]))[0])
     d_r = float(fs.displacement(np.array([float(i_r)]), np.array([float(j_r)]))[0])
-    st = window_stats(paths, k_r)
+    # THE WINDOW STATISTICS, EITHER RE-READ HERE OR HANDED IN ALREADY ACCUMULATED.
+    #
+    # Re-reading is the original behaviour and stays the default: with netCDF handles it
+    # costs a second open per dump and nothing else. It is not available at all when the
+    # window was STREAMED -- the snapshots were released as they were consumed, so there is
+    # nothing left to re-read -- so `stats` lets the caller hand in the dict that
+    # `WindowAccumulator` built during the single pass. Same arithmetic, same order,
+    # bit-identical (bin/test_streaming.py).
+    #
+    # The receptor level is asserted rather than assumed: an accumulator built at a
+    # different k than this function just derived would produce a plausible footprint from
+    # the wrong level's turbulence, which is precisely the failure mode this project keeps
+    # paying for.
+    if stats is None:
+        st = window_stats(paths, k_r)
+    else:
+        st = stats
+        k_given = float(st.get("k_recept", float("nan")))
+        if not (abs(k_given - float(k_r)) < 1e-9):
+            raise ValueError(
+                f"the window statistics handed in were accumulated at receptor level "
+                f"k = {k_given}, but this window's geometry puts the receptor at "
+                f"k = {float(k_r)}. Those are different heights and the difference would "
+                f"be invisible in the output.")
     # Effective aerodynamic height: what every similarity relation, and Kljun, actually
     # take as z_m. Over the flat control d is ~0.1 m and this is a 1% correction; over the
     # array at a 10 m receptor it is 15%.

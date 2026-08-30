@@ -1,0 +1,27 @@
+{
+ "windir": "runs/case_2023052519/window",
+ "n": 24,
+ "k": 3.4166,
+ "staging": "/dev/shm/flux/stream_zp4zscsq",
+ "shm": {
+  "ok": true,
+  "path": "/dev/shm/flux/stream_zp4zscsq",
+  "total_bytes": 33624489984,
+  "free_bytes": 32726646784,
+  "need_bytes": 218973456,
+  "snap_bytes": 36495576,
+  "queue": 4
+ },
+ "mode": "streamed",
+ "watch": {
+  "peak_rss_bytes": 937373696,
+  "peak_rss_gb": 0.937373696,
+  "peak_staging_bytes": 897743684,
+  "peak_staging_mb": 897.743684,
+  "peak_staging_files": 25,
+  "samples": 73,
+  "poll_s": 0.05,
+  "staging_dir": "/dev/shm/flux/stream_zp4zscsq"
+ },
+ "cache_gb": 0.531572544
+}

@@ -1,0 +1,43 @@
+{
+ "windir": "runs/case_2023052519/window",
+ "n": 24,
+ "k": 3.4166,
+ "staging": "/dev/shm/flux/stream_yg88e_lt",
+ "shm": {
+  "ok": true,
+  "path": "/dev/shm/flux/stream_yg88e_lt",
+  "total_bytes": 33624489984,
+  "free_bytes": 32726646784,
+  "need_bytes": 218973456,
+  "snap_bytes": 36495576,
+  "queue": 4
+ },
+ "batched": {
+  "peak_rss_bytes": 1755361280,
+  "peak_rss_gb": 1.75536128,
+  "peak_staging_bytes": 897743684,
+  "peak_staging_mb": 897.743684,
+  "peak_staging_files": 25,
+  "samples": 72,
+  "poll_s": 0.05,
+  "staging_dir": "/dev/shm/flux/stream_yg88e_lt"
+ },
+ "streamed": {
+  "peak_rss_bytes": 1489620992,
+  "peak_rss_gb": 1.489620992,
+  "peak_staging_bytes": 897743684,
+  "peak_staging_mb": 897.743684,
+  "peak_staging_files": 25,
+  "samples": 73,
+  "poll_s": 0.05,
+  "staging_dir": "/dev/shm/flux/stream_yg88e_lt"
+ },
+ "cache_bit_identical": true,
+ "cache_diffs": [],
+ "time_axis_identical": true,
+ "window_stats_worst_diff": 0.0,
+ "window_stats_worst_field": null,
+ "snapshots_retained_batched_bytes": 875893824,
+ "staging_files_left": 0,
+ "pass": true
+}
