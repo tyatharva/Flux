@@ -835,3 +835,43 @@ anything (`have_seed`, `.window_complete`, `pairs/$TAG.json`).
 A python entry point does not have this problem -- CPython reads and compiles the whole
 file at import -- which is another reason to put logic in `bin/*.py` and leave the shell
 drivers as thin sequencing.
+
+### 19e. The mean of a ratio is not the ratio of the means — L wrong by 148x
+
+`lpdm/les_stats.py` needs the surface heat flux to form `L`. The fork's lean LPDM output
+does not carry `htFlux`, so the code fell back to `invOblen`, which FastEddy writes as
+
+    invOblen = -kappa g htFlux / (u*^3 theta)          (cuda_surfaceLayerDevice.cu:426)
+
+and recovered the flux as `-(mean u*)^3 (mean theta) (MEAN invOblen)/(kappa g)`. That is the
+mean of a ratio whose **denominator is u*^3**, so the average is set by whichever cells
+happen to have the smallest friction velocity — and over a real surface with a strong flux
+there are always some. Measured on `case_2023052519`: `invOblen` has a domain mean of
+−0.146 and a **minimum of −89**, where `u*` is 0.036 against a mean of 0.457.
+
+| | value |
+|---|---|
+| hfx, mean-of-the-ratio (the bug) | **43.09 K m/s** (window mean) |
+| hfx, per-cell then averaged | **0.2906 K m/s** |
+| the case grid's own domain-mean htFlux | **0.2906 K m/s** |
+| `L` | **−0.17 m** vs **−25.45 m** |
+| `z/L` at the receptor | **−166** vs **−1.12** |
+
+`L` feeds Kljun's `x_peak` and `x90` (the reference the whole deciding test is scored
+against), the `σ_w` floor's `ζ`, and the pair's own `L` input. Nothing complained. Every
+downstream number was finite, of the right sign, and of a plausible order.
+
+**It hid for three corpus pairs** because the 10 m cases were near-neutral: at
+`w'θ' ≈ 0.015 K m/s` the two forms agree closely, and it took a case with a 333 W/m² flux
+over a heterogeneous surface to separate them by two orders of magnitude.
+
+**The fix is one line moved inside the mean** — `(-(u*_c^3) θ_c iL_c/(κg)).mean()` is
+`htFlux_c.mean()` by construction. The general rule, which is the ratio rule again wearing
+a different hat:
+
+> **Never average a quantity whose denominator varies across the thing you are averaging
+> over. Reconstruct the numerator per element and average THAT.**
+
+And the confirmation that made it certain rather than probable: the corrected window mean
+reproduces the case grid's own `htFlux.npy` domain mean to four decimals. **An independent
+artifact agreeing to four digits is what turns a plausible fix into a verified one.**
