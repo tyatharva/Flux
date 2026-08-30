@@ -1,164 +1,190 @@
-# The ML target format — design, 2026-08-29
+# The ML target format — decided, 2026-08-30
 
-> **DESIGN ONLY. One thing is built: the touchdown persistence, and it had to be, because
-> the window fields are deleted at the end of every case.** A touchdown not written at
-> stage 5 is gone, and no amount of later design work brings it back. Everything else here
-> — the density model, the loss, the heads — is decided at build time, after the seventh
-> pass has said whether a 30 m receptor produces a footprint that responds to meteorology
-> at all.
+> **THIS REPLACES THE 2026-08-29 DESIGN AND REVERSES ITS CENTRAL DECISION.** That document
+> argued the 122² raster was *not* the target and that a density fitted to the touchdown
+> point process was. The target is now the raster, padded to 128²; **touchdowns are not
+> saved at all**; and the architecture is an FNO residual on Kljun rather than a
+> conditional normalizing flow. The reasoning that produced the old design is kept below
+> under "What this reversed", because it is the record of how the question was arrived at
+> and two of its measurements still bind.
 
-## Why the 122² raster is not the target
+## What a record is
 
-**Binning is what makes two realisations of the SAME conditions look 92% different.**
-Measured (`bin/stage5_footprint.py`, the realisation-vs-realisation block): the normalised
-per-cell L1 between two independent release ensembles of one window runs 38–92% while the
-peak agrees to zero cells and the 80% source areas overlap 40–60%. A per-cell loss computed
-on that raster is therefore mostly fitting Monte-Carlo noise, and the model that minimises
-it is the model that best predicts the *sampling error* of the estimator.
+One `.npz` per sampling window, written by `bin/make_pair.py --npz-dir`, self-contained and
+referencing nothing:
 
-The footprint the estimator actually produces is a **weighted point process**: a list of
-touchdowns, each with a signed weight. The raster is one summary of it — a histogram with
-a 24 m bin. Fitting a continuous density to the points removes the bin from the loss
-entirely, and keeps the raster for the two things it is genuinely good for: figures, and
-comparison against Kljun on identical cells.
+| array | shape | dtype | meaning |
+|---|---|---|---|
+| `scalars` | (6,) | f32 | `h`, `u*`, `sigma_v`, `L`, `sin(wdir)`, `cos(wdir)` |
+| `kljun` | (128, 128) | f32 | the official FFP on the target's own cell centres |
+| `target` | (128, 128) | f32 | the LPDM flux footprint, **signed**, unclipped |
+| `meta` | scalar | json | everything below |
 
-## What is persisted, per case
+26–47 kB each; ~2900 windows is ~100 MB for the whole corpus.
 
-`runs/<case>/touchdowns.npz`, written by `bin/stage5_footprint.py --keep-touchdowns N`
-(driver support in `lpdm/driver.py`; the GPU path returns the same arrays off the device):
+**SELF-CONTAINED IS THE REQUIREMENT, not a nicety.** The corpus is generated on rented
+machines that share no filesystem with this one or with each other. A record that points at
+`results/corpus/<tag>.npz` does not survive the trip, and one that assumes a grid directory
+is present cannot be read at training time. Each machine also appends to a
+`manifest.json` — case list, git commit, grid config, hostname — so a corpus assembled from
+several boxes can be checked for gaps and for version skew instead of assumed homogeneous.
 
-| array | dtype | meaning |
-|---|---|---|
-| `dx`, `dy` | f32 | receptor-relative displacement, **UNFOLDED** (metres, map frame) |
-| `wt` | f32 | **signed** flux weight `w_release · 2/max(\|w_td\|, w_floor)` |
-| `grp` | i16 | release-group index, so a sampling floor can be estimated from the sample |
-| `age` | f32 | touchdown age, i.e. backward transit time (s) |
-| `meta` | json | `n_touchdown_total`, `n_particles`, `sum_wt_total`, `weight_scale`, domain, receptor, `wind_angle_deg` |
+### 122 → 128 is a zero-pad of 3 cells, not a resize
 
-Three decisions inside that table, each of which would be hard to undo later:
+`122 + 3 + 3 = 128` exactly. Every value in the padded array is either a real LES column or
+a structural zero: nothing is resampled, rescaled, cropped or interpolated. 128 is what the
+FNO's spectral transform wants; the pad extent is in `meta["grid"]["pad"]` so the loss masks
+the border rather than learning to reproduce it. The receptor's index is recorded in **both**
+frames (`ij_122`, `ij_128`) because the pad moves it — (61, 61) → (64, 64).
 
-1. **UNFOLDED, not folded.** The raster folds touchdowns modulo the periodic domain,
-   because the LES world is tiled and the land-cover attribution folds identically. The ML
-   target wants the true displacement: folding is a modulo away, unfolding is not
-   recoverable. (It also makes the wrap cap visible in the data rather than hidden.)
-2. **SIGNED.** Negative values are physical — an elevated concentration maximum in the CBL,
-   and wind turning with height in neutral air — and `bin/test_negative_lobes.py` measures
-   what is being preserved: 5.8–11.1% of |flux| across twelve production convective
-   footprints. See the open question below; this is the constraint that makes the obvious
-   architecture not work.
-3. **UNIFORMLY SUBSAMPLED, with the exact pre-subsample totals kept.** Bottom-k on an
-   independent uniform key (CPU) or a Bernoulli filter (GPU): both are exactly uniform
-   without replacement and stream in one pass. `weight_scale` is what a sample weight is
-   multiplied by to reproduce the full estimator, and stage 5 asserts that the sample
-   reproduces the full ensemble's integral. ~1e5 touchdowns is ~1.6 MB per case; 1469 cases
-   is ~2.3 GB.
+### The frame is north-up, and that is the site
 
-## The target itself
+Fixed map coordinates, receptor at the origin, **no rotation to a wind-aligned frame**. The
+emulator's job is to know that the array extends 250 m north and 60 m east of the tower,
+that the lake is east-north-east, and where the tree line is. A wind-aligned frame throws
+that away and asks the model to learn a rotationally symmetric function — which is what
+Kljun already is. Direction enters as an INPUT and indexes the site's geometry; it must not
+be factored out of the coordinates.
 
-**Fixed north-up map coordinates, receptor at the origin, NO rotation to a wind-aligned
-frame.** This is the decision the whole site rests on. The emulator's job is to know that
-the array extends 250 m north and 60 m east of the tower, that the lake is to the
-east-north-east, and that the tree line is where it is. A wind-aligned frame throws that
-away and asks the model to learn a rotationally symmetric function — which is what Kljun
-already is. Direction enters as an INPUT and indexes the site's geometry; it must not be
-factored out of the coordinates.
+### `L` is written raw, and the loader must not use it raw
 
-**Shape is split from magnitude.**
+`scalars[3]` is `L` because that is the named format. `L` is unbounded and is ±inf at exactly
+neutral — a legitimate state, not corruption — so **the loader substitutes
+`meta["inv_L"]`**, which is finite everywhere and is the form the similarity functions
+actually use. `make_pair.py` prints a warning when `L` is non-finite. This is written down
+in three places on purpose; it is the kind of thing that is discovered at training time.
 
-```
-target  =  A · p(dx, dy | inputs)          A = the integral, a scalar
-                                            p = a normalised signed density
-```
+### `h` is the TKE peak-fraction estimator, and the record says so
 
-- the **integral head** regresses `A` against the physical ceiling **1 − z_m/z_i**
-  (Steinfeld et al. 2008, after Horst & Weil 1992) rather than against 1. At 30 m in an
-  800 m boundary layer that ceiling is 0.963, and the domain truncation sits below it. The
-  residual `A/(1 − z_m/z_i)` is what the head actually predicts.
-- the **shape head** predicts `p`, which integrates to 1 by construction and carries no
-  information about how much flux there was.
+`meta["h_estimator"] = "tke_peak_fraction"`: 5% of the resolved-TKE profile's own peak,
+bounded by the decay minimum (`lpdm/les_stats.py:bl_depth`). This project has **two**
+definitions of `h` that differ by 7–21% — the seed stationarity gate uses a fixed
+0.01 m²/s² threshold instead, because it scores a trend and a peak-normalised threshold
+moves with the peak. A corpus that does not name which it used has an `h` channel nobody can
+reproduce. One estimator everywhere in the training record; it is this one.
 
-Splitting them matters because the two have different error structures and different
-physics: `A` is set by the boundary-layer depth and the domain, `p` by the surface and the
-turbulence. A single head trained on the product spends its capacity on the easier one.
+### The Kljun channel is the official FFP
 
-## The open question, flagged and NOT decided
+`third_party/FFP/` is Natascha Kljun's own v1.42, vendored unmodified.
+`lpdm/kljun_ffp.py` re-evaluates its two separable factors at the target raster's own cell
+edges, so **the two channels are on identical cells by construction rather than by
+assertion** — and `make_pair.py` checks the edges against the centres to 1e-9 m before it
+does so. `bin/test_kljun_adapter.py` scores the adapter against the code it wraps at
+**9.4e-16**.
 
-**A normalizing flow is a non-negative density. It cannot represent the negative lobes that
-`fix 2` exists to preserve.** That is a direct conflict between the project's stated primary
-architecture and the target's own sign structure, and it is better named than quietly
-resolved by clipping. Three candidates, to be decided once the negative-lobe magnitude is
-measured on real 30 m targets:
+The reimplementation this project used until now (`lpdm/kljun.py`) is **1.2500× wide in
+`sigma_y` whenever `|L| > 5000`** — the official clips its `scale_const` to 1.0 and ours
+does not reach the clip — which is exactly the flat/neutral end of the corpus. It survives
+only for the gates already validated against it.
 
-| option | shape | cost |
-|---|---|---|
-| **signed decomposition** `f = w⁺p⁺ − w⁻p⁻` | two flows plus a mixing weight; each is a proper density and the CNF machinery is unchanged | two flows, and `w⁻` is small and therefore hard to estimate |
-| **field model on the Kljun residual** (FNO / U-Net) | unconstrained, signs are free, and PROJECT_BRIEF.md already sanctions these as benchmarks | back on a raster, which is what this document exists to avoid — unless it is evaluated on a continuous loss (Sinkhorn on the signed measure) |
-| **weighted MLE with signed weights** | one flow, fit by maximum likelihood with negative weights | non-standard; the likelihood is not a likelihood and the estimator can be biased in ways nobody has characterised for this problem |
+## The target is the raster, and the touchdowns are gone
 
-**MEASURED, 2026-08-29, on the two 30 m production targets — and the answer is bigger than
-the raster suggests, which is itself the point:**
+**Within-cell cancellation IS the integration.** A footprint cell is a flux, and a flux is
+what the positive and negative touchdowns in that cell sum to. The point process is a finer
+description of the *estimator*, not of the physics: nothing the raster drops is a property
+of the atmosphere, and the model's output has to be a raster in any case because that is
+what a footprint is used for.
 
-| | on the 122² raster | in the TOUCHDOWN SAMPLE |
-|---|---|---|
-| `case_2023052519` convective | 2.32% of \|flux\|, 8.2% of cells | **33.0% of touchdowns, 20.9% of \|weight\|** |
-| `case_2023121921` near-neutral | 2.03% of \|flux\|, 2.9% of cells | **40.1% of touchdowns, 35.0% of \|weight\|** |
+**What that costs, stated rather than implied.** Measured on the two 30 m production
+targets, the negative lobe is 2.0–2.3% of |flux| on the raster and **21–35% of |weight| in
+the touchdown sample** — the uncancelled version is far larger, and it is spatial rather
+than noise (its centroid sits 1.2–1.6× further out than the positive lobe's). Dropping the
+touchdowns drops the ability to model that structure directly. **The raster stays signed and
+nothing clips it**, so the cancelled residual is still in the target and the model can still
+produce negative cells; what is given up is the `f = w⁺p⁺ − w⁻p⁻` decomposition, which was
+the leading candidate under the old design and is now out of scope.
 
-The raster hides it, because within a 24 m cell the positive and negative touchdowns cancel
-before anything is written down. **The target this document proposes — a density fitted to
-the points — sees the uncancelled version, and a third to a half of its mass is negative.**
-Its negative lobe sits 1.2–1.6× further out than the positive one, so the sign structure is
-spatial and not noise.
+`--keep-touchdowns` still exists and still works. It is simply not part of the corpus.
 
-That settles the open question against the naive route: **a single nonnegative flow cannot
-represent this target**, and clipping would discard a fifth to a third of the signed mass
-rather than a rounding error. Option 1 (`f = w⁺p⁺ − w⁻p⁻`) is viable because `w⁻` is now
-known to be large enough to estimate; option 2 stops being merely a benchmark. Decide at
-build time — but decide knowing the number is 21–35%, not 2%.
+## The model
 
-## What stays on the raster
+**FNO, predicting a residual on Kljun, conditioned on the six scalars by FiLM.**
 
-- every figure
-- the Kljun comparison, which must be on identical cells (`lpdm.kljun.footprint_on_static`)
-- `bin/corpus_monitor.py`'s gates, which are QC on the estimator and not on the target
-- the land-cover shares, which are accumulated in LES index space at nearest-grid-point and
-  are deliberately not resampled
+- **Input channels**: Kljun (symlog-transformed); distance from the receptor, twice — linear
+  and exponentially decaying, so the near field has a channel whose gradient does not vanish;
+  static terrain and land cover, which are identical in every case and are what a
+  site-calibrated emulator is *for*.
+- **Conditioning**: FiLM on the 6 scalars. They are global quantities and a spatial encoding
+  of them would be six constant planes, which is the same information at 128² times the cost.
+- **Residual on Kljun, not the raw footprint.** Kljun already gets the gross shape right over
+  flat ground; the site-specific signal is the correction.
+- **Loss**: symlog MSE, plus a peak-location term, plus an integral term scored against
+  **`1 − z_m/z_i`** and never against 1. The asymptote is Steinfeld et al. (2008), after
+  Horst & Weil (1992): the fraction `z_m/z_i` of the column lies below the receptor and its
+  flux never crosses it. At 30 m in an 800 m boundary layer that is 3.75%, the size of
+  effects this project routinely gates on.
+- **Log transform**: `log(x + eps) − log(eps)` with `eps = 1e-3`, applied symmetrically for
+  signed values (`sign(x) · [log(|x| + eps) − log(eps)]`). Follows FootNet.
+- **No U-Net baseline.** Deliberate: a second architecture is a second thing to validate and
+  the FNO's resolution-independence is the property that matters here.
 
-## Splitting
+### Not generative — and the honest reason
 
-**By LES run, never by sample** (PROJECT_BRIEF.md). The effective sample size for generalisation is
-the number of *runs*. With touchdowns as the target this is even more important than it was
-with rasters: a random split over touchdowns would put the same window on both sides.
+**"The pairs are deterministic" is contradicted by this project's own measurement**, so it
+is not the justification. Re-running an identical case — same restart, forcing, rotation and
+code — gave integral 1.463 → 1.019 and array share 5.65% → 1.07%. The target is a *sample*
+from a conditional distribution, not a fixed function of the inputs.
 
-## Two footprints per case, and the split rule that follows — 2026-08-30
+The reason a deterministic model is right anyway is that **the deliverable is the conditional
+mean footprint**. A symlog-MSE regression converges to it, which is what an emulator of a
+30-minute flux footprint is asked for; the realisation spread is a property of the estimator
+and of turbulence, and the two-window pairs are what quantify it rather than something the
+model should reproduce. Flow matching would let the model sample the spread — and there is no
+use for a sample.
 
-**A case now runs 2.0 simulated hours and yields TWO footprints**, over disjoint field
-intervals (1800 s adjustment, then windows at 1800–4500 s and 4500–7200 s; window 2's
-releases begin 900 s = `t_back` after window 1's end, so no field is shared). They are
-persisted as `pairs/<case>_w0.json` and `_w1.json`, each carrying `parent` and
-`window_index`.
+## Splitting, and the rule tightens
 
-**Why, and it is not to get more data cheaply.** Re-running an identical case — same
-restart, forcing, rotation and code — gave integral 1.463 → 1.019 and array share
-5.65% → 1.07%. That is turbulence REALISATION variance, and every error floor this project
-quotes is measured *within* one realisation and is therefore too small. A second window is
-a second draw at nearly the same condition for 0.75 h instead of a whole extra case.
+**Split by PARENT CASE. Never by window, never by cell, never by touchdown.**
 
-**For the model this is a feature, not noise to be averaged away.** A noisy target is a
-sample from the conditional distribution rather than a wrong target, and the density this
-document proposes is fitted to samples — so two draws from one condition are exactly what
-it wants. Averaging is for REPORTED numbers only (array share and the like), and those are
-quoted with the across-realisation spread beside them.
+A case runs 2.0 simulated hours and yields two footprints over disjoint field intervals
+(1800 s adjustment, then two windows one output interval apart). `<case>_w0` and `<case>_w1`
+share a seed, an adjustment, a sounding and a surface, so putting one in train and the other
+in validation would leak almost everything that makes them what they are. **The effective
+sample size for generalisation is the number of PARENTS — ~1469 — not the ~2900 pairs.**
+`meta["split_key"]` is the parent and is what a loader must group on.
 
-**THE SPLIT RULE TIGHTENS: split by PARENT CASE, never by window and never by touchdown.**
-PROJECT_BRIEF.md already says split by LES run; with two windows per run, `<case>_w0` and
-`<case>_w1` share a seed, an adjustment, a sounding and a surface, so putting one in train
-and the other in validation would leak almost everything that makes them what they are.
-The effective sample size for generalisation is the number of PARENTS — ~1469 — and not the
-~2900 pairs.
+## Corpus assembly
 
-**What is measured on the first case that does this, and reported either way:** whether the
-two windows are statistically independent (from the release groups' own decorrelation
-ladder, and from |w0 − w1| against the within-footprint half-vs-half floor), and how far
-`z_i` drifts between them. Near-replicates at one condition reduce realisation noise at that
-condition; two different conditions are coverage and do NOT reduce it — in which case the
-corpus still owes condition-bin averaging. `bin/window_independence.py`.
+1. Each machine writes `pairs_npz/<tag>.npz` per window and appends to its own
+   `manifest.json`.
+2. The npz files are shipped back and consolidated **locally** into one HDF5.
+3. Splits are assigned by parent case at consolidation time and written into the file.
+4. **Normalisation constants are computed on the TRAINING SPLIT ONLY** and stored in the
+   file. Computing them over the whole corpus leaks the validation set's distribution into
+   the inputs, which is the quietest possible form of the leak the split rule exists to
+   prevent.
+
+## What every record carries, and why it is there
+
+`meta` also holds: `datetime`, `parent_case`, `window_index`, `gate_state` (the seed's
+stationarity verdict — `INDETERMINATE` is the library's normal state and travels with every
+pair), `integral`, `integral_kljun`, `integral_asymptote`, `peak_x_m`, `centroid_dist_m`,
+`centroid_bearing_deg`, `array_share` **with its standard error**, the full `cover_share`,
+the git commit, the grid config, the closure configuration, `floor_health`, the FFP validity
+conditions the case violates (the official code only *prints* those), and any warnings.
+
+A share quoted without a standard error cannot be compared to anything: the `h`
+fell-through defect moved the array share 0.8 points against a 3.66-point SE and looked like
+a result.
+
+## What this reversed, and the two measurements that still bind
+
+The 2026-08-29 design argued the raster was not the target, on the grounds that **binning is
+what makes two realisations of the same conditions look 92% different**: the normalised
+per-cell L1 between two independent release ensembles of one window runs 38–92%, while the
+peak agrees to zero cells and the 80% source areas overlap 40–60%. That measurement stands
+and it is the reason the loss is **not** raw per-cell MSE — symlog compresses exactly the
+dynamic range that noise dominates, and the peak and integral terms score quantities that
+are converged where the per-cell values are not.
+
+The second is the negative-lobe fraction, 21–35% of |weight| uncancelled against ~2% on the
+raster. It is why this document says plainly what dropping the touchdowns costs instead of
+claiming the raster is lossless.
+
+What did not survive is the conclusion: that a density fitted to the points was therefore
+the right target. It required a two-flow signed decomposition to represent a target a third
+of whose mass is negative, and it produced a model whose output was not the raster that a
+footprint is used as.
+
+**PROJECT_BRIEF.md still names the CNF as the primary architecture and the FNO as a benchmark.
+That is now the wrong way round, and the dated block at the top of PROJECT_BRIEF.md says so.**

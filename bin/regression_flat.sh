@@ -28,6 +28,16 @@ D="${D:-runs/g16_flat}"
 GRID="${GRID:-data/grid16}"
 TAG="${TAG:-g16_flat}"
 MARKS="${MARKS:-60,100,150,200,250,300,400,500}"
+# THE RECEPTOR IS A CONFIGURATION, NOT A CONSTANT. It was 10.0 hard-coded here, which was
+# right for exactly one grid; the model receptor is 30 m now (28.5 m above the raised
+# surface) and a control that scores the wrong height is not a control. UG/VG likewise --
+# the flat spin-up's forcing is the seed's, not a literal 10 m/s.
+ZTARGET="${ZTARGET:-10.0}"
+EXACT_AGL="${EXACT_AGL:-}"
+UG="${UG:-10.000000}"; VG="${VG:-0.000000}"
+MAXDISP="${MAXDISP:-}"
+KEEPTD="${KEEPTD:-}"
+COVERGROUPS="${COVERGROUPS:-10}"
 
 # --compare-only scores an EXISTING footprint json (TAGJSON) against the baseline without
 # recomputing it. The closure pass already produces the flat/neutral footprint as part of
@@ -35,11 +45,15 @@ MARKS="${MARKS:-60,100,150,200,250,300,400,500}"
 # 30 minutes bought for nothing.
 if [ "${1:-}" != "--compare-only" ]; then
 if [ "${1:-}" != "--analysis-only" ]; then
-  BASE="${BASE:-runs/g16_base/base.in}" bin/run_window.sh $D $SRC $DT $WIN - 10.000000 0.000000 || exit 1
+  BASE="${BASE:-runs/g16_base/base.in}" bin/run_window.sh $D $SRC $DT $WIN - "$UG" "$VG" || exit 1
 fi
+LPDM_WORKERS="${LPDM_WORKERS:-8}" \
 ./docker/pyrun.sh bin/stage5_footprint.py $D/window --dt $DT --tback "$TBACK" \
-    --z-target 10.0 --tback-marks "$MARKS" \
-    --sgs-most --receptor-from "$GRID" --cover-dir "$GRID" --fp16-cache --tag $TAG 2>&1 \
+    --z-target "$ZTARGET" ${EXACT_AGL:+--exact-agl} --tback-marks "$MARKS" \
+    --cover-groups "$COVERGROUPS" ${MAXDISP:+--max-disp $MAXDISP} \
+    ${KEEPTD:+--keep-touchdowns $KEEPTD} \
+    --sgs-most --receptor-from "$GRID" --cover-dir "$GRID" --fp16-cache \
+    --outdir "${OUTDIR:-results}" --tag $TAG 2>&1 \
     | grep -vE 'batch [0-9]+/' | tee results/$TAG.txt
 [ "${KEEP_FIELDS:-0}" = "1" ] || rm -f $D/window/*
 fi

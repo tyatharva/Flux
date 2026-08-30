@@ -56,6 +56,23 @@ print(m["job"], r["dt"], r["frqOutput"], r["steps_total"],
 PYMAN
 ) || die "manifest.json unreadable"
 
+# ---- SEED_CEILING_H: a HARD ceiling in simulated hours, overriding the manifest --------
+# The manifest's steps_total is the library's standing 3.0 sim-h ceiling. A convective rung
+# decorrelates on z_i/w* ~ 540 s against a neutral layer's h/u* ~ 1700 s, so it reaches band
+# far sooner and 3.0 h of it is mostly wasted GPU. The ceiling is a CEILING either way --
+# jobs/seed_watch.sh normally stops the run before it -- and a seed that has not entered
+# band by it stops there and THAT IS THE RESULT: no extension, no respec.
+# Rounded DOWN to a whole number of dumps, because a ceiling that is not a dump boundary
+# stops the run between dumps and the last dump is then not the state that was scored.
+if [ -n "${SEED_CEILING_H:-}" ]; then
+  _NEW=$(python3 -c "print(int($SEED_CEILING_H*3600.0/$DT/$FRQ)*$FRQ)")
+  [ "$_NEW" -gt 0 ] || die "SEED_CEILING_H=$SEED_CEILING_H rounds to zero dumps"
+  WALLMIN=$(python3 -c "print(f'{$WALLMIN*$_NEW/$TOTAL:.1f}')")
+  echo "  SEED_CEILING_H=$SEED_CEILING_H: ceiling $TOTAL -> $_NEW steps "\
+"($(python3 -c "print(f'{$_NEW*$DT/3600:.3f}')") sim-h, $(python3 -c "print($_NEW//$FRQ)") dumps)"
+  TOTAL="$_NEW"
+fi
+
 echo "########## seed $NAME ##########"
 date '+%F %H:%M:%S'
 echo "  dt $DT, dump every $FRQ steps, $TOTAL steps in ONE invocation (proj ${WALLMIN} min wall)"

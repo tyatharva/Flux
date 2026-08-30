@@ -991,3 +991,79 @@ now excludes what has already been read, which makes `keep` orthogonal to termin
 The generalisation: when a flag changes whether a side effect happens, check whether that
 side effect was also carrying a control-flow invariant. Here "delete after read" was
 silently doing double duty as "mark as consumed".
+
+---
+
+## §21 — the hand-off's second pass, and the two things streaming cost
+
+Added 2026-08-30, while turning the hand-off from *staged* into *streamed*. §20 got the
+snapshots out of the filesystem; these are what it took to get them out of RAM as well, and
+both were found by a smoke run rather than by the production one they would have broken.
+
+**21a. THE HAND-OFF REMOVED ~20 GB OF DISK AND MOVED IT TO RAM, and every check passed
+while it did.** `RingConsumer.drain_until_pause` returned every snapshot of the window as a
+list — 541 × 36.5 MB = **19.7 GB** — and `FieldSet` then retained that list for its own
+lifetime *on top of* its own 12.0 GB fp16 cache, because `window_stats` opened every dump a
+SECOND time after the cache was built. Peak ~32 GB.
+
+Nothing complained. The staging directory was correctly bounded (the producer blocks at
+`lpdmOnlineQueue`), the consumer correctly deleted each file after reading it, and the
+footprints were correct. **Deleting the tmpfs file releases the PRODUCER's backpressure and
+nothing else**; only dropping the Python references releases the consumer's own memory, and
+the two are easy to conflate because the first is what the protocol talks about.
+
+It matters because the whole argument for the in-process path is that a corpus can be
+generated on a rented box, and 32 GB of host RAM is not something a rented single-GPU box
+reliably has.
+
+The fix is that the two passes are fused into one: `lpdm/les_stats.py:WindowAccumulator` is
+the estimator as an accumulator, `window_stats()` is now a *thin loop over it* so there is
+one implementation rather than two that agree, `FieldSet.load()` feeds it and calls
+`MemDump.release()` on each handle, and `RingConsumer.iter_until_pause()` yields instead of
+collecting. Measured in isolation on 24 snapshots: peak RSS **1.754 → 0.937 GB**, with both
+routes returning identical `h` and `u*`. `bin/test_streaming.py` asserts identity at
+**exactly zero** — there is no physics between two schedules over the same arithmetic — and
+gets it across the 9 cache arrays, the time axis, and all 25 `window_stats` fields.
+
+**The generalisation: a resource freed on one side of an interface is not freed on the
+other.** The protocol's "delete after read" is about the producer's bound. The consumer's
+bound is a separate statement and nothing was making it.
+
+**And what streaming CANNOT reach is said rather than implied**: the 12.0 GB field cache is
+not buildup, it IS the window, and `compute_footprint` is a CPU integrator that
+random-accesses all of it. Host residency floors at the cache. Reaching one or two snapshots
+needs the window in VRAM and the integration there — an INTEGRATOR change, not a plumbing
+one, and a deferred item.
+
+**21b. CONSECUTIVE WINDOWS CANNOT SHARE A BOUNDARY DUMP THROUGH THE RING, and `--strict-rel`
+is what said so.** A two-window case naively spans `[A, A+W]` and `[A+W, A+2W]`, sharing the
+dump at `A+W`. On the disk path that is harmless — nothing is deleted, both windows read it.
+Through the ring it is impossible: the consumer deletes each snapshot as it reads it, so
+window 0 consumes the boundary and window 1 begins one output interval late.
+
+Measured on the first two-window ring run: window 1's release period came out **195.0 s
+against the 200 s asked for**, and `--strict-rel` refused it. At production geometry that is
+**every second window of the corpus**, failing after ~1 GPU-h per case is spent.
+
+Note which check caught it. `FASTEDDY_TRAPS.md` §18b is about `--strict-rel` failing a
+correct run on half a millisecond, and the fix there was to score against a tenth of the
+measured output interval instead of against `1e-6`. That tolerance is what made this one a
+clean refusal rather than either a silent 2.7% short averaging period or another false
+alarm: the deficit is one whole output interval, 10× the bar.
+
+Windows are now spaced `W_NT + frqOutput` apart and the run is one output interval longer
+per extra window, so every window owns a full `W_NT` of fields and delivers exactly
+`W_NT/frqOutput + 1` snapshots — **on both paths**, which also keeps the CPU-from-disk
+versus from-ring acceptance a comparison of the same window rather than of two schedules.
+`N_WINDOWS = 1` is arithmetically unchanged.
+
+**21c. KILLING THE SHELL IS NOT STOPPING THE LES.** The ring runs `run_window.sh` in the
+background while the LPDM consumes in the foreground. The driver's `trap` killed the
+subshell — and left the FastEddy *container* running, holding the GPU. The next run was then
+REFUSED by `docker/run_case.sh`'s concurrency guard, whose message says a run is already in
+progress and gives a container name that means nothing to anyone reading it. Two minutes of
+confusion, and on an unattended campaign it would have been the whole campaign.
+
+`docker/run_case.sh` now names the container deterministically from the case directory and
+the driver's trap removes it by name. **A process supervisor that does not know about
+containers is not supervising the work**, only the shell that asked for it.
