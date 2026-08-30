@@ -74,8 +74,12 @@ fi
 # use is not a gate. Backward is what footprints use; forward is the control that localises
 # a sign error in the reverse-time drift.
 say "$TAG (b): Gate D1 well-mixed, production closure, both directions"
+# --dmap, NOT --receptor-from: stage4_wellmixed.py takes the displacement MAP directly.
+# Passing the wrong flag made argparse refuse and the gate never ran -- and because the
+# whole thing is piped into tail|tee, the refusal scrolled past as usage text rather than
+# stopping anything. FASTEDDY_TRAPS.md 12, one more time.
 ./docker/pyrun.sh bin/stage4_wellmixed.py "$D/window" --dt "$DT" --sgs-most \
-    --z-target 28.5 --receptor-from "$CG" 2>&1 | tail -40 | tee -a "$O/${TAG}_accept.txt"
+    --z-target 28.5 ${DMAP:+--dmap "$DMAP"} 2>&1 | tail -40 | tee -a "$O/${TAG}_accept.txt"
 
 # ---- the containment ladder, uncapped to 3 L --------------------------------------------
 # production retires a trajectory at ONE domain length, so the by-displacement curve is flat
@@ -92,7 +96,7 @@ LPDM_WORKERS="${LPDM_WORKERS:-12}" \
     > "$FP/${TAG}_w0_3L.txt"
 if [ -s "$FP/${TAG}_w0_3L.json" ]; then
   ./docker/pyrun.sh bin/containment_gate.py "$FP/${TAG}_w0_3L.json" \
-      --json "$O/${TAG}_containment.json" 2>&1 | tee -a "$O/${TAG}_accept.txt"
+      --out "$O/${TAG}_containment.json" 2>&1 | tee -a "$O/${TAG}_accept.txt"
 fi
 
 # ---- the no-op closure control ----------------------------------------------------------
@@ -107,8 +111,7 @@ LPDM_WORKERS="${LPDM_WORKERS:-12}" \
     --t-min "$T0" --t-max "$T1" \
     --outdir "$FP" --tag "${TAG}_w0_nofloor" 2>&1 | grep -vE 'batch [0-9]+/' \
     > "$FP/${TAG}_w0_nofloor.txt"
-python3 - "$FP/${TAG}_w0.json" "$FP/${TAG}_w0_nofloor.json" 2>/dev/null \
-  | tee -a "$O/${TAG}_accept.txt" <<'PYNF'
+python3 - "$FP/${TAG}_w0.json" "$FP/${TAG}_w0_nofloor.json" <<'PYNF' 2>/dev/null | tee -a "$O/${TAG}_accept.txt"
 import json, sys, os
 a = json.load(open(sys.argv[1]))
 if not os.path.exists(sys.argv[2]):

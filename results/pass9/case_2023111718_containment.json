@@ -1,0 +1,9 @@
+
+=== containment: case_2023111718_w0_3L.json ===
+  z_m 28.5 m, z_i 986 m, u* 0.468, L -53.3 m, W at the receptor -0.1602 m/s
+  [FAIL] C1 integral saturates by 1 L     I(0.75L) 0.988 -> I(1L) 1.009, +2.1% over the last quarter-domain (<= 2%)
+  [ok  ] C2 x80 inside the box            x80 599 m against 80% of L = 2928 m (L = 3660 m)
+  [ok  ] C3 what the cap hides            I(3L)/I(1L) - 1 = +1.1% -- the influence the cap removes. Large and positive = wrap double-counting; near zero = the cap is not doing anything and the footprint is contained.
+  [??  ]    integral vs 1 - z_m/z_i       1.020 / 0.9711 = 1.050. Truncation can only push this BELOW 1; above 1 is advective non-closure or an elevated maximum.
+
+  1 failure(s)

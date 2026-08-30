@@ -1,0 +1,62 @@
+{
+ "ring": "results/corpus/case_2023111718_w0.json",
+ "disk": "results/corpus/case_2023111718_w0_disk.json",
+ "verdict": "PASS",
+ "worst_ratio_of_floor": 0.2659985808506728,
+ "rows": [
+  {
+   "key": "peak_x",
+   "ring": 180.0,
+   "disk": 180.0,
+   "diff": 0.0,
+   "floor": 30.0,
+   "ratio": 0.0
+  },
+  {
+   "key": "centroid_dist",
+   "ring": 350.02570759551685,
+   "disk": 356.81481710244344,
+   "diff": 6.789109506926593,
+   "floor": 30.0,
+   "ratio": 0.22630365023088644
+  },
+  {
+   "key": "area80_ha",
+   "ring": 14.4,
+   "disk": 14.85,
+   "diff": 0.4499999999999993,
+   "floor": 30.0,
+   "ratio": 0.014999999999999977
+  },
+  {
+   "key": "x80",
+   "ring": 570.180642069621,
+   "disk": 578.1605994951411,
+   "diff": 7.979957425520183,
+   "floor": 30.0,
+   "ratio": 0.2659985808506728
+  },
+  {
+   "key": "integral",
+   "ring": 0.9827078587095526,
+   "disk": 0.9974308953794775,
+   "diff": 0.014723036669924916,
+   "floor": 0.9711038203969363,
+   "ratio": 0.015161135566233186
+  },
+  {
+   "key": "array_share_pct",
+   "ring": 25.471204763153914,
+   "disk": 25.449487241652534,
+   "diff": 0.021717521501379844,
+   "floor": 6.346048138414279,
+   "ratio": 0.0034222119069532487
+  }
+ ],
+ "negative_fraction": {
+  "ring": 0.39,
+  "disk": 0.39063
+ },
+ "window_stats_worst_rel": 1.3044012983367237e-07,
+ "window_stats_worst_field": "e_sgs"
+}

@@ -1,0 +1,59 @@
+pass9_accept case_2023111718: 1082 kept dumps
+  window 0 spans 1811.111-4527.778 s
+ring  results/corpus/case_2023111718_w0.json
+disk  results/corpus/case_2023111718_w0_disk.json
+
+observable                    ring        disk    |diff|     floor  x floor
+peak_x [m]                     180         180         0        30     0.00
+centroid_dist [m]              350       356.8     6.789        30     0.23
+area80_ha [ha]                14.4       14.85      0.45        30     0.01
+x80 [m]                      570.2       578.2      7.98        30     0.27
+integral                    0.9827      0.9974   0.01472    0.9711   0.0152
+array share [%]              25.47       25.45   0.02172     6.346     0.00
+
+  negative-lobe weight fraction: ring 0.39, disk 0.39063 -- signed weights are preserved on both paths if both are non-zero
+
+  window_stats, which is what would catch a slot-ordering or rho-division error in the producer:
+    e_sgs                       0.294369      0.294369    1.30e-07 relative
+    sigma_w_resolved            0.367201      0.367201    7.26e-08 relative
+    sigma_v_resolved             1.08292       1.08292    6.39e-08 relative
+    sigma_v                      1.17002       1.17002    4.54e-08 relative
+    sigma_u                      1.15026       1.15026    4.47e-08 relative
+    U                            2.49622       2.49622    1.29e-08 relative
+    worst of 20 scalars: 1.30e-07 relative at e_sgs
+
+(a) CPU-from-disk vs from-ring: worst 0.27x the run's own half-vs-half floor -> PASS
+    The two paths do NOT carry the same bytes -- the disk path is CF-packed to 16 bit
+    and the ring is raw fp32 -- so the floor, not zero, is the tolerance that means
+    something here. The zero-tolerance tests are bin/test_dumpsrc.py, test_ringsrc.py,
+    test_lpdmonline.py and test_streaming.py.
+wrote results/pass9/case_2023111718_handoff.json
+usage: stage4_wellmixed.py [-h] [--dt DT] [--n N] [--tlimit TLIMIT]
+                           [--zscore ZSCORE] [--zrelease ZRELEASE] [--c0 C0]
+                           [--ztouch ZTOUCH] [--z-target Z_TARGET]
+                           [--sgs-most] [--sgs-most-legacy]
+                           [--sgs-most-mode {surface,mixed,blend}]
+                           [--no-subgrid-weight] [--no-eps-consistent]
+                           [--sgs-scale SGS_SCALE]
+                           [--sgs-most-form {additive,multiplicative}]
+                           [--dmap DMAP] [--d-recept D_RECEPT] [--tag TAG]
+                           [--fp16-cache]
+                           outdir
+stage4_wellmixed.py: error: unrecognized arguments: --receptor-from data/case_grids/case_2023111718
+usage: containment_gate.py [-h] [--out OUT] json [json ...]
+containment_gate.py: error: unrecognized arguments: --json results/pass9/case_2023111718_containment.json
+import json, sys, os
+a = json.load(open(sys.argv[1]))
+if not os.path.exists(sys.argv[2]):
+    print("  the no-op control produced no json"); raise SystemExit(0)
+b = json.load(open(sys.argv[2]))
+fa, fb = a["les"], b["les"]
+print(f"\n  floor ON vs OFF, identical window:")
+for k in ("peak_x", "x80", "area80_ha", "centroid_dist"):
+    print(f"    {k:<16}{fa.get(k, float('nan')):10.1f}{fb.get(k, float('nan')):10.1f}")
+sa = (a.get('cover_share') or {}).get('solar array')
+sb = (b.get('cover_share') or {}).get('solar array')
+if sa is not None and sb is not None:
+    print(f"    {'array share %':<16}{sa*100:10.2f}{sb*100:10.2f}"
+          f"   ({(sa-sb)*100:+.2f} points)")
+print(f"    {'integral':<16}{a['integral_les']:10.3f}{b['integral_les']:10.3f}")

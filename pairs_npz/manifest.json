@@ -48,27 +48,43 @@
    "file": "case_2023121921.npz",
    "integral": 0.7394838163406001,
    "gate_state": "INDETERMINATE"
+  },
+  "case_2023111718_w0": {
+   "parent": "case_2023111718",
+   "window_index": 0,
+   "datetime": "2023-11-17T18:00:00Z",
+   "file": "case_2023111718_w0.npz",
+   "integral": 0.9827078587095526,
+   "gate_state": "INDETERMINATE"
+  },
+  "case_2023111718_w1": {
+   "parent": "case_2023111718",
+   "window_index": 1,
+   "datetime": "2023-11-17T18:00:00Z",
+   "file": "case_2023111718_w1.npz",
+   "integral": 1.0207395174180744,
+   "gate_state": "INDETERMINATE"
   }
  },
- "git_commit": "51c394a2a323aa119b66f7c49eba1fd78d0fd36b",
+ "git_commit": "cd7a81e30ea6fd0af682b21c50f2eb5eb02839bb",
  "grid": {
   "n": 122,
   "pad": 3,
   "n_padded": 128,
-  "dx_m": 24.0,
-  "dy_m": 24.0,
-  "domain_m": 2928.0,
+  "dx_m": 30.0,
+  "dy_m": 30.0,
+  "domain_m": 3660.0,
   "x_centres_m": [
-   -1464.0,
-   1440.0
+   -1830.0,
+   1800.0
   ],
   "y_centres_m": [
-   -1464.0,
-   1440.0
+   -1830.0,
+   1800.0
   ],
   "frame": "north-up map, receptor at the origin, NOT wind-aligned",
-  "z0_geometric_m": 0.08322914204469771,
-  "grid_dir": "data/grid24_raised"
+  "z0_geometric_m": 0.06148948626243361,
+  "grid_dir": "data/case_grids/case_2023111718"
  },
- "host": "5d7eb4b26800"
+ "host": "8ea9e90a355e"
 }

@@ -37,7 +37,7 @@ LPDM_WORKERS="${LPDM_WORKERS:-12}" \
     > results/g30_flat_3L.txt
 if [ -s results/g30_flat_3L.json ]; then
   ./docker/pyrun.sh bin/containment_gate.py results/g30_flat_3L.json \
-      --json "$O/flat_containment.json" 2>&1 | tee -a "$OUT"
+      --out "$O/flat_containment.json" 2>&1 | tee -a "$OUT"
 else
   echo "  *** the 3 L ladder produced no json; see results/g30_flat_3L.txt" | tee -a "$OUT"
   tail -12 results/g30_flat_3L.txt >> "$OUT"
@@ -50,7 +50,7 @@ fi
 # convective half on the convective target.
 say "flat control: Gate D1 well-mixed, NEUTRAL, both directions"
 ./docker/pyrun.sh bin/stage4_wellmixed.py "$D/window" --dt "$DT" --sgs-most \
-    --z-target 28.5 --receptor-from "$G" 2>&1 | tail -40 | tee -a "$OUT"
+    --z-target 28.5 2>&1 | tail -40 | tee -a "$OUT"
 
 # ---- the no-op control ------------------------------------------------------------------
 say "flat control: the same window with the floor OFF"
@@ -60,8 +60,7 @@ LPDM_WORKERS="${LPDM_WORKERS:-12}" \
     --z-target 28.5 --rel-seconds 1800 --cover-groups 10 \
     --outdir results --tag g30_flat_nofloor 2>&1 | grep -vE 'batch [0-9]+/' \
     > results/g30_flat_nofloor.txt
-python3 - results/g30_flat.json results/g30_flat_nofloor.json 2>/dev/null \
-  | tee -a "$OUT" <<'PYNF'
+python3 - results/g30_flat.json results/g30_flat_nofloor.json <<'PYNF' 2>/dev/null | tee -a "$OUT"
 import json, os, sys
 a = json.load(open(sys.argv[1]))
 if not os.path.exists(sys.argv[2]):
