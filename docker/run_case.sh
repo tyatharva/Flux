@@ -41,8 +41,17 @@ if [ -f "$_cf" ]; then
 fi
 LOG="${3:-/tmp/flux-logs/$(basename "$CASE_FILE" .in).log}"
 mkdir -p "$(dirname "$LOG")"
+# THE IN-PROCESS LPDM STAGING DIRECTORY, MOUNTED AT AN IDENTICAL PATH ON BOTH SIDES.
+# Docker gives a container 64 MB of /dev/shm by default -- measured, after a 60-snapshot
+# staging attempt died with ENOSPC at 2.2 GB -- so the host tmpfs has to be mounted
+# explicitly. The path is the SAME inside and out on purpose: lpdmOnlineDir is written
+# into the .in that FastEddy reads in one container and polled by the analysis in another,
+# and a path that means two different things in two containers is the kind of quiet
+# mismatch this project keeps paying for. Created on demand; a no-op when unused.
+FLUX_RINGROOT="${FLUX_RINGROOT:-/dev/shm/flux}"
+mkdir -p "${FLUX_RINGROOT}" 2>/dev/null || true
 docker run --gpus all --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
-  -v ${FLUX_ROOT}:/work -w "/work/${CASE_DIR}" flux-fasteddy:cuda118 \
+  -v ${FLUX_ROOT}:/work -v ${FLUX_RINGROOT}:${FLUX_RINGROOT} -w "/work/${CASE_DIR}" flux-fasteddy:cuda118 \
   mpirun -np 1 /work/FastEddy-model-5.0.1/SRC/FEMAIN/FastEddy "./${CASE_FILE}" > "$LOG" 2>&1
 RC=$?
 # Score the log AND the newest dump (accuracy-CFL k0/k1 check) in one place.

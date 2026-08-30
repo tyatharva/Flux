@@ -1,0 +1,4 @@
+=== 30 m BRING-UP: 122^3 @ 30 m = 3660 m, receptor k=3 at 30.000000 m ===
+  KFAC 43.74600, so dt = CFL_3d/43.74600.  dx/dz_sfc = 3.505.
+
+=== step 1: 1800 s cold start at CFL_3d 1.30 (dt 0.0297170, 60571 steps) ===

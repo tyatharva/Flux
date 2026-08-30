@@ -31,6 +31,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lpdm import kljun
 from lpdm.driver import compute_footprint
 from lpdm.fields import FieldSet, dump_series, _step_of
+from lpdm.ringsrc import RingConsumer
 from lpdm.footprint import source_area_overlap
 
 
@@ -59,6 +60,14 @@ def describe(name, g, fy, xc, res):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("dirs", nargs="+")
+    ap.add_argument("--ring", action="store_true",
+                    help="treat each positional argument as an in-process STAGING "
+                         "directory (SRC/IO/io_lpdmonline.c) rather than a directory of "
+                         "netCDF dumps. The window is consumed from RAM as the live LES "
+                         "produces it, the LES is released once the footprint is "
+                         "computed, and no field ever reaches a filesystem. The readers "
+                         "and the estimator are byte-for-byte the same code either way -- "
+                         "see lpdm/dumpsrc.py and bin/test_ringsrc.py.")
     ap.add_argument("--dt", type=float, default=0.0158228)
     ap.add_argument("--tback", type=float, default=900.0)
     ap.add_argument("--t-min", type=float, default=None,
@@ -167,7 +176,21 @@ def main():
 
     runs = []
     for d in a.dirs:
-        paths = dump_series(d)
+        # THE LES IS HELD AT ITS PAUSE UNTIL THIS FOOTPRINT IS FINISHED, and that is
+        # deliberate rather than lazy. Releasing it early would overlap the LES and the
+        # LPDM, which the standing run-GPU-and-CPU-at-once rule normally wants -- but both
+        # are on the one GPU here, so they would contend for it, and the device ring's
+        # ~12 GB has to be free before the next window can be pushed into it. At the
+        # measured 153x the integration is short against the window it consumed.
+        ring = RingConsumer(d) if a.ring else None
+        pause_step = None
+        if ring is not None:
+            paths, pause_step = ring.drain_until_pause()
+            if not paths:
+                print(f"FATAL: {d} delivered no snapshots", file=sys.stderr)
+                return 2
+        else:
+            paths = dump_series(d)
         if a.t_min is not None:
             keep = [p for p in paths if _step_of(p) * a.dt >= a.t_min - 0.5 * a.dt]
             if len(keep) != len(paths):
@@ -178,7 +201,7 @@ def main():
                       file=sys.stderr)
                 return 2
             paths = keep
-        print(f"\n=== {d}: {len(paths)} dumps ===")
+        print(f"\n=== {d}: {len(paths)} {'staged snapshots' if ring else 'dumps'} ===")
         t0 = time.time()
         fs = FieldSet(paths, a.dt, verbose=False,
                       cache_dtype=np.float16 if a.fp16_cache else np.float32)
@@ -234,6 +257,12 @@ def main():
                               max_disp=a.max_disp,
                               n_cover_groups=a.cover_groups,
                               keep_touchdowns=(a.keep_touchdowns if not runs else 0))
+        if ring is not None and pause_step is not None:
+            # Release the LES the moment the ensemble is integrated, before any of the
+            # reporting below. The window's arrays are already held here, so nothing the
+            # LES does next can disturb them.
+            ring.resume(pause_step)
+            print(f"  released the LES at step {pause_step}")
         if a.sgs_scale != 1.0:
             print("  SUB-GRID VARIANCE SCALED by %.3f (diagnostic)" % a.sgs_scale)
         if a.aniso:
