@@ -146,13 +146,25 @@ def window_stats(paths, k_recept):
             u, v, w = g("u"), g("v"), g("w")
             e = np.maximum(g("TKE_0"), 0.0)
             ust += float(g("fricVel").mean())
-            # htFlux is not written by the fork's ioLPDMmode (the LPDM never reads it), so
-            # fall back to invOblen, which IS written and is the quantity L is wanted for
-            # anyway. Deriving hfx back out of 1/L keeps the returned dict unchanged for
-            # every caller.
-            if "htFlux" in ds.variables:
-                hfx += float(g("htFlux").mean())
-            else:
+            # THE SURFACE FLUX IS DERIVED PER CELL FOR EVERY DUMP, AND THE BRANCH THAT
+            # USED htFlux WHEN IT HAPPENED TO BE PRESENT IS GONE.
+            #
+            # It read "htFlux is not written by the fork's ioLPDMmode, so fall back to
+            # invOblen", and that premise was stale: ioLPDMfullFrq writes a FULL dump at
+            # every multiple of its setting, and a full dump carries htFlux. So a lean
+            # window silently mixed TWO estimators -- measured on case_2023052519, 2 of 12
+            # sampled dumps took the htFlux branch and 10 took the derived one -- and the
+            # window mean was a mean of neither. The two agree to 1.3e-7 here, so nothing
+            # downstream was ever wrong by a visible amount; what was wrong is that the
+            # estimator depended on the IO MODE, which is the "a diagnostic is only as
+            # scale-free as its reference" rule wearing a different hat. Found by
+            # bin/test_ringsrc.py, because the in-process ring carries no htFlux and so
+            # could not reproduce the mixture.
+            #
+            # Deriving everywhere is not a compromise: as the note below says, the
+            # per-cell product IS htFlux_c, so this is the same quantity computed the same
+            # way for every dump under every output mode.
+            if True:
                 # PER CELL, THEN AVERAGE -- NEVER THE OTHER WAY ROUND.
                 #
                 # invOblen is 1/L = -kappa g htFlux/(u*^3 theta) (cuda_surfaceLayerDevice.cu
