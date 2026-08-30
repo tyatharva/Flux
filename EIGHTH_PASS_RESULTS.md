@@ -148,12 +148,25 @@ Two design points where the obvious reading of the brief turned out to be wrong:
 | `bin/test_dumpsrc.py` | the reader indirection, both windows | **PASS, bit-identical** |
 | `bin/test_ringsrc.py` | the consumer, both windows | **PASS, bit-identical** vs an fp32 reference |
 | `stage5 --ring` end to end | an identical 60-snapshot window | **PASS, 0.00e+00** on integral, asymptote, wrapped fraction and every `window_stats` field |
-| producer ↔ consumer | needs a real LES at `lpdmOnlineSelector = 2` | **OWED — GPU acceptance** |
+| `bin/test_lpdmonline.py` | **producer ↔ consumer, on a real LES** | **PASS, exact** — 23 snapshots, all 8 fields, max \|diff\| 0.000e+00 |
 
 Bit-identity rather than a tolerance, because there is no physics between the two paths and
 the correct tolerance is exactly zero. The CPU tests say plainly what they do not cover.
 
-### Two real bugs found by building it
+**The producer↔consumer test is the half no CPU test could reach.** One LES at
+`lpdmOnlineSelector = 2` stages AND writes from the same `ioBuffField` at the same point in
+the writer, so the two artifacts are comparable without running the LES twice and
+differencing two turbulence realisations (44% in the integral on this project). All 23
+snapshots agree exactly on u, v, w, theta, TKE_0, fricVel, z0m and invOblen, and
+`window_stats` and `FieldSet` through both sources are bit-identical. That excludes a wrong
+field order, a kji/ijk transpose, a pre-rho-division snapshot, an off-by-one ring slot, a
+2-D field read with 3-D extents, and a truncated write.
+
+Still owed on the hand-off: **Gate D1 well-mixed through the ring, both directions both
+regimes**, and a footprint computed end to end from a live LES rather than from a replayed
+window. Neither is a format question; both need a seed.
+
+### Five real bugs found by building it
 
 **`window_stats` was mixing two surface-flux estimators inside one window.** It used the
 `htFlux` variable when a dump carried it and derived the flux per cell otherwise, on the
@@ -163,6 +176,13 @@ stale: `ioLPDMfullFrq` writes a FULL dump at every multiple, and a full dump car
 window mean was a mean of neither. The two agree to **1.3e-7**, so nothing published is
 visibly wrong; what was wrong is that the estimator depended on the OUTPUT MODE. Found by
 the ring, which carries no `htFlux` and so could not reproduce the mixture.
+
+Three more came out of running it against a real LES, and are in `FASTEDDY_TRAPS.md`
+§20f–h: a 504-character comment in the `.in` template segfaults FastEddy's parser before it
+starts (now refused by `docker/run_case.sh`, which says which line); `0` was the "disabled"
+sentinel for a pause step and `0` is a real step; and the ring consumer used
+delete-after-read to mark a snapshot consumed, so `keep=True` re-read the same 23 forever
+until the container was OOM-killed.
 
 **`window_stats` parsed the timestep with its own `rsplit` inside a `try/except`**, so a
 non-path handle fell through to the dump INDEX and the time axis spanned 9 units instead of
@@ -197,9 +217,10 @@ splitting on the tag.
 
 ## 6. Still owed
 
-1. **The GPU acceptance of the hand-off** — `lpdmOnlineSelector = 2`, CPU-from-disk vs
-   GPU-from-ring within the half-vs-half floor, and Gate D1 well-mixed both directions both
-   regimes through the ring. **If either fails, fall back to the CPU path and say so.**
+1. **Gate D1 well-mixed through the ring**, both directions both regimes, and a footprint
+   from a live LES rather than a replayed window. The FORMAT half of the acceptance has
+   passed exactly; what is left needs a seed. **If D1 fails through the ring, fall back to
+   the CPU path and say so.**
 3. **The containment acceptance**: the neutral integral must saturate by 2.5 L.
 4. **The deciding test, re-run.** The 24 m result does not certify this grid.
 5. **Gate D1 on a seed window** on the production closure.

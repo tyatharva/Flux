@@ -15,6 +15,7 @@
 | 0 | a priori resolution cost of dx 24 -> 30, no GPU | **done** — 87.2% of resolved variance kept at a 4dx filter |
 | 0 | `lpdm/dumpsrc.py` + `bin/test_dumpsrc.py` | **PASS bit-identical**; caught a real step-parsing bug |
 | 0 | `SRC/IO/io_lpdmonline.c` + `lpdm/ringsrc.py` + `bin/test_ringsrc.py` | **PASS bit-identical**; caught a mixed flux estimator |
+| 0 | **`bin/test_lpdmonline.py` — producer vs consumer on a real LES** | **PASS, EXACT** — 23 snapshots, 8 fields, max \|diff\| 0.000e+00 |
 | 0 | `stage5_footprint.py --ring` end to end | **PASS 0.00e+00** on an identical 60-snapshot window |
 | **1** | 30 m bring-up: cost, flat `dt` boundary, k0/k1, turb_alive | **PASS** — boundary **1.50-1.55**, production `dt` = 5/162 s (CFL 1.3502, 10.0% margin), **0.479 GPU-h/sim-h** |
 | 1 | B5 restart injection, static rotation check | pending |
