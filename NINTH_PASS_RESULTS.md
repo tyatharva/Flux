@@ -443,7 +443,7 @@ recomputing Kljun on the 2928 m control's *identical* cells with the official FF
 small against a 1464 m box half-width, so widening it moves almost nothing out of the box.
 The recorded parity is real.
 
-**It is the LES.** The two controls are nearly the same flow — u\* 0.410 vs 0.405, U/u\*
+**It is the LES.** The two controls are nearly the same flow — u* 0.410 vs 0.405, U/u*
 15.99 vs 16.27, `z_i` 643 m in both, σ_v 0.577 vs 0.584 — and Kljun agrees (peak 192 vs
 180 m, x80 931 vs 964 m, A80 13.1 vs 13.1 ha). The **LES** footprint is the thing that
 changed: peak 240 → 270–330 m, x80 1557 → 1733 m, A80 31.8 → 34.0 ha. Two measured
