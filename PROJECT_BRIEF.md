@@ -2,9 +2,15 @@
 
 ## Goal
 
-Train a conditional normalizing flow (CNF) that predicts 2-D flux footprints for the
-UW-Madison Kegonsa Solar Array eddy-covariance tower, using **only the scalar inputs the
-Kljun et al. (2015) model uses**, and beats Kljun at that site.
+Train an emulator that predicts 2-D flux footprints for the UW-Madison Kegonsa Solar Array
+eddy-covariance tower, using **only the scalar inputs the Kljun et al. (2015) model uses**,
+and beats Kljun at that site.
+
+**THE ARCHITECTURE IS AN FNO, NOT A CNF — changed 2026-08-30. See `ML_TARGETS.md`.** The
+target is the 122² raster zero-padded to 128², the model predicts a residual on Kljun
+conditioned on the six scalars by FiLM, and touchdowns are not saved at all. Everything
+below that says "CNF is the primary architecture" and "FNO may be benchmarked against it"
+is the wrong way round now.
 
 Training targets come from FastEddy LES + a backward Lagrangian particle dispersion model
 (LPDM) written for this project. LES and LPDM are offline target generators — they are
@@ -12,6 +18,78 @@ Training targets come from FastEddy LES + a backward Lagrangian particle dispers
 
 Scope is deliberately narrow: this is a **site-calibrated emulator for one tower**. It has
 zero transfer to other sites, and that is an accepted, stated limitation. Do not add scope.
+
+## THE KLJUN CHANNEL IS THE OFFICIAL FFP, AND THE HAND-OFF STREAMS — changed 2026-08-30
+
+**Three things change and one number in this file was wrong. Read this before believing any
+Kljun comparison below, and before assuming the in-process hand-off is free of host RAM.**
+Full evidence: `NINTH_PASS_RESULTS.md`.
+
+**1. KLJUN IS NATASCHA KLJUN'S OWN CODE NOW.** `third_party/FFP/calc_footprint_FFP.py` is
+the official v1.42, vendored unmodified with its ISC licence, hashes and URL
+(`third_party/FFP/PROVENANCE.md`). `lpdm/kljun_ffp.py` re-evaluates its two separable
+factors at our north-up cell centres and **reimplements no formula**; it agrees with the
+code it wraps to **9.4e-16** (`bin/test_kljun_adapter.py`, asserted).
+
+**AND OUR REIMPLEMENTATION WAS 1.25x WIDE IN `sigma_y` WHENEVER `|L| > 5000`.** The official
+resets `ol = -1e6` above its own `oln = 5000` and its `scale_const` then CLIPS to 1.0;
+`lpdm/kljun.py` short-circuits `|L| > 1e5` to 0.8 and never reaches the clip. `f_ci` and
+`x_peak` agree to 1e-14 everywhere, and at `|L| < 5000` `sigma_y` does too — so the ONLY
+regime it bites is the near-neutral one, **which is exactly the flat/neutral control, the
+one place in this project where Kljun is diagnostic rather than descriptive.**
+`lpdm/kljun.py` stays for the gates already validated against it; `stage5_footprint.py` and
+every training record now take the official.
+
+**2. THE IN-PROCESS HAND-OFF WAS NOT STREAMING — it removed ~20 GB of disk and moved it to
+RAM, and every check passed while it did.** `drain_until_pause` returned the whole window as
+a list (541 x 36.5 MB = **19.7 GB**) and `FieldSet` retained it on top of its own 12.0 GB
+cache, because `window_stats` opened every dump a SECOND time. Peak ~32 GB — on the machine
+class being chosen for rented boxes. **Deleting the tmpfs file releases the PRODUCER's
+backpressure and nothing else**; the consumer's own bound was a separate statement and
+nothing was making it.
+
+Fused into one pass: `lpdm/les_stats.py:WindowAccumulator` is the estimator as an
+accumulator and `window_stats()` is a thin loop over it, `FieldSet.load()` feeds it and
+releases each handle, `RingConsumer.iter_until_pause()` yields. **Identity is asserted at
+exactly zero** and gets it — the cache, the time axis and all 25 `window_stats` fields
+(`bin/test_streaming.py`, and against the pre-refactor code from git on two real windows).
+
+MEASURED on a live production case (`case_2023111718`, 2.0 sim-h, two windows, 1442
+snapshots, `lpdmOnlineSelector = 2`):
+
+| | |
+|---|---|
+| staged snapshots vs netCDF dumps written | **1442 vs 1442** |
+| peak staging directory | **58.3 MB = 1.6 snapshots**, against a whole window of 19.7 GB |
+| peak consumer host RSS | **12.45 GB** (the field cache) against ~31.7 GB before |
+| LES pause per window boundary | **45.4 s** |
+| persisted per case | **3.6 MB**, against **19 GB** of window dumps selector 2 also wrote |
+| cost | **0.525 GPU-h/sim-h** at selector 2 (0.512 net of pauses) against 0.479 at bring-up; the +7% is the double write |
+
+**WHAT STREAMING CANNOT REACH, and it is not a detail.** The 12.0 GB field cache is not
+buildup — it IS the window, and `compute_footprint` is a **CPU** integrator that
+random-accesses all of it. Host residency floors at the cache. One-or-two-snapshot residency
+needs the window in VRAM and the integration there (`lpdm/gpu.py`), which is an INTEGRATOR
+change and is still deferred. **So "the ring is in VRAM" is aspirational in this file: today
+the ring is a HOST fp16 cache and the GPU LPDM is not on the production path.**
+
+**3. CONSECUTIVE WINDOWS ARE ONE OUTPUT INTERVAL APART, and they have to be.** The consumer
+deletes each snapshot as it reads it, so two windows cannot share a boundary dump: window 0
+consumes it and window 1 starts one interval late, its release period comes out one interval
+short, and `--strict-rel` refuses it. **Measured: 195.0 s against the 200 s asked for** — at
+production geometry that is every second window of the corpus, failing after ~1 GPU-h per
+case. Windows are now spaced `W_NT + frqOutput` apart on BOTH paths, so each owns a full
+window and delivers `W_NT/frqOutput + 1` snapshots. `N_WINDOWS = 1` is unchanged.
+
+**AND THE TRAINING RECORD IS A SELF-CONTAINED `.npz`.** `bin/make_pair.py --npz-dir` writes
+`scalars` (6,), `kljun` (128,128), `target` (128,128) signed and unclipped, and a `meta`
+blob, plus a per-machine `manifest.json`; 26-47 kB each. The corpus is generated on machines
+that share no filesystem, so a record referencing `results/corpus/<tag>.npz` does not survive
+the trip. 122 -> 128 is a **zero-pad of 3 cells, not a resize**, and the Kljun channel is
+re-evaluated on the target raster's own cell edges so identity is structural.
+
+**The `z0_geometric_m` literal 0.1435 was wrong in every existing record** — 0.14488 for the
+four 16 m cases and **0.08323 for the two 24 m ones, an error of 72%**. All six regenerated.
 
 ## THE GRID IS 122^3 @ 30 m (3660 m) AND THE LES HANDS FIELDS OVER IN RAM — changed 2026-08-30
 

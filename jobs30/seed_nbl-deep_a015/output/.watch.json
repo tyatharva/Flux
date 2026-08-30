@@ -1,0 +1,171 @@
+{
+ "label": "seed_nbl-deep_a015",
+ "pass": false,
+ "n_indeterminate": 5,
+ "indeterminate": [
+  "U/u* (Kljun Pi_4)",
+  "sigma_w/u* at the receptor",
+  "z_i",
+  "Kljun x_peak",
+  "Kljun x90"
+ ],
+ "drifting": [
+  "sigma_v/u*",
+  "TKE_BL/u*^2"
+ ],
+ "resolve_se": 3.0,
+ "dt": 0.0308642,
+ "wth": 0.0,
+ "score_h": 0.5,
+ "n_dumps": 13,
+ "t_end_h": 1.00000008,
+ "gated": [
+  {
+   "name": "U/u* (Kljun Pi_4)",
+   "mean": 16.639638676914615,
+   "trend_pct_per_h": -3.877854244559485,
+   "limit": 1.0,
+   "ok": null,
+   "trend_se_pct_per_h": 1.25130676796015,
+   "n_eff": 6.0,
+   "resolvable": false,
+   "margin_se": 2.2998790690238917,
+   "verdict": "INDETERMINATE"
+  },
+  {
+   "name": "sigma_v/u*",
+   "mean": 2.154949893962018,
+   "trend_pct_per_h": 33.367804693994444,
+   "limit": 3.0,
+   "ok": false,
+   "trend_se_pct_per_h": 4.385943014602311,
+   "n_eff": 6.0,
+   "resolvable": true,
+   "margin_se": 6.923894038953446,
+   "verdict": "DRIFTING"
+  },
+  {
+   "name": "sigma_w/u* at the receptor",
+   "mean": 1.153144419635821,
+   "trend_pct_per_h": -5.047643450045649,
+   "limit": 2.0,
+   "ok": null,
+   "trend_se_pct_per_h": 1.5689131455587522,
+   "n_eff": 6.0,
+   "resolvable": false,
+   "margin_se": 1.942518907864885,
+   "verdict": "INDETERMINATE"
+  },
+  {
+   "name": "TKE_BL/u*^2",
+   "mean": 1.1479193925447584,
+   "trend_pct_per_h": 40.822748372841545,
+   "limit": 5.0,
+   "ok": false,
+   "trend_se_pct_per_h": 8.26560956729774,
+   "n_eff": 6.0,
+   "resolvable": true,
+   "margin_se": 4.3339511842625065,
+   "verdict": "DRIFTING"
+  },
+  {
+   "name": "z_i",
+   "mean": 649.4857584635416,
+   "trend_pct_per_h": -7.8027211912954355,
+   "limit": 3.0,
+   "ok": null,
+   "trend_se_pct_per_h": 2.6412336091146194,
+   "n_eff": 6.0,
+   "resolvable": false,
+   "margin_se": 1.8183628947934594,
+   "verdict": "INDETERMINATE",
+   "n_levels": 2,
+   "level_span_m": 18.4761962890625
+  },
+  {
+   "name": "Kljun x_peak",
+   "mean": 182.16467573075408,
+   "trend_pct_per_h": -3.5034358536369274,
+   "limit": 1.0,
+   "ok": null,
+   "trend_se_pct_per_h": 1.3246823446469118,
+   "n_eff": 6.0,
+   "resolvable": false,
+   "margin_se": 1.8898386196157895,
+   "verdict": "INDETERMINATE"
+  },
+  {
+   "name": "Kljun x90",
+   "mean": 1507.994683338784,
+   "trend_pct_per_h": -1.7745473383920007,
+   "limit": 1.0,
+   "ok": null,
+   "trend_se_pct_per_h": 0.6730509221387093,
+   "n_eff": 6.0,
+   "resolvable": false,
+   "margin_se": 1.1508005009944462,
+   "verdict": "INDETERMINATE"
+  }
+ ],
+ "reported": [
+  {
+   "name": "u*",
+   "mean": 0.40056915991565595,
+   "trend_pct_per_h": -12.256084977831032,
+   "unit": "%/h"
+  },
+  {
+   "name": "U(10 m)",
+   "mean": 6.665687935365451,
+   "trend_pct_per_h": -16.16948528374497,
+   "unit": "%/h"
+  },
+  {
+   "name": "wind direction",
+   "mean": 248.4582819205174,
+   "trend_deg_per_h": -7.713781057223901,
+   "unit": "deg/h"
+  },
+  {
+   "name": "TKE_column/u*^2 (retired form)",
+   "mean": 0.6256098365085762,
+   "trend_pct_per_h": 44.3211301009694,
+   "unit": "%/h"
+  },
+  {
+   "name": "domain TKE",
+   "mean": 0.10025705671292016,
+   "trend_pct_per_h": 20.159158445267522,
+   "unit": "%/h"
+  },
+  {
+   "name": "peak resolved TKE",
+   "mean": 0.606387624690564,
+   "trend_pct_per_h": 63.06937128268053,
+   "unit": "%/h"
+  },
+  {
+   "name": "z_i, 5% of the running peak",
+   "mean": 613.5339050292969,
+   "trend_pct_per_h": -17.58576443219946,
+   "unit": "%/h"
+  }
+ ],
+ "final": {
+  "ustar": 0.39843545145475556,
+  "U": 6.537105547956201,
+  "zi": 649.4857584635416,
+  "zi_definition": "fixed resolved-TKE threshold 0.01 m2/s2 (gated)",
+  "zi_peakfrac": 613.5339050292969,
+  "tke_peak": 0.606387624690564,
+  "wdir": 246.97461275699243,
+  "dwdir_dt_deg_per_h": -7.713781057223901,
+  "dwdir_scored_over_h": 0.5,
+  "sigma_v": 0.9035529409281761,
+  "sigma_w": 0.4517533021067033,
+  "theta0": 300.27602801057674,
+  "x_peak": 179.69923780612936,
+  "x90": 1497.6402723904594
+ },
+ "last_dump": "FE_SEED.116640"
+}
