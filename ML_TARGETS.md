@@ -95,10 +95,25 @@ measured on real 30 m targets:
 | **field model on the Kljun residual** (FNO / U-Net) | unconstrained, signs are free, and PROJECT_BRIEF.md already sanctions these as benchmarks | back on a raster, which is what this document exists to avoid — unless it is evaluated on a continuous loss (Sinkhorn on the signed measure) |
 | **weighted MLE with signed weights** | one flow, fit by maximum likelihood with negative weights | non-standard; the likelihood is not a likelihood and the estimator can be biased in ways nobody has characterised for this problem |
 
-The measurement that decides it is cheap and comes free with the seventh pass: the negative
-lobe's magnitude share and its location at a 30 m receptor. If it is ~1% and sits in the far
-field, option 1 with a crude `p⁻` is enough. If it is ~10% and near-field, the flow is the
-wrong primary and the benchmark becomes the model.
+**MEASURED, 2026-08-29, on the two 30 m production targets — and the answer is bigger than
+the raster suggests, which is itself the point:**
+
+| | on the 122² raster | in the TOUCHDOWN SAMPLE |
+|---|---|---|
+| `case_2023052519` convective | 2.32% of \|flux\|, 8.2% of cells | **33.0% of touchdowns, 20.9% of \|weight\|** |
+| `case_2023121921` near-neutral | 2.03% of \|flux\|, 2.9% of cells | **40.1% of touchdowns, 35.0% of \|weight\|** |
+
+The raster hides it, because within a 24 m cell the positive and negative touchdowns cancel
+before anything is written down. **The target this document proposes — a density fitted to
+the points — sees the uncancelled version, and a third to a half of its mass is negative.**
+Its negative lobe sits 1.2–1.6× further out than the positive one, so the sign structure is
+spatial and not noise.
+
+That settles the open question against the naive route: **a single nonnegative flow cannot
+represent this target**, and clipping would discard a fifth to a third of the signed mass
+rather than a rounding error. Option 1 (`f = w⁺p⁺ − w⁻p⁻`) is viable because `w⁻` is now
+known to be large enough to estimate; option 2 stops being merely a benchmark. Decide at
+build time — but decide knowing the number is 21–35%, not 2%.
 
 ## What stays on the raster
 
