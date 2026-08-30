@@ -1,0 +1,170 @@
+{
+ "label": "seed_cbl-mid_a015",
+ "pass": false,
+ "n_indeterminate": 7,
+ "indeterminate": [
+  "U/u* (Kljun Pi_4)",
+  "sigma_v/u*",
+  "sigma_w/u* at the receptor",
+  "TKE_BL/u*^2",
+  "z_i",
+  "Kljun x_peak",
+  "Kljun x90"
+ ],
+ "drifting": [],
+ "resolve_se": 3.0,
+ "dt": 0.0308642,
+ "wth": 0.11,
+ "score_h": 2.0,
+ "n_dumps": 12,
+ "t_end_h": 0.91666674,
+ "gated": [
+  {
+   "name": "U/u* (Kljun Pi_4)",
+   "mean": Infinity,
+   "trend_pct_per_h": NaN,
+   "limit": 1.0,
+   "ok": null,
+   "trend_se_pct_per_h": NaN,
+   "n_eff": 12.0,
+   "resolvable": false,
+   "margin_se": NaN,
+   "verdict": "INDETERMINATE"
+  },
+  {
+   "name": "sigma_v/u*",
+   "mean": NaN,
+   "trend_pct_per_h": NaN,
+   "limit": 3.0,
+   "ok": null,
+   "trend_se_pct_per_h": NaN,
+   "n_eff": 12.0,
+   "resolvable": false,
+   "margin_se": NaN,
+   "verdict": "INDETERMINATE"
+  },
+  {
+   "name": "sigma_w/u* at the receptor",
+   "mean": NaN,
+   "trend_pct_per_h": NaN,
+   "limit": 2.0,
+   "ok": null,
+   "trend_se_pct_per_h": NaN,
+   "n_eff": 12.0,
+   "resolvable": false,
+   "margin_se": NaN,
+   "verdict": "INDETERMINATE"
+  },
+  {
+   "name": "TKE_BL/u*^2",
+   "mean": NaN,
+   "trend_pct_per_h": NaN,
+   "limit": 5.0,
+   "ok": null,
+   "trend_se_pct_per_h": NaN,
+   "n_eff": 12.0,
+   "resolvable": false,
+   "margin_se": NaN,
+   "verdict": "INDETERMINATE"
+  },
+  {
+   "name": "z_i",
+   "mean": 646.3053911526998,
+   "trend_pct_per_h": 143.6318397519937,
+   "limit": 3.0,
+   "ok": null,
+   "trend_se_pct_per_h": 59.45418488872798,
+   "n_eff": 3.0,
+   "resolvable": false,
+   "margin_se": 2.365381680283642,
+   "verdict": "INDETERMINATE",
+   "n_levels": 9,
+   "level_span_m": 886.2237071990967
+  },
+  {
+   "name": "Kljun x_peak",
+   "mean": -Infinity,
+   "trend_pct_per_h": NaN,
+   "limit": 1.0,
+   "ok": null,
+   "trend_se_pct_per_h": NaN,
+   "n_eff": 12.0,
+   "resolvable": false,
+   "margin_se": NaN,
+   "verdict": "INDETERMINATE"
+  },
+  {
+   "name": "Kljun x90",
+   "mean": NaN,
+   "trend_pct_per_h": NaN,
+   "limit": 1.0,
+   "ok": null,
+   "trend_se_pct_per_h": NaN,
+   "n_eff": 12.0,
+   "resolvable": false,
+   "margin_se": NaN,
+   "verdict": "INDETERMINATE"
+  }
+ ],
+ "reported": [
+  {
+   "name": "u*",
+   "mean": 0.47508282891099146,
+   "trend_pct_per_h": 45.71315098331441,
+   "unit": "%/h"
+  },
+  {
+   "name": "U(10 m)",
+   "mean": 7.705003380780167,
+   "trend_pct_per_h": -14.984959960945071,
+   "unit": "%/h"
+  },
+  {
+   "name": "wind direction",
+   "mean": 254.43417700282407,
+   "trend_deg_per_h": -1.5041353540919016,
+   "unit": "deg/h"
+  },
+  {
+   "name": "TKE_column/u*^2 (retired form)",
+   "mean": NaN,
+   "trend_pct_per_h": NaN,
+   "unit": "%/h"
+  },
+  {
+   "name": "domain TKE",
+   "mean": 0.29624035852098635,
+   "trend_pct_per_h": 141.28876798475628,
+   "unit": "%/h"
+  },
+  {
+   "name": "peak resolved TKE",
+   "mean": 0.8353551457330083,
+   "trend_pct_per_h": 80.05197865757647,
+   "unit": "%/h"
+  },
+  {
+   "name": "z_i, 5% of the running peak",
+   "mean": 608.5921518007914,
+   "trend_pct_per_h": 126.75391393460775,
+   "unit": "%/h"
+  }
+ ],
+ "final": {
+  "ustar": 0.4963871865976052,
+  "U": 7.237371620167144,
+  "zi": 646.3053911526998,
+  "zi_definition": "fixed resolved-TKE threshold 0.01 m2/s2 (gated)",
+  "zi_peakfrac": 608.5921518007914,
+  "tke_peak": 0.8353551457330083,
+  "wdir": 253.3698547843335,
+  "dwdir_dt_deg_per_h": -1.5041353540919016,
+  "dwdir_scored_over_h": 2.0,
+  "sigma_v": 0.9908152289625173,
+  "sigma_w": 0.528046407657272,
+  "theta0": 301.2074898051113,
+  "x_peak": 157.55142234999477,
+  "x90": 1397.8327777376173
+ },
+ "last_dump": "FE_SEED.106920"
+}

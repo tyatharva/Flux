@@ -7,6 +7,10 @@
 #     produced is launched in the BACKGROUND and runs while the next LES is on the GPU
 #     (PROJECT_BRIEF.md's standing rule). The LPDM, the acceptance comparisons, the containment
 #     ladder and the well-mixed battery are all CPU; only the LES needs the card.
+#     THE ONE EXCEPTION IS bin/seed_accept.sh, whose Gate C2 restarts the seed and re-dumps
+#     it -- that IS an LES. Backgrounding it raced run 2 into docker/run_case.sh's
+#     one-FastEddy-at-a-time refusal and killed the case before a single step ran, so the
+#     battery runs in the FOREGROUND and wait_for_gpu guards every launch besides.
 #   ASSERT ON THE ARTIFACT. Every step checks the file it was supposed to write, never an
 #     exit status -- the analyses are piped into grep and tee (FASTEDDY_TRAPS.md 12).
 #
@@ -45,6 +49,21 @@ say(){ echo; echo "########## $* ##########"; date '+%F %H:%M:%S'; }
 have_seed(){ [ -s "jobs30/$1/return/seed_restart.nc" ]; }
 BG_PIDS=""
 bg(){ "$@" & BG_PIDS="$BG_PIDS $!"; echo "  [bg $!] $*"; }
+# ONE FastEddy AT A TIME, AND WAIT FOR IT RATHER THAN COLLIDING WITH IT.
+# docker/run_case.sh REFUSES a second FastEddy container, which is correct and is also a
+# hard failure for whoever loses the race -- measured: bin/seed_accept.sh's Gate C2 needs
+# the GPU too (it restarts the seed and re-dumps), so backgrounding the battery raced run 2
+# into a refusal that killed the case before a single step ran. seed_accept is now in the
+# FOREGROUND, and this is the belt to that braces: nothing launches an LES while one is up.
+wait_for_gpu(){
+  local t=0
+  while [ -n "$(docker ps -q --filter ancestor=flux-fasteddy:cuda118)" ]; do
+    [ $((t % 60)) -eq 0 ] && echo "  waiting for the GPU: $(docker ps --format '{{.Names}}' \
+      --filter ancestor=flux-fasteddy:cuda118 | tr '\n' ' ')"
+    sleep 10; t=$((t + 10))
+    [ "$t" -gt 7200 ] && die "a FastEddy container has held the GPU for 2 h; not queueing behind it"
+  done
+}
 
 bash bin/preflight.sh || die "preflight"
 
@@ -57,10 +76,13 @@ if ! have_seed "$CONV_SEED"; then
 else
   echo "  run 1: $CONV_SEED already returned a seed; skipping"
 fi
-bg bash -c "bash bin/seed_accept.sh jobs30/$CONV_SEED > $L/pass9_accept1.log 2>&1"
+wait_for_gpu
+say "RUN 1 battery: $CONV_SEED (FOREGROUND -- Gate C2 needs the GPU)"
+bash bin/seed_accept.sh "jobs30/$CONV_SEED" 2>&1 | tee "$L/pass9_accept1.log" | tail -25
 
 # ---- 2. the convective target, two windows, through the ring ---------------------------
 say "RUN 2: convective target $CONV_TAG at $CONV_TS"
+wait_for_gpu
 bash bin/run_corpus_case.sh "$CONV_TS" "$CONV_TAG" 2>&1 | tee "$L/pass9_run2.log" | tail -40
 [ -s "pairs/${CONV_TAG}_w0.json" ] || die "run 2 produced no w0 pair"
 [ -s "pairs/${CONV_TAG}_w1.json" ] || echo "  *** run 2 produced no w1 pair" >&2
@@ -81,7 +103,9 @@ if ! have_seed "$NEUT_SEED"; then
 else
   echo "  run 3: $NEUT_SEED already returned a seed; skipping"
 fi
-bg bash -c "bash bin/seed_accept.sh jobs30/$NEUT_SEED > $L/pass9_accept3.log 2>&1"
+wait_for_gpu
+say "RUN 3 battery: $NEUT_SEED (FOREGROUND -- Gate C2 needs the GPU)"
+bash bin/seed_accept.sh "jobs30/$NEUT_SEED" 2>&1 | tee "$L/pass9_accept3.log" | tail -25
 
 # ---- 4. the flat/neutral control: regression, D1-neutral, CONTAINMENT at 2.5 L ----------
 # THE ONLY PLACE KLJUN IS DIAGNOSTIC, and the case the containment gate is decided on -- at
@@ -97,6 +121,7 @@ print(re.search(r'^U_g = ([-0-9.]+)',s,re.M).group(1),
       re.search(r'^V_g = ([-0-9.]+)',s,re.M).group(1))")
 read -r FUG FVG <<< "$UGV"
 echo "  flat control forcing from the seed's own .in: U_g $FUG  V_g $FVG"
+wait_for_gpu
 TBACK=900 DT="$DT30" SRC="jobs30/$NEUT_SEED/return/seed_restart.nc" D=runs/g30_flat \
 GRID=data/grid30 TAG=g30_flat BASE=runs/g30_base/base.in ZTARGET=28.5 \
 UG="$FUG" VG="$FVG" MARKS=150,300,450,600,750 KEEP_FIELDS=1 \
@@ -108,6 +133,7 @@ bg bash bin/pass9_flat.sh "$DT30"
 
 # ---- 5. the neutral target, two windows, through the ring ------------------------------
 say "RUN 5: neutral target $NEUT_TAG at $NEUT_TS"
+wait_for_gpu
 bash bin/run_corpus_case.sh "$NEUT_TS" "$NEUT_TAG" 2>&1 | tee "$L/pass9_run5.log" | tail -40
 [ -s "pairs/${NEUT_TAG}_w0.json" ] || die "run 5 produced no w0 pair"
 bg bash bin/pass9_accept.sh "$NEUT_TAG" "$DT30" neutral
