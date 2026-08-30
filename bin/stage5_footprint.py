@@ -355,6 +355,12 @@ def main():
                integral_les=g0.integral(), integral_les_all=g0.integral_all(),
                integral_kljun=float(kl.sum() * g0.area),
                integral_asymptote=float(_asym),
+               # THE CAP THAT WAS USED, recorded so a reader can tell a run made AT the cap
+               # from one made past it. Without it the by-displacement ladder's flat tail is
+               # ambiguous: it means "contained" or "capped" and the record cannot say which.
+               max_disp_used=float(a.max_disp if a.max_disp else fs0.Lx),
+               w_bar=float(r0.get("w_bar", float("nan"))),
+               w_sf_mean=float(r0.get("w_sf_mean", float("nan"))),
                integral_over_asymptote=float(g0.integral() / _asym),
                kljun_integral_over_asymptote=float(kl.sum() * g0.area / _asym),
                cover_share=r0.get("cover_share", {}),
