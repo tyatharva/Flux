@@ -7,11 +7,11 @@ tBx = 1 # kStride=1, so a warp must run along z; tBx>1 breaks coalescing (measur
 tBy = 2 # 1x2x64 = 128 threads, fastest of 9 legal shapes swept on this grid
 tBz = 64 # CUDA caps blockDim.z at 64; 128 is rejected by the device
 #--IO
-inPath = # Path where initial/restart file is read in from
-inFile = # name of the input file for coordinate system and initial or restart conditions
+inPath = ./
+inFile = FE_RST.0
 outPath = ./output/ # Path where output files are to be written
-outFileBase = FE_G30 # Base name of the output file series
-frqOutput = 9720 # 300 s between dumps during spin-up (= 162*60 at dt = 5/162)
+outFileBase = FE_ACC
+frqOutput = 162
 ioOutputMode = 0 # 0: N-to-1 gather and write to a netcdf file, 1:N-to-N writes of FastEddy binary files
 #--GRID
 Nx = 122 # 122 x 30 m = 3660 m
@@ -28,7 +28,7 @@ verticalDeformFactor = 0.346601 # dz_sfc = 8.5583 m; cell centre k=3 at EXACTLY 
 verticalDeformQuadCoeff = 0.0 # pure cubic
 #--TIME_INTEGRATION
 timeMethod = 0 # Selector for time integration method. [0=RK3-WS2002 (default)]
-Nt = 108000 # PLACEHOLDER. Every driver overwrites this. One invocation per run.
+Nt = 68480
 dt = 0.0308642 # 5/162 s: integer 5 s cadence. CFL_3d 1.3502, 10.0% under the MEASURED boundary (k0/k1 0.130 at 1.50, 8.857 at 1.55). See PROJECT_BRIEF.md and results/g30_bringup.txt.
 NtBatch = 162
 #--HYDRO_CORE
@@ -77,7 +77,7 @@ dampingLayerDepth = 500.0 # 17% of the 3000 m domain depth; clean domain to 2500
 surflayerSelector = 1 # surfacelayer selector: 0= off, 1= surface kinematic heat flux (surflayer_wth), 2=sking temperature rate (surflayer_tr)
 surflayer_z0 = 0.0615 # geometric-mean z0 of the real 122^2 @ 30 m map (more lake than at 24 m pulls it down from 0.0832)
 surflayer_z0t = 0.01 # roughness length (temperature) when surflayerSelector > 0
-surflayer_wth = 0.0 # kinematic VIRTUAL heat flux (the run is dry; see PROJECT_BRIEF.md). 0 = neutral
+surflayer_wth = 0.06
 surflayer_tr = -0.0 # temperature rate at the surface when surflayerSelector = 2 (>0 for warming; <0 for cooling)
 surflayer_wq = 0.0 # latent heat flux at the surface (kg/kg m s-1) when surflayerSelector = 1
 surflayer_qr = 0.0 # water vapor rate (kg/kg h-1) when surflayerSelector = 2
@@ -93,7 +93,7 @@ surflayer_offshore = 0 # offshore selector: 0=off, 1=on
 stabilityScheme = 2 # Scheme used to set hydrostatic, stability-dependent Base-State EOS fields
 temp_grnd = 300.0 # Air Temperature (K) at the ground used to set hydrostatic Base-State EOS fields
 pres_grnd = 100000.0 # Pressure (Pa) at the ground used to set hydrostatic Base-State EOS fields
-zStableBottom = 400.0 # mixed layer 0-400 m; L >= 4 z_i caps z_i at 488 m in a 1952 m box
+zStableBottom = 450.0
 stableGradient = 0.08 # capping inversion, +8 K across 400-500 m
 zStableBottom2 = 500.0 # top of the capping inversion
 stableGradient2 = 0.004 # free-atmosphere lapse; sets the entrainment growth rate of z_i
@@ -102,8 +102,8 @@ stableGradient3 = 0.004
 thetaPerturbationSwitch = 1 # Switch to include initial theta perturbations: 0=off, 1=on
 thetaHeight = 300.0 # Height below which to include initial theta perturbations: (meters)
 thetaAmplitude = 0.25 # Maximum amplitude for theta perturbations: thetaAmplitude*[-1,+1] K
-U_g = 10.0 # Zonal (West-East) component of the geostrophic wind (m/s)
-V_g = 0.0 # Meridional (South-North) component of the geostrophic wind (m/s)
+U_g = 7.0
+V_g = 0.0
 z_Ug = 10000.0 # Height (m) above ground for linear geostrophic wind gradient (zonal component)
 z_Vg = 10000.0 # Height (m) above ground for linear geostrophic wind gradient (meridional component)
 Ug_grad = 0.0 # U_g gradient above z_Ug (ms-1/m)
@@ -113,9 +113,9 @@ lsfSelector = 1 # large-scale forcings ON: subsidence is the control on z_i
 lsf_horMnSubTerms = 1 # subsidence needs BOTH this and lsfSelector=1 (hydro_core.c:509)
 lsf_freq = 1.0 # large-scale forcing frequency (seconds)
 lsf_w_surf = 0.0 # m/h; the kernel divides by 3600 (cuda_largeScaleForcingsDevice.cu:229)
-lsf_w_lev1 = -25.0 # -0.0069 m/s at 500 m: fair-weather subsidence, 0.005-0.01 m/s
+lsf_w_lev1 = -25.0
 lsf_w_lev2 = 0.0
-lsf_w_zlev1 = 500.0 # the inversion top, where subsidence must oppose entrainment
+lsf_w_zlev1 = 450.0
 lsf_w_zlev2 = 2000.0 # tapered to zero below the damping layer
 lsf_th_surf = 0.0 # no imposed cooling: the inversion, not an LSF, sets the equilibrium
 lsf_th_lev1 = 0.0
@@ -127,3 +127,8 @@ lsf_qv_lev1 = -0.0432 # large-scale forcing qv at height 1
 lsf_qv_lev2 = 0.0 # large-scale forcing qv at height 2
 lsf_qv_zlev1 = 300.0 # large-scale forcing qv height 1
 lsf_qv_zlev2 = 500.0 # large-scale forcing qv height 2
+lpdmOnlineSelector = 2 # stage AND write, from the same ioBuffField: the only comparable pair
+lpdmOnlineDir = /dev/shm/flux/accept
+lpdmOnlineQueue = 64 # nothing consumes during this run; the staged files ARE the artifact
+lpdmOnlinePause1 = 0
+lpdmOnlinePause2 = 0

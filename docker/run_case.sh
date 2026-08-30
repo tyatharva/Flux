@@ -30,6 +30,24 @@ fi
 # Check the file exists before spending GPU time on it.
 CASE_DIR="$1"; CASE_FILE="$2"
 _cf="${FLUX_ROOT}/${CASE_DIR}/${CASE_FILE}"
+# A LINE OF 256 CHARACTERS OR MORE IN THE .in SEGFAULTS FastEddy BEFORE IT STARTS.
+# parameters.c:28 sets MAXLEN 256 and reads with fgets(strBuff, MAXLEN, ...), so a longer
+# line is split. The first piece parses; the CONTINUATION is a fragment with no '=', and
+# parameters.c:126-133 then calls str_trim(valueBuff) on the NULL that strchr returned.
+# The result is "Signal: Segmentation fault ... Failing at address: (nil)" with a six-frame
+# libc backtrace and no mention of the file or the line -- so the natural reading is that
+# the model is broken, not that a COMMENT is too long. Cost: one acceptance run, and it
+# would have cost every run of the pass, because the offending line was in the TEMPLATE.
+if [ -f "$_cf" ]; then
+  _long=$(awk 'length($0) >= 255 {print NR": "length($0)" chars"}' "$_cf" | head -3)
+  if [ -n "$_long" ]; then
+    echo "  REFUSED: ${CASE_FILE} has line(s) at or over 255 characters, which FastEddy's" >&2
+    echo "           parameter parser cannot read (parameters.c:28 MAXLEN 256). It would" >&2
+    echo "           segfault at address (nil) with no reference to the file:" >&2
+    echo "$_long" | sed 's|^|             line |' >&2
+    exit 4
+  fi
+fi
 if [ -f "$_cf" ]; then
   _ip=$(grep -oP '^inPath\s*=\s*\K[^#[:space:]]*' "$_cf" || true)
   _if=$(grep -oP '^inFile\s*=\s*\K[^#[:space:]]*' "$_cf" || true)

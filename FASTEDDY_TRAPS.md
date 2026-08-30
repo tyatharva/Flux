@@ -945,3 +945,49 @@ Naming the expected artifact `FE_BU.$Nt` therefore names a file that never exist
 failure surfaces as "no developed state" *after* the GPU time has been spent. Take the
 newest dump of the one run family instead, which is what `bin/seed_accept.sh` already had
 to learn and what `bin/g30_bringup.sh` now does.
+
+**20f. A LINE OF 256 CHARACTERS OR MORE IN THE `.in` SEGFAULTS FastEddy BEFORE IT STARTS.**
+`parameters.c:28` sets `MAXLEN 256` and the parser reads with `fgets(strBuff, MAXLEN, ...)`,
+so a longer line is split across two reads. The first piece parses; the **continuation is a
+fragment with no `=`**, `strchr` returns NULL, and `parameters.c:126-133` calls
+`str_trim(valueBuff)` on it:
+
+```c
+valueBuff = strchr(strBuff, '=');
+if(valueBuff != NULL){ *valueBuff++ = 0; }
+...
+valueBuff = str_trim(valueBuff);      /* NULL when the line had no '=' */
+```
+
+What you see is `Signal: Segmentation fault (11)`, `Failing at address: (nil)`, and a
+six-frame libc backtrace with no mention of the input file or the line — so the natural
+reading is that the model or the build is broken. It is a **comment being too long**.
+
+Cost here: one acceptance run, and it would have cost every run of the pass, because the
+offending line was in `runs/g30_base/base.in` — a 504-character `dt` comment I had written
+myself to record the measured accuracy boundary. The reasoning belongs in `PROJECT_BRIEF.md`; the
+`.in` gets a pointer. **`docker/run_case.sh` now refuses any `.in` with a line at or over
+255 characters before spending GPU time**, and says which line.
+
+Note the same code path means a **blank line** would crash too, for the same reason — no
+`#`, non-zero length, no `=`. Existing templates happen not to have one.
+
+**20g. `0` cannot be the "disabled" sentinel for a step number, because 0 is a step.**
+`lpdmOnlinePause1/2` default to 0 meaning off, and the guard read
+`if((tstep != lpdmOnlinePause1) && (tstep != lpdmOnlinePause2)){ return 0; }` — so the
+first acceptance run paused at step 0, after ONE snapshot, before any window could exist,
+and waited for a resume marker no consumer had reason to write. Nothing was wrong except
+that "off" and "pause at the very first output" were spelled the same way. Guarded on
+`> 0` now, which costs nothing: a pause at step 0 can never be wanted.
+
+**20h. `keep=True` turned the consumer's drain loop into an unbounded accumulator.**
+`RingConsumer._ready()` listed every staged snapshot, and deleting one after reading it was
+what removed it from the list. With `keep=True` — the acceptance comparison, where the
+staged files ARE the artifact — nothing was deleted, so the same 23 snapshots were re-read
+every 2 ms until the container was OOM-killed. **Exit 137, and because stdout was
+redirected and therefore block-buffered, not one line of output to say where.** `_ready()`
+now excludes what has already been read, which makes `keep` orthogonal to termination.
+
+The generalisation: when a flag changes whether a side effect happens, check whether that
+side effect was also carrying a control-flow invariant. Here "delete after read" was
+silently doing double duty as "mark as consumed".

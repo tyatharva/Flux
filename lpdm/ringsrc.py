@@ -154,7 +154,7 @@ class RingConsumer:
             if not np.isfinite(out[n]).all():
                 raise ValueError(f"snapshot {step}: {n} is not finite -- the LES has "
                                  f"produced CORRUPTED state and the window is dead")
-        self._seen.add(step)
+        self._seen.add(int(step))
         if not keep:
             os.remove(p)
             os.remove(os.path.join(self.dir, f"snap.{step}.ok"))
@@ -172,7 +172,7 @@ class RingConsumer:
         t0 = time.time()
         while True:
             pause = self._pause_step()
-            ready = sorted(self._ready(), key=int)
+            ready = sorted(self._ready())
             for s in ready:
                 h, _ = self._read_one(s, keep=keep)
                 handles.append(h)
@@ -188,8 +188,23 @@ class RingConsumer:
             time.sleep(POLL_S)
 
     def _ready(self):
-        return [re.search(r"snap\.(\d+)\.ok$", p).group(1)
-                for p in glob.glob(os.path.join(self.dir, "snap.*.ok"))]
+        """Steps that are staged and NOT yet read.
+
+        The `not yet read` half is load-bearing and was missing. Deleting a snapshot after
+        reading it is what normally removes it from this list, so the omission was
+        invisible in production -- but `keep=True` (the acceptance comparison, where the
+        staged files ARE the artifact) turned the drain loop into an unbounded accumulator:
+        the same 23 snapshots re-read every 2 ms until the container was OOM-killed. Exit
+        137 and, because stdout was redirected and therefore buffered, not one line of
+        output to say where. Tracking what has been read makes `keep` orthogonal to
+        termination, which is what it always should have been.
+        """
+        out = []
+        for p in glob.glob(os.path.join(self.dir, "snap.*.ok")):
+            k = int(re.search(r"snap\.(\d+)\.ok$", p).group(1))
+            if k not in self._seen:
+                out.append(k)
+        return out
 
     def _pause_step(self):
         g = glob.glob(os.path.join(self.dir, "pause.*"))
