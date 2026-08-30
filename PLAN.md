@@ -43,13 +43,21 @@ number rather than two more GPU-hours.
 
 ## Deferred, and REQUIRED BEFORE ANY CORPUS
 
-1. **The flat/neutral containment gate.** Kljun `x90` neutral is 1615 m in a 2928 m box
-   (55%), which is comfortable; the fourth pass's LES 80% source area at a 30 m receptor
-   measured 3810 m, which is not — but on the retired closure and a different surface. The
-   gate is: does the integral saturate before the wrap cap, and is `x80` inside `L`. If it
-   fails, the options (accept the truncation and quote Kljun on the identical box; go to
-   146^2 @ 24 m = 3504 m at ~+48% per case; refuse near-neutral cases) are a **grid
-   decision and belong to the user**.
+1. ~~The flat/neutral containment gate.~~ **RUN 2026-08-30: FAIL for neutral, PASS for
+   convective** (`CONTAINMENT_RESULT.md`). The flat/neutral control's integral needs
+   **1.5 domain lengths** to stop growing and the cap removes 6.1%; the convective target
+   saturates by 1 L with the cap removing 0.8%. `x80` PASSES in both, because it is
+   crosswind-integrated and the missing influence is a long thin tail — the wording above
+   ("does the 80% source area resolve") would have called this contained, and the
+   integral's approach slope is what actually answers it.
+   **Mitigating and measured: Kljun on the identical cells is truncated to 0.867 of its own
+   asymptote against the LES's 0.874**, so the two lose the same fraction and an
+   LES-vs-Kljun comparison on this box is fair. The corpus's targets carry a systematic
+   ~12% truncation deficit that is a property of the domain.
+   **The grid decision is now the user's, with the numbers**: as-is captures 93.5% of the
+   saturated integral at 0.63 GPU-h per case; 146² @ 24 m ~96.7% at +48%; **186² @ 24 m
+   (4464 m, past saturation, and the fourth pass's own grid) ~100% at +132%**, taking the
+   corpus from ~820 to ~2150 GPU-h.
 2. **Gate D1 on the production closure, both regimes, both directions, on a SEED window.**
    The acceptance suite ran D1 through both integrators on a 900 s bring-up window and
    **both failed forward** (lowest-three 1.093 CPU, 1.095 GPU, agreeing to 0.002). That is
@@ -322,6 +330,24 @@ exactly like a trained model on a correct one.
 ### The retired 10 m list, kept for its reasoning
 
 
+
+0aa. **INDETERMINATE IS THREE DIFFERENT SITUATIONS AND THEY NEED DIFFERENT ANSWERS.**
+   Measured 2026-08-30 (`bin/seed_indeterminate.py`, `results/seed_indeterminate.txt`) by
+   sweeping the scoring-window width and watching whether the TREND moves or the SE does:
+   * **RESOLVED and never said so** — `sigma_v/u*` (nbl-deep) and Kljun `x90` (both seeds)
+     are inside their thresholds by more than 3 SE at 2.0-2.5 h.
+   * **NOISY, SE-LIMITED — a longer run buys nothing.** `U/u*` and `x_peak` on nbl-deep,
+     `sigma_v/u*` on cbl-deep: the SE is flat across a 2.5x range of window widths
+     (1.00x, 1.05x), so INDETERMINATE is simply the state.
+   * **NOISY but the SE is shrinking — a longer run WOULD resolve them.** `sigma_w/u*` on
+     nbl-deep (SE 1.9x), and `U/u*`, `x_peak`, `TKE_BL/u*^2` on cbl-deep (1.8-2.2x over
+     1.0-2.5 h, close to the ideal 1/T).
+   * **TRENDING AWAY from band** — `z_i` in BOTH seeds, monotonically (+2.31 -> +4.08 and
+     +0.53 -> +7.57 %/h) with a falling SE. A longer run resolves these into a **FAIL**,
+     not a pass, and cbl-deep's is the depth overshoot showing up in the gate.
+   **AND THE "n_eff SATURATES AT 3-5" CLAIM IS A NEUTRAL STATEMENT.** cbl-deep carries
+   n_eff 12-17 on the wind-frame limits, because a CBL decorrelates on `z_i/w* ~ 540 s`
+   against a 300 s dump interval where a neutral layer decorrelates on `h/u* ~ 1700 s`.
 
 0. **THE LIBRARY'S SEEDS HAVE UNESTABLISHED STATIONARITY, AND THAT IS THE NORMAL STATE
    RATHER THAN AN EXCEPTION.** Two of the seven gated limits — **`TKE_BL/u*^2` and `z_i`**
