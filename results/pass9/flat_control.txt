@@ -1,0 +1,59 @@
+flat/neutral control: 541 kept dumps
+
+=== containment: g30_flat_3L.json ===
+  z_m 30.0 m, z_i 643 m, u* 0.405, L +inf m, W at the receptor -0.0543 m/s
+  [FAIL] C1 integral saturates by 1 L     I(0.75L) 0.661 -> I(1L) 0.712, +7.2% over the last quarter-domain (<= 2%)
+  [ok  ] C2 x80 inside the box            x80 1733 m against 80% of L = 2928 m (L = 3660 m)
+  [FAIL] C3 what the cap hides            I(3L)/I(1L) - 1 = +2.5% -- the influence the cap removes. Large and positive = wrap double-counting; near zero = the cap is not doing anything and the footprint is contained.
+  [??  ]    integral vs 1 - z_m/z_i       0.730 / 0.9534 = 0.765. Truncation can only push this BELOW 1; above 1 is advective non-closure or an elevated maximum.
+
+  2 failure(s)
+  wrote results/pass9/flat_containment.json
+  GATE: PASS  (max deviation < max(10%, 4 sigma); lowest 3 bins within max(5%, 3 sigma))
+  (2656 integrator steps, 6 s)
+
+  --- well-mixed test FORWARD (control) ---
+  released uniformly over 2-1200 m; scored over 2-400 m
+      z (m)   final/initial
+       11.9           1.024   |####################
+       31.8           1.008   |####################
+       51.8           1.099   |#####################
+       71.6           1.016   |####################
+       91.5           1.015   |####################
+      111.4           0.993   |###################
+      131.3           1.072   |#####################
+      151.2           1.006   |####################
+      171.1           1.027   |####################
+      191.1           0.974   |###################
+      210.9           0.908   |##################
+      230.8           0.969   |###################
+      250.8           1.062   |#####################
+      270.6           1.046   |####################
+      290.5           1.052   |#####################
+      310.4           0.942   |##################
+      330.3           0.984   |###################
+      350.2           0.948   |##################
+      370.1           0.963   |###################
+      390.0           0.971   |###################
+  ~666 particles per bin initially; 1-sigma counting noise 5.48%
+  max |ratio-1| = 9.86%   rms = 4.70%   lowest 3 bins = 1.043
+  GATE: PASS  (max deviation < max(10%, 4 sigma); lowest 3 bins within max(5%, 3 sigma))
+  (2725 integrator steps, 6 s)
+
+  BOTH DIRECTIONS: PASS  (asymmetry is the primary diagnostic; backward alone proves nothing)
+
+  --- backward transit time from the 28 m receptor ---
+  receptor z = 30.00 m (level k=3)
+  reached the surface within 900 s: 44.9% of 20000 particles
+  transit time (s): p5=48  p25=133  p50=307  p75=475  p95=771
+  median 5.1 min at z = 30.0 m. Transit scales roughly as z/sigma_w, so the 30 m receptor's 180-290 s should fall to ~60-95 s here; this median is what sizes t_back and therefore the window.
+
+  STAGE 4 GATE: FAIL
+
+  floor ON vs OFF on the flat/neutral control (the floor is nearly INERT here,
+  which is exactly why a neutral D1 pass says nothing about the convective closure):
+    peak_x               270.0     330.0
+    x80                 1623.5    1665.9
+    area80_ha             27.8      29.2
+    centroid_dist        629.6     664.9
+    integral             0.723     0.700

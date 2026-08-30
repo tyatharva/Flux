@@ -1,0 +1,9 @@
+
+=== containment: g30_flat_3L.json ===
+  z_m 30.0 m, z_i 643 m, u* 0.405, L +inf m, W at the receptor -0.0543 m/s
+  [FAIL] C1 integral saturates by 1 L     I(0.75L) 0.661 -> I(1L) 0.712, +7.2% over the last quarter-domain (<= 2%)
+  [ok  ] C2 x80 inside the box            x80 1733 m against 80% of L = 2928 m (L = 3660 m)
+  [FAIL] C3 what the cap hides            I(3L)/I(1L) - 1 = +2.5% -- the influence the cap removes. Large and positive = wrap double-counting; near zero = the cap is not doing anything and the footprint is contained.
+  [??  ]    integral vs 1 - z_m/z_i       0.730 / 0.9534 = 0.765. Truncation can only push this BELOW 1; above 1 is advective non-closure or an elevated maximum.
+
+  2 failure(s)
