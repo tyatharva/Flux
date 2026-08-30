@@ -44,6 +44,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import sys
 
@@ -56,6 +57,10 @@ KLJUN_INPUTS = ("u_mean", "ustar", "sigma_v", "h", "L", "wdir")
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--tag", required=True, help="the case id; becomes run_id")
+    ap.add_argument("--grid", default=None,
+                    help="the surface directory this case ran on. Its z0m.npy sets the "
+                         "recorded geometric-mean z0; without it the field is written as "
+                         "null rather than as a number from another grid.")
     ap.add_argument("--footprint", required=True,
                     help="the .json stage5_footprint.py wrote (its .npz sits beside it)")
     ap.add_argument("--forcing", default=None)
@@ -105,9 +110,31 @@ def main():
               f"{len(yc)} x {len(xc)} raster", file=sys.stderr)
         return 2
 
+    # SPLIT BY PARENT CASE, NOT BY TAG. A case now runs TWO sampling windows inside one
+    # FastEddy invocation and yields tags <case>_w0 and <case>_w1. They share a seed, an
+    # adjustment, a sounding and a surface, so splitting on the tag would put one in train
+    # and the other in validation and leak nearly everything that makes them what they are.
+    # The effective sample size for generalisation is the number of PARENTS.
+    parent = re.sub(r"_w\d+$", "", a.tag)
+    widx = None
+    m_ = re.search(r"_w(\d+)$", a.tag)
+    if m_:
+        widx = int(m_.group(1))
+    z0_geom = None
+    if a.grid:
+        _z0p = os.path.join(a.grid, "z0m.npy")
+        if os.path.exists(_z0p):
+            z0_geom = float(np.exp(np.log(np.load(_z0p)).mean()))
+        else:
+            print(f"  WARNING: no z0m.npy in {a.grid}; z0_geometric_m recorded as null")
+    else:
+        print("  WARNING: no --grid given; z0_geometric_m recorded as null rather than "
+              "as a number carried over from another grid")
     rec = {
         "run_id": a.tag,
-        "split_key": a.tag,      # SPLIT BY RUN. Never by sample. PROJECT_BRIEF.md, ML model.
+        "parent": parent,
+        "window_index": widx,
+        "split_key": parent,     # SPLIT BY RUN. Never by sample, never by window.
         "inputs": inputs,
         "target": {"file": os.path.basename(npz_path) if a.copy_npz else npz_path,
                    "array": "les", "shape": list(target.shape),
@@ -116,7 +143,11 @@ def main():
                    "reference": "kljun"},
         "site": {"z_recept_m": fp.get("zm"), "z_agl_m": fp.get("zm_agl"),
                  "d_recept_m": fp.get("d_recept"), "z_target_m": fp.get("z_target"),
-                 "z0_geometric_m": 0.1435,
+                 # READ OFF THE GRID THIS CASE RAN ON, never a literal. It was 0.1435 --
+                 # the 122^2 @ 16 m value -- and it is 0.0615 at 30 m, because the box
+                 # takes in more lake. A constant that is really a grid property is
+                 # FASTEDDY_TRAPS.md 19, and it has bitten five times in one day.
+                 "z0_geometric_m": z0_geom,
                  "note": "constant across the corpus: a single-tower emulator"},
         "closure": {"sgs_most": fp.get("sgs_most"), "mode": fp.get("sgs_most_mode"),
                     "form": fp.get("sgs_most_form"),

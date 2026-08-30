@@ -399,7 +399,7 @@ fi
 # ---- 8. the training record ------------------------------------------------------
 say "$WTAG  stage 8: assemble the pair"
 ./docker/pyrun.sh bin/make_pair.py --tag "$WTAG" --footprint "$FPDIR/$WTAG.json" \
-    --forcing "$FRC" --seed "$PICK" --outdir pairs || true
+    --forcing "$FRC" --seed "$PICK" --grid "$GRID" --outdir pairs || true
 [ -s "pairs/$WTAG.json" ] || die "stage 8 wrote no pair"
 }
 
