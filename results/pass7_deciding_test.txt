@@ -1,25 +1,53 @@
 
-=== case_2023052519  (seed None rot None, gate unjudged) ===
-  footprint   peak n/a m (Kljun n/a),  centroid n/a m at n/a deg,  A80 n/a ha (Kljun n/a),  integral n/a (Kljun n/a)
-  array share n/a   -- REPORTED, not gated; against 1.03% of the box by area
-  closure     floor n/a-n/a peaking at z=n/a m;  AT THE RECEPTOR factor n/a, n/a;  f_sgs at the floor's peak n/a;  sigma_w/u* n/a
-  seed        z_i n/a -> requested 970 -> ACHIEVED n/a m   (achieved-requested n/a m)
-              dir n/a -> requested 54.0 -> ACHIEVED n/a deg  (achieved-requested n/a deg, pick gap was n/a)
-              drift: seed at freeze n/a deg/h;  ACROSS THIS WINDOW n/a deg/h   -- does the case inherit the seed's rate?
+=== case_2023052519  (seed seed_cbl-deep_a000 rot 2, gate INDETERMINATE) ===
+  ^ the seed's stationarity is UNESTABLISHED on U/u* (Kljun Pi_4), sigma_v/u*, sigma_w/u* at the receptor, TKE_BL/u*^2, z_i, Kljun x_peak, Kljun x90 -- the library's normal state, not an exception: those two limits cannot be resolved in a 3.0 h spin-up at any window width.
+  footprint   peak 144 m (Kljun 144),  centroid 334 m at 76.6 deg,  A80 20.22 ha (Kljun 23.73),  integral 1.463 (Kljun 0.875)
+              integral vs the 1 - z_m/z_i asymptote 0.9768: LES/asymptote 1.497, Kljun/asymptote 0.896   -- the ceiling is NOT 1 (Steinfeld 2008)
+              half-vs-half |dpeak| 24 m -- THIS CASE'S OWN sampling floor for the peak
+  array share 5.65% +/- 1.44   -- REPORTED, not gated; against 1.03% of the box by area
+  closure     floor 1.000-1.912 peaking at z=30 m;  AT THE RECEPTOR factor 1.912, 34.0% sub-grid;  f_sgs at the floor's peak 0.523;  sigma_w/u* 1.68
+  seed        z_i 1065 -> requested 970 -> ACHIEVED 1229 m   (achieved-requested +259 m)
+              dir 77.0 -> requested 54.0 -> ACHIEVED 89.2 deg  (achieved-requested +35.2 deg, pick gap was 23.1)
+              drift: seed at freeze -4.71 deg/h;  ACROSS THIS WINDOW +9.34 deg/h   -- does the case inherit the seed's rate?
+  EXTERNAL    LES sigma_w(30 m) 0.659 m/s vs the tower TRANSLATED 10 -> 30 m at H = +338 W/m2: median 0.848, IQR [0.772, 0.942] over 1032 half-hours -> OUTSIDE the IQR (0.78x the median). An order-of-magnitude check only: the file carries no wind speed and the IQR spans 1.22x.
 
-=== case_2023121921  (seed None rot None, gate unjudged) ===
-  footprint   peak n/a m (Kljun n/a),  centroid n/a m at n/a deg,  A80 n/a ha (Kljun n/a),  integral n/a (Kljun n/a)
-  array share n/a   -- REPORTED, not gated; against 1.03% of the box by area
-  closure     floor n/a-n/a peaking at z=n/a m;  AT THE RECEPTOR factor n/a, n/a;  f_sgs at the floor's peak n/a;  sigma_w/u* n/a
-  seed        z_i n/a -> requested 447 -> ACHIEVED n/a m   (achieved-requested n/a m)
-              dir n/a -> requested 198.5 -> ACHIEVED n/a deg  (achieved-requested n/a deg, pick gap was n/a)
-              drift: seed at freeze n/a deg/h;  ACROSS THIS WINDOW n/a deg/h   -- does the case inherit the seed's rate?
+=== case_2023121921  (seed seed_cbl-deep_a000 rot 1, gate INDETERMINATE) ===
+  ^ the seed's stationarity is UNESTABLISHED on U/u* (Kljun Pi_4), sigma_v/u*, sigma_w/u* at the receptor, TKE_BL/u*^2, z_i, Kljun x_peak, Kljun x90 -- the library's normal state, not an exception: those two limits cannot be resolved in a 3.0 h spin-up at any window width.
+  footprint   peak 288 m (Kljun 168),  centroid 335 m at 176.4 deg,  A80 23.21 ha (Kljun 12.56),  integral 0.888 (Kljun 0.836)
+              integral vs the 1 - z_m/z_i asymptote 0.9696: LES/asymptote 0.916, Kljun/asymptote 0.862   -- the ceiling is NOT 1 (Steinfeld 2008)
+              half-vs-half |dpeak| 0 m -- THIS CASE'S OWN sampling floor for the peak
+  array share 1.14% +/- 0.37   -- REPORTED, not gated; against 1.03% of the box by area
+  closure     floor 1.000-1.319 peaking at z=65 m;  AT THE RECEPTOR factor 1.000, 75.6% sub-grid;  f_sgs at the floor's peak 0.365;  sigma_w/u* 1.10
+  seed        z_i 1065 -> requested 447 -> ACHIEVED 937 m   (achieved-requested +490 m)
+              dir 167.1 -> requested 198.5 -> ACHIEVED 177.0 deg  (achieved-requested -21.5 deg, pick gap was 31.5)
+              drift: seed at freeze -4.71 deg/h;  ACROSS THIS WINDOW +8.98 deg/h   -- does the case inherit the seed's rate?
+  EXTERNAL    LES sigma_w(30 m) 0.636 m/s vs the tower TRANSLATED 10 -> 30 m at H = +21 W/m2: median 0.558, IQR [0.461, 0.723] over 1031 half-hours -> INSIDE the IQR (1.14x the median). An order-of-magnitude check only: the file carries no wind speed and the IQR spans 1.57x.
 
 === THE DECIDING TEST: does the peak MOVE? ===
-  NO VERDICT -- one of the two cases has no peak
+  LES peaks 144 and 288 m -> |dpeak| 144 m
+  against the LARGER of the two cases' own half-vs-half floors 24 m  -> MOVED
+  the floor rests on ONE difference per case (2 in total), so it is a
+  1-degree-of-freedom estimate -- read the margin, not just the verdict. Individual
+  floors: 24 m, 0 m
+  Kljun puts them at 144 and 168 m; the LES ordering MATCHES it
+  VERDICT: the peak responds to meteorology at this receptor height.
 
 === case-to-case spread over 2 cases ===
   metric                        min     median        max   max/min
+  peak (m)                      144        216        288      2.00x
+  centroid (m)                333.6      334.3      334.9      1.00x
+  A80 (ha)                    20.22      21.72      23.21      1.15x
+  integral                   0.8882      1.175      1.463      1.65x
+  array share               0.01136    0.03392    0.05647      4.97x
+  floor max                   1.319      1.616      1.912      1.45x
+  f_sgs at receptor          0.3395     0.5477      0.756      2.23x
+  f_sgs at floor peak        0.3652      0.444     0.5228      1.43x
+  achieved h (m)              937.5       1083       1229      1.31x
+  drift in window (deg/h)      8.981      9.163      9.345      1.04x
+  integral / asymptote        0.916      1.207      1.497      1.63x
+  own |dpeak| floor (m)         -24        -12          0       nanx
+  u*                         0.4568     0.5125     0.5681      1.24x
+  sigma_w at the receptor     0.6356     0.6474     0.6593      1.04x
 
   READ THE SHARE SPREAD AGAINST ITS OWN SE, NOT AS A RANGE. Each case's
   array share carries a 3-4 point standard error over 10 release groups, so

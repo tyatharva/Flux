@@ -222,9 +222,118 @@ would be reporting the ceiling. That is why `seed_budget.py` exists.
 
 ---
 
-## Phase C — `cbl-deep`, the lock-in re-test, and the deciding test
+## Phase C — `cbl-deep`: the lock-in is largely gone
 
-*(to be completed)*
+Full write-up in `SEED_CBL_DEEP_24M_RESULT.md`.
+
+| | 1952 m box | **2928 m box** |
+|---|---|---|
+| `L/z_i` (spectral `z_i` 986 m) | 1.53 – 1.98 | **2.97** |
+| **mode-1 share of mid-depth `w` variance** | **53.9 – 72.0%** | **19.3 – 23.1%** |
+| peak wavelength | `L` in 5 of 5 dumps | `L` in 3 of 4, `L/2` in one |
+| `r(L/2)` | positive | **−0.076 to +0.067**, i.e. zero |
+
+Phase E's compliant reference at `L/z_i` 4.56 had **4.8%** in mode 1; its deep case at 2.28
+had **50.2%** and was ACCEPTED as footprint-indistinguishable (p ≈ 0.54). **19.3–23.1% sits
+well below the level Phase E accepted, and `r(L/2)` is no longer anti-correlated — by Phase
+E's own standard the box no longer organises the thermals.** The honest residual: the peak
+wavelength still lands on mode 1 in three dumps of four.
+
+**The depth overshoot is unchanged and belongs to the rung, not the box** — 1308 m (fixed
+threshold) / 1065 m (peak fraction) against 1276 / 1055 at 1952 m. `L/z_i` is now 2.24–2.97,
+all above the 2.0 floor; but 1308 m exceeds the 1250 m band ceiling, so the rung as specified
+builds a state the corpus would refuse a CASE for. Re-specifying it is flagged, not made.
+
+Stationarity **FAIL — all seven INDETERMINATE, none drifting**; `seed_budget.py` finds the
+immune limits in band nowhere up to 3.0 h, with `z_i` reading DRIFTING from 2.25 h onward,
+consistent with a layer still deepening. Cost 0.48 GPU-h/sim-h.
+
+---
+
+## THE DECIDING TEST: **THE PEAK MOVES**
+
+Pre-registered before either target ran (`results/deciding_test_preregistration.txt`).
+
+| | A `case_2023052519` convective | B `case_2023121921` near-neutral |
+|---|---|---|
+| forcing | `H` 333 W/m², `w'θ'_v` 0.291, HRRR `z_i` 970 m | `H` 22 W/m², `w'θ'_v` 0.019, `z_i` 447 m |
+| achieved `u*` / `U(30)` / `σ_w` | 0.457 / 5.06 / 0.659 | 0.568 / 8.50 / 0.636 |
+| achieved `L` / `z_i` / direction | **−25.5 m** / 1229 m / 89.2° | **−732 m** / 937 m / 177.0° |
+| **LES peak** | **144 m** | **288 m** |
+| its own half-vs-half \|Δpeak\| floor | **24 m** (1 cell) | **0 m** |
+| Kljun peak on identical cells | 144 m | 168 m |
+| centroid | 334 m at 76.6° | 335 m at 176.4° |
+| A80 | 20.22 ha (Kljun 23.73) | 23.21 ha (Kljun 12.56) |
+| integral / the `1 − z_m/z_i` asymptote | 1.463 / **1.497×** | 0.888 / **0.916×** |
+| array share ± SE (10 groups) | **5.65 ± 1.44%** | **1.14 ± 0.37%** |
+| sub-grid fraction at the receptor | 34.0% | 75.6% |
+| floor factor at the receptor | 1.912 | **1.000 — inert** |
+| `σ_w` vs the translated tower | 0.78× median, **OUTSIDE the IQR** | 1.14× median, **INSIDE** |
+| seed | `cbl-deep` rot 2, gap 23.1° | `cbl-deep` rot 1, gap 31.5° |
+| health gate | all `ok` | all `ok` |
+
+**|Δpeak| = 144 m against the larger of the two cases' own floors, 24 m — six times it —
+and the LES ordering matches Kljun's.** At 10 m the peak was 48 m in all three targets,
+max/min 1.00×; here max/min is **2.00×**.
+
+### And it is not the closure. The no-op control says so.
+
+Each footprint was recomputed on the identical window with the `σ_w` floor OFF:
+
+| | peak ON | peak OFF | integral ON | OFF | array share ON | OFF |
+|---|---|---|---|---|---|---|
+| A convective | 144 m | **144 m** | 1.463 | 1.634 | 5.65% | 3.72% |
+| B near-neutral | 288 m | **288 m** | 0.888 | 0.886 | 1.14% | 1.07% |
+
+**The peak is bit-identical with and without the closure in both cases**, and for B the
+floor is inert at the receptor to begin with (factor 1.000). So the 144 m separation is the
+LES's, not the floor's. At 10 m the same floor was worth +8.40 points of array share and
+shortened `x80` from 400 m to 227 m.
+
+### Two things the pair also settled, for free
+
+**`t_back` at a 30 m receptor: 600 s is enough.** The capture curve, from touchdown ages
+already in hand:
+
+| `t_back` | A: fraction of the 900 s integral | B |
+|---|---|---|
+| 150 s | 73.5% | 53.5% |
+| 300 s | 89.6% | 84.6% |
+| 450 s | 97.8% | 98.7% |
+| **600 s** | **99.6%** | **100.0%** |
+| 750 s | 99.9% | 100.0% |
+
+and **the peak is at its final value at every mark from 150 s in both cases**. Production
+ran 900 s (the fourth pass's value); 600 s would cost 300 s of simulated time per case,
+6.7% of the class. Recorded, not changed.
+
+**The integral's departure from the asymptote tracks the mean vertical velocity at the
+receptor, with the right sign.** A sits in mean subsidence (`W = −0.099 m/s`) and integrates
+to 1.497× the ceiling; B sits in a mean updraft (`W = +0.342 m/s`) and integrates to 0.916×.
+That is the advection non-closure `PROJECT_BRIEF.md` already describes — over a slope the turbulent
+flux genuinely is not the surface flux — and it is now measured on two cases with opposite
+signs rather than asserted.
+
+### What the test does NOT establish
+
+- **Both targets came off the same seed, at different rotations.** `pick_seed` chose
+  `cbl-deep` for the near-neutral case too, because direction dominated the cost (31.5°
+  against `nbl-deep`'s best 43.7°) even though `nbl-deep`'s depth was much closer. That
+  makes the peak difference *harder* to explain as a seed artifact, not easier — it is the
+  same turbulence field, re-indexed — but it does mean the pair is not a two-seed test.
+- **Case A fails the `σ_w` acceptance gate** (0.78× the tower median, outside the IQR). By
+  the criterion this pass adopted it is not a usable corpus target. Reported, not waived:
+  one refusal in two is not a rate, and the gate is doing exactly what it was built for.
+- **Neither footprint is fully contained.** A's integral is still rising 1.447 → 1.463 over
+  the last quarter-domain, B's 0.840 → 0.888 (+5.7%). The wrap cap is binding on real
+  influence in both.
+- **Seed mismatch is large and the adjustment did not close it.** A: `z_i` 1065 → requested
+  970 → achieved **1229 m**; direction 77.0 → requested 54.0 → achieved **89.2°**, i.e. the
+  gap WIDENED from 23.1° to 35.2°. B: `z_i` 1065 → 447 → **937 m** (+490 m); direction
+  167.1 → 198.5 → **177.0°**, gap 31.5° → 21.5°, the one case that closed. Both windows
+  back at **+9.0 to +9.3 deg/h** where the seed was backing at **−4.71 deg/h** at freeze —
+  **opposite in sign**, which is new: on the 16 m library both cases inherited the seed's
+  sign and only overshot its magnitude.
 
 ---
 

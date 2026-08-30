@@ -183,7 +183,11 @@ def main():
             print(f"  {os.path.basename(p)}: UNREADABLE ({e})")
             n_bad += 1
             continue
-        rows, rep = score(d, a.cell_m)
+        # THE CELL SIZE IS IN THE RECORD. stage5_footprint.py writes `res`, the raster
+        # resolution it actually used; taking the CLI default instead scored a 24 m grid
+        # against a 16 m cell -- conservative here, but the same defect as
+        # FASTEDDY_TRAPS.md 19 and it would be the wrong sign on a coarser grid.
+        rows, rep = score(d, float(d.get("res") or a.cell_m))
         bad = [r for r in rows if r[1] is False]
         unj = [r for r in rows if r[1] is None]
         verdict = "FAIL" if bad else ("UNJUDGED" if unj else "OK")
