@@ -50,8 +50,238 @@ import sys
 
 import numpy as np
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from lpdm import kljun_ffp
+
 # Kljun's scalar inputs, and nothing else. PROJECT_BRIEF.md: "Inputs are Kljun's scalars only."
 KLJUN_INPUTS = ("u_mean", "ustar", "sigma_v", "h", "L", "wdir")
+
+# ---- THE .npz TRAINING RECORD ---------------------------------------------------------
+# 122 -> 128 BY ZERO-PADDING 3 CELLS ON EVERY SIDE. 128 is what an FNO wants (its spectral
+# transform is happiest on a power of two) and 122 + 3 + 3 = 128 exactly, so no cell is
+# resampled, rescaled or dropped: every value in the padded array is either a real LES
+# column or a structural zero. The pad extent is written into the record so the loss can
+# mask it rather than learn to reproduce a border of zeros.
+RASTER_N = 122
+RASTER_PAD = 3
+RASTER_OUT = RASTER_N + 2 * RASTER_PAD
+
+# THE SIX SCALARS, IN ORDER, AND THE ORDER IS PART OF THE FORMAT.
+SCALAR_NAMES = ("h", "ustar", "sigma_v", "L", "sin_wdir", "cos_wdir")
+
+
+def _git_commit(root):
+    """The commit the corpus was generated at. None rather than a guess if unavailable."""
+    head = os.path.join(root, ".git", "HEAD")
+    try:
+        with open(head) as f:
+            ref = f.read().strip()
+        if ref.startswith("ref: "):
+            p = os.path.join(root, ".git", ref[5:])
+            with open(p) as f:
+                return f.read().strip()
+        return ref
+    except OSError:
+        return None
+
+
+def _pad(a):
+    """122^2 -> 128^2, zero-padded 3 cells on every side. Refuses anything else."""
+    a = np.asarray(a, dtype=np.float32)
+    if a.shape != (RASTER_N, RASTER_N):
+        raise ValueError(
+            f"the raster is {a.shape}, not ({RASTER_N}, {RASTER_N}). The padding to "
+            f"{RASTER_OUT}^2 is exact by construction at 122 and is not a resize: at any "
+            f"other size it would either crop real cells or need interpolation, and both "
+            f"would be silent.")
+    return np.pad(a, RASTER_PAD, mode="constant", constant_values=0.0)
+
+
+def write_training_npz(a, rec, st, fp, npz_path, target, kljun_raster, xc, yc, z0_geom):
+    """One self-contained .npz per window, plus a per-machine manifest line."""
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    # THE KLJUN CHANNEL IS RE-EVALUATED HERE, ON THE TARGET RASTER'S OWN EDGES.
+    #
+    # It could be copied out of the stage-5 .npz, and for a freshly produced case that is
+    # the same array. It is recomputed anyway, for two reasons that both matter more than
+    # the microsecond it costs. **Identity becomes structural rather than asserted**: the
+    # official FFP is evaluated at `xe`/`ye`, the very edges whose midpoints are the
+    # target's own cell centres, so the two cannot be on different cells -- where a
+    # copied array only carries a promise that they were. And **records regenerated from
+    # older runs get the official FFP** rather than whatever Kljun the run was made with;
+    # the reimplementation this project used until now is 1.25x wide in sigma_y whenever
+    # |L| > 5000, which is exactly the flat/neutral end of the corpus.
+    #
+    # The stored array is still compared against, and the difference reported -- silently
+    # replacing a channel would be the same class of mistake as silently keeping it.
+    if target.shape != (len(yc), len(xc)):
+        raise ValueError(f"raster {target.shape} does not match its own "
+                         f"{len(yc)} x {len(xc)} coordinate axes")
+    with np.load(npz_path) as z:
+        for nm in ("xc", "yc", "xe", "ye"):
+            if nm not in z:
+                raise KeyError(
+                    f"{npz_path} carries no {nm}; the Kljun channel has to be evaluated on "
+                    f"the target's own cell edges and there is no way to do that without "
+                    f"them. This is not something to approximate.")
+        xe, ye = np.asarray(z["xe"], float), np.asarray(z["ye"], float)
+        if not (np.array_equal(np.asarray(z["xc"]), xc)
+                and np.array_equal(np.asarray(z["yc"]), yc)):
+            raise ValueError("the stage-5 arrays disagree with their own axes")
+    # The edges must be the cell boundaries of exactly these centres, or "same cells" is
+    # a word rather than a fact.
+    if len(xe) != len(xc) + 1 or len(ye) != len(yc) + 1:
+        raise ValueError(f"edges ({len(xe)}, {len(ye)}) do not bound centres "
+                         f"({len(xc)}, {len(yc)})")
+    for nm, e, c in (("x", xe, xc), ("y", ye, yc)):
+        mid = 0.5 * (e[1:] + e[:-1])
+        if not np.allclose(mid, c, rtol=0, atol=1e-9):
+            raise ValueError(f"the {nm} edges' midpoints are not the {nm} cell centres "
+                             f"(max |diff| {np.max(np.abs(mid - c)):.3e} m)")
+
+    zm_eff = float(fp.get("zm"))
+    ang = np.radians(float(fp["wind_angle"]))
+    prof = kljun_ffp.ffp_profile(zm_eff, float(st["h"]), float(st["L"]),
+                                 float(st["ustar"]), float(st["sigma_v"]),
+                                 umean=float(st["u_mean"]))
+    kl_official = kljun_ffp.footprint_on_static(
+        xe, ye, ang, zm_eff, float(st["h"]), float(st["ustar"]), float(st["sigma_v"]),
+        umean=float(st["u_mean"]), L=float(st["L"]), prof=prof)
+    stored = np.asarray(kljun_raster, dtype=np.float64)
+    den = max(float(np.abs(stored).max()), 1e-300)
+    d_stored = float(np.abs(kl_official - stored).max()) / den
+    if d_stored > 1e-12:
+        print(f"  the Kljun channel was RE-EVALUATED with the official FFP and differs "
+              f"from the array stage 5 stored by {d_stored:.2e} of its peak "
+              f"(integral {kl_official.sum() * abs(xc[1]-xc[0]) * abs(yc[1]-yc[0]):.4f} "
+              f"against {stored.sum() * abs(xc[1]-xc[0]) * abs(yc[1]-yc[0]):.4f}). That is "
+              f"expected for a record regenerated from a run made before the official FFP "
+              f"was vendored.")
+    kljun_raster = kl_official
+
+    L = float(st["L"])
+    wdir = float(st["wdir"])
+    th = np.radians(wdir)
+    scalars = np.array([float(st["h"]), float(st["ustar"]), float(st["sigma_v"]), L,
+                        float(np.sin(th)), float(np.cos(th))], dtype=np.float32)
+    # L IS UNBOUNDED AND IS +/-inf AT EXACTLY NEUTRAL, which is a legitimate state and not
+    # corruption -- but it cannot go into a network. The vector is written with L because
+    # that is the named format; 1/L is written beside it in the meta, is finite everywhere,
+    # and is the form the similarity functions actually use. ML_TARGETS.md says the loader
+    # substitutes it. Loud here so it can never be a surprise there.
+    inv_L = (1.0 / L) if np.isfinite(L) else 0.0
+    if not np.isfinite(scalars).all():
+        print(f"  WARNING: scalars carry a non-finite value "
+              f"({dict(zip(SCALAR_NAMES, scalars))}). L = {L} is legitimate at exactly "
+              f"neutral; the training loader must use meta['inv_L'] = {inv_L} in its "
+              f"place. Every other non-finite is a fault.")
+
+    fl = (fp.get("floor") or {}).get("health") or {}
+    cover = fp.get("cover_share", {}) or {}
+    meta = {
+        "format": "flux-footprint-pair/1",
+        "run_id": a.tag,
+        "parent_case": rec["parent"],
+        "window_index": rec["window_index"],
+        "split_key": rec["split_key"],
+        "datetime": rec.get("forcing", {}).get("valid_time"),
+        "gate_state": (rec.get("seed") or {}).get("gate_state", "unjudged"),
+        "gate_indeterminate": (rec.get("seed") or {}).get("gate_indeterminate", []),
+        "seed_job": (rec.get("seed") or {}).get("job"),
+        # -- the diagnostics a record is filtered or weighted by, without opening the JSON
+        "integral": fp.get("integral_les"),
+        "integral_kljun": fp.get("integral_kljun"),
+        "integral_asymptote": fp.get("integral_asymptote"),
+        "peak_x_m": (fp.get("les") or {}).get("peak_x"),
+        "centroid_dist_m": (fp.get("les") or {}).get("centroid_dist"),
+        "centroid_bearing_deg": (fp.get("les") or {}).get("centroid_bearing"),
+        "array_share": cover.get("solar array"),
+        "array_share_se": (fp.get("cover_share_se") or {}).get("solar array"),
+        "cover_share": cover,
+        # -- provenance
+        "git_commit": _git_commit(root),
+        "kljun_source": fp.get("kljun_source",
+                               "official FFP v1.42 (third_party/FFP) via lpdm/kljun_ffp.py"),
+        "ffp_validity": kljun_ffp.ffp_validity(
+            zm_eff, float(st["h"]), float(st["L"]), float(st["ustar"]),
+            float(st["sigma_v"]), umean=float(st["u_mean"])),
+        "kljun_x_peak_m": float(prof["x_peak"]),
+        "kljun_reeval_vs_stored": d_stored,
+        # -- the grid, so a record is interpretable with nothing else present
+        "grid": {"n": RASTER_N, "pad": RASTER_PAD, "n_padded": RASTER_OUT,
+                 "dx_m": float(xc[1] - xc[0]) if len(xc) > 1 else None,
+                 "dy_m": float(yc[1] - yc[0]) if len(yc) > 1 else None,
+                 "domain_m": float(len(xc) * (xc[1] - xc[0])) if len(xc) > 1 else None,
+                 "x_centres_m": [float(xc[0]), float(xc[-1])],
+                 "y_centres_m": [float(yc[0]), float(yc[-1])],
+                 "frame": "north-up map, receptor at the origin, NOT wind-aligned",
+                 "z0_geometric_m": z0_geom,
+                 "grid_dir": a.grid},
+        # -- the receptor, in BOTH frames, because the padding moves its index
+        "receptor": {"z_m": fp.get("zm"), "z_agl_m": fp.get("zm_agl"),
+                     "z_target_m": fp.get("z_target"),
+                     "d_recept_m": fp.get("d_recept"),
+                     "ij_122": _receptor_ij(xc, yc),
+                     "ij_128": tuple(v + RASTER_PAD for v in _receptor_ij(xc, yc))},
+        # -- the inputs, named, plus the substitution the loader needs
+        "scalar_names": list(SCALAR_NAMES),
+        "inv_L": inv_L,
+        "L_m": L,
+        "wdir_deg": wdir,
+        "wdir_convention": "meteorological, the direction the wind comes FROM, degrees",
+        "u_mean_ms": float(st["u_mean"]),
+        # -- THE ESTIMATOR BEHIND h, NAMED IN THE RECORD. h has two definitions in this
+        # project that differ by 7-21% (a fixed TKE threshold for the seed gate, a
+        # peak-fraction one for the corpus inputs), and a corpus that does not say which it
+        # used is a corpus whose h channel cannot be reproduced.
+        "h_estimator": "tke_peak_fraction",
+        "h_estimator_note": ("5% of the resolved-TKE profile's own peak, bounded by the "
+                             "decay minimum (lpdm/les_stats.py:bl_depth). The seed "
+                             "stationarity gate uses a FIXED 0.01 m2/s2 threshold instead, "
+                             "because it scores a trend; the two differ by 7-21%."),
+        "closure": rec["closure"],
+        "floor_health": fl,
+        "warnings": rec.get("warnings", []),
+    }
+    os.makedirs(a.npz_dir, exist_ok=True)
+    outp = os.path.join(a.npz_dir, f"{a.tag}.npz")
+    np.savez_compressed(
+        outp,
+        scalars=scalars,
+        kljun=_pad(kljun_raster),
+        target=_pad(target),
+        meta=np.array(json.dumps(meta, default=float)),
+    )
+    # THE MANIFEST IS PER MACHINE, because that is the unit that gets shipped back. It says
+    # which cases this machine produced and at which commit and grid, so a corpus assembled
+    # from several rented boxes can be checked for gaps and for version skew rather than
+    # assumed homogeneous.
+    man = os.path.join(a.npz_dir, "manifest.json")
+    m = {"format": "flux-footprint-manifest/1", "cases": {}}
+    if os.path.exists(man):
+        try:
+            m = json.load(open(man))
+            m.setdefault("cases", {})
+        except (OSError, json.JSONDecodeError):
+            print(f"  WARNING: {man} was unreadable and is being rewritten")
+    m["git_commit"] = meta["git_commit"]
+    m["grid"] = meta["grid"]
+    m["host"] = os.uname().nodename
+    m["cases"][a.tag] = {"parent": rec["parent"], "window_index": rec["window_index"],
+                         "datetime": meta["datetime"], "file": os.path.basename(outp),
+                         "integral": meta["integral"], "gate_state": meta["gate_state"]}
+    tmp = man + f".tmp.{os.getpid()}"
+    json.dump(m, open(tmp, "w"), indent=1, default=float)
+    os.replace(tmp, man)
+    print(f"  npz {outp}  ({os.path.getsize(outp)/1e3:.0f} kB); "
+          f"manifest {man}: {len(m['cases'])} case(s)")
+    return outp
+
+
+def _receptor_ij(xc, yc):
+    """The receptor's (i, j) in the 122^2 frame: the cell whose centre is nearest 0, 0."""
+    return (int(np.argmin(np.abs(np.asarray(xc)))), int(np.argmin(np.abs(np.asarray(yc)))))
 
 
 def main():
@@ -66,6 +296,12 @@ def main():
     ap.add_argument("--forcing", default=None)
     ap.add_argument("--seed", default=None, help="the pick_seed.py JSON")
     ap.add_argument("--outdir", default="pairs")
+    ap.add_argument("--npz-dir", default=None,
+                    help="write the self-contained .npz training record here (and append "
+                         "to its manifest.json). The corpus is generated on rented "
+                         "machines that share no filesystem, so a record that references "
+                         "results/corpus/<tag>.npz does not survive the trip; this one "
+                         "carries its own scalars, both rasters and all of its metadata.")
     ap.add_argument("--copy-npz", action="store_true",
                     help="copy the footprint arrays into the pair rather than "
                          "referencing them; the corpus is then self-contained")
@@ -240,6 +476,15 @@ def main():
                 + ", ".join(ch.get("gate_indeterminate") or [])
                 + " could not be resolved against their own limits in a 3.0 h spin-up. "
                   "Nothing was drifting; nothing was established either.")
+
+    # ---- THE SELF-CONTAINED TRAINING RECORD ------------------------------------------
+    # One .npz per window, carrying everything a training example needs and referencing
+    # nothing. The corpus is about to be generated on RENTED machines that share no
+    # filesystem with this one and with each other, so a record that points at
+    # results/corpus/<tag>.npz is a record that does not survive the trip. ~130 kB each,
+    # ~2900 of them, ~380 MB for the whole corpus.
+    if a.npz_dir:
+        write_training_npz(a, rec, st, fp, npz_path, target, kljun, xc, yc, z0_geom)
 
     os.makedirs(a.outdir, exist_ok=True)
     if a.copy_npz:

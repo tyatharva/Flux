@@ -29,6 +29,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lpdm import kljun
+from lpdm import kljun_ffp
 from lpdm.driver import compute_footprint, receptor_indices
 from lpdm.dumpsrc import MemDump
 from lpdm.fields import FieldSet, dump_series, _step_of
@@ -421,10 +422,27 @@ def main():
     res = float(fs0.dx)
 
     # ---- Kljun, evaluated on the SAME static cells (no rotation, no resample) --------
-    kl = kljun.footprint_on_static(g0.xe, g0.ye, ang, zm, st["h"], st["ustar"],
-                                   st["sigma_v"], umean=st["u_mean"], L=st["L"])
-    kl_fy, _ = kljun.crosswind_integrated(fyc, zm, st["h"], st["ustar"],
-                                          umean=st["u_mean"], L=st["L"])
+    # THE OFFICIAL FFP, NOT OUR REIMPLEMENTATION. third_party/FFP/ is Kljun's own v1.42 and
+    # lpdm/kljun_ffp.py re-evaluates its two separable factors at these cells. The
+    # reimplementation in lpdm/kljun.py stays for the gates already validated against it,
+    # but it is 1.25x wide in sigma_y whenever |L| > 5000 -- which is exactly the
+    # flat/neutral control this comparison exists for. bin/test_kljun_adapter.py measures
+    # both differences and third_party/FFP/PROVENANCE.md records them.
+    ffp_prof = kljun_ffp.ffp_profile(zm, st["h"], st["L"], st["ustar"], st["sigma_v"],
+                                     umean=st["u_mean"])
+    ffp_bad = kljun_ffp.ffp_validity(zm, st["h"], st["L"], st["ustar"], st["sigma_v"],
+                                     umean=st["u_mean"])
+    if ffp_bad:
+        # The official prints these and carries on, which puts them in a redirected log and
+        # nowhere else. Surfaced here and carried into the record instead.
+        print("  FFP validity conditions this case violates (the official code would only "
+              "print them):")
+        for b in ffp_bad:
+            print(f"    - {b}")
+    kl = kljun_ffp.footprint_on_static(g0.xe, g0.ye, ang, zm, st["h"], st["ustar"],
+                                       st["sigma_v"], umean=st["u_mean"], L=st["L"],
+                                       prof=ffp_prof)
+    kl_fy = kljun_ffp.crosswind_integrated_at(ffp_prof, fyc)
     kg = type(g0).from_edges(g0.xe, g0.ye)
     kg.flux = kl * kg.area
     kg.n_particles = 1
@@ -499,6 +517,9 @@ def main():
                integral_les=g0.integral(), integral_les_all=g0.integral_all(),
                integral_kljun=float(kl.sum() * g0.area),
                handoff=[h for h in handoffs if h],
+               kljun_source="official FFP v1.42 (third_party/FFP), via lpdm/kljun_ffp.py",
+               kljun_x_peak=float(ffp_prof["x_peak"]),
+               ffp_validity=ffp_bad,
                integral_asymptote=float(_asym),
                # THE CAP THAT WAS USED, recorded so a reader can tell a run made AT the cap
                # from one made past it. Without it the by-displacement ladder's flat tail is

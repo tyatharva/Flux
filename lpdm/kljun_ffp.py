@@ -266,3 +266,15 @@ def footprint_on_static(xe, ye, ang, zm, h, ustar, sigmav, umean=None, z0=None, 
 def peak_distance(zm, h, ustar, umean=None, z0=None, L=None, nx=NX_DEFAULT):
     """x_ci_max from the official code (its Eqs. 21-22), for parity with lpdm.kljun."""
     return ffp_profile(zm, h, L, ustar, 1.0, umean=umean, z0=z0, nx=nx)["x_peak"]
+
+
+def crosswind_integrated_at(prof, x):
+    """`f_ci(x)` [1/m] from an official profile, at arbitrary upwind distances.
+
+    Linear in x, which `f_ci` deserves and `f0` does not: `f_ci` is the smooth
+    crosswind-INTEGRATED curve, where `f0` carries the 1/sigma_y prefactor and spans ~120
+    decades across the near field. Zero outside the official's own axis -- below its first
+    point FFP is identically zero (X* <= d), above its last is X* = 30, its end of domain.
+    """
+    return np.interp(np.asarray(x, dtype=np.float64), prof["x"], prof["f_ci"],
+                     left=0.0, right=0.0)
