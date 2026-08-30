@@ -29,7 +29,7 @@ verticalDeformQuadCoeff = 0.0 # pure cubic
 #--TIME_INTEGRATION
 timeMethod = 0 # Selector for time integration method. [0=RK3-WS2002 (default)]
 Nt = 66000
-dt = 0.0297170
+dt = 0.0331459
 NtBatch = 4000
 #--HYDRO_CORE
 ##------------: HYDRO_CORE Submodule Selectors ---

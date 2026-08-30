@@ -16,3 +16,5 @@
   NOT assumed. dx/dz_sfc 3.505 sits between 16 m's 4.007 (boundary ~1.51) and
   24 m's 2.804 (1.55-1.60), so ~1.53 is a guess and the ladder is the answer.
   CFL_3d    dt (s)       k0/k1     turb      verdict
+  1.30      0.0297170    0.130     OK        OK
+  1.40      0.0320029    0.130     OK        OK
