@@ -80,6 +80,16 @@ def main():
                          "backward trajectory that walks into the adjustment is served "
                          "fields that were still settling and NOTHING in the output would "
                          "say so.")
+    ap.add_argument("--t-max", type=float, default=None,
+                    help="refuse any field written AFTER this model time, in seconds. The "
+                         "mirror of --t-min, and it exists because a case now runs TWO "
+                         "sampling windows back to back in one invocation: without an "
+                         "upper bound the first window's footprint would silently absorb "
+                         "the second window's fields and release over the wrong 30 "
+                         "minutes. compute_footprint releases over [t_last - rel_seconds, "
+                         "t_last], so t_last is what selects the averaging period and "
+                         "leaving it unbounded is not a smaller error than leaving t[0] "
+                         "unbounded was.")
     ap.add_argument("--z-target", type=float, default=10.0,
                     help="receptor height in m AGL. THE DEFAULT USED TO BE 30.0 AND WAS "
                          "NEVER PASSED FROM HERE, so every footprint silently landed on "
@@ -191,13 +201,18 @@ def main():
                 return 2
         else:
             paths = dump_series(d)
-        if a.t_min is not None:
-            keep = [p for p in paths if _step_of(p) * a.dt >= a.t_min - 0.5 * a.dt]
+        for bound, name, lower in ((a.t_min, "--t-min", True), (a.t_max, "--t-max", False)):
+            if bound is None:
+                continue
+            if lower:
+                keep = [p for p in paths if _step_of(p) * a.dt >= bound - 0.5 * a.dt]
+            else:
+                keep = [p for p in paths if _step_of(p) * a.dt <= bound + 0.5 * a.dt]
             if len(keep) != len(paths):
-                print(f"  --t-min {a.t_min:.0f} s dropped {len(paths)-len(keep)} of "
-                      f"{len(paths)} dumps written before the adjustment completed")
+                print(f"  {name} {bound:.0f} s dropped {len(paths)-len(keep)} of "
+                      f"{len(paths)} dumps outside this window")
             if not keep:
-                print(f"FATAL: --t-min {a.t_min:.0f} s leaves no fields in {d}",
+                print(f"FATAL: {name} {bound:.0f} s leaves no fields in {d}",
                       file=sys.stderr)
                 return 2
             paths = keep

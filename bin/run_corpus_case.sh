@@ -196,12 +196,23 @@ cp -f "$GRID/topo.bin" "$D/topo.bin" || die "topo.bin"
 # the whole directory and compute_footprint would release from t[0] + t_back -- putting the
 # entire 30-minute averaging period inside the adjustment, on fields still settling, with
 # nothing in the output to say so.
-say "$TAG  stage 6: ${ADJ_S}s adjustment + ${WINDOW_S}s window, one invocation"
+say "$TAG  stage 6: ${ADJ_S}s adjustment + ${N_WINDOWS:-1} x ${WINDOW_S}s window, one invocation"
 A_NT=$(python3 -c "
 frq=int(round(5.0/$DT)); print(int(round($ADJ_S/$DT/frq))*frq)")
 [ "$A_NT" -gt 0 ] 2>/dev/null || die "adjustment step count did not compute"
-RUN_S=$(python3 -c "print($ADJ_S + $WINDOW_S)")
-echo "  ${RUN_S}s total = ${ADJ_S}s adjust + ${TBACK}s t_back + $(python3 -c "print($WINDOW_S-$TBACK)")s releases"
+# N_WINDOWS x WINDOW_S, not one: the sampling windows run back to back inside this one
+# invocation, so the LES has to be long enough for all of them. Getting this wrong would
+# not error -- the last window's --t-max would simply select fields that were never
+# written, and stage 7 would refuse with "leaves no fields", which is the good case. The
+# bad case is N_WINDOWS=1 arithmetic silently truncating a two-window case to one.
+# FROM THE DUMP-ALIGNED ADJUSTMENT END, NOT FROM ADJ_S. A_NT is ADJ_S rounded UP to a
+# whole number of output intervals, so it exceeds ADJ_S by up to one interval (101 s at
+# this grid). The single-window driver absorbed that silently -- its window simply came out
+# 101 s short and compute_footprint took t_last from the dumps that existed. With two
+# windows it cannot be absorbed: window 1 would be asked for fields past the end of the run
+# and would come up short at exactly the end, where the releases are.
+RUN_S=$(python3 -c "print(f'{$A_NT*$DT + ${N_WINDOWS:-1}*$WINDOW_S:.3f}')")
+echo "  ${RUN_S}s total = ${ADJ_S}s adjust + ${N_WINDOWS:-1} x (${TBACK}s t_back + $(python3 -c "print($WINDOW_S-$TBACK)")s releases)"
 SKIP_S="$ADJ_S" BASE="$D/case.in" bin/run_window.sh "$D" "$D/FE_RST.0" "$DT" "$RUN_S" \
     ./topo.bin "$UG" "$VG" || die "adjustment+window"
 rm -f "$D/FE_RST.0"
@@ -255,11 +266,40 @@ if bad:
     raise SystemExit(1)
 PYSURF
 
+# ---- 7-8, ONCE PER SAMPLING WINDOW -------------------------------------------------
+# A case runs N_WINDOWS sampling windows back to back inside ONE FastEddy invocation, and
+# each yields its own footprint, its own gates and its own training pair. Wrapped in a
+# function rather than duplicated, because these hundred lines are where every per-case
+# gate lives and two copies of them would drift -- the same argument that keeps
+# window_stats a single implementation with two sources.
+#
+# WHY MORE THAN ONE WINDOW. Re-running an identical case gave integral 1.463 -> 1.019 and
+# array share 5.65% -> 1.07%: turbulence REALISATION variance, against which every floor
+# this project quotes is a WITHIN-realisation floor and therefore too small. A second
+# window costs 0.75 h of simulated time rather than a whole case, and takes the class from
+# 1.25 h per footprint to 1.0.
+#
+# N_WINDOWS DEFAULTS TO 1 AND THAT PATH IS BYTE-IDENTICAL to the single-window driver, tag
+# included -- a two-window corpus is opted into, never inherited.
+#
+# BOTH TIME BOUNDS ARE REQUIRED. compute_footprint releases over
+# [t_last - rel_seconds, t_last], so t_last is what selects the averaging period: with only
+# a lower bound, window 0's footprint would silently absorb window 1's fields and release
+# over the wrong 30 minutes. --t-max is the mirror of --t-min, not the lesser of the two.
+#
+# The body below is NOT re-indented, deliberately: it carries python heredocs whose
+# terminators must stay at column 0, and indenting them is a syntax error that only
+# appears when the function is first called.
+run_one_window(){        # $1 = window index, $2 = t_min (s), $3 = t_max (s)
+local WI="$1" W_TMIN="$2" W_TMAX="$3" WTAG
+if [ "${N_WINDOWS:-1}" -le 1 ]; then WTAG="$TAG"; else WTAG="${TAG}_w${WI}"; fi
+echo
+echo "  ---- window $WI: fields ${W_TMIN}-${W_TMAX} s, tag $WTAG ----"
 # ---- 7. the footprint ------------------------------------------------------------
 # INTO results/corpus/, WHICH IS GITIGNORED. The repo already tracks 72 footprint .npz
 # files at ~300 kB each; 1825 more would be ~550 MB of binaries in git history. The
 # retired passes' results stay where they are and stay tracked -- they are the record.
-say "$TAG  stage 7: backward LPDM"
+say "$WTAG  stage 7: backward LPDM"
 FPDIR="${FPDIR:-results/corpus}"; mkdir -p "$FPDIR"
 LPDM_WORKERS="${LPDM_WORKERS:-8}" \
 ./docker/pyrun.sh bin/stage5_footprint.py "$D/window" --dt "$DT" --tback "$TBACK" \
@@ -268,9 +308,9 @@ LPDM_WORKERS="${LPDM_WORKERS:-8}" \
     --cover-groups "${COVER_GROUPS:-10}" \
     --keep-touchdowns "$KEEP_TD" \
     ${TBACK_MARKS:+--tback-marks "$TBACK_MARKS"} \
-    --t-min "$(python3 -c "print(f'{$A_NT*$DT:.3f}')")" \
-    --outdir "$FPDIR" --tag "$TAG" 2>&1 | grep -vE 'batch [0-9]+/' > "$FPDIR/$TAG.txt"
-[ -s "$FPDIR/$TAG.json" ] || { tail -12 "$FPDIR/$TAG.txt" >&2
+    --t-min "$W_TMIN" --t-max "$W_TMAX" \
+    --outdir "$FPDIR" --tag "$WTAG" 2>&1 | grep -vE 'batch [0-9]+/' > "$FPDIR/$WTAG.txt"
+[ -s "$FPDIR/$WTAG.json" ] || { tail -12 "$FPDIR/$WTAG.txt" >&2
   die "stage 7 produced no footprint json"; }
 
 # ---- 7b. the per-case health gate -------------------------------------------------
@@ -287,12 +327,12 @@ LPDM_WORKERS="${LPDM_WORKERS:-8}" \
 # NON-FATAL BY DEFAULT. A failed gate marks the case and lets the campaign continue --
 # across 1370 cases the useful output is a LIST of suspect cases, not a driver that stops
 # on the first one at 3 a.m. Set MONITOR_FATAL=1 to make it stop.
-say "$TAG  stage 7b: per-case health gate"
+say "$WTAG  stage 7b: per-case health gate"
 # ${PIPESTATUS[0]}, NOT $?. Piping into tee makes $? TEE's status, which is 0 whatever
 # the monitor decided -- and writing that mistake into the very check that exists to catch
 # it would be the joke completing itself.
-./docker/pyrun.sh bin/corpus_monitor.py "$FPDIR/$TAG.json" \
-    --json "$FPDIR/$TAG.monitor.json" 2>&1 | tee -a "$FPDIR/$TAG.txt"
+./docker/pyrun.sh bin/corpus_monitor.py "$FPDIR/$WTAG.json" \
+    --json "$FPDIR/$TAG.monitor.json" 2>&1 | tee -a "$FPDIR/$WTAG.txt"
 MON_RC=${PIPESTATUS[0]}
 [ -s "$FPDIR/$TAG.monitor.json" ] || die "stage 7b wrote no monitor json"
 # AND RE-READ THE VERDICT FROM THE JSON, so the gate does not rest on an exit code at all.
@@ -323,11 +363,11 @@ fi
 # carries no wind speed, so conditioning on H alone leaves a band spanning a factor of ~2,
 # and if the refusal rate comes out high that number gets REPORTED rather than the band
 # widened. Non-fatal by default for the same reason stage 7b is.
-say "$TAG  stage 7c: sigma_w against the tower, translated to the receptor"
+say "$WTAG  stage 7c: sigma_w against the tower, translated to the receptor"
 CURVE="${SIGMAW_CURVE:-results/sigma_w_curve_30m.json}"
 if [ -s "$CURVE" ]; then
-  ./docker/pyrun.sh - "$FPDIR/$TAG.json" "$SND" "$CURVE" "$ZTARGET" <<'PYSW' \
-      2>&1 | tee -a "$FPDIR/$TAG.txt"
+  ./docker/pyrun.sh - "$FPDIR/$WTAG.json" "$SND" "$CURVE" "$ZTARGET" <<'PYSW' \
+      2>&1 | tee -a "$FPDIR/$WTAG.txt"
 import json, sys
 fp, snd, curve, zt = sys.argv[1], sys.argv[2], sys.argv[3], float(sys.argv[4])
 d = json.load(open(fp)); c = json.load(open(curve)); s = json.load(open(snd))
@@ -357,10 +397,30 @@ else
 fi
 
 # ---- 8. the training record ------------------------------------------------------
-say "$TAG  stage 8: assemble the pair"
-./docker/pyrun.sh bin/make_pair.py --tag "$TAG" --footprint "$FPDIR/$TAG.json" \
+say "$WTAG  stage 8: assemble the pair"
+./docker/pyrun.sh bin/make_pair.py --tag "$WTAG" --footprint "$FPDIR/$WTAG.json" \
     --forcing "$FRC" --seed "$PICK" --outdir pairs || true
-[ -s "pairs/$TAG.json" ] || die "stage 8 wrote no pair"
+[ -s "pairs/$WTAG.json" ] || die "stage 8 wrote no pair"
+}
+
+for WI in $(seq 0 $(( ${N_WINDOWS:-1} - 1 ))); do
+  T0=$(python3 -c "print(f'{$A_NT*$DT + $WI*$WINDOW_S:.3f}')")
+  T1=$(python3 -c "print(f'{$A_NT*$DT + ($WI+1)*$WINDOW_S:.3f}')")
+  run_one_window "$WI" "$T0" "$T1"
+done
+
+# ---- 8b. are the two windows two draws, or one draw written twice? -----------------
+# Only measurable when there are two, and the answer decides whether the extra 0.75 h per
+# case buys anything. REPORTED, NEVER GATED: a near-duplicate verdict is a pricing result,
+# not a broken case.
+if [ "${N_WINDOWS:-1}" -ge 2 ] && [ -s "$FPDIR/${TAG}_w0.json" ] \
+   && [ -s "$FPDIR/${TAG}_w1.json" ]; then
+  say "$TAG  stage 8b: are the two windows independent?"
+  ./docker/pyrun.sh bin/window_independence.py \
+      "$FPDIR/${TAG}_w0.json" "$FPDIR/${TAG}_w1.json" \
+      --out "$FPDIR/${TAG}_windows.txt" 2>&1 | tail -22 || true
+fi
+
 
 [ "${KEEP_FIELDS:-0}" = "1" ] || { rm -f $D/window/*; rm -rf "$CG"
                                   echo "  window fields and the case grid deleted"; }
