@@ -23,11 +23,14 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lpdm.driver import receptor_indices
-from lpdm.fields import FieldSet, dump_series
+from lpdm.fields import FieldSet, dump_series, _step_of
 from lpdm.les_stats import window_stats
 from lpdm.model import LPDM
 
 FAIL = []
+TBACK_S = 30.0        # section 4's t_back
+REL_S = 120.0         # and its release period; the window has to cover BOTH, or the
+                      # end-to-end check degenerates to a 9 s release and a zero integral
 
 
 def check(name, ok, detail=""):
@@ -37,8 +40,29 @@ def check(name, ok, detail=""):
 
 
 def main(outdir):
-    paths = dump_series(outdir)[:2]
-    fs = FieldSet(paths, 0.0328947, verbose=False)
+    # ENOUGH DUMPS TO COVER t_back, NOT A HARD-CODED TWO. The two came from a 300 s
+    # spin-up cadence, where two dumps span 300 s and the 30 s of history section 4 needs
+    # is comfortably inside. On a 5 s SAMPLING cadence two dumps span 6 s, and section 4
+    # then fails with "window too short" -- a property of the test's input, not of the
+    # code it is testing, and it reads exactly like a regression. Take what the test
+    # actually needs.
+    dt_model = 0.0328947
+    allp = dump_series(outdir)
+    if len(allp) < 2:
+        print(f"  SKIP: {outdir} holds {len(allp)} dump(s); this test needs at least 2 "
+              f"and enough of them to span its own t_back of {TBACK_S:.0f} s.")
+        return 0
+    cad = (_step_of(allp[1]) - _step_of(allp[0])) * dt_model
+    need = max(2, int(np.ceil((TBACK_S + REL_S) / max(cad, 1e-9))) + 1)
+    paths = allp[:need]
+    span = (_step_of(paths[-1]) - _step_of(paths[0])) * dt_model
+    print(f"  {len(paths)} of {len(allp)} dumps at a {cad:.1f} s cadence = {span:.0f} s of "
+          f"history, against the {TBACK_S:.0f} s + {REL_S:.0f} s section 4 needs")
+    if span <= TBACK_S + REL_S:
+        print(f"  SKIP: {outdir} supplies {span:.0f} s, short of the "
+              f"{TBACK_S + REL_S:.0f} s section 4 needs.")
+        return 0
+    fs = FieldSet(paths, dt_model, verbose=False)
     print(f"  {fs.nx} x {fs.ny} x {fs.nz}, levels {fs.zk[0]:.4f} {fs.zk[1]:.4f} "
           f"{fs.zk[2]:.4f} m, ground {fs.zg.min():.2f}..{fs.zg.max():.2f} m\n")
 
