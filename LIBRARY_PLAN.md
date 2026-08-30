@@ -1,5 +1,40 @@
 # The seed library and the sounding-forced corpus
 
+> **THE ESTIMATES BELOW ARE NOW MEASURED ON A REAL PRODUCTION CASE — 2026-08-30.**
+> `case_2023111718`, 2.0 sim-h, two windows, 1442 snapshots, through the live in-process
+> hand-off at `lpdmOnlineSelector = 2` (staging AND writing, so both paths came from one
+> run). Where a measured number differs from the projection, the measured one governs.
+>
+> | | projected | **MEASURED** |
+> |---|---|---|
+> | cost | 0.495 GPU-h/sim-h | **0.525** at selector 2, **0.512** net of the two pauses |
+> | GPU-h per case | 0.99 | **1.06** |
+> | GPU-h per footprint | 0.50 | **0.53** |
+> | persisted per case | ~3 MB | **3.6 MB** (2.2 MB without the touchdown sample) |
+> | window bytes NOT written, per case | ~19 GB | **19 GB**, confirmed |
+> | corpus, 1469 cases | ~1455 GPU-h | **~1560 GPU-h**, ~2938 pairs, **~5.3 GB** |
+>
+> **The +7% on cost is selector 2 and disappears in production.** IO is 0.0012 s/step of a
+> 0.0159 s step (7.6%) because this run wrote the netCDF dumps as well as staging them, so
+> the acceptance comparison could be made at all. `lpdmOnlineSelector = 1` writes no window
+> netCDF and should return the cost to the 0.479 the bring-up measured.
+>
+> **The case class gained one output interval per extra window** — 7205 s rather than
+> 7200 — because two windows cannot share a boundary dump through the ring. See PROJECT_BRIEF.md's
+> dated block; it is 5 s of simulated time and it is what keeps the release period at
+> exactly 1800.0000 s.
+>
+> **AND THE TWO-WINDOW QUESTION HAS ITS FIRST ANSWER, which is not the expected one.** On
+> `case_2023111718` the two footprints are **NEAR-DUPLICATES in shape** — identical peak
+> (180 m), centroid 3.8 m apart, median |diff|/floor **0.19** — while their release groups'
+> own decorrelation time is **180 s** against a 1800 s separation, so they ARE independent
+> draws. The realisation variance that motivated the second window is far smaller here than
+> the 44% on record: integrals 0.983 and 1.021, **3.8% apart**, against 1.463 -> 1.019 on an
+> identical 24 m re-run. **`z_i` moved +77 m between them, so the pair is COVERAGE rather
+> than replication** — it does not reduce noise at a fixed condition, and the corpus still
+> owes averaging within condition bins. One case is one case; the pricing decision needs the
+> neutral one too.
+>
 > **RE-COSTED AT 122^3 @ 30 m WITH TWO WINDOWS PER CASE AND NO DISK — 2026-08-30.**
 > Three changes land together and they move the corpus economics more than any of them
 > does alone. Every number below this block that quotes 24 m, one window, or per-case
