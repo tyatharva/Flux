@@ -332,6 +332,131 @@ breaking. The stage-7c gate is doing its job — refusing to call a case clean w
 is outside the tower's band — and the band is a MOST extrapolation conditioned on heat flux
 alone, which PROJECT_BRIEF.md already records as spanning ~2×.
 
+### Run 3 — neutral seed `seed_nbl-deep_a015`, 3.0 sim-h ceiling, accelerator on
+
+3000 s of burn-in at `surflayer_wth = +0.05`, restart with `htFlux` **zeroed in the file**
+(it is IO-registered and the `.in` cannot override it), then 340 200 steps = **2.917 sim-h**
+in one invocation, 35 dumps. The watcher scored at 0.5/0.75/1.0/1.25 h and never entered
+band — its drifting count ran 2 → 4 → 1 → 0 — so the run went to the ceiling.
+
+**Verdict: FAIL — `z_i` DRIFTING at +5.76 %/h against a 3 %/h limit**, plus INDETERMINATE on
+`sigma_v/u*`, `sigma_w/u*` and `TKE_BL/u*^2`. But three limits are **established ok, and
+they are the three the footprint's geometry actually rides on**:
+
+| limit | value | trend | verdict |
+|---|---|---|---|
+| `U/u*` (Kljun Π₄) | 16.358 | **+0.00 %/h** | ok |
+| Kljun `x_peak` | 178.7 m | −0.27 %/h | ok |
+| Kljun `x90` | 1493.5 m | −0.14 %/h | ok |
+| `z_i` | 678.5 m | **+5.76 %/h** | **DRIFTING** |
+
+**THIS CONFIRMS A PREDICTION THE PROJECT MADE IN ADVANCE.** PLAN.md item 0aa, from a
+scoring-window sweep run before any of this: *"**TRENDING AWAY from band** — `z_i` in BOTH
+seeds, monotonically (+2.31 → +4.08 and +0.53 → +7.57 %/h) with a falling SE. **A longer run
+resolves these into a FAIL, not a pass.**"* It did, at +5.76 %/h.
+
+**And the consequence is structural.** `bin/pick_seed.py` refuses a DRIFTING seed outright
+and no flag admitted it, so **the neutral half of the corpus became unbuildable** — and no
+longer spin-up fixes it, because a neutral Ekman layer's depth keeps growing for several
+inertial periods (35–50 simulated hours). PROJECT_BRIEF.md makes exactly this argument for `u*`,
+where the fix was to gate on a RATIO; `z_i` is the one gated quantity with no ratio to take,
+and PROJECT_BRIEF.md says so explicitly.
+
+**The fallback turned out to be more dangerous than the refusal.** With `--available-only`
+leaving one spun seed in the library, `pick_seed` fell back to the **convective**
+`seed_cbl-mid_a015` for a neutral case and said so: *"no neutral seed in the library; fell
+back to convective. 30 min will NOT convert one regime into the other."* That is
+disqualifying in a way the drifting seed is not — a neutral target restarted from a
+convective state is a decaying CBL for the length of the case, and no label on the pair
+fixes a wrong TARGET. Run 5 was killed 13 minutes in and re-run against the neutral seed
+under a new, narrow, **default-off** `--allow-drifting`, which stamps
+`gate_state = DRIFTING` on every pair and which the corpus driver never sets.
+
+**Whether the corpus should use it is a design decision and it belongs to the user.** The
+numbers to decide on are above.
+
+### Run 4 — the flat/neutral control, and the containment acceptance
+
+87 480 steps = 2700 s, 541 dumps, LES clean: `k0/k1` **0.136**, `turb_alive` OK, exit 0.
+First run at this grid, so `results/regression_baseline_g30.json` is a baseline write rather
+than a comparison.
+
+**THE CONTAINMENT ACCEPTANCE THIS GRID WAS CHOSEN FOR: PASS.** The by-displacement ladder,
+cap raised to 3 L = 10 980 m:
+
+| displacement | integral | / I(1 L) |
+|---|---|---|
+| 0.25 L | 0.420 | 0.591 |
+| 0.50 L | 0.581 | 0.816 |
+| 0.75 L | 0.661 | 0.928 |
+| **1.00 L** (the production cap) | **0.712** | 1.000 |
+| 1.25 L | 0.736 | 1.034 |
+| 1.50 L | 0.738 | 1.036 |
+| 2.00 L | **0.730** | 1.025 |
+| **2.50 L** | **0.730** | 1.025 |
+| 3.00 L | **0.730** | 1.025 |
+
+`|I(2.5L) − I(2.0L)| / I(2.5L)` = **0.0%** against the 2% `SATURATE_TOL`. **The neutral
+integral saturates by 2.5 L**, which is the acceptance PLAN.md sets, and it is flat to three
+decimals from 2.0 L. The production cap at 1 L captures **97.5%** of the saturated integral,
+against **93.5%** at 2928 m — the bigger box bought four points.
+
+The stricter question still fails, and both numbers belong in the record: **C1 (saturates by
+1 L) FAILS at +7.2%** and **C3 (what the cap hides) at +2.5%**, against +8.8% and +6.1% at
+2928 m. C2 passes (x80 1733 m against a 2928 m bar).
+
+**GATE D1, NEUTRAL, BOTH DIRECTIONS: PASS.** max |ratio − 1| **9.86%**, rms 4.70%, lowest
+three bins **1.043**, against a 5.48% counting floor. **With run 2's convective PASS, the
+deferred item — "Gate D1 on the production closure, both regimes, both directions" — now has
+evidence in both regimes at this grid for the first time.** (The composite "stage 4" verdict
+prints FAIL on the same `frac > 0.5` particle-count criterion as run 2: 44.9% here.)
+
+**THE NO-OP CONTROL BEHAVES DIFFERENTLY NEUTRALLY, AND THAT IS THE POINT OF RUNNING IT IN
+BOTH REGIMES.** Convectively the peak was **identical** with the floor on and off. Neutrally
+it moves:
+
+| | floor ON | floor OFF |
+|---|---|---|
+| peak | 270 m | **330 m** |
+| x80 | 1624 m | 1666 m |
+| A80 | 27.8 ha | 29.2 ha |
+| integral | 0.723 | 0.700 |
+
+The receptor here is **90.4% sub-grid** in σ_w² (85.1% at 24 m), so the neutral flat control
+is the closure-dominated end of the corpus and the floor is not inert in it.
+
+**AND THE KLJUN-PARITY ARGUMENT DOES NOT SURVIVE THE MOVE TO 3660 m.** At 2928 m the LES
+retained **0.874** of its `1 − z_m/z_i` asymptote against Kljun's **0.867** on identical
+cells — parity to 0.7 points, and that parity is what made accepting the truncation
+defensible ("both models lose the same tail, so a RELATIVE claim survives"). At 3660 m:
+
+| | 24 m / 2928 m | 30 m / 3660 m |
+|---|---|---|
+| LES / asymptote | **0.874** | **0.765** |
+| Kljun / asymptote | **0.867** | **0.923** |
+| gap | 0.7 points | **15.8 points** |
+
+**It is not the Kljun fix.** That was the obvious suspect — the flat control is exactly the
+`|L| > 5000` regime where `lpdm/kljun.py` is 1.25× wide in σ_y — and it is wrong:
+recomputing Kljun on the 2928 m control's *identical* cells with the official FFP gives
+**0.8263, the same to four decimals**. The integral is insensitive to σ_y because σ_y stays
+small against a 1464 m box half-width, so widening it moves almost nothing out of the box.
+The recorded parity is real.
+
+**It is the LES.** The two controls are nearly the same flow — u\* 0.410 vs 0.405, U/u\*
+15.99 vs 16.27, `z_i` 643 m in both, σ_v 0.577 vs 0.584 — and Kljun agrees (peak 192 vs
+180 m, x80 931 vs 964 m, A80 13.1 vs 13.1 ha). The **LES** footprint is the thing that
+changed: peak 240 → 270–330 m, x80 1557 → 1733 m, A80 31.8 → 34.0 ha. Two measured
+candidates, and this pass does not separate them: the sub-grid fraction at the receptor rose
+**85.1% → 90.4%** at the coarser grid, and only **44.9% of particles reach the surface within
+the 900 s `t_back`** (median transit **307 s**, against 118 s convectively).
+
+**Which of the three this is:** a **measurement**, and the one that most changes what can be
+claimed. The acceptance PLAN.md set (saturation by 2.5 L) passes; the *justification* it
+rests on (LES–Kljun parity under truncation) holds at 2928 m and does **not** hold at
+3660 m. Any relative claim against Kljun on the neutral flat control now has to carry the
+15.8-point gap explicitly.
+
 ### Run 1 — convective seed `seed_cbl-mid_a015`, 1.0 sim-h ceiling
 
 Ran clean: 106 920 steps = **0.917 sim-h** in one invocation (the ceiling rounds DOWN to a
