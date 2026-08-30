@@ -97,6 +97,17 @@ def main():
                          "against 30-minute observations. bin/run_corpus_case.sh passes "
                          "this; the retired fourth-pass drivers, which legitimately "
                          "released for 900 s, do not.")
+    ap.add_argument("--max-disp", type=float, default=None,
+                    help="retire a trajectory past this UNWRAPPED displacement, in metres. "
+                         "Production is one domain length, which is what stops periodic "
+                         "wrap-around from counting the same eddies twice. Setting it "
+                         "LARGER is the diagnostic that separates the two ways an integral "
+                         "can be wrong: a curve that keeps climbing past 1 L is wrap "
+                         "double-counting; one that saturates above the 1 - z_m/z_i "
+                         "ceiling and STAYS there is advective non-closure or the CBL "
+                         "elevated-maximum mechanism, which is physics. With the cap at "
+                         "1 L the by-displacement curve is flat past 1 L BY CONSTRUCTION "
+                         "and cannot tell them apart.")
     ap.add_argument("--keep-touchdowns", type=int, default=0,
                     help="persist this many raw touchdowns (uniform bottom-k subsample) "
                          "to <outdir>/<tag>_touchdowns.npz. THE ML TARGET IS A CONTINUOUS "
@@ -220,6 +231,7 @@ def main():
                               sgs_most_form=a.sgs_most_form,
                               sgs_subgrid_weight=not a.no_subgrid_weight,
                               sgs_eps_consistent=not a.no_eps_consistent,
+                              max_disp=a.max_disp,
                               n_cover_groups=a.cover_groups,
                               keep_touchdowns=(a.keep_touchdowns if not runs else 0))
         if a.sgs_scale != 1.0:

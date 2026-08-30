@@ -195,7 +195,10 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
     # trajectory had already sampled once. On a folded raster nothing falls off the edge
     # any more, so the contamination shows up in the integral instead of being silently
     # truncated -- which means it can finally be measured.
-    disp_edges = np.array([0.25, 0.5, 0.75, 1.0, 1.5, 2.0]) * fs.Lx
+    # The ladder must extend PAST the cap, or it can only ever report the cap. When the
+    # cap is raised for the wrap diagnostic the ladder follows it, so the curve is sampled
+    # where the question actually lives.
+    disp_edges = np.array([0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0]) * fs.Lx
     disp_w = np.zeros(len(disp_edges))
 
     # ---------------------------------------------------------------- reference frame
