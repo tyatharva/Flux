@@ -255,9 +255,33 @@ class RingConsumer:
         g = glob.glob(os.path.join(self.dir, "pause.*"))
         return int(g[0].rsplit(".", 1)[1]) if g else None
 
-    def resume(self, step):
-        """Let the LES continue past its pause."""
+    def resume(self, step, wait_s=30.0):
+        """Let the LES continue past its pause, and wait until it has acknowledged.
+
+        THE ACKNOWLEDGEMENT IS NOT CEREMONY. The producer removes BOTH markers when it
+        wakes (`io_lpdmonline.c:317-318`), and the NEXT window's consumer decides it has
+        reached a pause by globbing `pause.*`. A stale marker from this window would make
+        that consumer return instantly with no snapshots -- a window silently emptied
+        rather than an error. The gap is only the producer's 5 ms poll and in practice the
+        next stage does a minute of work first, so this has never fired; it costs nothing
+        and removes a failure mode that would cost a whole case.
+
+        A timeout here is NOT fatal: the LES may legitimately have finished and exited
+        between the pause and now, in which case nothing will ever remove the marker. Say
+        so and carry on.
+        """
         open(os.path.join(self.dir, f"resume.{step}"), "w").close()
+        p = os.path.join(self.dir, f"pause.{step}")
+        t0 = time.time()
+        while os.path.exists(p):
+            if time.time() - t0 > wait_s:
+                if self.verbose:
+                    print(f"  the LES has not cleared {os.path.basename(p)} after "
+                          f"{wait_s:.0f} s. If it has already exited that is expected; if "
+                          f"not, the next window's consumer will see a stale pause marker "
+                          f"and read an empty window.")
+                return
+            time.sleep(POLL_S)
 
     def done(self):
         return os.path.exists(os.path.join(self.dir, "done"))
