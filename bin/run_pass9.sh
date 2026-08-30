@@ -132,20 +132,7 @@ KEEPTD=100000 LPDM_WORKERS=12 \
 bg bash bin/pass9_flat.sh "$DT30"
 
 # ---- 5. the neutral target, two windows, through the ring ------------------------------
-# THE NEUTRAL SEED IS DRIFTING IN z_i AND pick_seed REFUSES IT BY DEFAULT.
-# Measured on seed_nbl-deep_a015 at 2.917 sim-h: +5.76 %/h against a 3 %/h limit. That is
-# not a surprise -- PLAN.md item 0aa predicted it from a scoring-window sweep ("z_i ...
-# TRENDING AWAY from band ... a longer run resolves these into a FAIL, not a pass") -- and
-# it means no affordable neutral spin-up will ever satisfy the limit, because a neutral
-# Ekman layer's depth keeps growing for several inertial periods.
-#
-# The directive this pass runs under is explicit that a threshold not met is a MEASUREMENT
-# and not a failure, so the neutral target is built and the state is recorded rather than
-# the data being dropped: gate_state = DRIFTING is stamped on both pairs and a warning goes
-# into the training record. THE CORPUS DRIVER DOES NOT SET THIS. Whether the corpus should
-# is a design decision for the user, and NINTH_PASS_RESULTS.md puts the numbers next to it.
-export ALLOW_DRIFTING=1
-say "RUN 5: neutral target $NEUT_TAG at $NEUT_TS (seed is DRIFTING in z_i; see above)"
+say "RUN 5: neutral target $NEUT_TAG at $NEUT_TS"
 wait_for_gpu
 bash bin/run_corpus_case.sh "$NEUT_TS" "$NEUT_TAG" 2>&1 | tee "$L/pass9_run5.log" | tail -40
 [ -s "pairs/${NEUT_TAG}_w0.json" ] || die "run 5 produced no w0 pair"
