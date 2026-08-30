@@ -137,6 +137,46 @@ the in-FastEddy hook**: until the ring buffer is filled from the live device fie
 the time loop, a case still writes ~16.6 GB of scratch and reads it back, and eliminating
 that is the whole point of the port.
 
+**THE DECIDING TEST PASSED: THE PEAK MOVES.** `results/pass7_deciding_test.txt`,
+`SEVENTH_PASS_RESULTS.md`. Two targets, pre-registered before either ran: a convective case
+(`case_2023052519`, H 333 W/m2, achieved L -25.5 m) peaks at **144 m**; a near-neutral one
+(`case_2023121921`, H 22 W/m2, L -732 m) peaks at **288 m**. `|dpeak| = 144 m` against the
+larger of the two cases' OWN half-vs-half floors (**24 m**, one raster cell) -- six times
+it -- and the LES ordering matches Kljun's (144 vs 168). At 10 m the peak was 48 m in all
+three targets, max/min **1.00x**; here max/min is **2.00x**.
+
+**AND IT IS NOT THE CLOSURE.** Each footprint was recomputed on the identical window with
+the `sigma_w` floor OFF: the peak is **identical, 144 and 288 m**, and for the neutral case
+the floor is inert at the receptor to begin with (factor 1.000). At 10 m the same floor was
+worth +8.40 points of array share and shortened `x80` from 400 to 227 m. The no-op control
+is what turns "the peak moved" into "the LES moved it".
+
+**t_back AT 30 m IS 600 s, MEASURED.** The capture curve on both targets: 99.6% and 100.0%
+of the 900 s integral is in by 600 s, and the **peak is at its final value at every mark
+from 150 s**. Production ran 900 s (the fourth pass's number); 600 would save 6.7% of the
+case class. Recorded, not changed.
+
+**THE INTEGRAL'S DEPARTURE FROM THE ASYMPTOTE TRACKS `w_bar` AT THE RECEPTOR, WITH THE
+RIGHT SIGN.** The convective case sits in mean subsidence (`W = -0.099 m/s`) and integrates
+to **1.497x** the `1 - z_m/z_i` ceiling; the neutral one sits in a mean updraft
+(`W = +0.342 m/s`) and integrates to **0.916x**. That is the advection non-closure this file
+already describes, now measured on two cases with opposite signs instead of asserted.
+
+**AND `L` WAS WRONG BY UP TO 148x UNTIL 2026-08-29.** `lpdm/les_stats.py` recovered the
+surface flux from the MEAN of FastEddy's `invOblen`, which is `1/L` and therefore a ratio
+whose denominator is `u*^3`; over a heterogeneous surface the average is set by the
+lowest-`u*` cells. On the convective target it returned `hfx = 43.09 K m/s` and `L = -0.17 m`
+against a true `-25.45 m`, and that went into Kljun's `x_peak`, the floor's `zeta` and the
+pair's own `L`. Fixed by forming the flux PER CELL and averaging that -- which reproduces
+the case grid's own domain-mean `htFlux` to four decimals. The three 10 m pairs hid it
+because their fluxes were near zero. `FASTEDDY_TRAPS.md` 19e.
+
+**THE SUB-GRID FRACTION SPLITS BY REGIME AND ONLY HALF THE CORPUS IS FIXED.** At the same
+`z/Delta = 1.76`: **52.5% sub-grid convective, 86.4% neutral** -- reproducing the fourth
+pass's 52.3% / 85.5% at a 30 m receptor on a different domain. Against 10 m: neutral
+96.4% -> 86.4%, convective ~90% -> 52.5%. **A 30 m receptor takes the convective half of
+the corpus out of the closure-dominated regime and leaves the neutral half in it.**
+
 **THE SEED BUDGET IS MEASURED, NOT ASSUMED.** The fixed 3.0 simulated hours was derived
 once, at 16 m, on `nbl-shallow`. Seeds now run open-ended with a **HARD 3.0 sim-h ceiling**
 and `jobs/seed_watch.sh` stops them as soon as the **oscillation-immune** limits are in

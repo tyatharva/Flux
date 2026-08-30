@@ -21,10 +21,10 @@
 | A | five analysis fixes + touchdown persistence | **done** |
 | A | **GPU LPDM acceptance** | **PASS** (a)(b)(c)(d); 153x; forward D1 fails in BOTH paths on the bring-up window |
 | A | `ML_TARGETS.md` | **done** (design only, plus the persistence that had to ship) |
-| **B** | `nbl-deep` + accelerator, open-ended, 3.0 h ceiling | running |
-| **C** | `cbl-deep` at `L/z_i` 3.08 — the lock-in re-test | pending |
-| C | pre-target go/no-go: sub-grid fraction of `sigma_w^2` at the receptor | pending |
-| C | one target per seed, then **THE DECIDING TEST** | pending |
+| **B** | `nbl-deep` + accelerator, 3.0 h ceiling | **ran clean, gate FAIL** — 5 INDETERMINATE, none drifting; budget not in band up to the ceiling |
+| **C** | `cbl-deep` — the lock-in re-test | **mode-1 share 53.9–72.0% → 19.3–23.1%**, below what Phase E accepted; depth still overshoots to 1308 m |
+| C | pre-target go/no-go: sub-grid fraction at the receptor | **GO** — 52.5% convective against ~52% expected |
+| C | two targets, then **THE DECIDING TEST** | **PASS — the peak moves 144 m against a 24 m floor, ordering matches Kljun, and the no-op control shows it is not the closure** |
 
 ## THE DECIDING TEST, pre-registered
 
