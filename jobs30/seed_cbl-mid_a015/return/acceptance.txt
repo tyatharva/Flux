@@ -1,6 +1,6 @@
   the run stopped at step 106920 of a 349920 ceiling = 0.92 of 3.00 simulated hours
 ########## acceptance battery: seed_cbl-mid_a015 (convective) ##########
-2026-08-30 15:25:43
+2026-08-30 15:32:19
 
 === 1. the log: CORRUPTED / NaN / Inf, and the completion banner ===
   CORRUPTED: 0
@@ -53,12 +53,16 @@
 
 --- what comes home ---
   acceptance.txt                 0.00 MB
+  budget.json                    0.00 MB
   manifest.json                  0.00 MB
+  rotation_check.json            0.00 MB
   run.log                        0.04 MB
   seed.log                       0.04 MB
+  seed_report.json               0.00 MB
   seed_restart.nc               73.27 MB
   stationarity.json              0.00 MB
   stationarity.txt               0.00 MB
+  turb_alive.json                0.00 MB
   restart 73.3 MB against the 73.3 MB estimate (-0.0%)
   return/ total 73.4 MB
 
@@ -226,4 +230,4 @@ anomalous share of the variance.
   wrote jobs30/seed_cbl-mid_a015/return/budget.json
 
 === battery complete -> /home/atyagi/Flux/jobs30/seed_cbl-mid_a015/return/acceptance.txt ===
-2026-08-30 15:25:52
+2026-08-30 15:32:28
