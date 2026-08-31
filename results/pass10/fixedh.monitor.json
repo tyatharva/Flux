@@ -1,0 +1,61 @@
+{
+ "n": 1,
+ "ok": 0,
+ "fail": 0,
+ "unjudged": 1,
+ "cases": [
+  {
+   "case": "case_2023112120_w0_fixedh.json",
+   "verdict": "UNJUDGED",
+   "gates": [
+    {
+     "name": "G1 floor health",
+     "ok": true,
+     "detail": "f_sgs at the floor's peak 0.379 (>= 0.25), factor 1.000-1.05 peaking at z=73 m, inert above z=91 m"
+    },
+    {
+     "name": "G2a integral saturates",
+     "ok": true,
+     "detail": "I(2L)/I(1L) - 1 = +4.17e-05 (|.| <= 1e-03); the cap is binding"
+    },
+    {
+     "name": "G2b integral magnitude",
+     "ok": true,
+     "detail": "1.213 in [0.6, 1.5]; Kljun on the same cells 0.895; asymptote 1 - z_m/z_i = 0.9593, LES/asymptote 1.265"
+    },
+    {
+     "name": "G2c integral vs asymptote",
+     "ok": null,
+     "detail": "LES/asymptote 1.265, Kljun/asymptote 0.933 -- REPORTED, not gated (a slope moves it legitimately)"
+    },
+    {
+     "name": "G3a peak converged",
+     "ok": true,
+     "detail": "half-vs-half |dpeak| 0 m <= 60 m (2 raster cells)"
+    },
+    {
+     "name": "G3b peak vs Kljun",
+     "ok": true,
+     "detail": "LES peak 210 m / Kljun 180 m = 1.17x in [0.4, 2.5]"
+    }
+   ],
+   "reported": {
+    "array_share": 0.01634632328850612,
+    "array_share_se": 0.0032230553453048466,
+    "centroid_m": 566.6161606614238,
+    "centroid_bearing": 314.37678036325906,
+    "area80_ha": 26.91,
+    "peak_x": 210.0,
+    "integral": 1.2131450497326923,
+    "integral_kljun": 0.8951966937955027,
+    "overlap_kljun": 0.4310850439882698,
+    "overlap_halves": 0.46859903381642515,
+    "wrapped_fraction": 0.07421950005055815,
+    "h": 699.8543090820312,
+    "fac_max": 1.0499785346882533,
+    "f_sgs_at_peak": 0.3792800975267776,
+    "z_fac_max": 73.41510009765625
+   }
+  }
+ ]
+}

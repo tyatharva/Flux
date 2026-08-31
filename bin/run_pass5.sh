@@ -268,8 +268,8 @@ rm -f runs/g16_flat/window/*
 
 # ---------------------------------------------------------------- t_back for production
 say "t_back, read off the control window's own capture curve"
-./docker/pyrun.sh bin/pick_tback.py $R/g16_flat.json --out $R/tback_production.txt 2>&1 \
+./docker/pyrun.sh bin/pick_tback.py $R/g16_flat.json --out $R/tback_production_dx16.txt 2>&1 \
   | tee $R/g16_tback.txt
-[ -s $R/tback_production.txt ] || die "t_back was not determined -- Phase F cannot be sized"
+[ -s $R/tback_production_dx16.txt ] || die "t_back was not determined -- Phase F cannot be sized"
 
 say "PASS5 CHAIN COMPLETE: C1, C2, B4, Phase D and t_back"

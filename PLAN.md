@@ -1,3 +1,50 @@
+# THE CORPUS IS UNBLOCKED AND HAS AN ENTRY POINT — 2026-08-31
+
+> **No GPU. Full rationale: `PROJECT_BRIEF.md`, the dated block at the top.** The one thing the
+> ninth pass left FAILING is fixed, and the pipeline now has the two commands a rented box
+> needs. What is NOT yet done is a real GPU case through this path — every check below is
+> CPU, and the LES and the LPDM were stubbed for all of them.
+
+| # | item | verdict |
+|---|---|---|
+| 1 | `bl_depth` decides the surface-attached depth instead of refusing | **h = 448 m** on the case that broke it (2372 m before); **47 of 47 stored profiles EXACT**; and the refused neutral case now produces a footprint that **passes every scoreable gate** |
+| 2 | splits hard-coded by month, assigned at generation, disjointness asserted | **40 / 12 / 12** months; `split_of` refuses an unlisted month; driver's value checked against the case's own date |
+| 3 | hour drawn without replacement, reproducible, uniform | verified on 5 real days: 2 accepted first draw, 1 after 2 draws, and **2 exhausted their pool and returned DAY MISSING with a reason** |
+| 4 | `bin/get_case.sh` — one datetime, one artifact, scratch deleted | **3 datetimes across the 3 splits: one file each, scratch empty, 30 m at every stage, schema valid** |
+| 5 | `bin/run_month.sh` — a month, resumable, a failure never aborts it | **4 days, 4 cases, 30 days accounted for** in the manifest |
+| 6 | seed-leakage check on pairs already on disk | **no fingerprint** at the un-confounded receptor (2.47 vs 1.55 floors); the 16 m group is confounded and says so |
+
+**Two hazards found while doing it, both silent, neither in scope:**
+
+* **`run_corpus_case.sh` DEFAULTED to the retired 16 m geometry**, so a caller that forgot
+  the export block got a complete, plausible case on the wrong grid. Fixed at the source.
+* **`results/tback_production.txt` holds 600, the 16 m measurement**, and was read
+  unconditionally — it would have governed every 30 m case the moment a driver stopped
+  exporting `TBACK`. It is keyed by `dx` now.
+
+**And a hazard in the corpus directory itself:** six retired-grid validation records were
+sitting in `pairs_npz/`. Identical array shape, incompatible cell size. Moved to
+`pairs_npz_retired/`.
+
+## What is still owed before a corpus run
+
+1. **A real GPU case through `bin/get_case.sh`.** Everything above is stubbed at stages 6
+   and 7. The stub shares stages 1-5 and 8 with production and is stamped `stub: true`, but
+   it exercises no LES, no LPDM and no ring.
+2. ~~The neutral half has never produced a footprint.~~ **DONE, CPU only** — window 0 of
+   `case_2023112120` recomputed through the real LPDM on the corrected `h`
+   (`results/pass10/`): `h` 2372 -> **700 m**, the sigma_w floor 1.2e+04 -> **1.05**, and
+   **G1 through G3b all pass**. The integral's 1.265x of its asymptote is the advection
+   non-closure with the right sign (`w_bar` = -0.140 m/s, subsidence), not an error.
+   What is still owed is a neutral case run FORWARD from a sounding rather than recomputed
+   from fields the ninth pass left behind.
+3. **Seed grouping in the split is not settled by item 6.** n = 1 same-seed pair at the
+   un-confounded receptor.
+4. Everything under "Still deferred" below: the GPU LPDM as production integrator, rung
+   re-spacing, `zCeiling`.
+
+---
+
 # The three decisions are made, and the fourth question is answered — 2026-08-30
 
 > **No GPU was spent. Full rationale and numbers: `PROJECT_BRIEF.md`, the dated block at the top.**
@@ -27,11 +74,15 @@ x ~0.61), against ~1445 GPU-h for 2938 pairs under the retired two-window plan, 
 them near-copies. `bin/run_corpus.sh` now carries the whole 30 m production configuration
 as one exported block; `run_corpus_case.sh` still defaults to the retired 16 m geometry
 because the retired passes' drivers call it.
+**(SUPERSEDED 2026-08-31 — the default IS the 30 m geometry now; every caller sets the
+block explicitly and was unaffected. See the block at the top of this file.)**
 
 **STILL BLOCKING THE NEUTRAL HALF, and unchanged by any of this:** `bl_depth` measures `h`
 in the wave layer on neutral profiles whose wave layer exceeds their boundary layer. See
 the ninth pass's "one thing that is FAILING" below. **Nothing in this round touched it, and
 the neutral corpus cannot be generated until it is decided.**
+**(SUPERSEDED 2026-08-31 — decided as the surface-attached depth, and the refused case now
+produces a footprint that passes every scoreable gate. See the block at the top.)**
 
 ---
 

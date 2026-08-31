@@ -75,6 +75,53 @@ def _m(v):
     return "?" if v is None else f"{float(v):.0f}"
 
 
+def _split_of_case(a, parent):
+    """'train' | 'val' | 'test', ASSIGNED AT GENERATION and written into the record.
+
+    The split is a property of the case's calendar month (lpdm/corpus.py:SPLITS) and it is
+    resolved here, once, rather than being derivable downstream from a filename or a date.
+    A split re-derived at training time is a split that can silently disagree with the one
+    the case was generated under -- and the entire value of a split is that it cannot move.
+
+    The driver passes `--split` because it decided the split BEFORE spending any GPU time.
+    That value is not trusted blindly: it is checked against what the case's own timestamp
+    implies, and a disagreement is fatal. Either one alone would be a single point of
+    failure -- the driver's could be stale, and re-deriving here would defeat the purpose.
+    """
+    import datetime as dt
+    from lpdm.corpus import split_of
+
+    stamp = None
+    if a.forcing and os.path.exists(a.forcing):
+        try:
+            stamp = (json.load(open(a.forcing)).get("provenance") or {}).get("valid_time")
+        except (OSError, json.JSONDecodeError):
+            stamp = None
+    if stamp is None:
+        # The tag is case_YYYYMMDDHH by construction (bin/run_corpus_case.sh).
+        m_ = re.match(r"^case_(\d{4})(\d{2})(\d{2})(\d{2})$", parent)
+        if m_:
+            stamp = f"{m_.group(1)}-{m_.group(2)}-{m_.group(3)}T{m_.group(4)}:00:00Z"
+    if stamp is None:
+        if a.split:
+            print(f"  WARNING: no valid_time and no parseable tag, so the split is the "
+                  f"driver's '{a.split}' with nothing to check it against")
+            return a.split
+        raise SystemExit(
+            f"FATAL: cannot determine the split for '{parent}': there is no forcing JSON "
+            f"to read a valid_time from and the tag is not case_YYYYMMDDHH. A record "
+            f"without a split cannot go into the corpus -- assigning one downstream is "
+            f"exactly what lpdm/corpus.py exists to prevent.")
+    when = dt.datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+    derived = split_of(when.date())
+    if a.split and a.split != derived:
+        raise SystemExit(
+            f"FATAL: the driver asked for split '{a.split}' but {when.date().isoformat()} "
+            f"belongs to '{derived}' (lpdm/corpus.py:SPLITS). One of the two is stale, and "
+            f"guessing which would put a case in a split nobody chose.")
+    return derived
+
+
 def _git_commit(root):
     """The commit the corpus was generated at. None rather than a guess if unavailable."""
     head = os.path.join(root, ".git", "HEAD")
@@ -190,6 +237,13 @@ def write_training_npz(a, rec, st, fp, npz_path, target, kljun_raster, xc, yc, z
         "parent_case": rec["parent"],
         "window_index": rec["window_index"],
         "split_key": rec["split_key"],
+        # ASSIGNED AT GENERATION, NEVER DERIVED DOWNSTREAM. See _split_of_case.
+        "split": rec["split"],
+        # A STUBBED RUN CAN NEVER MASQUERADE AS A CORPUS RECORD. bin/stub_footprint.py
+        # stamps `stub` into the footprint JSON and it is carried here, so the flag lives
+        # in the artifact rather than in whoever remembers how it was made.
+        # bin/check_npz.py FAILS a stubbed record unless it is asked for one.
+        "stub": bool(fp.get("stub", False)),
         "datetime": rec.get("forcing", {}).get("valid_time"),
         "gate_state": (rec.get("seed") or {}).get("gate_state", "unjudged"),
         "gate_indeterminate": (rec.get("seed") or {}).get("gate_indeterminate", []),
@@ -300,6 +354,7 @@ def write_training_npz(a, rec, st, fp, npz_path, target, kljun_raster, xc, yc, z
     m["grid"] = meta["grid"]
     m["host"] = os.uname().nodename
     m["cases"][a.tag] = {"parent": rec["parent"], "window_index": rec["window_index"],
+                         "split": rec["split"],
                          "datetime": meta["datetime"], "file": os.path.basename(outp),
                          "integral": meta["integral"], "gate_state": meta["gate_state"],
                          # ENUMERABLE WITHOUT OPENING 1825 npz FILES. The z_i distribution
@@ -330,6 +385,10 @@ def main():
     ap.add_argument("--footprint", required=True,
                     help="the .json stage5_footprint.py wrote (its .npz sits beside it)")
     ap.add_argument("--forcing", default=None)
+    ap.add_argument("--split", default=os.environ.get("CASE_SPLIT") or None,
+                    help="the split the DRIVER assigned before spending GPU time. Checked "
+                         "against the case's own date; a disagreement is fatal. Defaults to "
+                         "$CASE_SPLIT so bin/get_case.sh does not have to thread it.")
     ap.add_argument("--seed", default=None, help="the pick_seed.py JSON")
     ap.add_argument("--outdir", default="pairs")
     ap.add_argument("--npz-dir", default=None,
@@ -407,6 +466,7 @@ def main():
         "parent": parent,
         "window_index": widx,
         "split_key": parent,     # SPLIT BY RUN. Never by sample, never by window.
+        "split": _split_of_case(a, parent),
         "inputs": inputs,
         "target": {"file": os.path.basename(npz_path) if a.copy_npz else npz_path,
                    "array": "les", "shape": list(target.shape),

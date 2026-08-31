@@ -132,7 +132,7 @@ for REG in nbl cbl; do
     cbl) SRC=$(newest runs/g16_cbl_shallow/output); GRID=data/grid16_cbl
          RBASE=runs/g16_base/base_cbl_shallow.in ;;
   esac
-  TB=$(cat $R/tback_production.txt 2>/dev/null || echo 400)
+  TB=$(cat $R/tback_production_dx16.txt 2>/dev/null || echo 400)
   WIN=$(python3 -c "print(int(1800+$TB))")
   BASE=$RBASE ADJ_S=1200 SPS=0.0155 ZTARGET=10.0 \
     bin/run_directions.sh g16_$REG "$SRC" "$GRID" $DT_WIN $WIN $TB \
@@ -144,7 +144,7 @@ done
 if ! have dsens; then
   say "6. the displacement-height sensitivity, on the northerly"
   SRC=$(newest runs/g16_cbl_shallow/output)
-  TB=$(cat $R/tback_production.txt 2>/dev/null || echo 400)
+  TB=$(cat $R/tback_production_dx16.txt 2>/dev/null || echo 400)
   WIN=$(python3 -c "print(int(1800+$TB))")
   for TREAT in raised bracket; do
     G=data/grid16_$TREAT

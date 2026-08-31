@@ -2,7 +2,7 @@
 # ONE corpus case, end to end: a timestamp in, an (input, target) training pair out.
 #
 #   usage: bin/run_corpus_case.sh 2023-01-18T18:00 [tag]
-#   env:   WINDOW_S=2400  ADJ_S=1800  TBACK=600  KEEP_FIELDS=0  COVER_GROUPS=10
+#   env:   WINDOW_S=2700  ADJ_S=1800  TBACK=900  KEEP_FIELDS=0  COVER_GROUPS=10
 #          -- COVER_GROUPS is the number of independent release groups the array-share
 #             standard error is estimated from. The default in stage5_footprint.py is 2,
 #             which is ONE difference and therefore ~one degree of freedom; PROJECT_BRIEF.md's
@@ -10,14 +10,14 @@
 #             Phase E measured a FACTOR OF 5 in the estimated floor between a 2-group and a
 #             10-group split. The split costs nothing -- the touchdowns are already
 #             labelled by release time -- so the corpus takes 10.
-#          -- ADJ_S + WINDOW_S = 4200 s = 1.167 sim-h is the class length, and TBACK is
-#             MEASURED (results/g16_tback.txt: converged at 500 s, x1.25, rounded to 600).
+#          -- ADJ_S + WINDOW_S = 4500 s = 1.25 sim-h is the class length at the 30 m
+#             production geometry, and the footprint is the LAST 30 MINUTES of it.
 #          SKIP_LES=1     stop after stage 4, for a dry run with no GPU
-#          SEED_LIB=jobs  where the spun-up seed library lives
+#          SEED_LIB=jobs30  where the spun-up seed library lives
 #          SEED_ANY=1     rank seeds with no returned artifact too (planning only)
 #          ALLOW_INDETERMINATE=0  require ESTABLISHED stationarity (default 1;
 #                         no seed in the library can supply it -- see stage 4)
-#          GRID=data/grid16_raised  ZTARGET=8.5  EXACT_AGL=1   (production; see below)
+#          GRID=data/grid30_raised  ZTARGET=28.5  EXACT_AGL=1  (the DEFAULTS; see below)
 #
 # The eight stages, and which file owns each:
 #
@@ -63,21 +63,42 @@ TAG="${2:-case_${_t:0:10}}"
 # above the RAISED surface = 10.000 m above bare ground. Snapping to the nearest level
 # there would put the receptor 10 m above the PANELS, an 11.5 m receptor and a 15% error
 # in exactly the quantity this pass exists to get right.
-GRID="${GRID:-data/grid16_raised}"
-ZTARGET="${ZTARGET:-8.5}"
+# === THE DEFAULTS ARE THE 30 m PRODUCTION GEOMETRY -- changed 2026-08-31 ===============
+# They were the retired 16 m ones, which meant every corpus entry point had to export the
+# whole block around them and a caller that forgot would get a complete, plausible case on
+# the wrong grid. Every existing caller (run_pass7/8/9, run_corpus.sh) sets the block
+# explicitly and is unaffected; what changes is that FORGETTING now yields production
+# rather than a retired configuration. The retired geometries are still reachable and the
+# pass drivers still name them in full.
+GRID="${GRID:-data/grid30_raised}"
+ZTARGET="${ZTARGET:-28.5}"
 EXACT_AGL="${EXACT_AGL:-1}"
 # GRID GEOMETRY, so one driver serves both configurations. The seventh pass runs
 #   GRID=data/grid24_raised ZTARGET=28.5 TEMPLATE=runs/g24_base/base.in DX=24
 #   ZCEILING=3000 DEFORM=0.346601 ZI_MAX_ABS=1250 SEED_LIB=jobs24
 # and every one of those has to travel together: a 24 m case built against the 16 m
 # template would carry the wrong d_zeta and the wrong dt and would still run.
-TEMPLATE="${TEMPLATE:-runs/g16_base/base.in}"
-DX="${DX:-16.0}"; ZCEILING="${ZCEILING:-2500.0}"; DEFORM="${DEFORM:-0.194059}"
-ZI_MAX_ABS="${ZI_MAX_ABS:-}"
+TEMPLATE="${TEMPLATE:-runs/g30_base/base.in}"
+DX="${DX:-30.0}"; ZCEILING="${ZCEILING:-3000.0}"; DEFORM="${DEFORM:-0.346601}"
+ZI_MAX_ABS="${ZI_MAX_ABS:-1250}"
 KEEP_TD="${KEEP_TD:-100000}"
 ADJ_S="${ADJ_S:-1800}"
-WINDOW_S="${WINDOW_S:-2400}"
-TBACK="${TBACK:-$(cat results/tback_production.txt 2>/dev/null || echo 600)}"
+# 2700 s = 900 s t_back + 1800 s of releases, the 30 m production window. With ADJ_S that
+# makes a case 4500 s = 1.25 sim-h.
+WINDOW_S="${WINDOW_S:-2700}"
+# === t_back IS A PROPERTY OF THE GRID AND THE RECEPTOR, SO THE FILE IS KEYED BY dx =======
+# This read `results/tback_production.txt` unconditionally. That file holds **600**, the
+# 16 m measurement, and it would have silently governed every 30 m case the moment a driver
+# stopped exporting TBACK -- a stale artifact quietly overriding a production default, which
+# is the exact failure class this project keeps paying for. Keyed by dx it cannot: a 16 m
+# measurement can only govern a 16 m run.
+#
+# 900 s is the 30 m production value. Note it is deliberately LONGER than the 600 s the
+# capture curve measured as sufficient at this receptor (PROJECT_BRIEF.md: 99.6% and 100.0% of the
+# 900 s integral is in by 600 s) -- production kept the fourth pass's 900 and the 6.7% it
+# costs is recorded rather than taken.
+_TBF="results/tback_production_dx${DX%.*}.txt"
+TBACK="${TBACK:-$(cat "$_TBF" 2>/dev/null || echo 900)}"
 # ONE WINDOW PER CASE IS THE CORPUS DEFAULT (2026-08-30). Named here rather than left to
 # ${N_WINDOWS:-1} at each use site, so the corpus's case length is one readable number.
 # N_WINDOWS=2 is still supported and still validated -- see the schedule comment below.
@@ -110,8 +131,8 @@ FRC=results/forcing/$TAG.json
 [ -s "$FRC" ] || die "stage 2 wrote no forcing json"
 [ -s "$D/case.in" ] || die "stage 2 wrote no .in"
 # REFUSE A CASE THE DOMAIN CANNOT HOLD, rather than running it and mis-labelling it.
-# z_i outside 100-976 m is not representable: below it the 10 m receptor leaves the
-# surface layer, above it the 1952 m box cannot hold the boundary layer at L >= 2 z_i.
+# z_i outside 300-1250 m is not representable: below it the 30 m receptor leaves the
+# surface layer, above it the 3660 m box cannot hold the boundary layer at L >= 2 z_i.
 REPR=$(python3 -c "import json;print(json.load(open('$FRC')).get('representable'))")
 if [ "$REPR" != "True" ]; then
   echo "  SKIPPED: not representable --"
@@ -145,7 +166,7 @@ PICK=results/pick/$TAG.json
 # being compared against a spun seed's MEASURED one. With a complete library the flag is a
 # no-op. SEED_ANY=1 restores the full-library ranking for planning.
 ./docker/pyrun.sh bin/pick_seed.py "$FRC" --json "$PICK" --zm "$ZTARGET" \
-    --library "${SEED_LIB:-jobs}" --index "${SEED_LIB:-jobs}/index.json" \
+    --library "${SEED_LIB:-jobs30}" --index "${SEED_LIB:-jobs30}/index.json" \
     $([ "${SEED_ANY:-0}" = "1" ] || echo --available-only) \
     $([ "${ALLOW_INDETERMINATE:-1}" = "1" ] && echo --allow-indeterminate) \
     --allow-drifting "$(case "${ALLOW_DRIFTING:-zi-neutral}" in
@@ -191,7 +212,7 @@ PICK=results/pick/$TAG.json
 [ -s "$PICK" ] || die "stage 4 wrote no pick json"
 read -r JOB ROT < <(python3 -c "
 import json; c=json.load(open('$PICK'))['chosen']; print(c['job'], c['rot'])")
-SEED="${SEED_LIB:-jobs}/$JOB/return/seed_restart.nc"
+SEED="${SEED_LIB:-jobs30}/$JOB/return/seed_restart.nc"
 [ "${SKIP_LES:-0}" = "1" ] && { echo "  SKIP_LES=1: stopping after stage 4"; exit 0; }
 [ -f "$SEED" ] || die "seed $SEED has not been spun up yet; run jobs/run_seed.sh $JOB"
 
@@ -285,6 +306,37 @@ win_t0(){ python3 -c "print(f'{($A_NT + $1*($W_NT+$FRQ_NT))*$DT:.3f}')"; }
 win_t1(){ python3 -c "print(f'{($A_NT + $1*($W_NT+$FRQ_NT) + $W_NT)*$DT:.3f}')"; }
 echo "  ${RUN_S}s total = ${ADJ_S}s adjust + ${N_WINDOWS:-1} x (${TBACK}s t_back + $(python3 -c "print($WINDOW_S-$TBACK)")s releases)"
 echo "  each window is $W_NT steps = $NW_EXPECT dumps; consecutive windows are one output interval ($FRQ_NT steps) apart"
+
+# ---- STUB_LES=1: NO LES AND NO LPDM, FOR CPU-ONLY VERIFICATION OF EVERYTHING ELSE -------
+# Stages 1-5 and 8 run for REAL -- the sounding is fetched, the forcing is fitted, the
+# per-case surface is built, a seed is picked and the restart is rotated and injected -- and
+# only 6 and 7 are replaced. That is deliberate: a stub that reimplemented the driver would
+# be a second code path, and this project's standing rule is that a check exercising a
+# different path than production is not a check. The synthetic raster is built on THE CASE'S
+# OWN GRID, so a stubbed run on the wrong geometry still produces the wrong record and
+# bin/check_npz.py still catches it.
+#
+# A STUBBED RECORD IS NOT A CORPUS RECORD. stub=true is stamped into the footprint JSON and
+# bin/run_month.sh refuses to record one.
+if [ "${STUB_LES:-0}" = "1" ]; then
+  say "$TAG  stages 6+7 STUBBED (STUB_LES=1) -- no GPU, no LES, no LPDM"
+  echo "  the geometry this case is running on:"
+  echo "    GRID=$GRID  ZTARGET=$ZTARGET  DX=$DX  TEMPLATE=$TEMPLATE  SEED_LIB=${SEED_LIB:-jobs30}"
+  echo "    ADJ_S=$ADJ_S  WINDOW_S=$WINDOW_S  TBACK=$TBACK  N_WINDOWS=$N_WINDOWS"
+  echo "    a case is $(python3 -c "print(f'{($ADJ_S+$WINDOW_S)/3600:.4f}')") sim-h; the"\
+" footprint is its last $(python3 -c "print(int($WINDOW_S-$TBACK))") s"
+  FPDIR="${FPDIR:-results/corpus}"; mkdir -p "$FPDIR"
+  ./docker/pyrun.sh bin/stub_footprint.py --grid "$GRID" --forcing "$FRC" \
+      --outdir "$FPDIR" --tag "$TAG" --z-target "$ZTARGET" || die "the stub footprint"
+  [ -s "$FPDIR/$TAG.json" ] || die "the stub wrote no footprint json"
+  say "$TAG  stage 8: the training record"
+  ./docker/pyrun.sh bin/make_pair.py --tag "$TAG" --footprint "$FPDIR/$TAG.json" \
+      --forcing "$FRC" --seed "$PICK" --grid "$GRID" --outdir pairs \
+      --npz-dir "${NPZ_DIR:-pairs_npz}" || die "stage 8"
+  [ -s "pairs/$TAG.json" ] || die "stage 8 wrote no pair"
+  say "$TAG COMPLETE (STUBBED)"
+  exit 0
+fi
 
 # ---- RING=1: THE LES AND THE LPDM RUN AT THE SAME TIME, IN TWO CONTAINERS ---------------
 #

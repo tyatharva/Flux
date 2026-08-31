@@ -1,0 +1,19 @@
+{
+ "date": "2023-03-10",
+ "pool_size": 24,
+ "hour_cap": 23,
+ "drawn": [
+  15
+ ],
+ "accepted_hour": 15,
+ "rejected": {},
+ "accepted": {
+  "timestamp": "2023-03-10T15:00",
+  "zi_m": 507.9236755371094,
+  "shtfl_wm2": 17.0,
+  "dzidt_rel_per_h": 12.659533132259567,
+  "wdir_deg": 349.3021248375228,
+  "wspd_ms": 5.80564006215211
+ },
+ "n_hrrr_fetches": 3
+}

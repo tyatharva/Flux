@@ -1,0 +1,22 @@
+{
+ "date": "2025-10-14",
+ "pool_size": 24,
+ "hour_cap": 23,
+ "drawn": [
+  13,
+  20
+ ],
+ "accepted_hour": 20,
+ "rejected": {
+  "13": "z/L >= 0: SHTFL -21.0 W/m2 is not an unstable surface layer, and the corpus contains no stable or exactly-neutral cases"
+ },
+ "accepted": {
+  "timestamp": "2025-10-14T20:00",
+  "zi_m": 983.6570434570312,
+  "shtfl_wm2": 127.0,
+  "dzidt_rel_per_h": 0.1384194089476346,
+  "wdir_deg": 8.514837053326232,
+  "wspd_ms": 4.0960985542828405
+ },
+ "n_hrrr_fetches": 6
+}

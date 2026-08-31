@@ -12,6 +12,129 @@ conditioned on the six scalars by FiLM, and touchdowns are not saved at all. Eve
 below that says "CNF is the primary architecture" and "FNO may be benchmarked against it"
 is the wrong way round now.
 
+## THE NEUTRAL BLOCKER IS GONE AND THE CORPUS HAS ONE ENTRY POINT — 2026-08-31
+
+**`h` IS THE SURFACE-ATTACHED BOUNDARY LAYER, AND THE ESTIMATOR NOW DECIDES IT INSTEAD OF
+REFUSING.** The ninth pass found `bl_depth` measuring `h` in the free atmosphere on a
+neutral profile whose wave layer is thirteen times stronger than its boundary layer, and
+the stop-gap was a refusal — which blocked the neutral half of the corpus over a quantity
+the profile does in fact determine.
+
+`lpdm/les_stats.py:surface_layer_top` bounds the whole estimate at the minimum terminating
+the surface-attached layer, and `bl_depth` searches only inside it. On the failing case
+(`case_2023112120`): resolved TKE peaks at **1.01 m2/s2 at 39 m**, decays monotonically to
+**0.28 at 448 m**, then rises to **2.42 at 1887 m**. `h` is now **448 m**, against **2372 m**
+before — and against the 760 m that a naive "first minimum" reading would give, which is a
+point on the way back **up** through the wave layer's lower flank.
+
+**THE TEST IS "A SECOND LAYER THAT OUT-ENERGISES THE FIRST", NOT "THE FIRST LOCAL
+MINIMUM".** The first strict local minimum above the surface peak is usually noise, and
+using it as the ceiling **moved `h` on 15 of the 47 footprint profiles on disk, by up to
+331 m**, on profiles with no wave layer at all. What actually identifies a wave layer is the
+property that made this a bug: it carries more resolved TKE than the boundary layer under
+it, so the column's global maximum lands in it. The structure looked for is therefore
+surface peak → trough → a maximum exceeding the surface peak, and the bound is the trough.
+When the global maximum **is** the surface-attached peak, nothing is bounded away and every
+step is the arithmetic that was already there.
+
+**`bin/test_bl_depth.py` re-derives `h` for all 47 stored profiles — 16, 24 and 30 m grids,
+neutral and convective, floored and unfloored — and requires EXACT equality with the `h`
+each run stored. 47 of 47.** Not a tolerance: there is no physics between the two, only
+arithmetic. `window_stats` also records `h_info` and prints when a wave layer was excluded.
+
+**AND THE NEUTRAL CASE NOW PRODUCES A FOOTPRINT.** `case_2023112120`'s window fields were
+still on disk, so the refused case was recomputed through the real LPDM on the corrected `h`
+— CPU only (`results/pass10/`). Window 0 gives **`h` = 700 m** where the estimator returned
+2372 m, and the σ_w floor's factor falls from **1.2e+04 to 1.05**, inert at the receptor,
+no alarms. **Every gate `bin/corpus_monitor.py` can score now passes, G1 included** — G1 is
+the gate that caught the original defect:
+
+| | |
+|---|---|
+| G1 floor health | **ok** — `f_sgs` 0.379 at the floor's peak, factor 1.000–1.05, inert above 91 m |
+| G2a integral saturates | ok, +4.17e-05 |
+| G2b integral magnitude | ok, 1.213 in [0.6, 1.5]; Kljun on identical cells 0.895 |
+| G3a peak converged | ok, half-vs-half `|dpeak|` **0 m** |
+| G3b peak vs Kljun | ok, LES 210 m / Kljun 180 m = 1.17x |
+
+The integral sits **1.265x** its `1 − z_m/z_i` ceiling, and that is the advection
+non-closure with the right sign rather than an error: `w_bar` at the receptor is
+**−0.140 m/s**, mean subsidence, which this file already records as driving the integral
+above the ceiling. Array share 1.63% ± 0.32 — a northerly-ish 314 deg centroid at a 30 m
+receptor, where the array's reach is 60 m east and west.
+
+**THE SPLITS ARE HARD-CODED BY CALENDAR MONTH AND ASSIGNED AT GENERATION**
+(`lpdm/corpus.py:SPLITS`). Whole years to val and test, so a split boundary never falls
+inside a synoptic system and seasonal coverage is complete on each side:
+
+| split | months | |
+|---|---|---|
+| **train** | 2021, 2022, 2023 + 2026-02/04/06/08 | **40** |
+| **val** | 2024 | **12** |
+| **test** | 2025 | **12** |
+
+A month not named is **not in the corpus** and `split_of` refuses it rather than guessing.
+Disjointness is asserted at import. The split is written into `meta.split` and onto the
+manifest line; `bin/make_pair.py` takes the driver's `--split` (decided before any GPU time
+is spent) and **checks it against the case's own timestamp**, treating a disagreement as
+fatal — either alone would be a single point of failure. **2026-08-31 is capped at 12 UTC**
+(`HOUR_CAPS`), because the later analyses do not exist yet.
+
+**THE HOUR IS DRAWN WITHOUT REPLACEMENT FROM THE DAY'S 24 ROUND HOURS**
+(`bin/pick_hour.py`). Uniform, reproducible (seeded from the date alone, so a re-run after a
+failure re-draws the same sequence), and an hour is spent the moment it is drawn — missing
+HRRR, a failed screen and an accepted case consume it equally. The pool strictly shrinks, so
+a day terminates at an accepted hour or as a **MISSING DAY with a reason**. Screens: HRRR
+present, `z/L < 0`, `z_i` in 300–1250 m, `|dz_i/dt| < 15 %/h`. **No rose weighting and no
+direction stratification** — the weather supplies the rose, and stratifying on direction
+would be choosing the corpus's input distribution rather than observing it.
+
+**THE SOUNDING IS THE ANALYSIS VALID AT EXACTLY T, NOT T−1**, and the reason is that forcing
+is constant through the run: the LES is initialised from the sounding and then integrates
+1.25 h under a fixed geostrophic wind and a fixed surface flux, so the atmosphere never
+evolves from a T−1 state toward a T state. A T−1 sounding would produce a footprint labelled
+T that represents T−1 meteorology. `bin/hrrr_sounding.py` already fetches at `fxx = 0`;
+HPBL at T±1 is read only to form `dz_i/dt` and never initialises anything.
+
+**TWO ENTRY POINTS, AND THEY LEAVE EXACTLY ONE FILE PER CASE.**
+
+- **`bin/get_case.sh <YYYY-MM-DDTHH:00>`** — one datetime in, `pairs_npz/<case>.npz` out.
+  Everything else is scratch and is deleted **by a trap, on failure too**: the runs
+  directory, the case grid, the sounding, the forcing, the pick, the footprint JSON, and the
+  tmpfs staging directory outside the repo. It carries the full 30 m configuration itself
+  and refuses a non-round-hour timestamp.
+- **`bin/run_month.sh <YYYY-MM>`** — one GPU, one case per day. Each day runs in its own
+  subshell so **a failed case never aborts the month**, and the manifest accounts for
+  **every** calendar day as either a case or a missing day with its reason.
+
+**AND `run_corpus_case.sh` NOW DEFAULTS TO THE 30 m PRODUCTION GEOMETRY.** It defaulted to
+the retired 16 m one, so every entry point had to export the block around it and a caller
+that forgot got a complete, plausible case on the wrong grid. Every existing caller sets the
+block explicitly and is unaffected. **`results/tback_production.txt` was the same hazard and
+is now keyed by `dx`**: it holds 600, the 16 m measurement, and would have silently governed
+every 30 m case the moment a driver stopped exporting `TBACK`.
+
+**A STUBBED RECORD CAN NEVER MASQUERADE AS A CORPUS RECORD.** `STUB_LES=1` replaces stages 6
+and 7 only — stages 1–5 and 8 run for real, inside the same driver, so the check exercises
+the production path — and `meta.stub = true` is stamped into the artifact.
+`bin/check_npz.py` fails such a record unless asked for one, and `run_month` names them.
+
+**THE RETIRED-GRID RECORDS ARE OUT OF `pairs_npz/`.** Six validation records from the 16 m
+and 24 m grids were sitting in the corpus directory. Their arrays have identical shape and
+incompatible meaning, so a loader globbing `pairs_npz/*.npz` would have mixed three cell
+sizes silently. They are now `pairs_npz_retired/`, with a README saying why.
+
+**SEED LEAKAGE: NO FINGERPRINT DETECTABLE, ON THE ONE COMPARISON THE DISK SUPPORTS.**
+`bin/seed_leakage.py` compares the wind-aligned crosswind-integrated shape `f_y` — invariant
+to the 90-degree seed rotation, which is what makes different-direction cases comparable —
+against each case's own half-vs-half floor. At the 30/24 m receptor, where all four cases
+are convective so **regime is held fixed**, same-seed pairs differ by **2.47** floors and
+different-seed pairs by **1.55**: sharing a seed made two cases *less* alike, not more. The
+16 m group returns 0.76 against 0.77, i.e. indistinguishable, **but it is confounded and the
+script says so** — every same-seed pair there is also a same-regime pair, because a seed
+serves one rung. **n is 1 same-seed pair at the un-confounded receptor, so this is weak
+evidence and not a licence to drop seed-grouping from the split.**
+
 ## THE CORPUS IS SETTLED: 2.0 h SEEDS, ONE WINDOW PER CASE, z_i ACCEPTED DRIFTING — 2026-08-30
 
 **Four decisions, taken after the ninth pass handed them back with numbers. Three of them

@@ -1,69 +1,10 @@
 {
  "format": "flux-footprint-manifest/1",
  "cases": {
-  "case_2023031014": {
-   "parent": "case_2023031014",
-   "window_index": null,
-   "datetime": "2023-03-10T14:00:00Z",
-   "file": "case_2023031014.npz",
-   "integral": 1.0401742229200575,
-   "gate_state": "unjudged",
-   "zi_achieved_m": 558.9824829101562,
-   "zi_accepted_drifting": false
-  },
-  "case_2023032207": {
-   "parent": "case_2023032207",
-   "window_index": null,
-   "datetime": "2023-03-22T07:00:00Z",
-   "file": "case_2023032207.npz",
-   "integral": 1.011046781879792,
-   "gate_state": "INDETERMINATE",
-   "zi_achieved_m": 595.8873291015625,
-   "zi_accepted_drifting": false
-  },
-  "case_2023101222": {
-   "parent": "case_2023101222",
-   "window_index": null,
-   "datetime": "2023-10-12T22:00:00Z",
-   "file": "case_2023101222.npz",
-   "integral": 0.9357841112757426,
-   "gate_state": "INDETERMINATE",
-   "zi_achieved_m": 443.1556396484375,
-   "zi_accepted_drifting": false
-  },
-  "e2e_20230118": {
-   "parent": "e2e_20230118",
-   "window_index": null,
-   "datetime": "2023-01-18T18:00:00Z",
-   "file": "e2e_20230118.npz",
-   "integral": 0.8576761320473749,
-   "gate_state": "unjudged",
-   "zi_achieved_m": 399.4637451171875,
-   "zi_accepted_drifting": false
-  },
-  "case_2023052519": {
-   "parent": "case_2023052519",
-   "window_index": null,
-   "datetime": "2023-05-25T19:00:00Z",
-   "file": "case_2023052519.npz",
-   "integral": 1.0191530926100794,
-   "gate_state": "INDETERMINATE",
-   "zi_achieved_m": 1229.49169921875,
-   "zi_accepted_drifting": false
-  },
-  "case_2023121921": {
-   "parent": "case_2023121921",
-   "window_index": null,
-   "datetime": "2023-12-19T21:00:00Z",
-   "file": "case_2023121921.npz",
-   "integral": 0.7394838163406001,
-   "gate_state": "INDETERMINATE",
-   "zi_achieved_m": 937.4981079101562,
-   "zi_accepted_drifting": false
-  },
   "case_2023111718_w0": {
    "parent": "case_2023111718",
    "window_index": 0,
+   "split": "train",
    "datetime": "2023-11-17T18:00:00Z",
    "file": "case_2023111718_w0.npz",
    "integral": 0.9827078587095526,
@@ -74,6 +15,7 @@
   "case_2023111718_w1": {
    "parent": "case_2023111718",
    "window_index": 1,
+   "split": "train",
    "datetime": "2023-11-17T18:00:00Z",
    "file": "case_2023111718_w1.npz",
    "integral": 1.0207395174180744,
@@ -82,25 +24,25 @@
    "zi_accepted_drifting": false
   }
  },
- "git_commit": "527411722a086dc069b5e3ab52c771f6e39d50d5",
+ "git_commit": "ad79d6c13c0d9a6258945fc6d8b3c8364188e374",
  "grid": {
   "n": 122,
   "pad": 3,
   "n_padded": 128,
-  "dx_m": 16.0,
-  "dy_m": 16.0,
-  "domain_m": 1952.0,
+  "dx_m": 30.0,
+  "dy_m": 30.0,
+  "domain_m": 3660.0,
   "x_centres_m": [
-   -976.0,
-   960.0
+   -1830.0,
+   1800.0
   ],
   "y_centres_m": [
-   -976.0,
-   960.0
+   -1830.0,
+   1800.0
   ],
   "frame": "north-up map, receptor at the origin, NOT wind-aligned",
-  "z0_geometric_m": 0.1448778297548666,
-  "grid_dir": "data/grid16_raised"
+  "z0_geometric_m": 0.06148948626243361,
+  "grid_dir": "data/case_grids/case_2023111718"
  },
- "host": "f34bf68c12e0"
+ "host": "6a28c4ddb13f"
 }

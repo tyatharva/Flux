@@ -1,0 +1,39 @@
+{
+ "date": "2026-08-31",
+ "pool_size": 13,
+ "hour_cap": 12,
+ "drawn": [
+  5,
+  12,
+  2,
+  0,
+  9,
+  10,
+  7,
+  11,
+  8,
+  6,
+  3,
+  1,
+  4
+ ],
+ "accepted_hour": null,
+ "rejected": {
+  "0": "z/L >= 0: SHTFL -10.0 W/m2 is not an unstable surface layer, and the corpus contains no stable or exactly-neutral cases",
+  "1": "z/L >= 0: SHTFL -43.0 W/m2 is not an unstable surface layer, and the corpus contains no stable or exactly-neutral cases",
+  "2": "z/L >= 0: SHTFL -29.0 W/m2 is not an unstable surface layer, and the corpus contains no stable or exactly-neutral cases",
+  "3": "z/L >= 0: SHTFL -14.0 W/m2 is not an unstable surface layer, and the corpus contains no stable or exactly-neutral cases",
+  "4": "HRRR analysis missing for this hour",
+  "5": "HRRR analysis missing for this hour",
+  "6": "HRRR analysis missing for this hour",
+  "7": "HRRR analysis missing for this hour",
+  "8": "HRRR analysis missing for this hour",
+  "9": "HRRR analysis missing for this hour",
+  "10": "HRRR analysis missing for this hour",
+  "11": "HRRR analysis missing for this hour",
+  "12": "HRRR analysis missing for this hour"
+ },
+ "accepted": null,
+ "n_hrrr_fetches": 14,
+ "missing_reason": "the pool of 13 hours was exhausted with no acceptance (9 missing from HRRR, 4 screened out)"
+}

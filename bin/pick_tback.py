@@ -16,7 +16,7 @@ window's half-vs-half sampling floor of their fully-converged values, AND the fl
 has reached `--frac` of the full-t_back value. Reporting a t_back tighter than the sampling
 floor would be claiming a precision the estimator does not have.
 
-usage: pick_tback.py results/g16_flat.json [--frac 0.97] [--out results/tback_production.txt]
+usage: pick_tback.py results/g16_flat.json [--frac 0.97] [--out results/tback_production_dx16.txt]
 """
 import argparse, json, sys
 
@@ -25,7 +25,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("json")
     ap.add_argument("--frac", type=float, default=0.97)
-    ap.add_argument("--out", default="results/tback_production.txt")
+    ap.add_argument("--out", default="results/tback_production_dx16.txt")
     ap.add_argument("--pad", type=float, default=1.25,
                     help="safety factor on the converged value; production pays a little "
                          "more backward time than the minimum so a case with weaker "
