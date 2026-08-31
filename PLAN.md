@@ -1,3 +1,40 @@
+# The three decisions are made, and the fourth question is answered — 2026-08-30
+
+> **No GPU was spent. Full rationale and numbers: `PROJECT_BRIEF.md`, the dated block at the top.**
+> The ninth pass handed three decisions back to the user and left one truncation question
+> open. All four are now closed, and the corpus configuration is frozen.
+
+| the ninth pass asked | the answer, and what changed in code |
+|---|---|
+| **1.** Should the corpus admit a DRIFTING neutral seed, given `pick_seed`'s refusal makes the neutral half unbuildable and its fallback is worse? | **Yes, narrowly.** `ALLOW_DRIFTING` defaults to **`zi-neutral`**: a neutral rung drifting in `z_i` ALONE. Not a convective rung drifting in `z_i` (its inversion is holding the depth), not a neutral rung drifting in anything else. `zi_accepted_drifting`, `zi_achieved_m` and the seed's frozen depth go into every record and onto the manifest line. **No capping inversion added.** |
+| **2.** Does the LES–Kljun parity that justified accepting truncation survive the official FFP at 24 m? | **Yes — 24 m stays at parity (+0.0069) and 30 m does not (−0.1730).** The σ_y fix moves the 24 m Kljun raster by 22.5% of its peak and its integral by −0.0001. **So the asymmetry is the 30 m grid, not Kljun.** `bin/kljun_parity.py`, `results/kljun_parity.json`. |
+| **3.** Is the second window worth 0.75 sim-h, given it is a near-duplicate in shape on both cases? | **No.** `N_WINDOWS = 1` is the corpus default; a case is **1.25 sim-h** and the footprint is its last 30 minutes. `N_WINDOWS = 2` stays supported — the windows ARE independent draws and a spread-estimating model would want them. |
+| *(not asked, but forced by 1)* the seed ceiling | **2.0 sim-h, every rung, every regime**, replacing 1.0/3.0. 0.96 GPU-h per seed. |
+
+**Two defects were found while making these changes, both silent, neither in scope:**
+
+* **`SEED_CEILING_H` lost a whole dump to floating point.** `int(1.0*3600/0.0308642/9720)`
+  on a quantity that is exactly 12 gave 11, so the ninth pass's run 1 ran **0.917 sim-h
+  against the 1.0 h it asked for**. Rounding is now tolerant and verified against the
+  request.
+* **A 2.0 h ceiling makes the gate's own default scoring window the whole run**, reaching
+  step 0 where `u* = 0` — which is exactly why run 1's verdict was unscoreable.
+  `seed_stationarity.py:score` now REFUSES such a window, and `run_seed.sh` derives
+  `SCORE_H = min(2.0, sim_h − 0.5)` = **1.5 h** at the new ceiling.
+
+**Corpus arithmetic, corrected: ~930 GPU-h for ~1469 pairs** (30 seeds x 0.96 + 1469 cases
+x ~0.61), against ~1445 GPU-h for 2938 pairs under the retired two-window plan, half of
+them near-copies. `bin/run_corpus.sh` now carries the whole 30 m production configuration
+as one exported block; `run_corpus_case.sh` still defaults to the retired 16 m geometry
+because the retired passes' drivers call it.
+
+**STILL BLOCKING THE NEUTRAL HALF, and unchanged by any of this:** `bl_depth` measures `h`
+in the wave layer on neutral profiles whose wave layer exceeds their boundary layer. See
+the ninth pass's "one thing that is FAILING" below. **Nothing in this round touched it, and
+the neutral corpus cannot be generated until it is decided.**
+
+---
+
 # Staged Plan — NINTH PASS: the official FFP, the streamed hand-off, the .npz corpus record
 
 > **COMPLETE, 2026-08-30. Full evidence: `NINTH_PASS_RESULTS.md`.** Five runs, ~5.1 GPU-h.

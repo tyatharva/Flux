@@ -236,6 +236,27 @@ def score(s, xp, x90, score_h):
     if sel.sum() < 4:
         raise ValueError(f"only {int(sel.sum())} dumps in the last {score_h} h; "
                          "the trend would have no degrees of freedom")
+    # === A SCORING WINDOW THAT REACHES STEP 0 IS SCORING THE RESTART, NOT THE FLOW ======
+    # Step 0 is the state the run was HANDED: a cold start there has u* = 0 exactly, no
+    # resolved turbulence and z_i undefined, so every trend it enters is dominated by the
+    # spin-up transient and reports it as drift. It is not a small contamination -- it is
+    # the largest excursion in the series, at the far end of the lever arm.
+    #
+    # This became reachable rather than theoretical when the seed ceiling moved to 2.0
+    # sim-h: --score-h defaults to 2.0, so the window became the WHOLE RUN. MEASURED on
+    # seed_cbl-mid_a015 (ninth pass, run 1, a 0.917 sim-h run scored over 2.0 h): the gate
+    # returned an unscoreable verdict built on step 0 rather than saying so.
+    #
+    # Refuse rather than clamp. Clamping would silently score a different window than the
+    # one asked for, and the caller -- jobs/run_seed.sh -- is what should choose the width
+    # against the run it actually got.
+    if bool(sel[0]) and float(t[0]) < 1e-9:
+        raise ValueError(
+            f"the {score_h:.2f} h scoring window reaches the FIRST dump of the series "
+            f"(t = {t[0]:.3f} h, and the run ends at {t[-1]:.3f} h), so it is scoring the "
+            f"state the run was handed. At a cold start that dump has u* = 0 and no "
+            f"resolved turbulence, and every trend through it reports the spin-up. Score "
+            f"a window strictly inside the run: --score-h below {t[-1]:.2f}.")
 
     def slope_of(y):
         A = np.vstack([t[sel], np.ones(int(sel.sum()))]).T
@@ -452,7 +473,15 @@ def main():
 
     s = series(paths, a.dt, a.k)
     xp, x90 = kljun_geometry(s, a.zm, a.wth)
-    ok, rows, reported, sel, dwdir, n_indet = score(s, xp, x90, a.score_h)
+    # A REFUSED SCORING WINDOW IS A NAMED FATAL, NOT A TRACEBACK. The gate's stdout is
+    # tee'd by jobs/run_seed.sh and its verdict is read back out of the JSON, so a traceback
+    # here surfaces to the driver only as "the gate wrote no JSON" -- true, and silent about
+    # why. Say why, and exit non-zero (FASTEDDY_TRAPS.md 12).
+    try:
+        ok, rows, reported, sel, dwdir, n_indet = score(s, xp, x90, a.score_h)
+    except ValueError as e:
+        print(f"FATAL: the scoring window is not usable -- {e}", file=sys.stderr)
+        return 2
 
     f = 2 * 7.292e-5 * math.sin(math.radians(42.957160))
     period = 2 * math.pi / f / 3600.0

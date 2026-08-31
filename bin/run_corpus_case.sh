@@ -78,6 +78,10 @@ KEEP_TD="${KEEP_TD:-100000}"
 ADJ_S="${ADJ_S:-1800}"
 WINDOW_S="${WINDOW_S:-2400}"
 TBACK="${TBACK:-$(cat results/tback_production.txt 2>/dev/null || echo 600)}"
+# ONE WINDOW PER CASE IS THE CORPUS DEFAULT (2026-08-30). Named here rather than left to
+# ${N_WINDOWS:-1} at each use site, so the corpus's case length is one readable number.
+# N_WINDOWS=2 is still supported and still validated -- see the schedule comment below.
+N_WINDOWS="${N_WINDOWS:-1}"
 # REL_S is the RELEASE period, 1800 s = the EC averaging period by definition.
 # It is an env var only so a smoke run can exercise the machinery on a short
 # window; a production case never sets it.
@@ -144,7 +148,9 @@ PICK=results/pick/$TAG.json
     --library "${SEED_LIB:-jobs}" --index "${SEED_LIB:-jobs}/index.json" \
     $([ "${SEED_ANY:-0}" = "1" ] || echo --available-only) \
     $([ "${ALLOW_INDETERMINATE:-1}" = "1" ] && echo --allow-indeterminate) \
-    $([ "${ALLOW_DRIFTING:-0}" = "1" ] && echo --allow-drifting) \
+    --allow-drifting "$(case "${ALLOW_DRIFTING:-zi-neutral}" in
+                          1) echo any;; 0) echo off;; *) echo "${ALLOW_DRIFTING:-zi-neutral}";;
+                        esac)" \
     ${SEED_EXCLUDE:+--exclude "$SEED_EXCLUDE"} || true
 # === ALLOW_INDETERMINATE IS ON BY DEFAULT, BECAUSE INDETERMINATE IS THE LIBRARY'S
 # === NORMAL STATE AND NOT AN EXCEPTION ============================================
@@ -157,10 +163,31 @@ PICK=results/pick/$TAG.json
 #
 # What this does NOT do is call them PASS. The verdict stays INDETERMINATE, the thresholds
 # are untouched, seed.gate_state = INDETERMINATE is stamped onto every pair, and
-# make_pair.py writes a warning into the training record. A seed with a DRIFTING limit is
-# still refused outright -- that is a different and stronger statement, and no flag admits
-# it. Set ALLOW_INDETERMINATE=0 to require established stationarity, which today no seed
-# in the library can supply.
+# make_pair.py writes a warning into the training record. Set ALLOW_INDETERMINATE=0 to
+# require established stationarity, which today no seed in the library can supply.
+#
+# === AND ALLOW_DRIFTING DEFAULTS TO `zi-neutral` -- CHANGED 2026-08-30 =================
+# It was OFF, and OFF makes the NEUTRAL HALF OF THE CORPUS UNBUILDABLE. z_i in a neutral
+# boundary layer with no capping inversion grows without bound -- measured on
+# seed_nbl-deep_a015 at +5.76 %/h and still climbing at 3.0 sim-h -- so the z_i stationarity
+# limit is UNSATISFIABLE on those rungs rather than failed, and no affordable spin-up will
+# ever satisfy it. The old fallback was worse than the refusal: pick_seed would hand a
+# neutral case a CONVECTIVE seed, which this driver itself warns about.
+#
+# `zi-neutral` is the NARROW form: a neutral rung whose ONLY drifting limit is z_i. A
+# neutral seed drifting in u*, sigma_w or a Kljun geometry term is still refused, and so is
+# a convective seed drifting in z_i -- there a capping inversion and subsidence are holding
+# the depth, so drift is a defect. `ALLOW_DRIFTING=any` restores the wide manual opt-in and
+# `ALLOW_DRIFTING=off` the old refusal; 1 and 0 still mean any and off.
+#
+# THE PAIR STAYS VALID and that is the whole basis for the decision: the inputs come from
+# window_stats over the same 30 minutes as the footprint, not from the seed. Letting z_i
+# grow to a FIXED simulated-time ceiling is deterministic and reproducible, and z_i is a
+# weak input at a 30 m receptor -- Kljun's 1/(1 - z_m/h) channel spans ~5% over 400-1200 m.
+# NO CAPPING INVERSION WAS ADDED, deliberately. Every such pair carries
+# seed.gate_state = DRIFTING, meta.zi_accepted_drifting = true and meta.zi_achieved_m, so
+# the achieved distribution can be checked before training; if it turns out too narrow, a
+# per-case lid from the sounding is the fallback.
 [ -s "$PICK" ] || die "stage 4 wrote no pick json"
 read -r JOB ROT < <(python3 -c "
 import json; c=json.load(open('$PICK'))['chosen']; print(c['job'], c['rot'])")
@@ -184,16 +211,33 @@ cp -f "$GRID/topo.bin" "$D/topo.bin" || die "topo.bin"
 # overwrites every IO-registered field, so each restart is an opportunity to silently
 # inherit state the .in does not describe.
 #
-# THE SCHEDULE, which is what makes the timeline correct rather than merely shorter. For a
-# footprint stamped 01:00 UTC, covering 00:30-01:00:
+# THE SCHEDULE, which is what makes the timeline correct rather than merely shorter.
 #
-#     23:50  restart from the seed; adjustment begins       step 0
-#     00:20  adjustment complete (ADJ_S = 1800 s)           step A_NT = 123120
-#     00:30  first release (needs history back to 00:20)    step A_NT + t_back
-#     01:00  last release; window closes                    step TOT = 287280
+# === ONE WINDOW PER CASE IS THE CORPUS DEFAULT -- set 2026-08-30 ======================
+# A case is 1.25 SIMULATED HOURS and the footprint is the LAST 30 MINUTES of it, stamped at
+# T. At the production geometry (ADJ_S 1800, WINDOW_S 2700, TBACK 900), for a footprint
+# stamped 01:00 UTC covering 00:30-01:00:
 #
-# so the run is ADJ_S + t_back + 1800 = 1800 + 600 + 1800 = 4200 s = 1.167 sim-h, and the
-# earliest field a backward trajectory can reach is EXACTLY the adjustment end.
+#     T - 1.25 h   23:45  restart from the seed; adjustment begins    step 0
+#     T - 0.75 h   00:15  adjustment complete (ADJ_S = 1800 s)        step A_NT
+#                         -- field staging begins; nothing before this survives
+#     T - 0.50 h   00:30  first release (needs t_back = 900 s back)   step A_NT + t_back
+#     T            01:00  last release; window closes                 step TOT_NT
+#
+# so the run is ADJ_S + TBACK + REL_S = 1800 + 900 + 1800 = 4500 s = 1.25 sim-h, and the
+# earliest field a backward trajectory can reach is EXACTLY the adjustment end. That is
+# enforced TWICE and neither is decorative: run_window.sh SKIP_S deletes the adjustment's
+# dumps and asserts the earliest survivor is step A_NT, and stage5_footprint.py --t-min
+# refuses anything earlier independently.
+#
+# WHY THE SECOND WINDOW WAS CUT. Two windows per case were validated and kept as an option
+# (N_WINDOWS=2), and they ARE independent turbulence draws -- the 20 release groups
+# decorrelate in 180 s against an 1800 s separation. But MEASURED on both ninth-pass
+# validation cases, the two windows are near-duplicates in SHAPE (median |w0 - w1| / the
+# within-footprint half-vs-half floor = 0.19 and 0.33, where two independent draws would
+# give ~sqrt2), and shape is what the FNO learns. 1.25 sim-h buying one distinct condition
+# beats 2.0 sim-h buying one condition plus a near-copy. N_WINDOWS=2 stays behind the flag
+# because a model estimating SPREAD at fixed conditions would want exactly those replicates.
 #
 # FastEddy has a single frqOutput and writes from step 0, so the adjustment's 360 dumps
 # are produced and then deleted; run_window.sh does the deleting and then ASSERTS that the

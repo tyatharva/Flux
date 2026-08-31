@@ -12,6 +12,124 @@ conditioned on the six scalars by FiLM, and touchdowns are not saved at all. Eve
 below that says "CNF is the primary architecture" and "FNO may be benchmarked against it"
 is the wrong way round now.
 
+## THE CORPUS IS SETTLED: 2.0 h SEEDS, ONE WINDOW PER CASE, z_i ACCEPTED DRIFTING — 2026-08-30
+
+**Four decisions, taken after the ninth pass handed them back with numbers. Three of them
+change the corpus arithmetic below; the fourth closes an open question about truncation.**
+
+**1. EVERY SEED RUNS TO A 2.0 SIMULATED-HOUR HARD CEILING, ALL RUNGS, ALL REGIMES.** This
+replaces the ninth pass's 1.0 h convective / 3.0 h neutral split and the manifests' standing
+3.0 h. Convective rungs need 5–8 turnovers at `T* = z_i/w* ~ 350 s`, i.e. 30–45 min, and
+2.0 h is margin for the weakly convective end where `w*` is small and `T*` correspondingly
+longer; neutral rungs do not stabilise at **any** affordable length, so hours past the point
+the flow is turbulent buy nothing a gate can see. `jobs/seed_watch.sh` still stops a run the
+moment the oscillation-immune limits enter band; 2.0 h is the cap, not the target.
+**0.96 GPU-h per seed, 29 GPU-h for the 30-seed library.**
+
+**AND THE 1.0 h CEILING SILENTLY LOST A WHOLE DUMP TO FLOATING POINT.**
+`int(1.0*3600.0/0.0308642/9720)` — a quantity that is exactly 12 — evaluates to
+`11.999999040000077`, so `int()` returned 11 and the ceiling became **3300 s = 0.917 sim-h,
+8.3% short**, with nothing in the output to say so. The ninth pass's run 1 is that run. The
+rounding is now tolerant and then verified not to exceed the request.
+
+**AND A 2.0 h CEILING BREAKS THE GATE'S OWN DEFAULT WINDOW.** `--score-h` defaults to 2.0 h
+— swept inside a 3.0 h run — so at a 2.0 h ceiling the scoring window IS the whole run and
+reaches step 0, where a cold start has `u* = 0` exactly. That is what made run 1's verdict
+unscoreable. `seed_stationarity.py:score` now **REFUSES** a window that reaches the first
+dump rather than reporting a trend through the spin-up, and `jobs/run_seed.sh` derives
+`SCORE_H = min(2.0, sim_h − 0.5)` from the run it actually got: **1.5 h at a 2.0 h ceiling.**
+
+**2. `z_i` IS ACCEPTED AS DRIFTING ON THE NEUTRAL RUNGS, AND ONLY THERE.**
+`ALLOW_DRIFTING` now defaults to **`zi-neutral`** in `bin/run_corpus_case.sh`. `z_i` in a
+neutral boundary layer with no capping inversion grows without bound — measured on
+`seed_nbl-deep_a015` at **+5.76 %/h and still climbing at 3.0 sim-h** — so the limit is
+**unsatisfiable rather than failed**, and refusing it made the neutral half of the corpus
+unbuildable. **The old behaviour was worse than the refusal, and it is reproducible in one
+command:** with `ALLOW_DRIFTING=off` the neutral case `2023-11-21T20:00` is handed
+`seed_cbl-mid_a015` — a CONVECTIVE seed — under the driver's own warning that "30 min will
+NOT convert one regime into the other". With the new default it is handed
+`seed_nbl-deep_a015`, 4.8 deg away instead of 16.2.
+
+The scope is narrow and is asserted (`bin/pick_seed.py:_drift_admitted`, seven cases
+exercised): a neutral rung drifting in `z_i` **alone**. A neutral rung drifting in `u*`,
+`sigma_w` or a Kljun geometry term is still refused, and so is a **convective** rung
+drifting in `z_i` — there the capping inversion and subsidence are holding the depth, so
+drift is a defect. `ALLOW_DRIFTING=any` restores the wide manual opt-in; `off` the refusal.
+
+**NO CAPPING INVERSION WAS ADDED, deliberately.** Letting `z_i` grow to a FIXED 2.0 sim-h
+ceiling is deterministic and reproducible, and `z_i` is a weak input at a 30 m receptor —
+Kljun's only `z_i` channel, `1/(1 − z_m/h)`, spans ~5% over `h = 400–1250 m`. **The pair
+stays valid because its inputs come from `window_stats` over the same 30 minutes as the
+footprint, not from the seed.** What the acceptance shapes is the corpus's `z_i`
+DISTRIBUTION, so every record carries `meta.zi_accepted_drifting`, `meta.zi_achieved_m` and
+the seed's own frozen depth in both currencies, and the first two are on the **manifest
+line** so the distribution is one pass over `manifest.json`. `bin/run_corpus.sh` prints the
+command. If it turns out too narrow to train on, a per-case lid from the sounding is the
+fallback.
+
+**3. ONE WINDOW PER CASE. A CASE IS 1.25 SIMULATED HOURS AND THE FOOTPRINT IS ITS LAST 30
+MINUTES.** `N_WINDOWS = 1` is the corpus default and the timeline is **verified
+arithmetically, not asserted** — 145,800 steps = 4500.000 s at the production `dt`:
+
+| clock | event | step |
+|---|---|---|
+| **T − 1.25 h** | restart from the seed; adjustment begins | 0 |
+| **T − 0.75 h** | adjustment complete (`ADJ_S` 1800 s); staging begins | 58,320 |
+| **T − 0.50 h** | first release (needs `t_back` = 900 s of history) | 87,480 |
+| **T** | last release; window closes | 145,800 |
+
+The adjustment ends at **exactly** 1800.000 s (it lands on a dump boundary with no
+rounding), the window's fields span 1800–4500 s and its releases 2700–4500 s = **exactly
+1800 s**. So the earliest field a backward trajectory can reach is the adjustment end
+itself, and **that is enforced twice**: `bin/run_window.sh:219` deletes the adjustment's
+dumps and refuses unless the earliest survivor is step `A_NT`, and `stage5_footprint.py
+--t-min` refuses anything earlier independently.
+
+**WHY THE SECOND WINDOW WAS CUT, and it is a measurement rather than a budget cut.** The
+two windows ARE independent turbulence draws — the 20 release groups decorrelate in 180 s
+against an 1800 s separation — but on BOTH ninth-pass validation cases they came out
+**near-duplicates in SHAPE**: median `|w0 − w1|` / the within-footprint half-vs-half floor
+**0.19 and 0.33**, where two independent draws would give ~√2. Shape is what the FNO learns,
+so 1.25 sim-h buying one distinct condition beats 2.0 sim-h buying one condition plus a
+near-copy. **`N_WINDOWS = 2` stays supported and validated**, because a model estimating
+SPREAD at fixed conditions would want exactly those replicates.
+
+**THE CORPUS ARITHMETIC, corrected.** `bin/run_corpus.sh` now carries the whole 30 m
+production configuration as one exported block — `run_corpus_case.sh` still DEFAULTS to the
+retired 16 m geometry, because the retired passes' drivers call it.
+
+| | |
+|---|---|
+| seeds | 30 x 2.0 sim-h x 0.479 = **29 GPU-h** (0.96 each) |
+| cases | 1469 x 1.25 sim-h x ~0.49 = **~903 GPU-h** (~0.61 each), **one pair each** |
+| **total** | **~930 GPU-h for ~1469 pairs** |
+| against the retired 2.0 sim-h/two-window plan | ~1445 GPU-h for 2938 pairs, half of them near-copies |
+| persisted | ~3.6 MB per case |
+
+The ~0.49 GPU-h/sim-h is the measured 0.479 bring-up cost plus the measured 0.013 of window
+pauses; it is **inferred rather than measured at selector 1**, because the only production
+measurement, 0.525, was taken at selector 2 where the double netCDF write costs +7%.
+
+**4. THE 24 m LES–KLJUN PARITY SURVIVES THE OFFICIAL FFP, SO THE 30 m ASYMMETRY IS THE 30 m
+GRID.** Re-scored CPU-only on footprints already on disk (`bin/kljun_parity.py`,
+`results/kljun_parity.json`), Kljun re-evaluated with the vendored official FFP at each
+target raster's own cell edges:
+
+| control | box | LES / asymptote | Kljun / asymptote, old | Kljun / asymptote, **official FFP** | gap |
+|---|---|---|---|---|---|
+| `g24_flatnbl` | 2928 m | 0.8735 | 0.8667 | **0.8667** | **+0.0069** |
+| `g30_flat` | 3660 m | 0.7564 | 0.9294 | **0.9294** | **−0.1730** |
+
+**The σ_y fix moves the 24 m Kljun RASTER by 22.5% of its peak — `L` is infinite there, so
+it is exactly the `|L| > 5000` regime the reimplementation was wide in — and moves its
+INTEGRAL by −0.0001.** σ_y only redistributes crosswind, and the box captures nearly all of
+the crosswind extent, so the integral cannot see it. **24 m stays at parity; the asymmetry
+is specific to the 30 m grid and is not a Kljun artifact.** It is the LES, in a nearly
+identical flow, with the sub-grid fraction at the receptor up from 85.1% to 90.4% and only
+44.9% of particles reaching the surface within `t_back`. State the truncation limitation
+that way: at 3660 m the LES loses tail that Kljun does not, so an LES-vs-Kljun comparison on
+this box is **no longer** the fair one the 2928 m parity licensed.
+
 Training targets come from FastEddy LES + a backward Lagrangian particle dispersion model
 (LPDM) written for this project. LES and LPDM are offline target generators — they are
 **never** part of inference.

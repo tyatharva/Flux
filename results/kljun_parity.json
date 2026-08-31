@@ -1,0 +1,48 @@
+{
+ "rows": [
+  {
+   "file": "results/g24_flatnbl.json",
+   "kljun_source_recorded": "lpdm/kljun.py (reimplementation)",
+   "dx_m": 24.0,
+   "n": 122,
+   "domain_m": 2928.0,
+   "zm_m": 30.000032424926758,
+   "h_m": 643.3270263671875,
+   "L_m": Infinity,
+   "ustar": 0.41014701609976223,
+   "sigma_v": 0.5766882593846577,
+   "asymptote": 0.9533673680797551,
+   "integral_les": 0.8328020099824034,
+   "integral_kljun_stored": 0.8263088107126874,
+   "integral_kljun_official": 0.8262562039981315,
+   "les_over_asymptote": 0.8735373559720311,
+   "kljun_stored_over_asymptote": 0.8667265509380866,
+   "kljun_official_over_asymptote": 0.8666713710396369,
+   "parity_gap_stored": 0.006810805033944489,
+   "parity_gap_official": 0.006865984932394209,
+   "kljun_raster_max_reldiff": 0.22498286063650572
+  },
+  {
+   "file": "results/g30_flat.json",
+   "kljun_source_recorded": "official FFP v1.42 (third_party/FFP), via lpdm/kljun_ffp.py",
+   "dx_m": 30.0,
+   "n": 122,
+   "domain_m": 3660.0,
+   "zm_m": 27.0,
+   "h_m": 643.3270263671875,
+   "L_m": Infinity,
+   "ustar": 0.40539080956921314,
+   "sigma_v": 0.5825780915930443,
+   "asymptote": 0.9556990475576053,
+   "integral_les": 0.7228925903165324,
+   "integral_kljun_stored": 0.8882017152769145,
+   "integral_kljun_official": 0.8882017152769145,
+   "les_over_asymptote": 0.7564019156071825,
+   "kljun_stored_over_asymptote": 0.9293738625635469,
+   "kljun_official_over_asymptote": 0.9293738625635469,
+   "parity_gap_stored": -0.17297194695636442,
+   "parity_gap_official": -0.17297194695636442,
+   "kljun_raster_max_reldiff": 0.0
+  }
+ ]
+}

@@ -57,20 +57,65 @@ PYMAN
 ) || die "manifest.json unreadable"
 
 # ---- SEED_CEILING_H: a HARD ceiling in simulated hours, overriding the manifest --------
-# The manifest's steps_total is the library's standing 3.0 sim-h ceiling. A convective rung
-# decorrelates on z_i/w* ~ 540 s against a neutral layer's h/u* ~ 1700 s, so it reaches band
-# far sooner and 3.0 h of it is mostly wasted GPU. The ceiling is a CEILING either way --
-# jobs/seed_watch.sh normally stops the run before it -- and a seed that has not entered
-# band by it stops there and THAT IS THE RESULT: no extension, no respec.
-# Rounded DOWN to a whole number of dumps, because a ceiling that is not a dump boundary
-# stops the run between dumps and the last dump is then not the state that was scored.
-if [ -n "${SEED_CEILING_H:-}" ]; then
-  _NEW=$(python3 -c "print(int($SEED_CEILING_H*3600.0/$DT/$FRQ)*$FRQ)")
+#
+# === 2.0 SIMULATED HOURS, EVERY RUNG, EVERY REGIME -- set 2026-08-30 ====================
+# This replaces the 1.0 h convective / 3.0 h neutral split the ninth pass ran under, and
+# the manifests' own standing 3.0 h. The reasoning is per regime and lands on one number:
+#
+#   * CONVECTIVE rungs need 5-8 large-eddy turnovers, and T* = z_i/w* ~ 350 s here, so
+#     band is reached in 30-45 min. 2.0 h is margin for the WEAKLY convective end, where
+#     w* is small, T* is correspondingly longer, and the 1.0 h ceiling is genuinely tight.
+#   * NEUTRAL rungs do not stabilise at ANY affordable length -- z_i in an Ekman layer with
+#     no capping inversion grows for several inertial periods (17.6 h each here), and the
+#     ninth pass measured seed_nbl-deep_a015 still climbing at +5.76 %/h after 2.917 h.
+#     So hours past the point the flow is turbulent buy nothing that the gate can see, and
+#     the extra 1.0 h of the old neutral ceiling was spent on a limit it cannot satisfy.
+#
+# One number for every rung also makes the library's cost a single figure -- 0.96 GPU-h per
+# seed at 0.479 GPU-h/sim-h -- instead of a regime-dependent one.
+#
+# The ceiling is still a CEILING: jobs/seed_watch.sh stops the run as soon as the
+# oscillation-immune limits are in band, and a seed that has not entered band by 2.0 h
+# stops there and THAT IS THE RESULT -- no extension, no respec.
+SEED_CEILING_H="${SEED_CEILING_H:-2.0}"
+if [ -n "$SEED_CEILING_H" ]; then
+  # ROUNDED TO A WHOLE NUMBER OF DUMPS, and the rounding is TOLERANT rather than a bare
+  # int(). MEASURED: at dt = 0.0308642 and frq = 9720, 1.0*3600/dt/frq evaluates to
+  # 11.999999040000077 in binary floating point, so `int()` returned 11 and the 1.0 h
+  # ceiling silently became 3300 s -- 0.917 sim-h, a whole dump and 8.3% of the run gone,
+  # with nothing in the output to say so. The ninth pass's run 1 is exactly that run.
+  # Round to nearest and only then verify the result does not EXCEED the request.
+  _NEW=$(python3 -c "
+import math
+n = round($SEED_CEILING_H*3600.0/$DT/$FRQ)
+if n*$FRQ*$DT > $SEED_CEILING_H*3600.0 + 1e-6: n -= 1
+print(int(n)*$FRQ)")
   [ "$_NEW" -gt 0 ] || die "SEED_CEILING_H=$SEED_CEILING_H rounds to zero dumps"
-  WALLMIN=$(python3 -c "print(f'{$WALLMIN*$_NEW/$TOTAL:.1f}')")
-  echo "  SEED_CEILING_H=$SEED_CEILING_H: ceiling $TOTAL -> $_NEW steps "\
+  if [ "$_NEW" -lt "$TOTAL" ]; then
+    WALLMIN=$(python3 -c "print(f'{$WALLMIN*$_NEW/$TOTAL:.1f}')")
+    echo "  SEED_CEILING_H=$SEED_CEILING_H: ceiling $TOTAL -> $_NEW steps "\
 "($(python3 -c "print(f'{$_NEW*$DT/3600:.3f}')") sim-h, $(python3 -c "print($_NEW//$FRQ)") dumps)"
-  TOTAL="$_NEW"
+    TOTAL="$_NEW"
+  else
+    echo "  SEED_CEILING_H=$SEED_CEILING_H is at or past the manifest's $TOTAL steps; "\
+"keeping $TOTAL ($(python3 -c "print(f'{$TOTAL*$DT/3600:.3f}')") sim-h)"
+  fi
+fi
+
+# ---- SCORE_H: the gate's window must fit STRICTLY INSIDE the run ------------------------
+# --score-h defaults to 2.0 h in bin/seed_stationarity.py, chosen by a sweep inside a 3.0 h
+# run. At a 2.0 h ceiling that width is the WHOLE RUN, so the window reaches step 0 -- the
+# state the run was handed, which at a cold start has u* = 0 exactly. seed_stationarity.py
+# now REFUSES that rather than reporting a trend through the spin-up, so the width has to be
+# derived from the run that was actually produced, not inherited from the one it was swept
+# on. Leave the first 0.5 h out: at a 2.0 h ceiling that gives a 1.5 h window (the width
+# this project used before the sweep), and at any longer run it keeps the swept 2.0 h.
+if [ -z "${SCORE_H:-}" ]; then
+  SCORE_H=$(python3 -c "
+sim_h = $TOTAL*$DT/3600.0
+print(f'{min(2.0, max(0.5, sim_h - 0.5)):.3f}')")
+  echo "  SCORE_H not set: scoring the last $SCORE_H h of a "\
+"$(python3 -c "print(f'{$TOTAL*$DT/3600:.3f}')") sim-h run (the first 0.5 h is excluded)"
 fi
 
 echo "########## seed $NAME ##########"

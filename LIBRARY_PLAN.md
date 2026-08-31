@@ -1,5 +1,38 @@
 # The seed library and the sounding-forced corpus
 
+> **THE CORPUS IS ONE WINDOW PER CASE AND EVERY SEED RUNS 2.0 SIM-H — 2026-08-30.**
+> **This supersedes every cost table below it** — the two-window arithmetic, the 3.0 h seed
+> ceiling, and the earlier 16 m-era per-case figures alike. Full rationale:
+> `PROJECT_BRIEF.md`, the dated block at the top; the decision table is in `PLAN.md`.
+>
+> | | two windows (retired) | **one window (production)** |
+> |---|---|---|
+> | case length | 7205 s = 2.0 sim-h | **4500 s = 1.25 sim-h** |
+> | footprints per case | 2 | **1** |
+> | GPU-h per case | 1.06 measured at selector 2 | **~0.61** at selector 1 |
+> | seed ceiling | 3.0 sim-h (1.0 h convective in the ninth pass) | **2.0 sim-h, every rung** |
+> | GPU-h per seed | 1.44 | **0.96** |
+> | library, 30 seeds | 43 GPU-h | **29 GPU-h** |
+> | corpus, 1469 cases | ~1560 GPU-h, ~2938 pairs | **~903 GPU-h, ~1469 pairs** |
+> | **total** | ~1600 GPU-h | **~930 GPU-h** |
+>
+> **The second window was cut on a measurement, not a budget.** It is a genuinely
+> independent turbulence draw — the release groups decorrelate in 180 s against an 1800 s
+> separation — and on both validation cases it still came out a **near-duplicate in shape**:
+> median `|w0 − w1|` / the within-footprint half-vs-half floor **0.19 and 0.33**, where two
+> independent draws would give ~√2. Shape is what the FNO learns. `N_WINDOWS = 2` remains
+> supported for a model estimating spread at fixed conditions.
+>
+> **The ~0.61 GPU-h per case is inferred, not measured**: 0.479 measured at bring-up plus
+> 0.013 measured for the window pause, over 1.25 sim-h. The only production measurement,
+> 0.525, was taken at selector 2 where the double netCDF write costs +7%.
+>
+> **The neutral rungs' seeds are frozen mid-growth in `z_i`, by design** — the limit is
+> unsatisfiable, not failed — so the corpus's `z_i` distribution is a property of where they
+> were frozen. Every record carries `zi_achieved_m` and `zi_accepted_drifting`, both on the
+> manifest line. Check the distribution before training; the fallback is a per-case lid from
+> the sounding.
+
 > **THE ESTIMATES BELOW ARE NOW MEASURED ON A REAL PRODUCTION CASE — 2026-08-30.**
 > `case_2023111718`, 2.0 sim-h, two windows, 1442 snapshots, through the live in-process
 > hand-off at `lpdmOnlineSelector = 2` (staging AND writing, so both paths came from one
@@ -105,8 +138,19 @@
 > interval, `n_eff` saturates at 3-5 at every window width from 1.0 h to 2.5 h, and
 > requiring them would mean never stopping early while misreporting why. A DRIFTING verdict
 > on any limit still blocks the stop — unestablished stationarity is not stationarity, but
-> neither is it drift. **A seed that has not entered band by 3.0 simulated hours stops
-> there and that IS the result: no extension, no respec.**
+> neither is it drift. **A seed that has not entered band by the ceiling stops there and
+> that IS the result: no extension, no respec.** The ceiling is **2.0 simulated hours, every
+> rung and every regime**, as of 2026-08-30 — `jobs/run_seed.sh` defaults `SEED_CEILING_H`
+> to it and the manifests' own 3.0 h is overridden. At that ceiling the gate's own
+> `--score-h` default of 2.0 h would be the WHOLE RUN and would reach step 0, so
+> `run_seed.sh` derives `SCORE_H = min(2.0, sim_h − 0.5)` = **1.5 h** and
+> `seed_stationarity.py` refuses a window that reaches the first dump.
+>
+> **One exception is now written into the gate's consumer rather than into the gate: `z_i`
+> DRIFTING on a NEUTRAL rung is accepted by the corpus** (`--allow-drifting zi-neutral`),
+> because a neutral Ekman layer with no capping inversion has no equilibrium depth at any
+> affordable spin-up. The verdict is unchanged and no threshold is loosened; what changes is
+> that `bin/pick_seed.py` admits that one seed, loudly, and stamps every pair with it.
 >
 > **Neutral rungs get Steinfeld's accelerator.** 3000 s at `surflayer_wth = +0.05 K m/s`,
 > then the open-ended run at the rung's own flux, restarting from the burn-in dump with

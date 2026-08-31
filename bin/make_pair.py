@@ -70,6 +70,11 @@ RASTER_OUT = RASTER_N + 2 * RASTER_PAD
 SCALAR_NAMES = ("h", "ustar", "sigma_v", "L", "sin_wdir", "cos_wdir")
 
 
+def _m(v):
+    """A length in metres for a human-readable warning, or '?' if it was never recorded."""
+    return "?" if v is None else f"{float(v):.0f}"
+
+
 def _git_commit(root):
     """The commit the corpus was generated at. None rather than a guess if unavailable."""
     head = os.path.join(root, ".git", "HEAD")
@@ -188,6 +193,32 @@ def write_training_npz(a, rec, st, fp, npz_path, target, kljun_raster, xc, yc, z
         "datetime": rec.get("forcing", {}).get("valid_time"),
         "gate_state": (rec.get("seed") or {}).get("gate_state", "unjudged"),
         "gate_indeterminate": (rec.get("seed") or {}).get("gate_indeterminate", []),
+        "gate_drifting": (rec.get("seed") or {}).get("gate_drifting", []),
+        # === z_i: DRIFTING AND ACCEPTED, ON THE NEUTRAL RUNGS, BY DESIGN =================
+        # A separate boolean from gate_state so a training loader can filter or weight on
+        # it without parsing prose. It marks the ONE limit this project holds to be
+        # unsatisfiable rather than failed: a neutral Ekman layer with no capping inversion
+        # deepens for several inertial periods (17.6 h each here), so no affordable spin-up
+        # reaches an equilibrium depth. The seed is frozen at a FIXED simulated-time ceiling
+        # instead -- deterministic and reproducible -- and z_i is a weak input at a 30 m
+        # receptor: Kljun's only z_i channel, 1/(1 - z_m/h), spans ~5% over h = 400-1200 m.
+        #
+        # THIS PAIR'S OWN SCALARS ARE NOT AFFECTED. h comes from window_stats over exactly
+        # the 30 minutes the footprint covers, not from the seed. What the acceptance shapes
+        # is the corpus's z_i DISTRIBUTION, which is why zi_achieved_m is recorded per case.
+        "zi_accepted_drifting": bool(
+            (rec.get("seed") or {}).get("zi_accepted_drifting", False)),
+        "zi_achieved_m": float(st["h"]),
+        "seed_zi_achieved_m": (rec.get("seed") or {}).get("seed_zi_achieved_m"),
+        "seed_zi_peakfrac_m": (rec.get("seed") or {}).get("seed_zi_peakfrac_m"),
+        # z_i's OWN GATE ROW, because the DRIFTING/INDETERMINATE bucket is a threshold
+        # applied at one scoring width and moves with it (measured: +5.76 %/h DRIFTING over
+        # 2.0 h, +4.97 %/h INDETERMINATE over 1.5 h, same run). Filter on the trend.
+        "zi_gate_verdict": (rec.get("seed") or {}).get("zi_gate_verdict"),
+        "zi_trend_pct_per_h": (rec.get("seed") or {}).get("zi_trend_pct_per_h"),
+        "zi_trend_se_pct_per_h": (rec.get("seed") or {}).get("zi_trend_se_pct_per_h"),
+        "zi_trend_limit_pct_per_h": (rec.get("seed") or {}).get("zi_trend_limit_pct_per_h"),
+        "gate_score_h": (rec.get("seed") or {}).get("gate_score_h"),
         "seed_job": (rec.get("seed") or {}).get("job"),
         # -- the diagnostics a record is filtered or weighted by, without opening the JSON
         "integral": fp.get("integral_les"),
@@ -270,7 +301,12 @@ def write_training_npz(a, rec, st, fp, npz_path, target, kljun_raster, xc, yc, z
     m["host"] = os.uname().nodename
     m["cases"][a.tag] = {"parent": rec["parent"], "window_index": rec["window_index"],
                          "datetime": meta["datetime"], "file": os.path.basename(outp),
-                         "integral": meta["integral"], "gate_state": meta["gate_state"]}
+                         "integral": meta["integral"], "gate_state": meta["gate_state"],
+                         # ENUMERABLE WITHOUT OPENING 1825 npz FILES. The z_i distribution
+                         # is the thing to check before training on a corpus whose neutral
+                         # seeds were frozen mid-growth, so it goes in the manifest line.
+                         "zi_achieved_m": meta["zi_achieved_m"],
+                         "zi_accepted_drifting": meta["zi_accepted_drifting"]}
     tmp = man + f".tmp.{os.getpid()}"
     json.dump(m, open(tmp, "w"), indent=1, default=float)
     os.replace(tmp, man)
@@ -458,6 +494,24 @@ def main():
                        "gate_state": ch.get("gate_state", "unjudged"),
                        "gate_indeterminate": ch.get("gate_indeterminate", []),
                        "gate_drifting": ch.get("gate_drifting", []),
+                       # z_i ACCEPTED AS DRIFTING, BY DESIGN, ON THE NEUTRAL RUNGS.
+                       # A separate flag from gate_state so a consumer can tell the
+                       # unsatisfiable-limit case apart from an unexplained drift admitted
+                       # by hand: a neutral Ekman layer has no equilibrium depth at any
+                       # affordable spin-up, so the seed is frozen at a fixed 2.0 sim-h
+                       # ceiling instead. The seed's own achieved depth travels with it.
+                       "zi_accepted_drifting": bool(ch.get("zi_accepted_drifting", False)),
+                       "drift_reason": ch.get("drift_reason"),
+                       "seed_zi_achieved_m": ch.get("seed_zi_achieved_m"),
+                       "seed_zi_peakfrac_m": ch.get("seed_zi_peakfrac_m"),
+                       # z_i's gate row travels too: whether it reads DRIFTING or
+                       # INDETERMINATE depends on the scoring width, so the bucket alone
+                       # is not the evidence and the trend is.
+                       "zi_gate_verdict": ch.get("zi_gate_verdict"),
+                       "zi_trend_pct_per_h": ch.get("zi_trend_pct_per_h"),
+                       "zi_trend_se_pct_per_h": ch.get("zi_trend_se_pct_per_h"),
+                       "zi_trend_limit_pct_per_h": ch.get("zi_trend_limit_pct_per_h"),
+                       "gate_score_h": ch.get("gate_score_h"),
                        # WHERE THE SEED'S HEADING CAME FROM. The adjustment does not close
                        # a direction gap -- measured, it widened one by 10.5 deg -- so the
                        # seed is carried forward at its own drift rate. Recording the
@@ -476,6 +530,25 @@ def main():
                 + ", ".join(ch.get("gate_indeterminate") or [])
                 + " could not be resolved against their own limits in a 3.0 h spin-up. "
                   "Nothing was drifting; nothing was established either.")
+        elif ch.get("zi_accepted_drifting"):
+            rec.setdefault("warnings", []).append(
+                f"the seed this pair restarts from is DRIFTING in z_i and was accepted "
+                f"anyway, by design: a neutral Ekman layer with no capping inversion has no "
+                f"equilibrium depth, so the limit is unsatisfiable rather than failed. The "
+                f"seed was frozen at a fixed simulated-time ceiling and reached "
+                f"z_i = {_m(ch.get('seed_zi_achieved_m'))} m (fixed-threshold) / "
+                f"{_m(ch.get('seed_zi_peakfrac_m'))} m (peak-fraction, the corpus "
+                f"currency). "
+                f"THIS PAIR'S OWN INPUTS ARE UNAFFECTED -- they come from window_stats over "
+                f"the same 30 minutes as the footprint -- but the corpus's z_i DISTRIBUTION "
+                f"is a property of where the seeds were frozen; check it before training.")
+        elif ch.get("gate_state") == "DRIFTING":
+            rec.setdefault("warnings", []).append(
+                "the seed this pair restarts from is DRIFTING in "
+                + ", ".join(ch.get("gate_drifting") or [])
+                + " and was admitted by a manual --allow-drifting. This is NOT the "
+                  "by-design z_i acceptance: the seed is known to be moving in a "
+                  "footprint-controlling parameter and the case starts mid-transient.")
 
     # ---- THE SELF-CONTAINED TRAINING RECORD ------------------------------------------
     # One .npz per window, carrying everything a training example needs and referencing

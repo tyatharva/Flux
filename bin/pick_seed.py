@@ -70,18 +70,25 @@ DIR_SCALE = 15.0         # one library direction bin costs 1; 6 base angles x 4
                          # was 30 -- see bin/make_seed_jobs.py:BASE_ANGLES)
 
 # === HOW FAR FORWARD A FROZEN SEED IS PROJECTED, AND WHY THAT NUMBER ===============
-# bin/run_corpus_case.sh runs ADJ_S = 1800 s of adjustment and then a WINDOW_S = 2400 s
-# window, and lpdm/les_stats.py:window_stats averages over the dumps that SURVIVE the
-# adjustment -- i.e. over [ADJ_S, ADJ_S + WINDOW_S] measured from the restart. Its
-# midpoint is ADJ_S + WINDOW_S/2 = 3000 s, and the direction it reports is the label the
-# pair actually carries. So that is the instant a seed's heading must be compared at.
+# bin/run_corpus_case.sh runs ADJ_S seconds of adjustment and then a WINDOW_S window, and
+# lpdm/les_stats.py:window_stats averages over the dumps that SURVIVE the adjustment --
+# i.e. over [ADJ_S, ADJ_S + WINDOW_S] measured from the restart. Its midpoint is
+# ADJ_S + WINDOW_S/2, and the direction it reports is the label the pair actually carries.
+# So that is the instant a seed's heading must be compared at.
 #
-# Do not "improve" this to the release-weighted midpoint (ADJ_S + TBACK + 900 = 3300 s).
-# That is the right centre for the FOOTPRINT and the wrong one for the LABEL, and it is
-# the label this file is minimising the gap in -- a mismatch does not corrupt a pair, it
-# moves where the pair lands in input space.
-ADJ_S, WINDOW_S = 1800.0, 2400.0
-PROJECT_H = (ADJ_S + 0.5 * WINDOW_S) / 3600.0        # 0.8333 h
+# Do not "improve" this to the release-weighted midpoint (ADJ_S + TBACK + REL_S/2). That is
+# the right centre for the FOOTPRINT and the wrong one for the LABEL, and it is the label
+# this file is minimising the gap in -- a mismatch does not corrupt a pair, it moves where
+# the pair lands in input space.
+#
+# READ FROM THE ENVIRONMENT, because these ARE the driver's numbers and having them written
+# down twice is how they drift apart. They did: the literals here stayed at the 16 m
+# geometry's 1800/2400 after production moved to 1800/2700, leaving the projection 150 s
+# short. At the measured -5.8 deg/h that is 0.24 deg against a 15 deg library spacing --
+# harmless, and silent, which is the half worth fixing. bin/run_corpus.sh exports both.
+ADJ_S = float(os.environ.get("ADJ_S") or 1800.0)
+WINDOW_S = float(os.environ.get("WINDOW_S") or 2700.0)
+PROJECT_H = (ADJ_S + 0.5 * WINDOW_S) / 3600.0        # 0.875 h at the production geometry
 
 
 def regime_of(wth):
@@ -93,8 +100,36 @@ def regime_of(wth):
     return "neutral"
 
 
+# === THE ONE DRIFTING LIMIT THE CORPUS ADMITS, AND ONLY ON THE RUNGS THAT CANNOT AVOID IT
+# `zi-neutral` admits a seed whose ONLY drifting limit is z_i and whose rung is NEUTRAL.
+# Nothing else: a neutral seed drifting in u*, sigma_w or a Kljun geometry term is still
+# refused, and a CONVECTIVE seed drifting in z_i is still refused -- a CBL under a capping
+# inversion and subsidence has a depth the box is holding, so drift there is a defect rather
+# than a property of the flow.
+DRIFT_MODES = ("off", "zi-neutral", "any")
+ZI_LIMIT = "z_i"
+
+
+def _drift_admitted(mode, drifting, wth):
+    """Is this seed's DRIFTING set admissible under `mode`? -> (bool, reason)"""
+    if mode == "any":
+        return True, "--allow-drifting: any drifting limit, any rung"
+    if mode != "zi-neutral":
+        return False, ""
+    if set(drifting) != {ZI_LIMIT}:
+        return False, (f"drifting in {', '.join(sorted(drifting))}, not in z_i alone")
+    if regime_of(wth) != "neutral":
+        return False, (
+            f"a {regime_of(wth)} rung drifting in z_i. The acceptance is specific to the "
+            f"neutral rungs, where the depth has no equilibrium at any affordable spin-up; "
+            f"a convective rung's depth is being HELD by its capping inversion and "
+            f"subsidence, and a stable one's by its stratification, so drift there is a "
+            f"defect rather than a property of the flow")
+    return True, "a neutral rung drifting only in z_i"
+
+
 def load_library(index_path, library_dir, available_only=False,
-                 allow_indeterminate=False, allow_drifting=False, exclude=()):
+                 allow_indeterminate=False, allow_drifting="off", exclude=()):
     """Prefer each job's RETURNED manifest (it carries `achieved`); fall back to the index.
 
     The fallback is not silent. A seed with no achieved block is matched on its TARGET, and
@@ -156,6 +191,26 @@ def load_library(index_path, library_dir, available_only=False,
                     indet = list(_g.get("indeterminate") or [])
                     s["_drifting"] = list(_g.get("drifting") or [])
                     s["_indeterminate"] = indet
+                    # === THE z_i ROW ITSELF, NOT ONLY WHICH BUCKET IT LANDED IN =========
+                    # Whether z_i reads DRIFTING or INDETERMINATE depends on the SCORING
+                    # WINDOW, not only on the flow: measured on seed_nbl-deep_a015, the
+                    # same run gives +5.76 %/h DRIFTING over 2.0 h and +4.97 %/h
+                    # INDETERMINATE over 1.5 h, because the shorter window cannot resolve
+                    # the trend against its own SE. The 2.0 h seed ceiling makes 1.5 h the
+                    # derived width, so the boolean below would quietly stop firing on
+                    # seeds in exactly the state it was added for.
+                    #
+                    # So the TREND travels with every pair beside the verdict. A consumer
+                    # checking the corpus's z_i distribution wants the number; the bucket is
+                    # a threshold applied to it, and the threshold is not the evidence.
+                    for _r in (_g.get("gated") or []):
+                        if isinstance(_r, dict) and _r.get("name") == ZI_LIMIT:
+                            s["_zi_verdict"] = _r.get("verdict")
+                            s["_zi_trend"] = _r.get("trend_pct_per_h")
+                            s["_zi_trend_se"] = _r.get("trend_se_pct_per_h")
+                            s["_zi_limit"] = _r.get("limit")
+                            break
+                    s["_score_h"] = _g.get("score_h")
                 except (ValueError, OSError):
                     gate = None
             ach = s.get("achieved") or {}
@@ -164,7 +219,9 @@ def load_library(index_path, library_dir, available_only=False,
                 if only_indet and allow_indeterminate:
                     s["_gate_state"] = "INDETERMINATE"
                     indeterminate.append((s["job"], indet))
-                elif s.get("_drifting") and allow_drifting:
+                elif s.get("_drifting") and _drift_admitted(
+                        allow_drifting, s["_drifting"],
+                        float((s.get("target") or {}).get("wth_virtual", 0.0)))[0]:
                     # A NARROW, LOUD, DEFAULT-OFF OPT-IN, AND IT IS NOT THE SAME
                     # CONCESSION AS --allow-indeterminate.
                     #
@@ -179,16 +236,36 @@ def load_library(index_path, library_dir, available_only=False,
                     # u*, whose fix was to gate on a RATIO -- and z_i is the one gated
                     # quantity with no ratio to take).
                     #
-                    # What it does NOT do is call the seed stationary. gate_state is
-                    # stamped DRIFTING on every pair, make_pair.py writes a warning into
-                    # the training record, and the corpus driver never sets this. It is for
-                    # a labelled validation case, and whether the corpus should use it is a
-                    # DESIGN DECISION that belongs to the user, with these numbers.
+                    # THE CORPUS SETS THIS, AT `zi-neutral`, AS OF 2026-08-30. The decision
+                    # is the user's and it is recorded here rather than only in a log: the
+                    # z_i limit is UNSATISFIABLE on a neutral rung, not failed, so refusing
+                    # it refuses the neutral half of the corpus for a state no spin-up can
+                    # reach. Letting z_i grow to a FIXED 2.0 sim-h ceiling is deterministic
+                    # and reproducible, and z_i is a weak input at a 30 m receptor -- Kljun's
+                    # only z_i channel, 1/(1 - z_m/h), spans ~5% over h = 400-1200 m. The
+                    # achieved z_i is recorded per case so the distribution can be checked;
+                    # if it turns out too narrow to train on, a per-case lid from the
+                    # sounding is the fallback. NO CAPPING INVERSION was added, deliberately.
+                    #
+                    # What it does NOT do is call the seed stationary. gate_state is stamped
+                    # DRIFTING on every pair and make_pair.py writes a warning into the
+                    # training record. `any` remains a separate, wider, default-off opt-in.
                     s["_gate_state"] = "DRIFTING"
-                    drifting_used.append((s["job"], s["_drifting"]))
+                    s["_drift_reason"] = _drift_admitted(
+                        allow_drifting, s["_drifting"],
+                        float((s.get("target") or {}).get("wth_virtual", 0.0)))[1]
+                    drifting_used.append((s["job"], s["_drifting"], s["_drift_reason"]))
                 else:
-                    (indeterminate_blocked if only_indet else rejected).append(
-                        s["job"] if not only_indet else (s["job"], indet))
+                    if only_indet:
+                        indeterminate_blocked.append((s["job"], indet))
+                    else:
+                        # NAME WHY THE MODE DID NOT ADMIT IT. Under `zi-neutral` a refusal
+                        # can now mean two quite different things -- the wrong limit, or the
+                        # wrong rung -- and "DRIFTING" alone does not distinguish them.
+                        why = _drift_admitted(
+                            allow_drifting, s.get("_drifting") or [],
+                            float((s.get("target") or {}).get("wth_virtual", 0.0)))[1]
+                        rejected.append((s["job"], s.get("_drifting") or [], why))
                     have.add(s["job"])      # and do NOT fall back to its index entry
                     continue
             else:
@@ -233,16 +310,29 @@ def load_library(index_path, library_dir, available_only=False,
         print(f"  EXCLUDED BY REQUEST ({len(excluded_by_hand)}): "
               f"{', '.join(sorted(excluded_by_hand))} -- named on the command line, not "
               f"rejected by any gate.")
-    for job, lim in drifting_used:
-        print(f"  *** USING A DRIFTING SEED: {job} is DRIFTING in {', '.join(lim)} and was "
-              f"admitted by --allow-drifting. That is a STRONGER defect than "
-              f"INDETERMINATE: the seed is KNOWN to be moving in a footprint-controlling "
-              f"parameter, so this case starts mid-transient and the 30-minute adjustment "
-              f"is not there to absorb it. Every pair built on it carries "
-              f"seed.gate_state = DRIFTING. The corpus driver does not set this flag.")
+    for job, lim, why in drifting_used:
+        if allow_drifting == "zi-neutral":
+            print(f"  *** USING A z_i-DRIFTING NEUTRAL SEED: {job} ({why}), admitted by "
+                  f"--allow-drifting zi-neutral. The limit is UNSATISFIABLE on this rung "
+                  f"rather than failed -- a neutral Ekman layer's depth grows for several "
+                  f"inertial periods -- so the seed is frozen at a fixed 2.0 sim-h ceiling "
+                  f"and its achieved z_i is recorded per pair. Every pair carries "
+                  f"seed.gate_state = DRIFTING and zi_accepted_drifting = true.")
+        else:
+            print(f"  *** USING A DRIFTING SEED: {job} is DRIFTING in {', '.join(lim)} and "
+                  f"was admitted by --allow-drifting {allow_drifting}. That is a STRONGER "
+                  f"defect than INDETERMINATE: the seed is KNOWN to be moving in a "
+                  f"footprint-controlling parameter, so this case starts mid-transient and "
+                  f"the 30-minute adjustment is not there to absorb it. Every pair built on "
+                  f"it carries seed.gate_state = DRIFTING.")
     if rejected:
         print(f"  EXCLUDED {len(rejected)} seed(s) whose gate found a limit DRIFTING: "
-              f"{', '.join(sorted(rejected))}")
+              f"{', '.join(sorted(j for j, _l, _w in rejected))}")
+        if allow_drifting != "off":
+            for j, lim, why in sorted(rejected):
+                print(f"    {j}: DRIFTING in {', '.join(lim) or '?'} -- not admitted under "
+                      f"--allow-drifting {allow_drifting}"
+                      + (f" ({why})" if why else ""))
     for j, lim in sorted(indeterminate_blocked):
         print(f"  EXCLUDED {j}: stationarity UNESTABLISHED (INDETERMINATE on "
               f"{', '.join(lim)}) -- nothing is drifting, but the gate cannot resolve "
@@ -378,16 +468,20 @@ def main():
     ap.add_argument("--exclude", default=None,
                     help="comma-separated seed job names to exclude explicitly, "
                          "regardless of their gate verdict. Named in the output.")
-    ap.add_argument("--allow-drifting", action="store_true",
+    ap.add_argument("--allow-drifting", nargs="?", const="any", default="off",
+                    choices=DRIFT_MODES,
                     help="admit a seed with a DRIFTING limit. NOT the same concession as "
                          "--allow-indeterminate: a drifting seed is KNOWN to be moving in a "
                          "footprint-controlling parameter, where an indeterminate one is "
-                         "merely unestablished. It exists because z_i in the neutral rungs "
-                         "trends AWAY from band as the run lengthens (PLAN.md 0aa predicted "
-                         "exactly this), so the default refusal makes the neutral half of "
-                         "the corpus unbuildable at any affordable spin-up. gate_state is "
-                         "stamped DRIFTING on every pair and the corpus driver never sets "
-                         "this. Whether the corpus should is the user's decision.")
+                         "merely unestablished. "
+                         "`zi-neutral` (THE CORPUS DEFAULT since 2026-08-30) admits only a "
+                         "NEUTRAL rung whose ONLY drifting limit is z_i -- the one limit "
+                         "that is unsatisfiable rather than failed, because a neutral Ekman "
+                         "layer's depth grows for several inertial periods and PLAN.md 0aa "
+                         "measured it trending AWAY from band as the run lengthens. "
+                         "`any` (the bare flag) admits any drifting limit on any rung and "
+                         "stays a wide, loud, manual opt-in. `off` refuses both. "
+                         "gate_state is stamped DRIFTING on every pair either way.")
     ap.add_argument("--allow-indeterminate", action="store_true",
                     help="admit seeds whose gate returned INDETERMINATE (no limit "
                          "drifting, but the trend estimator cannot resolve its own "
@@ -444,6 +538,33 @@ def main():
                          "gate_state": s.get("_gate_state", "unjudged"),
                          "gate_indeterminate": s.get("_indeterminate") or [],
                          "gate_drifting": s.get("_drifting") or [],
+                         # THE FLAG THE TRAINING RECORD FILTERS ON. Distinct from a bare
+                         # gate_state = DRIFTING: it says the drift is the KNOWN,
+                         # unsatisfiable z_i one on a neutral rung, accepted by design,
+                         # rather than an unexplained one admitted by a wide manual flag.
+                         "zi_accepted_drifting": bool(
+                             s.get("_gate_state") == "DRIFTING"
+                             and set(s.get("_drifting") or []) == {ZI_LIMIT}
+                             and s["regime"] == "neutral"),
+                         "drift_reason": s.get("_drift_reason"),
+                         # z_i's own gate row, so the record carries the EVIDENCE and not
+                         # only the bucket a threshold put it in at one scoring width.
+                         "zi_gate_verdict": s.get("_zi_verdict"),
+                         "zi_trend_pct_per_h": s.get("_zi_trend"),
+                         "zi_trend_se_pct_per_h": s.get("_zi_trend_se"),
+                         "zi_trend_limit_pct_per_h": s.get("_zi_limit"),
+                         "gate_score_h": s.get("_score_h"),
+                         # THE SEED'S OWN ACHIEVED DEPTH, IN BOTH CURRENCIES. With z_i left
+                         # to grow to a fixed ceiling, where it got to is a property of the
+                         # library that the corpus's z_i distribution inherits -- so it is
+                         # recorded per pair rather than reconstructed from the job later.
+                         "seed_zi_achieved_m": (
+                             float((s.get("achieved") or {}).get("zi"))
+                             if (s.get("achieved") or {}).get("zi") is not None else None),
+                         "seed_zi_peakfrac_m": (
+                             float((s.get("achieved") or {}).get("zi_peakfrac"))
+                             if (s.get("achieved") or {}).get("zi_peakfrac") is not None
+                             else None),
                          "seed_dir_frozen_deg": _froz,
                          "dwdir_dt_deg_per_h": (None if _rate is None else float(_rate)),
                          "project_h": PROJECT_H,
