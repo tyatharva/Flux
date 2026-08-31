@@ -1,3 +1,60 @@
+# Staged Plan — NINTH PASS: the official FFP, the streamed hand-off, the .npz corpus record
+
+> **COMPLETE, 2026-08-30. Full evidence: `NINTH_PASS_RESULTS.md`.** Five runs, ~5.1 GPU-h.
+> The pipeline is validated end to end for CONVECTIVE cases and BLOCKED for neutral ones by
+> a defect in the `h` estimator that this pass found.
+
+| phase | item | verdict |
+|---|---|---|
+| 0 | official Kljun FFP v1.42 vendored; `lpdm/kljun_ffp.py` adapter | **PASS 9.4e-16**; our reimplementation is 1.25x wide in `sigma_y` at \|L\| > 5000 |
+| 1 | the hand-off STREAMS: `WindowAccumulator`, `iter_until_pause`, `MemDump.release` | **PASS, bit-identical at zero**; peak RSS 31.7 -> 12.4 GB |
+| 1 | `/dev/shm` guard, host-RSS and staging watcher | **done**; 58.3 MB = 1.6 snapshots at production scale |
+| 2 | self-contained `.npz` record + per-machine manifest; six stale records regenerated | **done**; the `z0` literal was wrong by 72% at 24 m |
+| 3 | two-window ring orchestration, `RING=1`, selector 2 | **PASS**; 1442 staged = 1442 written |
+| **A** | run 1 convective seed, 1.0 sim-h ceiling | **ran; gate UNSCOREABLE** — the 2.0 h scoring window includes step 0 where `u* = 0` |
+| **B** | run 2 convective target, two windows | **PASS**; acceptance (a) 0.27x floor, D1 both directions PASS, array share **25.47%** = 85x enrichment |
+| **C** | run 3 neutral seed, 3.0 sim-h ceiling | **z_i DRIFTING +5.76 %/h** — PLAN.md 0aa predicted exactly this |
+| **D** | run 4 flat/neutral control | **containment PASSES at 2.5 L (0.0%)**; D1 neutral PASS; the Kljun-parity argument does NOT survive to 3660 m |
+| **E** | run 5 neutral target | **REFUSED** — `h` = 2372 m, measured in the wave layer |
+
+## The one thing that is FAILING
+
+**`bl_depth` measured `h` in the free atmosphere.** On a neutral profile whose wave layer is
+thirteen times stronger than its boundary layer, `argmax` lands aloft and the depth search
+runs in the wrong fluid: `h` = 2372 m, the `sigma_w` floor at 1.2e+04, the integral 1.212.
+`bin/corpus_monitor.py` G1 caught it and named it; `bl_depth` now REFUSES such a profile
+(structurally, not by a height threshold, and leaving `h` bit-identical on all five existing
+records). **The neutral half of the corpus is blocked until `h` is decided for these
+profiles** — the surface-attached minimum says 433-492 m and the true pre-wave minimum says
+760 m, and choosing between them needs its own measurement. `FASTEDDY_TRAPS.md` 22.
+
+## The three decisions handed back, with their numbers
+
+1. **`z_i` in neutral seeds trends AWAY from band with run length**, so `pick_seed`'s
+   DRIFTING refusal makes the neutral corpus unbuildable at any affordable spin-up, and its
+   FALLBACK — a convective seed for a neutral case, which the driver itself calls out — is
+   worse than what it avoids. `--allow-drifting` exists, is default OFF, stamps
+   `gate_state = DRIFTING` on every pair, and the corpus driver never sets it.
+2. **The LES-Kljun parity that justified accepting truncation does not hold at 3660 m**:
+   LES 0.765 of asymptote against Kljun 0.923, where at 2928 m it was 0.874 against 0.867.
+   Verified NOT to be the Kljun fix — both implementations give 0.8263 on the 24 m control.
+   It is the LES, in a nearly identical flow, with the sub-grid fraction at the receptor up
+   from 85.1% to 90.4% and only 44.9% of particles reaching the surface within `t_back`.
+3. **The second window is a near-duplicate in shape on BOTH cases** (median \|diff\|/floor
+   0.19 and 0.33) even though the release groups decorrelate in 180 s against an 1800 s
+   separation. It costs 0.75 sim-h per case. A pricing decision.
+
+## Still deferred
+
+1. **The GPU LPDM is still not the production integrator**, so host residency floors at the
+   12.0 GB field cache rather than at one or two snapshots. An INTEGRATOR change.
+2. **Rung re-spacing**, and now also **a neutral rung that can pass its own `z_i` limit** —
+   which on this evidence may not exist.
+3. **`zCeiling`**: the 3660 m width would support `z_i` to 1830 m; the vertical still caps
+   the band at 300-1250 m.
+
+---
+
 # Staged Plan — EIGHTH PASS, 122^3 @ 30 m, the in-process hand-off, two footprints per case
 
 > **THE SEVENTH PASS ANSWERED ITS QUESTION: THE PEAK MOVES.** 144 m and 288 m on two
