@@ -74,6 +74,51 @@ def bl_depth(tk, z, thresh=None, frac=0.05, damp_frac=DAMP_FRAC):
     top = np.searchsorted(z, damp_frac * z[-1])
     top = int(np.clip(top, 3, len(z)))
     k_pk = int(np.argmax(tk[:top]))
+
+    # AND THE PEAK ITSELF HAS TO BE IN THE BOUNDARY LAYER.
+    #
+    # Bounding the search by the decay minimum (above) fixed a first-crossing walking
+    # straight through the boundary layer into the wave layer -- but it assumed the PEAK
+    # was in the boundary layer to begin with, and that is a separate assumption. On
+    # case_2023112120, a NEUTRAL case, it is false: resolved TKE is 0.83 at 56 m, decays to
+    # 0.14 at 760 m -- a perfectly ordinary neutral boundary layer -- and then RISES
+    # monotonically to **1.91 at 2011 m**, higher than anything in the boundary layer, with
+    # e_sgs only 0.11 there. That is internal-wave activity in the stable free atmosphere,
+    # and a global argmax lands the whole search inside it: h came out **2372 m**, which
+    # then set the sigma_w floor's mixed-layer blend and drove it to a factor of **1.2e+04**.
+    #
+    # The 0.98*z[-1] guard below does not catch it -- 2372 m is comfortably under the
+    # column top -- and neither does anything else, because every number downstream stays
+    # finite and plausible. bin/corpus_monitor.py's G1 did catch it, which is what that gate
+    # is for; this makes it a REFUSAL at the estimator instead of a flag two stages later.
+    #
+    # The test is not a height threshold, which would be a constant picked rather than
+    # derived. It is structural: find the SURFACE-ATTACHED layer by walking up from the
+    # ground on a lightly smoothed profile to its first minimum, and require the global peak
+    # to lie inside it. On the convective case the two peaks are the same level and h is
+    # unchanged; on the neutral one the global peak sits 1519 m above the surface layer's
+    # decay minimum.
+    sm = np.convolve(tk[:top], np.ones(3) / 3.0, mode="same")
+    if top > 2:
+        sm[0], sm[-1] = tk[0], tk[top - 1]
+    k_sfc = int(np.argmax(sm[:max(3, top // 3)]))
+    k_sfc_min = top - 1
+    for _i in range(k_sfc + 1, top - 1):
+        if sm[_i] <= sm[_i - 1] and sm[_i] < sm[_i + 1]:
+            k_sfc_min = _i
+            break
+    if k_pk > k_sfc_min:
+        raise ValueError(
+            f"the resolved-TKE profile's maximum is at z = {z[k_pk]:.0f} m "
+            f"({tk[k_pk]:.3f} m2/s2), ABOVE the surface-attached layer, whose own peak is "
+            f"at {z[k_sfc]:.0f} m ({tk[k_sfc]:.3f}) and which stops decaying at "
+            f"{z[k_sfc_min]:.0f} m ({tk[k_sfc_min]:.3f}). A boundary-layer depth cannot be "
+            f"measured from a profile whose strongest turbulence is in the free atmosphere "
+            f"-- that is wave activity, not the boundary layer, and searching down from it "
+            f"returns a plausible number from the wrong fluid. `h` is a corpus INPUT and it "
+            f"sets the sigma_w floor's mixed-layer blend, so this is refused rather than "
+            f"reported. See lpdm/les_stats.py:bl_depth.")
+
     k_min = k_pk + int(np.argmin(tk[k_pk:top]))
     if k_min <= k_pk:
         return float(z[k_pk])

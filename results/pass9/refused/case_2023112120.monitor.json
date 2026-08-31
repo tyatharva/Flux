@@ -1,0 +1,61 @@
+{
+ "n": 1,
+ "ok": 0,
+ "fail": 1,
+ "unjudged": 0,
+ "cases": [
+  {
+   "case": "case_2023112120_w1.json",
+   "verdict": "FAIL",
+   "gates": [
+    {
+     "name": "G1 floor health",
+     "ok": false,
+     "detail": "f_sgs at the floor's peak 0.062 (>= 0.25), factor 1.000-18.36 peaking at z=540 m, inert above z=662 m  || the floor adds the most variance at z = 392 m, where the LES already resolves 93.8% of sigma_w^2 (f_sgs 0.062 < 0.25). The floor's justification is UNRESOLVED variance, so its peak influence cannot sit where the model has resolved the field. Production runs put this at 0.37-0.56; the h-fell-through-to-the-domain-top defect put it at 0.008. Check st['h'] = 2372 m before trusting this footprint."
+    },
+    {
+     "name": "G2a integral saturates",
+     "ok": true,
+     "detail": "I(2L)/I(1L) - 1 = +6.12e-05 (|.| <= 1e-03); the cap is binding"
+    },
+    {
+     "name": "G2b integral magnitude",
+     "ok": true,
+     "detail": "1.103 in [0.6, 1.5]; Kljun on the same cells 0.899; asymptote 1 - z_m/z_i = 0.9880, LES/asymptote 1.116"
+    },
+    {
+     "name": "G2c integral vs asymptote",
+     "ok": null,
+     "detail": "LES/asymptote 1.116, Kljun/asymptote 0.910 -- REPORTED, not gated (a slope moves it legitimately)"
+    },
+    {
+     "name": "G3a peak converged",
+     "ok": true,
+     "detail": "half-vs-half |dpeak| 30 m <= 60 m (2 raster cells)"
+    },
+    {
+     "name": "G3b peak vs Kljun",
+     "ok": true,
+     "detail": "LES peak 210 m / Kljun 180 m = 1.17x in [0.4, 2.5]"
+    }
+   ],
+   "reported": {
+    "array_share": 0.018879971439384125,
+    "array_share_se": 0.0035390664691935703,
+    "centroid_m": 591.6685187326726,
+    "centroid_bearing": 314.7809809886141,
+    "area80_ha": 21.69,
+    "peak_x": 210.0,
+    "integral": 1.102792991048507,
+    "integral_kljun": 0.8987547858618286,
+    "overlap_kljun": 0.4918032786885246,
+    "overlap_halves": 0.4397905759162304,
+    "wrapped_fraction": 0.04918292725571757,
+    "h": 2371.97900390625,
+    "fac_max": 18.36230365333752,
+    "f_sgs_at_peak": 0.06183026906521205,
+    "z_fac_max": 539.74560546875
+   }
+  }
+ ]
+}

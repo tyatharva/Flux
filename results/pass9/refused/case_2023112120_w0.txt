@@ -1,0 +1,105 @@
+  ring: RingMeta(122x122x122, dt=0.0306749, 3d=['u', 'v', 'w', 'theta', 'TKE_0'], 2d=['fricVel', 'z0m', 'invOblen'], 36.5 MB/snapshot)
+
+=== /dev/shm/flux/case_2023112120: in-process hand-off ===
+  staging fs: 33611 MB free of 33624 MB, need >= 219 MB (4 queued x 36.5 MB + 2 margin) -- OK
+  expecting 541 snapshots over 1800-4500 s at a 5.0 s cadence
+  displacement height map from data/case_grids/case_2023112120/dmap.npy: 0.00-4.28 m, mean 1.516 m
+  receptor pinned to the TOWER cell (i,j) = (61, 61)
+  receptor level k = 2.8141; streaming, releasing each snapshot as it is consumed
+  drained and dropped 360 snapshots outside 1800-4500 s (the adjustment period; the producer stages from step 0 and blocks if they are not read)
+  cache 11.98 GB, window 1800-4500 s (cadence 5.0 s), loaded in 2435 s
+  cadence 5.0000 s against 5.0000 s expected, margin 0.000% of a 0.500 s bar
+  release period 1800.0000 s against 1800 s asked for (margin +0.00e+00 s, tolerance 0.5 s = 0.1 x the 5 s output interval)
+  receptor  (i,j,k)=(61,61,2.8141 fractional)  x=1845 y=1845  z=18.269 m ASL = 28.500 m AGL (ground -10.23 m)
+  displacement height at the receptor d=0.000 m  ->  effective aerodynamic height z-d = 28.500 m
+  releases  451 times over 2700-4500 s, 700 each = 315,700 particles; t_back=900 s
+  receptor means over the averaging period: U=+4.6133 V=-4.6484 W=-0.1398 m/s
+  double rotation: yaw -45.22 deg, pitch -1.223 deg (sin=-0.02134)
+  wrap-around cap: retiring trajectories past 3660 m of displacement (domain 3660 x 3660 m)
+  SGS floor mode 'surface': surface-layer target 1.24 u*, mixed-layer target 0.28 u* (w*=0.40 m/s)
+  SGS MOST floor: receptor d=0.000 m; factor 1.000 at the receptor (1.00-12054.64 over the column); active below z=2097 m (the model's own sigma_w^2 peak); sigma_w/u* 1.26 -> 1.26 (surface-layer target 1.25)
+  floor health: factor 1.000-1.205e+04 (peak at z=607 m), inflates sigma_w^2 by at most 588.5% at z=681 m where f_sgs = 0.051 (must be >= 0.25); inert above z=1011 m = 0.43 h; 92% of the added variance lands where the LES already resolves >=80%
+
+  *** FLOOR ALARM: the floor adds the most variance at z = 681 m, where the LES already resolves 94.9% of sigma_w^2 (f_sgs 0.051 < 0.25). The floor's justification is UNRESOLVED variance, so its peak influence cannot sit where the model has resolved the field. Production runs put this at 0.37-0.56; the h-fell-through-to-the-domain-top defect put it at 0.008. Check st['h'] = 2372 m before trusting this footprint.
+
+
+  *** FLOOR ALARM: the floor reaches 1.21e+04 somewhere in the column; a correction to a sub-grid variance does not have a factor of order 100.
+
+  monotonicity: 0 floor-induced turnover(s) in sigma_w^2 below the peak (must be 0); sub-grid weighting ON, eps-consistent ON; delivery MULTIPLICATIVE (retired)
+  mean streamline-frame w over all releases: +0.00315 m/s (model-frame mean was -0.13977); rotation removed 97.7% of it
+  released the LES at step 146700 after 46.8 s paused
+  host peak RSS 12.45 GB (field cache 11.98 GB + 36.5 MB/snapshot)
+  staging dir peak 58.3 MB = 1.6 snapshots, against a producer queue depth of 4 (146 MB) and a whole window of 19.7 GB
+  flux weight from touchdowns the periodic fold MOVED: 7.1%
+  footprint-weighted land-cover share (from touchdowns, unblurred):
+    class          folded  unwrapped     area
+    solar array     1.52%      1.63%    0.30%
+    water           0.52%      0.00%   13.61%
+    tree           21.83%     19.01%   25.87%
+    grassland       9.30%      9.07%   14.76%
+    cropland       66.54%     70.02%   43.23%
+    built           0.29%      0.27%    2.16%
+    wetland         0.00%      0.00%    0.01%
+    (unwrapped excludes touchdowns whose periodic fold moved them onto different
+     real geography; quote that column for the site)
+  LES scalars at z=28.40 m: U=6.73 m/s dir=316.7 deg  u*=0.436  h=2372 m  1/L=-1.28e-04
+    sigma_v 0.682 (resolved 0.442 + sub-grid, e_sgs=0.4051);  sigma_w 0.555 (resolved 0.194);  sigma_w/u* = 1.27
+  touchdowns 538,729;  largest single weight 219.6;  top 0.1% carry 9.1% of the total |weight|
+  integral of f_flux over the raster = 1.212 (all touchdowns 1.212)
+
+=== flat-and-neutral reference check (Kljun is DIAGNOSTIC here, DESCRIPTIVE over real surface) ===
+  LES + LPDM               peak    210 m   80% of f_y within   1561 m   80% area   27.3 ha   centroid    583 m at 313.6 deg
+  Kljun FFP                peak    180 m   80% of f_y within    903 m   80% area   14.3 ha   centroid    540 m at 316.7 deg
+  source-area overlap vs Kljun:  80% 45%   50% 55%
+  peak   LES 210 m   Kljun 180 m
+  integral over the raster:  LES 1.21   Kljun 0.90
+  integral vs the 1 - z_m/z_i asymptote: 0.9880 (z_m 28.5 m, z_i 2372 m); LES/asymptote = 1.227, Kljun/asymptote = 0.909
+  NOTE: the near-field peak is CONSTRAINED -- the MOST-anchored sigma_w floor is
+        anchored to surface-layer similarity, the same theory Kljun rests on. The
+        80% area, the tail and the land-cover shares are free.
+  direction drift ACROSS THE WINDOW: -7.93 deg/h over 0.75 h (541 dumps). The seed's own rate at freeze is in its manifest; whether the case inherits it is the open question in bin/direction_drift.py.
+
+=== where the integral comes from, by trajectory displacement ===
+   the domain repeats every 3660 m, so anything beyond one domain length is
+   turbulence the trajectory had already sampled once
+   within 0.25 L  (  915 m)   integral 0.797
+   within 0.50 L  ( 1830 m)   integral 1.019
+   within 0.75 L  ( 2745 m)   integral 1.150
+   within 1.00 L  ( 3660 m)   integral 1.212
+   within 1.25 L  ( 4575 m)   integral 1.212
+   within 1.50 L  ( 5490 m)   integral 1.212
+   within 2.00 L  ( 7320 m)   integral 1.212
+   within 2.50 L  ( 9150 m)   integral 1.212
+   within 3.00 L  (10980 m)   integral 1.212
+
+=== error floor: the two halves of this window ===
+  half 1                   peak    210 m   80% of f_y within   1469 m   80% area   24.7 ha   centroid    564 m at 311.8 deg
+  half 2                   peak    210 m   80% of f_y within   1640 m   80% area   25.5 ha   centroid    600 m at 315.2 deg
+  half-vs-half 80% overlap 56%   peak difference +0 m   centroid difference 50 m
+  land-cover share over 10 independent release groups (the sampling distribution of each share):
+    solar array  mean   1.96%  sd  0.99  se  0.31  range   0.93-  3.97  [1.3 4.0 2.8 2.1 1.1 1.8 2.9 1.6 0.9 1.0]
+    tree         mean  19.02%  sd  2.24  se  0.71  range  16.70- 23.05  [21.7 17.4 16.9 16.7 18.6 19.5 20.9 18.6 16.7 23.0]
+    grassland    mean   8.56%  sd  1.84  se  0.58  range   5.53- 11.16  [10.4 9.0 5.5 8.1 11.2 8.1 7.2 6.6 8.8 10.8]
+    cropland     mean  70.18%  sd  3.28  se  1.04  range  64.82- 74.18  [66.1 69.4 74.2 72.9 68.6 70.8 68.3 73.1 73.5 64.8]
+    built        mean   0.28%  sd  0.29  se  0.09  range  -0.24-  0.75  [0.5 0.2 0.5 0.2 0.5 -0.2 0.8 0.1 0.0 0.3]
+
+  touchdowns: kept 100,000 of 538,729 (18.56%), 39.7% carry a NEGATIVE weight, weight_scale 5.4 -> results/corpus/case_2023112120_w0_touchdowns.npz (1.49 MB)
+    integral over all space: full ensemble 1.2120, from the sample 1.2215 (+0.78%)
+
+  wrote results/corpus/case_2023112120_w0.npz and .json
+
+=== case_2023112120_w0.json: FAIL ===
+  [FAIL] G1 floor health          f_sgs at the floor's peak 0.051 (>= 0.25), factor 1.000-1.205e+04 peaking at z=607 m, inert above z=1011 m  || the floor adds the most variance at z = 681 m, where the LES already resolves 94.9% of sigma_w^2 (f_sgs 0.051 < 0.25). The floor's justification is UNRESOLVED variance, so its peak influence cannot sit where the model has resolved the field. Production runs put this at 0.37-0.56; the h-fell-through-to-the-domain-top defect put it at 0.008. Check st['h'] = 2372 m before trusting this footprint. || the floor reaches 1.21e+04 somewhere in the column; a correction to a sub-grid variance does not have a factor of order 100.
+  [ok  ] G2a integral saturates   I(2L)/I(1L) - 1 = -6.05e-05 (|.| <= 1e-03); the cap is binding
+  [ok  ] G2b integral magnitude   1.212 in [0.6, 1.5]; Kljun on the same cells 0.898; asymptote 1 - z_m/z_i = 0.9880, LES/asymptote 1.227
+  [??  ] G2c integral vs asymptote LES/asymptote 1.227, Kljun/asymptote 0.909 -- REPORTED, not gated (a slope moves it legitimately)
+  [ok  ] G3a peak converged       half-vs-half |dpeak| 0 m <= 60 m (2 raster cells)
+  [ok  ] G3b peak vs Kljun        LES peak 210 m / Kljun 180 m = 1.17x in [0.4, 2.5]
+  --- REPORTED, not gated (the share is the result, not the detector) ---
+    array share 1.52% +/- 0.31, centroid 583 m at 313.6 deg, A80 27.27 ha, overlap vs Kljun 0.45, wrapped 7.1%, h 2372 m
+
+=== 1 case(s): 0 OK, 1 FAIL, 0 UNJUDGED ===
+  wrote results/corpus/case_2023112120.monitor.json
+  LES sigma_w at the receptor 0.555 m/s; tower H = +1 W/m2 -> bin [0, 13] (n = 1032)
+  tower sigma_w(28 m): median 0.468, IQR [0.355, 0.634]  -> INSIDE, 1.19x the median
+  sigma_w gate: OK

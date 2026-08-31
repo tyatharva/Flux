@@ -66,7 +66,7 @@
    "gate_state": "INDETERMINATE"
   }
  },
- "git_commit": "cd7a81e30ea6fd0af682b21c50f2eb5eb02839bb",
+ "git_commit": "27d53d1fbcd0a2446890fce2456adf90cd1b19ab",
  "grid": {
   "n": 122,
   "pad": 3,
@@ -84,7 +84,7 @@
   ],
   "frame": "north-up map, receptor at the origin, NOT wind-aligned",
   "z0_geometric_m": 0.06148948626243361,
-  "grid_dir": "data/case_grids/case_2023111718"
+  "grid_dir": "data/case_grids/case_2023112120"
  },
- "host": "8ea9e90a355e"
+ "host": "5cf0b70e4d0d"
 }

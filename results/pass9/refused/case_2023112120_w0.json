@@ -1,0 +1,155 @@
+{
+ "closure": {
+  "eps_consistent": true,
+  "form": "multiplicative",
+  "mode": "surface",
+  "note": "the near field is closure-dominated at z/Delta ~ 1; the sigma_w anchor is worth 46-66% shape L1 against a 38% sampling floor (PROJECT_BRIEF.md)",
+  "rel_seconds": 1800.0,
+  "sgs_most": true,
+  "subgrid_weight": true,
+  "tback_s": 900.0
+ },
+ "diagnostics": {
+  "cover_share": {
+   "built": 0.0029071329481639373,
+   "cropland": 0.6654431995408225,
+   "grassland": 0.09298142917189439,
+   "solar array": 0.015151326264287324,
+   "tree": 0.21829999072395748,
+   "water": 0.005209063082102047,
+   "wetland": 7.858268772468311e-06
+  },
+  "cover_share_groups": 10,
+  "cover_share_se": {
+   "built": 0.0009300239282589674,
+   "cropland": 0.010362951527715264,
+   "grassland": 0.005820540906420897,
+   "solar array": 0.0031262235929515364,
+   "tree": 0.00708483500774364
+  },
+  "floor_health": {
+   "alarms": [
+    "the floor adds the most variance at z = 681 m, where the LES already resolves 94.9% of sigma_w^2 (f_sgs 0.051 < 0.25). The floor's justification is UNRESOLVED variance, so its peak influence cannot sit where the model has resolved the field. Production runs put this at 0.37-0.56; the h-fell-through-to-the-domain-top defect put it at 0.008. Check st['h'] = 2372 m before trusting this footprint.",
+    "the floor reaches 1.21e+04 somewhere in the column; a correction to a sub-grid variance does not have a factor of order 100."
+   ],
+   "f_sgs_at_peak": 0.05059679052553645,
+   "f_sgs_at_receptor": 0.8679251977194133,
+   "fac_at_receptor": 1.0,
+   "fac_max": 12054.63967601271,
+   "fac_min": 1.0,
+   "h": 2371.97900390625,
+   "inflation_max": 5.884751124593065,
+   "n_active": 69,
+   "ok": false,
+   "share_resolved": 0.918589018541897,
+   "sigma_w_over_ustar_at_receptor": 1.2577737473108621,
+   "z_delta_max": 680.6436767578125,
+   "z_fac_max": 607.440673828125,
+   "z_inert": 1011.3754272460938,
+   "z_inert_over_h": 0.4263846457243208,
+   "z_receptor": 30.000547409057617
+  },
+  "integral_asymptote": 0.9879847165792508,
+  "integral_kljun": 0.8980964362060498,
+  "integral_les": 1.2120175563707625,
+  "integral_over_asymptote": 1.226757394149974,
+  "overlap80_kljun": 0.44879518072289154,
+  "touchdowns": {
+   "domain": {
+    "Lx": 3660.0,
+    "Ly": 3660.0,
+    "dx": 30.0,
+    "dy": 30.0
+   },
+   "integral_from_sample": 1.2215236395747546,
+   "integral_full": 1.2120175563707625,
+   "n_particles": 315700.0,
+   "n_release_groups": 10.0,
+   "n_sample": 100000.0,
+   "n_touchdown_total": 538729.0,
+   "negative_weight_fraction": 0.39699,
+   "path": "results/corpus/case_2023112120_w0_touchdowns.npz",
+   "receptor": {
+    "x": 1845.0,
+    "y": 1845.0,
+    "z_agl": 28.5
+   },
+   "signed": 1.0,
+   "sum_wt_sample": 71582.375,
+   "sum_wt_total": 382633.9425462497,
+   "unfolded": 1.0,
+   "weight_scale": 5.38729,
+   "wind_angle_deg": -46.69068430309454
+  },
+  "wind_angle": -46.69068430309454
+ },
+ "forcing": {
+  "achieved_minus_requested": {
+   "dir_deg": -9.19,
+   "zi_m": 1660.58
+  },
+  "representable": true,
+  "requested": {
+   "G": 12.7524,
+   "G_dir_from_deg": 349.204,
+   "bowen": 0.015151515151515152,
+   "hrrr_10m_dir_deg": 325.9245523980262,
+   "predicted_10m_dir_deg": 325.882,
+   "wth_virtual": 0.0008132855001714884,
+   "zi_m": 711.3944702148438
+  },
+  "valid_time": "2023-11-21T20:00:00Z"
+ },
+ "inputs": {
+  "L": -7803.593546107782,
+  "h": 2371.97900390625,
+  "inv_L": -0.0001281460898868538,
+  "sigma_v": 0.6820763958250916,
+  "u_mean": 6.7330205608771925,
+  "ustar": 0.4360882800453748,
+  "wdir": 316.69068430309454
+ },
+ "parent": "case_2023112120",
+ "run_id": "case_2023112120_w0",
+ "seed": {
+  "d_dir_deg": 4.79,
+  "dwdir_dt_deg_per_h": -5.826037535201809,
+  "gate_drifting": [
+   "z_i"
+  ],
+  "gate_indeterminate": [
+   "sigma_v/u*",
+   "sigma_w/u* at the receptor",
+   "TKE_BL/u*^2"
+  ],
+  "gate_state": "DRIFTING",
+  "job": "seed_nbl-deep_a015",
+  "labelled_by": "achieved+projected",
+  "project_h": 0.8333333333333334,
+  "regime_match": true,
+  "rot": 3,
+  "seed_dir_deg": 321.1,
+  "seed_dir_frozen_deg": 325.95,
+  "seed_zi_m": 625.4
+ },
+ "site": {
+  "d_recept_m": 0.0,
+  "note": "constant across the corpus: a single-tower emulator",
+  "z0_geometric_m": 0.06148948626243361,
+  "z_agl_m": 28.5,
+  "z_recept_m": 28.5,
+  "z_target_m": 28.5
+ },
+ "split_key": "case_2023112120",
+ "target": {
+  "array": "les",
+  "file": "results/corpus/case_2023112120_w0.npz",
+  "reference": "kljun",
+  "shape": [
+   122,
+   122
+  ],
+  "units": "1/m^2, normalised so the raster integrates to 1.2120"
+ },
+ "window_index": 0
+}
