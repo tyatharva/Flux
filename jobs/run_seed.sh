@@ -141,6 +141,67 @@ echo "########## seed $NAME ##########"
 date '+%F %H:%M:%S'
 echo "  dt $DT, dump every $FRQ steps, $TOTAL steps in ONE invocation (proj ${WALLMIN} min wall)"
 
+# THE STUB SHORT-CIRCUITS BEFORE THE GPU PREFLIGHT, DELIBERATELY.
+# It sat after it at first, and the preflight -- which asks nvidia-smi about the device
+# CUDA_VISIBLE_DEVICES names, and in native mode DIES if there is not one -- killed every
+# stubbed job before the stub could run. The whole point of the stub is to exercise the
+# scheduler on a box with fewer GPUs than workers, so it must not require the GPU it is
+# pretending to use.
+# ---- STUB_SEED: the whole driver, with the LES and the gate replaced ---------------
+#
+# THIS EXISTS TO TEST THE SCHEDULER, NOT THE PHYSICS, AND IT CAN NEVER BE MISTAKEN FOR A
+# SEED. bin/run_seeds.py fans 30 jobs across N GPUs with a work queue, and the claim that
+# a freed GPU picks up the next job is exactly the kind of claim this project does not
+# accept as an assertion. Demonstrating it with real seeds costs ~29 GPU-h; demonstrating
+# it with the LES stubbed costs seconds and exercises every line of the ORCHESTRATION --
+# the queue, the per-GPU assignment, the failure path, the resume path, the summary.
+#
+# WHAT IT FABRICATES, AND WHAT IT DOES NOT. It writes return/seed_restart.nc,
+# return/stationarity.json, return/run.log and return/manifest.json with the shapes the
+# orchestrator reads, sleeps STUB_SEED_S seconds to occupy the worker, and exits. It runs
+# NO FastEddy, NO stationarity gate and NO acceptance battery.
+#
+# `meta.stub = true` and `stub: true` go into BOTH json artifacts, the restart is a 1 kB
+# text file rather than a 73 MB netCDF, and bin/run_seeds.py refuses to count a stub as
+# accepted. That is the same discipline STUB_LES=1 already uses for corpus cases
+# (PROJECT_BRIEF.md: "A STUBBED RECORD CAN NEVER MASQUERADE AS A CORPUS RECORD").
+#
+# STUB_SEED_FAIL=1 makes it fail instead, so "a failed seed frees its GPU rather than
+# stranding it" is a thing that can be SHOWN rather than argued.
+if [ "${STUB_SEED:-0}" = "1" ]; then
+  echo "  *** STUB_SEED=1: no LES, no gate, no battery. This is a SCHEDULER test."
+  mkdir -p "$JOB/output" "$JOB/return"
+  sleep "${STUB_SEED_S:-2}"
+  if [ "${STUB_SEED_FAIL:-0}" = "1" ]; then
+    echo "  *** STUB_SEED_FAIL=1: failing deliberately, to show the GPU is released"
+    exit 1
+  fi
+  : > "$JOB/output/$OUTBASE.$TOTAL"
+  printf 'STUB. No FastEddy ran. %s steps at dt %s.\nsimulation is complete\n' \
+    "$TOTAL" "$DT" > "$JOB/return/run.log"
+  printf 'STUB SEED -- NOT A SEED. Produced by jobs/run_seed.sh with STUB_SEED=1 to\n'\
+'exercise the bin/run_seeds.py work queue. No LES ran. Do not use.\n' \
+    > "$JOB/return/seed_restart.nc"
+  python3 - "$JOB/manifest.json" "$JOB/return/manifest.json" \
+            "$JOB/return/stationarity.json" "$TOTAL" "$DT" <<'PYSTUB'
+import json, sys
+src, dman, dstat, total, dt = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4]), float(sys.argv[5])
+m = json.load(open(src))
+m["stub"] = True
+m.setdefault("meta", {})["stub"] = True
+m.setdefault("run", {})["ceiling_steps"] = total
+m["run"]["ceiling_sim_h"] = total * dt / 3600.0
+m["achieved"] = {"stub": True}
+json.dump(m, open(dman, "w"), indent=1)
+json.dump({"label": m["job"], "stub": True, "pass": False,
+           "gated": [], "drifting": [], "indeterminate": [],
+           "final": {"stub": True}, "n_dumps": 0},
+          open(dstat, "w"), indent=1)
+PYSTUB
+  echo "########## seed $NAME: STUB (not a seed) ##########"
+  exit 0
+fi
+
 # ---- preflight: the GPU, before any GPU time is spent -----------------------------
 #
 # THIS CHECK USED TO ASK THE WRONG GPU A QUESTION WHOSE ANSWER IT THEN GOT WRONG.

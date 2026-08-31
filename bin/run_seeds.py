@@ -54,9 +54,19 @@ _print_lock = threading.Lock()
 _logfh = None
 
 
-def say(*a):
+_t0 = time.time()
+
+
+def say(*a, stamp=True):
+    """Print and log. TIMESTAMPED, because the log is the evidence for the schedule.
+
+    "a freed GPU picks up the next job" is a claim about WHEN things happened, and an
+    unstamped log cannot support it. Seconds since this invocation started, so the
+    timeline is readable without correlating wall-clock across a 16-way run.
+    """
     with _print_lock:
-        msg = " ".join(str(x) for x in a)
+        body = " ".join(str(x) for x in a)
+        msg = f"[{time.time() - _t0:8.1f}s] {body}" if stamp else body
         print(msg, flush=True)
         if _logfh:
             _logfh.write(msg + "\n")
@@ -127,6 +137,85 @@ class VramWatch(threading.Thread):
                 p = [x.strip() for x in ln.split(",")]
                 if len(p) == 2 and int(p[0]) in self.peak_dev:
                     self.peak_dev[int(p[0])] = max(self.peak_dev[int(p[0])], int(float(p[1])))
+            self.stop.wait(self.period)
+
+
+class HostWatch(threading.Thread):
+    """Peak HOST memory for the whole machine, and for FastEddy alone.
+
+    WHY IT IS HERE. The corpus rental is the expensive one, and its sizing question is
+    "how much system RAM does N-way need". PROJECT_BRIEF.md's 12.45 GB figure is the peak host
+    RSS of a CORPUS CASE -- the LPDM's 12.0 GB fp16 field cache, which `compute_footprint`
+    random-accesses -- and a SEED runs no LPDM at all. So the two numbers are different by
+    construction and quoting the case number for a seed run would over-size the box by an
+    order of magnitude. Both are reported, labelled, and neither is inferred from the other.
+
+    Three quantities, because they answer different questions:
+      cgroup_peak   what the CONTAINER used, which is what an instance has to be sized for
+      fe_rss_sum    the sum over live FastEddy processes: how N-way scales
+      mem_avail_min the low-water mark of MemAvailable: how close the box came to swapping
+    """
+
+    CG = ("/sys/fs/cgroup/memory.peak", "/sys/fs/cgroup/memory.current",
+          "/sys/fs/cgroup/memory/memory.max_usage_in_bytes",
+          "/sys/fs/cgroup/memory/memory.usage_in_bytes")
+
+    def __init__(self, period=5.0):
+        super().__init__(daemon=True)
+        self.period, self.stop = period, threading.Event()
+        self.cgroup_peak = 0
+        self.fe_rss_peak = 0
+        self.fe_rss_peak_n = 0
+        self.mem_avail_min = None
+        self.mem_total = self._meminfo("MemTotal")
+
+    @staticmethod
+    def _meminfo(key):
+        try:
+            for ln in open("/proc/meminfo"):
+                if ln.startswith(key + ":"):
+                    return int(ln.split()[1]) * 1024
+        except Exception:
+            pass
+        return None
+
+    def _cgroup(self):
+        for p in self.CG:
+            try:
+                return int(open(p).read().strip())
+            except Exception:
+                continue
+        return 0
+
+    @staticmethod
+    def _fe_rss():
+        """Summed RSS of every live FastEddy, and how many there were."""
+        tot = n = 0
+        for d in os.listdir("/proc"):
+            if not d.isdigit():
+                continue
+            try:
+                with open(f"/proc/{d}/cmdline", "rb") as f:
+                    if b"FEMAIN/FastEddy" not in f.read():
+                        continue
+                for ln in open(f"/proc/{d}/status"):
+                    if ln.startswith("VmRSS:"):
+                        tot += int(ln.split()[1]) * 1024
+                        n += 1
+                        break
+            except Exception:
+                continue
+        return tot, n
+
+    def run(self):
+        while not self.stop.is_set():
+            self.cgroup_peak = max(self.cgroup_peak, self._cgroup())
+            rss, n = self._fe_rss()
+            if rss > self.fe_rss_peak:
+                self.fe_rss_peak, self.fe_rss_peak_n = rss, n
+            av = self._meminfo("MemAvailable")
+            if av is not None:
+                self.mem_avail_min = av if self.mem_avail_min is None else min(self.mem_avail_min, av)
             self.stop.wait(self.period)
 
 
@@ -255,8 +344,15 @@ def run_one(job, gpu, a, workroot, outroot, tb):
            "base_angle_deg": job.get("base_angle_deg"), "gpu": gpu,
            "status": "unknown", "reason": "", "gate_state": None, "gate_limits": [],
            "wall_s": None, "gpu_s": None, "sim_h": None, "stop_step": None,
-           "ceiling_sim_h": a.ceiling_h, "accepted": False}
+           "ceiling_sim_h": a.ceiling_h, "accepted": False,
+           # THE TIMELINE, IN SECONDS SINCE THE RUN STARTED. This is what makes "a freed
+           # GPU picked up the next job" a checkable statement rather than a design
+           # intention: bin/test_work_queue.sh reads these back and asserts that some
+           # worker's second job STARTED after its first one ENDED, and that the number of
+           # jobs overlapping in time never exceeded the worker count.
+           "t_start_s": None, "t_end_s": None}
     t0 = time.time()
+    rec["t_start_s"] = round(t0 - _t0, 2)
     wd = os.path.join(workroot, name)
     try:
         src = os.path.join(a.jobs_dir, name)
@@ -292,29 +388,54 @@ def run_one(job, gpu, a, workroot, outroot, tb):
                 except Exception:
                     js = None
             rec["gate_state"], rec["gate_limits"] = gate_state(js)
-            # accepted is derived the SAME way as on the fresh path. A DRIFTING seed that
-            # happens to be on disk is still one pick_seed.py refuses.
+            # A STUB ON DISK IS NOT A COMPLETE SEED, AND THE RESUME PATH HAD TO BE TOLD.
+            # MEASURED: re-running the scheduler test over an /out that already held its
+            # own stub output reported "18 accepted" -- the fresh path excludes a stub
+            # explicitly, the skip path derived `accepted` from the gate state alone, and
+            # the gate state of a stub is whatever its fabricated JSON says. That is
+            # precisely the failure PROJECT_BRIEF.md forbids: a stubbed record masquerading as a
+            # real one. The stub flag travels in the artifact, so read it from there.
+            stub_on_disk = bool(js and js.get("stub"))
+            if not stub_on_disk:
+                try:
+                    stub_on_disk = bool(json.load(
+                        open(os.path.join(wd, "return", "manifest.json"))).get("stub"))
+                except Exception:
+                    pass
+            rec["stub_on_disk"] = stub_on_disk
             rec.update(status="skipped", reason="already complete in the work directory",
-                       accepted=rec["gate_state"] != "DRIFTING")
-            man = json.load(open(os.path.join(wd, "manifest.json")))
-            step = newest_step(os.path.join(wd, "output"), man["run"]["outFileBase"])
-            rec["stop_step"] = step
-            rec["sim_h"] = round(step * float(man["run"]["dt"]) / 3600.0, 4) if step else None
-            rec["gpu_s_run"] = fasteddy_gpu_seconds(os.path.join(wd, "return", "run.log"))
-            rec["gpu_s_accel"] = fasteddy_gpu_seconds(os.path.join(wd, "return", "accel.log"))
-            rec["gpu_s"] = (rec["gpu_s_run"] or 0.0) + (rec["gpu_s_accel"] or 0.0) or None
-            rec["early_stopped"] = os.path.isfile(os.path.join(wd, "output", ".early_stop"))
-            # AND THE COPY HAPPENS ANYWAY. The skip is about not re-spending GPU-hours, not
-            # about withholding the artifact -- a resumed run must leave the same <out>/seeds
-            # a first run would.
-            dst = os.path.join(outroot, "seeds", name)
-            os.makedirs(dst, exist_ok=True)
-            for f in os.listdir(os.path.join(wd, "return")):
-                shutil.copy2(os.path.join(wd, "return", f), os.path.join(dst, f))
-            rec["out_dir"] = dst
-            say(f"  [gpu {gpu}] {name}: already complete in {wd}; skipping the GPU work "
-                f"(gate {rec['gate_state']}, --force to redo)")
-            return rec
+                       accepted=(not a.stub and not stub_on_disk
+                                 and rec["gate_state"] != "DRIFTING"))
+            if stub_on_disk and not a.stub:
+                # Refusing to SKIP it, not merely refusing to accept it: leaving a stub in
+                # place would leave a 1 kB text file where the corpus expects a 73 MB
+                # restart, and every later resume would skip it again.
+                say(f"  [gpu {gpu}] {name}: the work directory holds a STUB, not a seed; "
+                    f"re-running it for real")
+                shutil.rmtree(os.path.join(wd, "output"), ignore_errors=True)
+                shutil.rmtree(os.path.join(wd, "return"), ignore_errors=True)
+                rec.update(status="unknown", reason="", accepted=False)
+                stub_on_disk = False
+            else:
+                man = json.load(open(os.path.join(wd, "manifest.json")))
+                step = newest_step(os.path.join(wd, "output"), man["run"]["outFileBase"])
+                rec["stop_step"] = step
+                rec["sim_h"] = round(step * float(man["run"]["dt"]) / 3600.0, 4) if step else None
+                rec["gpu_s_run"] = fasteddy_gpu_seconds(os.path.join(wd, "return", "run.log"))
+                rec["gpu_s_accel"] = fasteddy_gpu_seconds(os.path.join(wd, "return", "accel.log"))
+                rec["gpu_s"] = (rec["gpu_s_run"] or 0.0) + (rec["gpu_s_accel"] or 0.0) or None
+                rec["early_stopped"] = os.path.isfile(os.path.join(wd, "output", ".early_stop"))
+                # AND THE COPY HAPPENS ANYWAY. The skip is about not re-spending GPU-hours,
+                # not about withholding the artifact -- a resumed run must leave the same
+                # <out>/seeds a first run would.
+                dst = os.path.join(outroot, "seeds", name)
+                os.makedirs(dst, exist_ok=True)
+                for f in os.listdir(os.path.join(wd, "return")):
+                    shutil.copy2(os.path.join(wd, "return", f), os.path.join(dst, f))
+                rec["out_dir"] = dst
+                say(f"  [gpu {gpu}] {name}: already complete in {wd}; skipping the GPU work "
+                    f"(gate {rec['gate_state']}, --force to redo)")
+                return rec
         if os.path.isfile(done_restart) and not a.force:
             say(f"  [gpu {gpu}] {name}: a restart is on disk but the acceptance battery is "
                 f"not; re-running the seed from step 0")
@@ -373,6 +494,11 @@ def run_one(job, gpu, a, workroot, outroot, tb):
         if job.get("regime") in a.accel_regimes:
             env["SEED_ACCEL_S"] = str(a.accel_s)
             env["SEED_ACCEL_WTH"] = str(a.accel_wth)
+        if a.stub:
+            env["STUB_SEED"] = "1"
+            env["STUB_SEED_S"] = str(a.stub_seconds)
+            env["STUB_SEED_FAIL"] = "1" if name in a.stub_fail_set else "0"
+            rec["stub"] = True
 
         say(f"  [gpu {gpu}] {name}: starting ({job.get('regime')}, rung {job.get('rung')}"
             f"{', accelerator ' + env['SEED_ACCEL_S'] + ' s' if 'SEED_ACCEL_S' in env else ''})")
@@ -410,7 +536,7 @@ def run_one(job, gpu, a, workroot, outroot, tb):
             except Exception:
                 pass
             rec.update(status="failed",
-                       reason=f"no seed_restart.nc (rc={r.returncode}) :: {tail.strip()[-400:]}")
+                       reason=f"no seed_restart.nc (rc={rc}) :: {tail.strip()[-400:]}")
             return rec
 
         man = json.load(open(os.path.join(wd, "manifest.json")))
@@ -463,7 +589,9 @@ def run_one(job, gpu, a, workroot, outroot, tb):
         # limit resolved in band". The gate state travels with the seed and pick_seed.py
         # is what decides whether a given case may use it. A DRIFTING limit is the one
         # verdict that is not usable, because pick_seed refuses it outright.
-        rec["accepted"] = (rec["gate_state"] != "DRIFTING"
+        # A STUB IS NEVER ACCEPTED, whatever else is on disk.
+        rec["accepted"] = (not a.stub
+                           and rec["gate_state"] != "DRIFTING"
                            and os.path.getsize(restart) > 0)
         rec["status"] = "ok"
         if rec["gate_state"] == "DRIFTING":
@@ -484,6 +612,7 @@ def run_one(job, gpu, a, workroot, outroot, tb):
         rec.update(status="failed", reason=f"{type(e).__name__}: {e}")
     finally:
         rec["wall_s"] = round(time.time() - t0, 1)
+        rec["t_end_s"] = round(time.time() - _t0, 2)
         # The dumps are the biggest thing a seed leaves and they are not a deliverable:
         # ~1.8 GB per seed at the 2.0 h ceiling, and the ONE artifact anything downstream
         # reads is return/seed_restart.nc. Kept by default so a failure can be examined.
@@ -520,11 +649,26 @@ def main():
                     help="delete each seed's output/ once it succeeds (~1.8 GB per seed)")
     ap.add_argument("--job-timeout", type=int, default=6 * 3600)
     ap.add_argument("--accept-timeout", type=int, default=3600)
+    # ---- SCHEDULER SELF-TEST ONLY. Both refuse to be useful for anything else. ----
+    ap.add_argument("--stub", action="store_true",
+                    help="SCHEDULER TEST: run jobs/run_seed.sh with STUB_SEED=1 -- no LES, "
+                         "no gate, no battery. Every artifact is stamped stub:true and can "
+                         "never be counted as an accepted seed.")
+    ap.add_argument("--stub-seconds", type=float, default=2.0,
+                    help="how long each stubbed job occupies its worker")
+    ap.add_argument("--stub-fail", default="",
+                    help="comma-separated job names the stub should FAIL, to show that a "
+                         "failed seed frees its GPU instead of stranding it")
+    ap.add_argument("--assume-gpus", type=int, default=0,
+                    help="SCHEDULER TEST: pretend this many GPUs are visible. Refused "
+                         "unless --stub, because it would otherwise hand real seeds to "
+                         "devices that do not exist.")
     ap.add_argument("--force", action="store_true",
                     help="re-run seeds whose work directory already holds a finished restart")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
     a.accel_regimes = {s.strip() for s in a.accel_regimes.split(",") if s.strip()}
+    a.stub_fail_set = {s.strip() for s in a.stub_fail.split(",") if s.strip()}
 
     os.chdir(ROOT)
     os.makedirs(a.out, exist_ok=True)
@@ -532,16 +676,34 @@ def main():
     _logfh = open(os.path.join(a.out, "run_seeds.log"), "a")
 
     # ---- provenance, first, because a rented machine has no other way to know ----
-    say("=" * 78)
+    say("=" * 78, stamp=False)
     say("Flux seed library -- FastEddy v5.0.1 (kegonsa fork)")
     if os.path.isfile(PROV):
         for ln in open(PROV):
-            say("  " + ln.rstrip())
+            say("  " + ln.rstrip(), stamp=False)
     else:
         say("  WARNING: no IMAGE_PROVENANCE.txt; this is not the baked image")
     say("=" * 78)
 
+    if a.assume_gpus and not a.stub:
+        raise SystemExit(
+            "FATAL: --assume-gpus is a scheduler self-test and requires --stub. Without it "
+            "this would hand real seeds to devices that do not exist, and FastEddy would "
+            "abort in gpuAssert on every one of them.")
+    if a.stub:
+        say("*" * 78, stamp=False)
+        say("*** --stub: NO LES, NO GATE, NO ACCEPTANCE BATTERY. This is a test of the", stamp=False)
+        say("*** WORK QUEUE and nothing else. Every artifact it writes is stamped", stamp=False)
+        say("*** stub:true and is refused by bin/check_npz.py and by pick_seed.py.", stamp=False)
+        say("*" * 78, stamp=False)
+
     gpus = discover_gpus()
+    if a.assume_gpus:
+        # Fabricated, and SAID SO. The uuid is a literal so VramWatch's map never matches
+        # and no fake memory number can be reported as a measurement.
+        gpus = [{"index": i, "name": "FAKE (--assume-gpus, scheduler test)", "cc": "0.0",
+                 "vram_mib": 0, "uuid": f"FAKE-{i}"} for i in range(a.assume_gpus)]
+        say(f"  --assume-gpus {a.assume_gpus}: the GPU list is FABRICATED for this test")
     if not gpus:
         raise SystemExit("FATAL: nvidia-smi reported no GPUs. Was --gpus all passed to docker run?")
     if a.gpus:
@@ -558,7 +720,7 @@ def main():
     # ---- does the binary actually carry code for these cards? --------------------
     sass = binary_sass()
     say(f"  FastEddy SASS: {' '.join(sass) if sass else '(cuobjdump unavailable)'}")
-    if sass:
+    if sass and not a.assume_gpus:
         bad = [g for g in use if f"sm_{g['cc'].replace('.', '')}" not in sass]
         if bad:
             raise SystemExit(
@@ -598,6 +760,12 @@ def main():
                 f"G {j['target']['G']:.1f}  {j['run']['steps_total']} steps")
         return 0
 
+    if a.stub:
+        # A stub writes a 1 kB text file where a 73 MB netCDF goes, so the battery would
+        # fail on every step for reasons that say nothing about the scheduler; and the
+        # sweep needs a real GPU. Forced rather than merely defaulted, so a stub run cannot
+        # be talked into producing something that looks like an acceptance.
+        a.skip_accept, a.no_sweep, a.threadblock = True, True, ""
     workroot = os.path.join(a.out, "work")
     os.makedirs(os.path.join(workroot, "_scratch"), exist_ok=True)
 
@@ -637,6 +805,8 @@ def main():
     # ---- the queue ---------------------------------------------------------------
     vram = VramWatch({g["uuid"]: g["index"] for g in use})
     vram.start()
+    host = HostWatch()
+    host.start()
 
     q = queue.Queue()
     for j in jobs:
@@ -684,6 +854,7 @@ def main():
     for t in threads:
         t.join()
     vram.stop.set()
+    host.stop.set()
     elapsed = time.time() - t_start
 
     # ---- the summary --------------------------------------------------------------
@@ -775,6 +946,47 @@ def main():
                 say(f"    {j}: k0/k1 {st} -- this established NOTHING about dt")
         say("  A run whose k0/k1 FAILS never gets this far: docker/k0k1_check.py exits 1,")
         say("  check_run.sh fails the run and jobs/run_seed.sh dies before a seed exists.")
+    # ---- HOST MEMORY. The number the next rental is sized on. --------------------
+    gb = lambda b: (b or 0) / 1024**3
+    say(f"\n  HOST MEMORY under {len(use)}-way load:")
+    say(f"    peak container RSS (cgroup)      : {gb(host.cgroup_peak):6.2f} GB")
+    if host.fe_rss_peak:
+        say(f"    peak summed FastEddy RSS         : {gb(host.fe_rss_peak):6.2f} GB "
+            f"over {host.fe_rss_peak_n} concurrent process(es)"
+            + (f"  = {gb(host.fe_rss_peak) / host.fe_rss_peak_n:.2f} GB each"
+               if host.fe_rss_peak_n else ""))
+    if host.mem_total:
+        say(f"    machine RAM                      : {gb(host.mem_total):6.2f} GB"
+            + (f", low-water MemAvailable {gb(host.mem_avail_min):.2f} GB"
+               if host.mem_avail_min is not None else ""))
+    say("    NOTE: a SEED runs no LPDM, so this is NOT the corpus-case figure. PROJECT_BRIEF.md's")
+    say("    12.45 GB peak host RSS is a CASE -- the LPDM's 12.0 GB fp16 field cache, which")
+    say("    a seed never allocates. Size a seed box on the number above; size a CORPUS box")
+    say("    on ~12.5 GB per concurrent case.")
+
+    # ---- THE QUEUE, AUDITED FROM THE TIMELINE ------------------------------------
+    tl = [r for r in results if r.get("t_start_s") is not None and r.get("t_end_s") is not None]
+    if tl:
+        per_gpu = {}
+        for r in tl:
+            per_gpu.setdefault(r["gpu"], []).append(r)
+        reused = {g: v for g, v in per_gpu.items() if len(v) > 1}
+        # peak concurrency, from the interval overlaps rather than from the design
+        edges = sorted([(r["t_start_s"], 1) for r in tl] + [(r["t_end_s"], -1) for r in tl])
+        cur = peak = 0
+        for _, d in edges:
+            cur += d
+            peak = max(peak, cur)
+        say(f"\n  QUEUE, from the recorded timeline (not from the design):")
+        say(f"    workers used            : {len(per_gpu)} of {len(use)}")
+        say(f"    workers that took >1 job: {len(reused)}"
+            + (f"  ({', '.join(f'gpu {g}: {len(v)}' for g, v in sorted(reused.items()))})"
+               if reused else ""))
+        say(f"    peak concurrent jobs    : {peak}  (worker count {len(use)})")
+        if peak > len(use):
+            say(f"    *** MORE JOBS RAN AT ONCE THAN THERE ARE WORKERS. The queue is not "
+                f"bounding concurrency.")
+
     if max(vram.peak.values(), default=0) == 0:
         say("  peak VRAM: nothing ran on a GPU during this invocation (every seed was "
             "already complete), so there is nothing to report.")
@@ -827,6 +1039,14 @@ def main():
            "early_stop": a.early_stop, "pass": a.pass_,
            "wall_h": round(elapsed / 3600, 3),
            "peak_vram_mib_compute": vram.peak, "peak_vram_mib_device": vram.peak_dev,
+           "stub": bool(a.stub),
+           "host_memory": {"cgroup_peak_bytes": host.cgroup_peak,
+                           "fasteddy_rss_peak_bytes": host.fe_rss_peak,
+                           "fasteddy_rss_peak_nproc": host.fe_rss_peak_n,
+                           "mem_total_bytes": host.mem_total,
+                           "mem_available_min_bytes": host.mem_avail_min,
+                           "note": "A seed runs no LPDM. PROJECT_BRIEF.md's 12.45 GB is a CORPUS "
+                                   "CASE (the LPDM field cache), not a seed."},
            "n_attempted": len(results), "n_completed": len(ok), "n_accepted": len(acc),
            "seeds": results}
     mp = os.path.join(a.out, "machine_manifest.json")

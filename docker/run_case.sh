@@ -43,6 +43,9 @@ set -uo pipefail
 FLUX_ROOT="${FLUX_ROOT:-/home/atyagi/Flux}"
 FLUX_IMAGE="${FLUX_IMAGE:-flux-fasteddy:cuda118}"
 NATIVE="${FLUX_NATIVE:-0}"
+# Where the per-GPU flock files live. /var/lock is created in the image; a workstation
+# running native mode by hand can point this anywhere writable.
+FLUX_LOCKDIR="${FLUX_LOCKDIR:-/var/lock/flux}"
 FE_BIN="${FE_BIN:-${FLUX_ROOT}/FastEddy-model-5.0.1/SRC/FEMAIN/FastEddy}"
 
 CASE_DIR="$1"; CASE_FILE="$2"
@@ -86,22 +89,67 @@ if [ "$NATIVE" = "1" ]; then
   # silently permits exactly what it exists to forbid. It was written that way for one
   # revision here, to suppress a "/proc/196/cmdline: No such file" race message -- a
   # cosmetic fix that disabled a correctness guard. Read the file, then test the VALUE.
+  # IT MATCHES THE PROCESS'S ACTUAL EXECUTABLE, NOT TEXT IN ITS COMMAND LINE.
+  # The first version tested whether the whole cmdline CONTAINED "FEMAIN/FastEddy", and
+  # that matches far more than FastEddy: any shell running a script whose text mentions the
+  # path, a `bash -c` wrapper, a grep for it, an editor with the file open. MEASURED -- the
+  # mutex race test refused all eight racers, and the pids it named were the test harness's
+  # own shells, because the harness script contains the string. A guard that refuses
+  # legitimate runs is worse than one that is merely loose: it would strand a GPU.
+  #
+  # /proc/<pid>/exe is the resolved binary and cannot be spoofed by text. argv[0] -- the
+  # first NUL-separated cmdline field, which is the path mpirun execs FastEddy with -- is
+  # the fallback for the case where exe is unreadable. Neither matches a shell.
   fe_on_gpu(){
-    local want="$1" p pid _cmd theirs out=""
+    local want="$1" p pid exe a0 theirs out=""
     for p in /proc/[0-9]*; do
       pid="${p#/proc/}"
       [ "$pid" = "$$" ] && continue
-      _cmd=$({ tr '\0' ' ' < "$p/cmdline"; } 2>/dev/null) || continue
-      case "$_cmd" in *FEMAIN/FastEddy*) ;; *) continue;; esac
+      exe=$(readlink "$p/exe" 2>/dev/null)
+      if [ -z "$exe" ]; then
+        a0=$({ tr '\0' '\n' < "$p/cmdline"; } 2>/dev/null | head -1) || continue
+        exe="$a0"
+      fi
+      case "$exe" in */FEMAIN/FastEddy|*/FEMAIN/FastEddy' (deleted)') ;; *) continue;; esac
       theirs=$({ tr '\0' '\n' < "$p/environ"; } 2>/dev/null | sed -n 's/^CUDA_VISIBLE_DEVICES=//p' | head -1)
       [ "$(_first_dev "$theirs")" = "$want" ] && out="$out $pid"
     done
     printf '%s' "$out"
   }
+  # THE MUTEX IS AN flock. THE /proc SCAN IS THE DIAGNOSTIC, NOT THE LOCK.
+  #
+  # A scan is a check-then-act: two processes can both scan, both see nothing, and both
+  # launch. Under bin/run_seeds.py that cannot happen -- one worker thread per GPU -- but
+  # the whole reason this guard exists is the runs that are NOT the orchestrator: a
+  # hand-run `seed`, an `accept` whose Gate C2 needs the card, a second `verify`. Those
+  # race by construction, and losing the race means two FastEddys interleaving dumps into
+  # one output/, which looks like a stalled run rather than an error.
+  #
+  # flock(2) on a per-device file is atomic and needs no polling. fd 9 is held for the life
+  # of this script -- including through the `exec` into check_run.sh at the end, so the
+  # card stays claimed while its dump is being scored. The scan then runs only to NAME the
+  # holder, which a bare "resource busy" cannot.
+  #
+  # SCOPE, STATED: flock and /proc are both per-container. Two CONTAINERS on one host share
+  # neither, so neither form of this guard sees across them. On Vast there is one container
+  # per instance and the question does not arise; on a workstation the host branch's
+  # `docker ps` is what covers it.
+  mkdir -p "$FLUX_LOCKDIR" 2>/dev/null || true
+  _LOCKF="${FLUX_LOCKDIR}/fe.gpu${MYFIRST}.lock"
+  exec 9>"$_LOCKF" || { echo "FATAL: cannot open the GPU lock $_LOCKF" >&2; exit 1; }
+  if ! flock -n 9; then
+    busy="$(fe_on_gpu "$MYFIRST")"
+    echo "  REFUSED: a FastEddy run already holds GPU ${MYFIRST}${busy:+ (pid$busy)}" >&2
+    echo "           CUDA_VISIBLE_DEVICES here is '${MYDEV:-<unset, which means device 0>}'" >&2
+    exit 2
+  fi
+  # The lock is held. The scan is now a consistency check rather than the guard: if it
+  # finds a FastEddy on this device while we hold the lock, something started outside this
+  # container or outside this script, and that is worth saying out loud.
   busy="$(fe_on_gpu "$MYFIRST")"
   if [ -n "$busy" ]; then
-    echo "  REFUSED: a FastEddy run is already on GPU ${MYFIRST} (pid$busy)" >&2
-    echo "           CUDA_VISIBLE_DEVICES here is '${MYDEV:-<unset, which means device 0>}'" >&2
+    echo "  REFUSED: the GPU ${MYFIRST} lock was free but a FastEddy is running on it" >&2
+    echo "           (pid$busy) -- it was started outside this script. Not racing it." >&2
     exit 2
   fi
 else

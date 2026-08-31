@@ -141,6 +141,14 @@ ENV DEBIAN_FRONTEND=noninteractive
 # 11.8 Dockerfile): at one rank the two builds differ only at the model's own
 # nondeterminism floor. Every seed is numProcsX = numProcsY = 1.
 #
+# openssh-server AND rsync ARE FOR VAST.AI, AND THEY ARE NOT DECORATION.
+# Vast's SSH launch mode "injects setup scripts into your existing Docker image,
+# which means your image's original entrypoint is replaced", and requires the
+# image to be "compatible with typical ssh daemon setup" -- without saying
+# whether it supplies sshd or expects one. Installing it costs ~1 MB and removes
+# a whole class of instance-will-not-come-up failure that is only discoverable
+# after renting. rsync is how ~2.2 GB of seeds come back over that same SSH.
+#
 # Fortran MPI bindings are REQUIRED even though FastEddy has no Fortran source:
 # its C code broadcasts with MPI_INTEGER and MPI_CHARACTER (60 occurrences),
 # which are Fortran datatype handles. --disable-mpi-fortran removes them and
@@ -156,6 +164,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         git \
         bc \
         procps \
+        openssh-server \
+        rsync \
         openmpi-bin \
         libopenmpi-dev \
         libhdf5-openmpi-dev \
@@ -445,12 +455,66 @@ LABEL org.opencontainers.image.title="Flux FastEddy seed generator" \
 # instead of shelling out to `docker run` on a host. docker/run_case.sh and
 # docker/pyrun.sh both branch on it; nothing else in the tree changes, and the
 # host workflow is byte-for-byte what it was.
+#
+# THESE MUST BE REAL ENV, NOT ONLY ENTRYPOINT STATE, BECAUSE OF HOW VAST WORKS.
+# Vast's SSH mode replaces the entrypoint, so anything the entrypoint used to
+# export would never be set -- and an SSH login shell does not inherit `docker
+# run -e` either. ENV lands in the image config, which Vast's injected
+# entrypoint does propagate, and /etc/environment below covers the login-shell
+# path as well. Both, because either alone has a hole.
 ENV FLUX_ROOT=/flux \
     FLUX_NATIVE=1 \
     FLUX_OUT=/out \
     PYTHONUNBUFFERED=1 \
     PATH=/flux/bin:/flux/docker:${PATH}
 
+# ---------------------------------------------------------------------------
+# NO ENTRYPOINT. THIS IS A VAST.AI REQUIREMENT AND IT IS THE WHOLE POINT.
+#
+# Vast's own documentation: "With the SSH launch option your docker image
+# entrypoint is not called as we must override it." So an ENTRYPOINT here is at
+# best ignored and at worst something to fight. More importantly, the previous
+# ENTRYPOINT + `CMD ["help"]` printed help and EXITED -- which on Vast is an
+# instance that comes up and immediately dies.
+#
+# Instead: the subcommands become real executables on PATH, so
+#
+#     docker run --gpus all -v /out:/out <image> run_seeds --gpu-count 16
+#
+# still works exactly as before on a workstation (there is no entrypoint to
+# prepend, and `run_seeds` resolves on PATH), while on Vast you SSH in and type
+# `run_seeds --gpu-count 16` yourself. Nothing auto-runs, which is what was
+# asked for: the on-start script field is deliberately left EMPTY.
+#
+# CMD is `sleep infinity` so that in Vast's "docker ENTRYPOINT" launch mode --
+# and in a plain `docker run -d` -- the container stays up doing nothing,
+# instead of exiting and taking the instance with it.
+# ---------------------------------------------------------------------------
+RUN set -eux; \
+    mkdir -p /out /var/lock/flux /run/sshd; \
+    for c in run_seeds verify seed accept provenance flux-seeds; do \
+      printf '#!/bin/sh\nexec /flux/docker/entrypoint.sh %s "$@"\n' \
+        "$([ "$c" = flux-seeds ] && echo '' || echo "$c")" > "/usr/local/bin/$c"; \
+      chmod +x "/usr/local/bin/$c"; \
+    done; \
+    # /etc/environment, because an SSH login shell inherits neither the image's
+    # ENV nor `docker run -e`. Without this, `run_seeds` on a Vast box would run
+    # with FLUX_NATIVE unset and shell out to a docker daemon that is not there.
+    { echo "FLUX_ROOT=/flux"; echo "FLUX_NATIVE=1"; echo "FLUX_OUT=/out"; \
+      echo "PYTHONUNBUFFERED=1"; \
+      echo "PATH=/flux/bin:/flux/docker:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/cuda/bin"; \
+    } >> /etc/environment; \
+    printf '%s\n' \
+      '# Printed on every interactive login so a rented box says what it is.' \
+      'if [ -t 1 ] && [ -f /flux/IMAGE_PROVENANCE.txt ]; then' \
+      '  echo; sed "s/^/  /" /flux/IMAGE_PROVENANCE.txt; echo;' \
+      '  echo "  verify first (seconds, no GPU-hours):  verify"' \
+      '  echo "  then the whole library:                run_seeds --gpu-count \$(nvidia-smi -L 2>/dev/null | wc -l)"' \
+      '  echo "  results land in \$FLUX_OUT (/out). See /flux/DEPLOY.md."; echo;' \
+      'fi' > /etc/profile.d/zz-flux.sh; \
+    chmod 0644 /etc/profile.d/zz-flux.sh; \
+    run_seeds --help > /dev/null 2>&1 || true; \
+    test -x /usr/local/bin/run_seeds && test -x /usr/local/bin/verify
+
 WORKDIR /flux
-ENTRYPOINT ["/flux/docker/entrypoint.sh"]
-CMD ["help"]
+CMD ["sleep", "infinity"]
