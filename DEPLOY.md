@@ -38,8 +38,9 @@ cost of every instance carrying a credential.
 
 | field | value |
 |---|---|
-| **Image path/tag** | `ghcr.io/tyatharva/flux-seeds:86f86d65ed2e-fe0ce48d5dff06` |
+| **Image path/tag** | `ghcr.io/tyatharva/flux-seeds:bb961bcfc77d-fe0ce48d5dff06` |
 | *(or the stable tag)* | `ghcr.io/tyatharva/flux-seeds:latest` |
+| *(or the immutable digest)* | `ghcr.io/tyatharva/flux-seeds@sha256:329a4a2c21f8d16b83e13427f3444d7543c53cf551999a16a7a248589ba37afa` |
 | **Launch mode** | **SSH** (Interactive shell server) |
 | **On-start script** | **LEAVE EMPTY.** Nothing auto-runs — deliberate; see §3. |
 | **Docker options** | **LEAVE EMPTY.** Everything needed is in the image ENV. |
@@ -119,8 +120,9 @@ number swaps it to death. The run reports both, labelled.
 | | |
 |---|---|
 | registry | **GHCR** (`ghcr.io`) — the credential is already on this machine and the image is built from a GitHub-hosted commit, so the tag and the source live in one place |
-| commit-pinned | `ghcr.io/tyatharva/flux-seeds:86f86d65ed2e-fe0ce48d5dff06` |
+| commit-pinned | `ghcr.io/tyatharva/flux-seeds:bb961bcfc77d-fe0ce48d5dff06` |
 | stable | `ghcr.io/tyatharva/flux-seeds:latest` |
+| **immutable digest** | `ghcr.io/tyatharva/flux-seeds@sha256:329a4a2c21f8d16b83e13427f3444d7543c53cf551999a16a7a248589ba37afa` |
 | **compressed (what Vast pulls, per instance)** | **4.05 GB**, 22 layers |
 | largest layers | 2.14 GB (CUDA 13.0.1 base), 1.40 GB (pip: scipy/xarray/dask/herbie) |
 | uncompressed on disk | 13.1 GB |
