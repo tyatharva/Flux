@@ -506,7 +506,7 @@ RUN set -eux; \
     } >> /etc/environment; \
     printf '%s\n' \
       '# Printed on every interactive login so a rented box says what it is.' \
-      'if [ -t 1 ] && [ -f /flux/IMAGE_PROVENANCE.txt ]; then' \
+      'if [ -n "$PS1" ] && [ -f /flux/IMAGE_PROVENANCE.txt ]; then' \
       '  echo; sed "s/^/  /" /flux/IMAGE_PROVENANCE.txt; echo;' \
       '  echo "  verify first (seconds, no GPU-hours):  verify"' \
       '  echo "  then the whole library:                run_seeds --gpu-count \$(nvidia-smi -L 2>/dev/null | wc -l)"' \
@@ -517,4 +517,11 @@ RUN set -eux; \
     test -x /usr/local/bin/run_seeds && test -x /usr/local/bin/verify
 
 WORKDIR /flux
+# ENTRYPOINT IS CLEARED EXPLICITLY, NOT MERELY LEFT UNSET.
+# The nvidia/cuda base sets ENTRYPOINT ["/opt/nvidia/nvidia_entrypoint.sh"], which is
+# INHERITED -- so "no ENTRYPOINT" is not what you get by writing none. That wrapper is
+# benign (it prints the CUDA banner and execs "$@"), but the requirement here is that the
+# image has nothing for Vast's injected entrypoint to interact with, and an inherited one
+# is still one. `ENTRYPOINT []` is the only way to actually remove it.
+ENTRYPOINT []
 CMD ["sleep", "infinity"]
