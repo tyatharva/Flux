@@ -287,6 +287,31 @@ def _run_watching(cmd, env, log_path, timeout, on_tick=None, period=2.0):
                     return 124
 
 
+def _prune_hrrr(cache, day, min_bytes=50 << 20):
+    """Delete the day's full GRIB after its record is written and validated.
+
+    MEASURED: screening a day costs ~300 kB of `.idx` and subset files, but the accepted
+    hour's hybrid-level sounding is a ~407 MB `wrfnat` GRIB. Kept, one machine's 243 days
+    accumulate ~77 GB -- which is most of a rented box's disk, bought to hold files nothing
+    will read again.
+
+    SAFE BECAUSE OF WHEN IT RUNS: only after the record exists AND passed its schema check,
+    and resume keys off the record, so the day is never revisited. The small screening
+    files are deliberately KEPT, so a resume re-screens nothing and a --retry-missing pass
+    costs no downloads.
+    """
+    d = os.path.join(cache, "hrrr", day.strftime("%Y%m%d"))
+    if not os.path.isdir(d):
+        return
+    for f in os.listdir(d):
+        p = os.path.join(d, f)
+        try:
+            if os.path.isfile(p) and os.path.getsize(p) >= min_bytes:
+                os.remove(p)
+        except OSError:
+            pass
+
+
 def run_day(day, gpu, a, paths, prog, commit):
     """One calendar day -> exactly one of case / missing / failed / skipped."""
     ds = day.isoformat()
@@ -389,6 +414,8 @@ def run_day(day, gpu, a, paths, prog, commit):
                         reason=f"the record failed its schema check and was set aside as "
                                f"{os.path.basename(npz)}.REJECTED: "
                                f"{(chk.stdout + chk.stderr).strip()[-200:]}")
+        if a.prune_hrrr:
+            _prune_hrrr(paths["hrrr"], day)
         return done("case", tag=tag, bytes=os.path.getsize(npz))
     if rc == 3:
         return done("missing", tag=tag,
@@ -518,6 +545,12 @@ def main():
                     help="stop the run at the early report instead of only warning")
     ap.add_argument("--lpdm-workers", type=int, default=0,
                     help="LPDM processes per case; 0 = cores/GPUs, floored at 2")
+    ap.add_argument("--keep-hrrr", dest="prune_hrrr", action="store_false", default=True,
+                    help="keep every downloaded GRIB. The default DELETES a day's ~407 MB "
+                         "hybrid-level sounding once that day's record is written and "
+                         "validated -- 243 days would otherwise leave ~77 GB of files "
+                         "nothing reads again. The small screening files are always kept, "
+                         "so a resume re-downloads nothing.")
     ap.add_argument("--case-timeout", type=int, default=10800)
     ap.add_argument("--hour-timeout", type=int, default=1800)
     a = ap.parse_args()

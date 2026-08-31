@@ -444,7 +444,18 @@ RUN set -eux; \
                           echo "       reads both to rank a seed and would silently fall"; \
                           echo "       back to the index for the ones missing it."; exit 1; }; \
     done; \
-    echo "seed library baked in: 30 restarts at $SZ bytes each, $(du -sh /flux/jobs30 | cut -f1) total"; \
+    # A CEILING ON THE WHOLE TREE, because the exclusions above are now a DENY LIST at
+    # file level (a `!` re-include does not work under the classic builder) and a deny
+    # list cannot see a file type nobody has added yet. 30 x 73.3 MB is 2.20 GB; anything
+    # past 2.4 GB means something new is riding along.
+    JM=$(du -sm /flux/jobs30 | cut -f1); \
+    [ "$JM" -le 2400 ] || { echo "FATAL: /flux/jobs30 is ${JM} MB, over the 2400 MB ceiling."; \
+                            echo "       The seed library is 30 x 73.3 MB = 2200 MB; something"; \
+                            echo "       else is being baked in. .dockerignore excludes"; \
+                            echo "       return/ FILE BY FILE, so a new artifact type is not"; \
+                            echo "       covered until it is named."; \
+                            du -sm /flux/jobs30/* | sort -rn | head -5; exit 1; }; \
+    echo "seed library baked in: 30 restarts at $SZ bytes each, ${JM} MB total"; \
     python3 -c "import json;d=json.load(open('/flux/jobs30/index.json'));assert d['n_jobs']==30, d['n_jobs'];print('30 seed jobs, index.json consistent')"
 
 # The provenance goes into the FILESYSTEM as well as into the labels, because

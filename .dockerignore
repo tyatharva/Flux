@@ -43,7 +43,6 @@ jobs24
 # to catch exactly this globbed only /flux/jobs30/*/ and passed.
 jobs/seed_*
 jobs30/*/output
-jobs30/*/return
 jobs30/*/window
 jobs30/*/FE_*
 jobs30/*/*.log
@@ -65,9 +64,17 @@ jobs30/*/*.log
 # The rest of return/ -- run.log, seed.log, acceptance.txt, budget.json, rotation_check,
 # turb_alive, direction_drift -- is evidence about how the seed was made and no case reads
 # any of it. Those stay out; SEED_LIBRARY_RESULT.md is where that evidence lives.
-!jobs30/*/return/seed_restart.nc
-!jobs30/*/return/manifest.json
-!jobs30/*/return/stationarity.json
+# AND THE EXCLUSION IS AT FILE LEVEL, NOT DIRECTORY LEVEL. `jobs30/*/return` followed by
+# `!jobs30/*/return/seed_restart.nc` is the obvious way to write this and it DOES NOT WORK:
+# MEASURED on this docker (classic builder, DOCKER_BUILDKIT=0), a `!` cannot re-include a
+# file whose parent directory is excluded -- the walker never descends. The build failed on
+# its own "30 seed restarts" assertion, which is the assertion earning its place.
+jobs30/*/return/*.log
+jobs30/*/return/*.txt
+jobs30/*/return/budget.json
+jobs30/*/return/rotation_check.json
+jobs30/*/return/seed_report.json
+jobs30/*/return/turb_alive.json
 
 # --- data: the small model grids stay, the archives go ----------------------
 data/raw
