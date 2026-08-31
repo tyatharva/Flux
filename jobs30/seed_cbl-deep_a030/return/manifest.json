@@ -1,0 +1,69 @@
+{
+ "job": "seed_cbl-deep_a030",
+ "rung": "cbl-deep",
+ "regime": "convective",
+ "base_angle_deg": 30.0,
+ "target": {
+  "zi_m": 950.0,
+  "wth_virtual": 0.16,
+  "G": 11.0,
+  "G_dir_from_deg": 240.0
+ },
+ "gate": {
+  "zm": 30.0,
+  "k": 3
+ },
+ "grid": {
+  "dx": 30.0,
+  "nx": 122,
+  "nz": 122,
+  "zceiling": 3000.0,
+  "deform": 0.346601,
+  "domain_m": 3660.0,
+  "surflayer_z0": 0.061489
+ },
+ "run": {
+  "dt": 0.0308642,
+  "CFL_3d": 1.3501819336509069,
+  "frqOutput": 9720,
+  "cadence_s": 300.000024,
+  "steps_total": 349920,
+  "n_segments": 1,
+  "chained": false,
+  "sim_hours": 3.00000024,
+  "projected_wall_min": 86.9,
+  "outFileBase": "FE_SEED",
+  "ceiling_steps": 233280,
+  "ceiling_sim_h": 2.0
+ },
+ "requires": {
+  "compute_capability": "8.9",
+  "vram_gb": 1.6,
+  "image": "flux-fasteddy:cuda118"
+ },
+ "returns": [
+  "return/seed_restart.nc",
+  "return/stationarity.json",
+  "return/seed.log",
+  "return/manifest.json"
+ ],
+ "reproducibility": "FastEddy is not bitwise reproducible run-to-run on one GPU (~1e-4 relative in velocity), and will not be across different physical GPUs either. Seeds are turbulence realisations; do not diff two of them.",
+ "achieved": {
+  "ustar": 0.5570476440188706,
+  "U": 8.12706570541566,
+  "zi": 1239.7825639512803,
+  "zi_definition": "fixed resolved-TKE threshold 0.01 m2/s2 (gated)",
+  "zi_peakfrac": 1010.6048092312283,
+  "tke_peak": 1.4949548189706183,
+  "wdir": 234.18283746581898,
+  "dwdir_dt_deg_per_h": -4.7286928360177525,
+  "dwdir_scored_over_h": 1.5,
+  "sigma_v": 1.2855850950378174,
+  "sigma_w": 0.6035060673103928,
+  "theta0": 302.1791992269514,
+  "x_peak": 155.72129640666688,
+  "x90": 1389.0079412220825,
+  "pass": false,
+  "source_dump": "FE_SEED.233280"
+ }
+}

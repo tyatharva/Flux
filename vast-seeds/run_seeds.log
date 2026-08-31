@@ -1,0 +1,254 @@
+==============================================================================
+[     0.0s] Flux seed library -- FastEddy v5.0.1 (kegonsa fork)
+  flux_commit        = bb961bcfc77d
+  fasteddy_commit    = 0ce48d5dff06
+  build_date         = 2026-08-31T14:59:51Z
+  cuda               = 13.0
+  gcc                = 11.4.0
+  cxx_dialect        = -std=c++17
+  mpi                = Open MPI v4.1.2
+  netcdf             = netCDF 4.8.1
+  fasteddy_sass      = sm_100 sm_120 sm_75 sm_80 sm_86 sm_89 sm_90
+  fasteddy_ptx       =   (empty by construction: nvcc -dlink drops PTX)
+  liblpdm_sass       = sm_100 sm_120 sm_75 sm_80 sm_86 sm_89 sm_90
+  liblpdm_ptx        = compute_120 compute_80   (whole-program, so it survives -- the contrast)
+  numpy/scipy/netCDF4 = 2.2.6 1.15.3 1.7.4
+  hdf5_via_netcdf4   = 1.14.6
+[     0.0s] ==============================================================================
+[     0.3s]   GPUs visible: 16; using 16
+[     0.3s]     [0] NVIDIA GeForce RTX 5090  cc 12.0  32607 MiB
+[     0.3s]     [1] NVIDIA GeForce RTX 5090  cc 12.0  32607 MiB
+[     0.3s]     [2] NVIDIA GeForce RTX 5090  cc 12.0  32607 MiB
+[     0.3s]     [3] NVIDIA GeForce RTX 5090  cc 12.0  32607 MiB
+[     0.3s]     [4] NVIDIA GeForce RTX 5090  cc 12.0  32607 MiB
+[     0.3s]     [5] NVIDIA GeForce RTX 5090  cc 12.0  32607 MiB
+[     0.3s]     [6] NVIDIA GeForce RTX 5090  cc 12.0  32607 MiB
+[     0.3s]     [7] NVIDIA GeForce RTX 5090  cc 12.0  32607 MiB
+[     0.3s]     [8] NVIDIA GeForce RTX 5090  cc 12.0  32607 MiB
+[     0.3s]     [9] NVIDIA GeForce RTX 5090  cc 12.0  32607 MiB
+[     0.3s]     [10] NVIDIA GeForce RTX 5090  cc 12.0  32607 MiB
+[     0.3s]     [11] NVIDIA GeForce RTX 5090  cc 12.0  32607 MiB
+[     0.3s]     [12] NVIDIA GeForce RTX 5090  cc 12.0  32607 MiB
+[     0.3s]     [13] NVIDIA GeForce RTX 5090  cc 12.0  32607 MiB
+[     0.3s]     [14] NVIDIA GeForce RTX 5090  cc 12.0  32607 MiB
+[     0.3s]     [15] NVIDIA GeForce RTX 5090  cc 12.0  32607 MiB
+[     0.3s]   FastEddy SASS: sm_100 sm_120 sm_75 sm_80 sm_86 sm_89 sm_90
+[     0.3s]   Seeds are turbulence REALISATIONS. FastEddy is not bitwise reproducible run to
+[     0.3s]   run on one GPU (~1e-4 relative in velocity after 200 steps), and it is not
+[     0.3s]   across architectures either. Do not diff two seeds; that is not a defect.
+[     0.3s]   seeds to run: 30  (ceiling 2.0 sim-h, early stop on)
+[     0.3s] 
+=== thread-block sweep on GPU 0 (NVIDIA GeForce RTX 5090), 200 steps per shape ===
+[   135.2s]   === thread-block sweep, 122x122x122 (Nh=3), 200 steps, GPU 0 ===
+[   135.2s]     106 legal shapes; measuring 14 (--max-shapes 14)
+[   135.2s]     NOT measured (92): 1x32x2 1x64x1 1x1x32 1x2x16 1x4x8 1x8x4 1x16x2 1x32x1 1x4x64 1x8x32 1x16x16 1x32x8 1x64x4 1x128x2 1x8x64 1x16x32 1x32x16 1x64x8 1x128x4 1x16x64 1x32x32 1x64x16 1x128x8 4x1x32 2x4x16 4x2x16 2x8x8 4x4x8 2x16x4 4x8x4 2x32x2 4x16x2 2x64x1 4x32x1 2x1x32 2x2x16 4x1x16 2x4x8 4x2x8 2x8x4 4x4x4 2x16x2 4x8x2 2x32x1 4x16x1 2x1x16 2x2x8 4x1x8 2x4x4 4x2x4 2x8x2 4x4x2 2x16x1 4x8x1 2x2x64 4x1x64 2x4x32 4x2x32 2x8x16 4x4x16 2x16x8 4x8x8 2x32x4 4x16x4 2x64x2 4x32x2 2x128x1 4x64x1 2x4x64 4x2x64 2x8x32 4x4x32 2x16x16 4x8x16 2x32x8 4x16x8 2x64x4 4x32x4 2x128x2 4x64x2 4x128x1 2x8x64 4x4x64 2x16x32 4x8x32 2x32x16 4x16x16 2x64x8 4x32x8 2x128x4 4x64x4 4x128x2
+[   135.2s]     --- phase 1: screen, one run each ---
+[   135.2s]         1x2x64  comp 0.00590 s/step   total 0.00710   wall 4.7 s
+[   135.2s]         1x4x32  comp 0.00600 s/step   total 0.00720   wall 4.1 s
+[   135.2s]         1x8x16  comp 0.00580 s/step   total 0.00700   wall 4.1 s
+[   135.2s]         1x16x8  comp 0.00600 s/step   total 0.00720   wall 4.2 s
+[   135.2s]         1x32x4  comp 0.00910 s/step   total 0.01040   wall 4.8 s
+[   135.2s]         1x64x2  comp 0.01330 s/step   total 0.01460   wall 6.1 s
+[   135.2s]        1x128x1  comp 0.01580 s/step   total 0.01710   wall 6.4 s
+[   135.2s]         1x1x64  comp 0.00610 s/step   total 0.00730   wall 5.2 s
+[   135.2s]         1x2x32  comp 0.00580 s/step   total 0.00710   wall 4.1 s
+[   135.2s]         1x4x16  comp 0.00600 s/step   total 0.00730   wall 4.2 s
+[   135.2s]          1x8x8  comp 0.00580 s/step   total 0.00710   wall 4.2 s
+[   135.2s]         1x16x4  comp 0.00690 s/step   total 0.00810   wall 4.7 s
+[   135.2s]         2x1x64  comp 0.00610 s/step   total 0.00730   wall 4.2 s
+[   135.2s]         2x2x32  comp 0.00590 s/step   total 0.00710   wall 4.7 s
+[   135.2s]     --- phase 2: confirm 8 shape(s) within 5% of the leader, 2 more run(s) each ---
+[   135.2s]         1x2x64  median 0.00590  n=3  [0.00590, 0.00590]  spread 0.00%
+[   135.2s]         1x4x32  median 0.00600  n=3  [0.00600, 0.00600]  spread 0.00%
+[   135.2s]         1x8x16  median 0.00580  n=3  [0.00580, 0.00580]  spread 0.00%
+[   135.2s]         1x16x8  median 0.00600  n=3  [0.00600, 0.00600]  spread 0.00%
+[   135.2s]         1x2x32  median 0.00580  n=3  [0.00580, 0.00580]  spread 0.00%
+[   135.2s]         1x4x16  median 0.00600  n=3  [0.00600, 0.00600]  spread 0.00%
+[   135.2s]          1x8x8  median 0.00580  n=3  [0.00580, 0.00580]  spread 0.00%
+[   135.2s]         2x2x32  median 0.00590  n=3  [0.00590, 0.00590]  spread 0.00%
+[   135.2s]   
+[   135.2s]     WINNER 1x8x16 at 0.00580 s/step compute (median of 3)
+[   135.2s]     spread over the measured set: 2.72x  (1x128x1 is slowest)   |  repeat noise 0.00%
+[   135.2s]     the Ada winner 1x2x64 is 1.017x the winner here
+[   135.2s]     best tBx>1 shape here: 2x2x32 at 1.017x the winner (PROJECT_BRIEF.md records tBx>1 costing ~17% at 186^2 on Ada)
+[   135.2s]     -> /out/threadblock_sweep.json
+[   135.2s]   block shape for every seed: 1x8x16 (measured on this machine)
+[   135.2s] 
+=== running 30 seeds across 16 GPUs ===
+[   135.2s]   [gpu 3] seed_nbl-shallow_a045: starting (neutral, rung nbl-shallow, accelerator 3000 s)
+[   135.3s]   [gpu 5] seed_nbl-shallow_a075: starting (neutral, rung nbl-shallow, accelerator 3000 s)
+[   135.3s]   [gpu 10] seed_nbl-deep_a060: starting (neutral, rung nbl-deep, accelerator 3000 s)
+[   135.3s]   [gpu 14] seed_cbl-shallow_a030: starting (convective, rung cbl-shallow)
+[   135.3s]   [gpu 13] seed_cbl-shallow_a015: starting (convective, rung cbl-shallow)
+[   135.3s]   [gpu 0] seed_nbl-shallow_a000: starting (neutral, rung nbl-shallow, accelerator 3000 s)
+[   135.3s]   [gpu 7] seed_nbl-deep_a015: starting (neutral, rung nbl-deep, accelerator 3000 s)
+[   135.3s]   [gpu 15] seed_cbl-shallow_a045: starting (convective, rung cbl-shallow)
+[   135.3s]   [gpu 1] seed_nbl-shallow_a015: starting (neutral, rung nbl-shallow, accelerator 3000 s)
+[   135.3s]   [gpu 8] seed_nbl-deep_a030: starting (neutral, rung nbl-deep, accelerator 3000 s)
+[   135.3s]   [gpu 6] seed_nbl-deep_a000: starting (neutral, rung nbl-deep, accelerator 3000 s)
+[   135.3s]   [gpu 9] seed_nbl-deep_a045: starting (neutral, rung nbl-deep, accelerator 3000 s)
+[   135.3s]   [gpu 2] seed_nbl-shallow_a030: starting (neutral, rung nbl-shallow, accelerator 3000 s)
+[   135.3s]   [gpu 11] seed_nbl-deep_a075: starting (neutral, rung nbl-deep, accelerator 3000 s)
+[   135.3s]   [gpu 4] seed_nbl-shallow_a060: starting (neutral, rung nbl-shallow, accelerator 3000 s)
+[   135.3s]   [gpu 12] seed_cbl-shallow_a000: starting (convective, rung cbl-shallow)
+[  1502.2s]   [gpu 14] seed_cbl-shallow_a030: LES done at 2.0 sim-h, gate DRIFTING -- running the acceptance battery
+[  1515.4s]   [gpu 14] seed_cbl-shallow_a030: OK gate=DRIFTING 2.0 sim-h 0.38 GPU-h   (1/30 done)
+[  1515.4s]   [gpu 14] seed_cbl-shallow_a060: starting (convective, rung cbl-shallow)
+[  1523.9s]   [gpu 15] seed_cbl-shallow_a045: LES done at 2.0 sim-h, gate DRIFTING -- running the acceptance battery
+[  1527.6s]   [gpu 13] seed_cbl-shallow_a015: LES done at 2.0 sim-h, gate DRIFTING -- running the acceptance battery
+[  1527.7s]   [gpu 12] seed_cbl-shallow_a000: LES done at 2.0 sim-h, gate DRIFTING -- running the acceptance battery
+[  1537.1s]   [gpu 15] seed_cbl-shallow_a045: OK gate=DRIFTING 2.0 sim-h 0.38 GPU-h   (2/30 done)
+[  1537.1s]   [gpu 15] seed_cbl-shallow_a075: starting (convective, rung cbl-shallow)
+[  1541.1s]   [gpu 13] seed_cbl-shallow_a015: OK gate=DRIFTING 2.0 sim-h 0.38 GPU-h   (3/30 done)
+[  1541.1s]   [gpu 13] seed_cbl-mid_a000: starting (convective, rung cbl-mid)
+[  1541.2s]   [gpu 12] seed_cbl-shallow_a000: OK gate=DRIFTING 2.0 sim-h 0.38 GPU-h   (4/30 done)
+[  1541.2s]   [gpu 12] seed_cbl-mid_a015: starting (convective, rung cbl-mid)
+[  2082.9s]   [gpu 3] seed_nbl-shallow_a045: LES done at 2.0 sim-h, gate DRIFTING -- running the acceptance battery
+[  2085.4s]   [gpu 0] seed_nbl-shallow_a000: LES done at 2.0 sim-h, gate INDETERMINATE -- running the acceptance battery
+[  2087.9s]   [gpu 8] seed_nbl-deep_a030: LES done at 2.0 sim-h, gate DRIFTING -- running the acceptance battery
+[  2090.4s]   [gpu 9] seed_nbl-deep_a045: LES done at 2.0 sim-h, gate DRIFTING -- running the acceptance battery
+[  2094.5s]   [gpu 1] seed_nbl-shallow_a015: LES done at 2.0 sim-h, gate DRIFTING -- running the acceptance battery
+[  2096.0s]   [gpu 3] seed_nbl-shallow_a045: OK gate=DRIFTING 2.0 sim-h 0.53 GPU-h   (5/30 done)
+[  2096.0s]   [gpu 3] seed_cbl-mid_a030: starting (convective, rung cbl-mid)
+[  2096.1s]   [gpu 6] seed_nbl-deep_a000: LES done at 2.0 sim-h, gate INDETERMINATE -- running the acceptance battery
+[  2097.6s]   [gpu 7] seed_nbl-deep_a015: LES done at 2.0 sim-h, gate DRIFTING -- running the acceptance battery
+[  2098.8s]   [gpu 0] seed_nbl-shallow_a000: OK gate=INDETERMINATE 2.0 sim-h 0.53 GPU-h   (6/30 done)
+[  2098.8s]   [gpu 0] seed_cbl-mid_a045: starting (convective, rung cbl-mid)
+[  2101.2s]   [gpu 8] seed_nbl-deep_a030: OK gate=DRIFTING 2.0 sim-h 0.53 GPU-h   (7/30 done)
+[  2101.2s]   [gpu 8] seed_cbl-mid_a060: starting (convective, rung cbl-mid)
+[  2101.7s]   [gpu 4] seed_nbl-shallow_a060: LES done at 2.0 sim-h, gate DRIFTING -- running the acceptance battery
+[  2103.6s]   [gpu 9] seed_nbl-deep_a045: OK gate=DRIFTING 2.0 sim-h 0.53 GPU-h   (8/30 done)
+[  2103.6s]   [gpu 9] seed_cbl-mid_a075: starting (convective, rung cbl-mid)
+[  2103.8s]   [gpu 10] seed_nbl-deep_a060: LES done at 2.0 sim-h, gate INDETERMINATE -- running the acceptance battery
+[  2105.8s]   [gpu 11] seed_nbl-deep_a075: LES done at 2.0 sim-h, gate INDETERMINATE -- running the acceptance battery
+[  2107.8s]   [gpu 1] seed_nbl-shallow_a015: OK gate=DRIFTING 2.0 sim-h 0.53 GPU-h   (9/30 done)
+[  2107.8s]   [gpu 1] seed_cbl-deep_a000: starting (convective, rung cbl-deep)
+[  2109.4s]   [gpu 6] seed_nbl-deep_a000: OK gate=INDETERMINATE 2.0 sim-h 0.54 GPU-h   (10/30 done)
+[  2109.4s]   [gpu 6] seed_cbl-deep_a015: starting (convective, rung cbl-deep)
+[  2110.8s]   [gpu 7] seed_nbl-deep_a015: OK gate=DRIFTING 2.0 sim-h 0.54 GPU-h   (11/30 done)
+[  2110.8s]   [gpu 7] seed_cbl-deep_a030: starting (convective, rung cbl-deep)
+[  2115.0s]   [gpu 4] seed_nbl-shallow_a060: OK gate=DRIFTING 2.0 sim-h 0.54 GPU-h   (12/30 done)
+[  2115.0s]   [gpu 4] seed_cbl-deep_a045: starting (convective, rung cbl-deep)
+[  2117.0s]   [gpu 10] seed_nbl-deep_a060: OK gate=INDETERMINATE 2.0 sim-h 0.54 GPU-h   (13/30 done)
+[  2117.0s]   [gpu 10] seed_cbl-deep_a060: starting (convective, rung cbl-deep)
+[  2119.0s]   [gpu 11] seed_nbl-deep_a075: OK gate=INDETERMINATE 2.0 sim-h 0.54 GPU-h   (14/30 done)
+[  2119.0s]   [gpu 11] seed_cbl-deep_a075: starting (convective, rung cbl-deep)
+[  2127.7s]   [gpu 2] seed_nbl-shallow_a030: LES done at 2.0 sim-h, gate DRIFTING -- running the acceptance battery
+[  2130.8s]   [gpu 5] seed_nbl-shallow_a075: LES done at 2.0 sim-h, gate DRIFTING -- running the acceptance battery
+[  2140.7s]   [gpu 2] seed_nbl-shallow_a030: OK gate=DRIFTING 2.0 sim-h 0.54 GPU-h   (15/30 done)
+[  2143.8s]   [gpu 5] seed_nbl-shallow_a075: OK gate=DRIFTING 2.0 sim-h 0.55 GPU-h   (16/30 done)
+[  2875.4s]   [gpu 14] seed_cbl-shallow_a060: LES done at 2.0 sim-h, gate DRIFTING -- running the acceptance battery
+[  2888.6s]   [gpu 14] seed_cbl-shallow_a060: OK gate=DRIFTING 2.0 sim-h 0.38 GPU-h   (17/30 done)
+[  2904.7s]   [gpu 15] seed_cbl-shallow_a075: LES done at 2.0 sim-h, gate DRIFTING -- running the acceptance battery
+[  2910.5s]   [gpu 13] seed_cbl-mid_a000: LES done at 2.0 sim-h, gate DRIFTING -- running the acceptance battery
+[  2911.3s]   [gpu 12] seed_cbl-mid_a015: LES done at 2.0 sim-h, gate DRIFTING -- running the acceptance battery
+[  2918.1s]   [gpu 15] seed_cbl-shallow_a075: OK gate=DRIFTING 2.0 sim-h 0.38 GPU-h   (18/30 done)
+[  2923.8s]   [gpu 13] seed_cbl-mid_a000: OK gate=DRIFTING 2.0 sim-h 0.38 GPU-h   (19/30 done)
+[  2924.6s]   [gpu 12] seed_cbl-mid_a015: OK gate=DRIFTING 2.0 sim-h 0.38 GPU-h   (20/30 done)
+[  3455.8s]   [gpu 3] seed_cbl-mid_a030: LES done at 2.0 sim-h, gate INDETERMINATE -- running the acceptance battery
+[  3461.6s]   [gpu 0] seed_cbl-mid_a045: LES done at 2.0 sim-h, gate INDETERMINATE -- running the acceptance battery
+[  3463.3s]   [gpu 8] seed_cbl-mid_a060: LES done at 2.0 sim-h, gate DRIFTING -- running the acceptance battery
+[  3467.0s]   [gpu 9] seed_cbl-mid_a075: LES done at 2.0 sim-h, gate DRIFTING -- running the acceptance battery
+[  3469.1s]   [gpu 3] seed_cbl-mid_a030: OK gate=INDETERMINATE 2.0 sim-h 0.38 GPU-h   (21/30 done)
+[  3474.7s]   [gpu 0] seed_cbl-mid_a045: OK gate=INDETERMINATE 2.0 sim-h 0.38 GPU-h   (22/30 done)
+[  3475.3s]   [gpu 6] seed_cbl-deep_a015: LES done at 2.0 sim-h, gate INDETERMINATE -- running the acceptance battery
+[  3476.6s]   [gpu 8] seed_cbl-mid_a060: OK gate=DRIFTING 2.0 sim-h 0.38 GPU-h   (23/30 done)
+[  3479.7s]   [gpu 1] seed_cbl-deep_a000: LES done at 2.0 sim-h, gate INDETERMINATE -- running the acceptance battery
+[  3480.2s]   [gpu 9] seed_cbl-mid_a075: OK gate=DRIFTING 2.0 sim-h 0.38 GPU-h   (24/30 done)
+[  3480.4s]   [gpu 7] seed_cbl-deep_a030: LES done at 2.0 sim-h, gate DRIFTING -- running the acceptance battery
+[  3486.6s]   [gpu 4] seed_cbl-deep_a045: LES done at 2.0 sim-h, gate INDETERMINATE -- running the acceptance battery
+[  3488.4s]   [gpu 6] seed_cbl-deep_a015: OK gate=INDETERMINATE 2.0 sim-h 0.38 GPU-h   (25/30 done)
+[  3490.7s]   [gpu 10] seed_cbl-deep_a060: LES done at 2.0 sim-h, gate INDETERMINATE -- running the acceptance battery
+[  3492.8s]   [gpu 1] seed_cbl-deep_a000: OK gate=INDETERMINATE 2.0 sim-h 0.38 GPU-h   (26/30 done)
+[  3493.5s]   [gpu 11] seed_cbl-deep_a075: LES done at 2.0 sim-h, gate INDETERMINATE -- running the acceptance battery
+[  3493.5s]   [gpu 7] seed_cbl-deep_a030: OK gate=DRIFTING 2.0 sim-h 0.38 GPU-h   (27/30 done)
+[  3499.6s]   [gpu 4] seed_cbl-deep_a045: OK gate=INDETERMINATE 2.0 sim-h 0.38 GPU-h   (28/30 done)
+[  3503.7s]   [gpu 10] seed_cbl-deep_a060: OK gate=INDETERMINATE 2.0 sim-h 0.38 GPU-h   (29/30 done)
+[  3506.3s]   [gpu 11] seed_cbl-deep_a075: OK gate=INDETERMINATE 2.0 sim-h 0.38 GPU-h   (30/30 done)
+[  3506.3s] 
+==============================================================================
+[  3506.3s] SUMMARY  11 accepted / 30 completed / 30 attempted   wall 0.94 h on 16 GPUs
+[  3506.3s] ==============================================================================
+[  3506.3s]   seed                         gate            sim-h  ceil  GPU-h   wall  note
+[  3506.3s]   seed_cbl-deep_a000           INDETERMINATE   2.000   2.0   0.38   0.38  ran to the ceiling | indet: U/u* (Kljun Pi_4), sigma_v/u*, sigma_w/u* at the r
+[  3506.3s]   seed_cbl-deep_a015           INDETERMINATE   2.000   2.0   0.38   0.38  ran to the ceiling | indet: U/u* (Kljun Pi_4), sigma_v/u*, sigma_w/u* at the r
+[  3506.3s]   seed_cbl-deep_a030           DRIFTING        2.000   2.0   0.38   0.38  ran to the ceiling | DRIFTING: U/u* (Kljun Pi_4)
+[  3506.3s]   seed_cbl-deep_a045           INDETERMINATE   2.000   2.0   0.38   0.38  ran to the ceiling | indet: U/u* (Kljun Pi_4), sigma_v/u*, sigma_w/u* at the r
+[  3506.3s]   seed_cbl-deep_a060           INDETERMINATE   2.000   2.0   0.38   0.39  ran to the ceiling | indet: U/u* (Kljun Pi_4), sigma_v/u*, sigma_w/u* at the r
+[  3506.3s]   seed_cbl-deep_a075           INDETERMINATE   2.000   2.0   0.38   0.39  ran to the ceiling | indet: U/u* (Kljun Pi_4), sigma_v/u*, sigma_w/u* at the r
+[  3506.3s]   seed_cbl-mid_a000            DRIFTING        2.000   2.0   0.38   0.38  ran to the ceiling | DRIFTING: z_i
+[  3506.3s]   seed_cbl-mid_a015            DRIFTING        2.000   2.0   0.38   0.38  ran to the ceiling | DRIFTING: sigma_w/u* at the receptor, Kljun x_peak
+[  3506.3s]   seed_cbl-mid_a030            INDETERMINATE   2.000   2.0   0.38   0.38  ran to the ceiling | indet: U/u* (Kljun Pi_4), sigma_v/u*, sigma_w/u* at the r
+[  3506.3s]   seed_cbl-mid_a045            INDETERMINATE   2.000   2.0   0.38   0.38  ran to the ceiling | indet: U/u* (Kljun Pi_4), sigma_v/u*, sigma_w/u* at the r
+[  3506.3s]   seed_cbl-mid_a060            DRIFTING        2.000   2.0   0.38   0.38  ran to the ceiling | DRIFTING: sigma_v/u*, z_i
+[  3506.3s]   seed_cbl-mid_a075            DRIFTING        2.000   2.0   0.38   0.38  ran to the ceiling | DRIFTING: sigma_w/u* at the receptor, z_i
+[  3506.3s]   seed_cbl-shallow_a000        DRIFTING        2.000   2.0   0.38   0.39  ran to the ceiling | DRIFTING: sigma_w/u* at the receptor
+[  3506.3s]   seed_cbl-shallow_a015        DRIFTING        2.000   2.0   0.38   0.39  ran to the ceiling | DRIFTING: sigma_w/u* at the receptor, TKE_BL/u*^2
+[  3506.3s]   seed_cbl-shallow_a030        DRIFTING        2.000   2.0   0.38   0.38  ran to the ceiling | DRIFTING: sigma_w/u* at the receptor, TKE_BL/u*^2
+[  3506.3s]   seed_cbl-shallow_a045        DRIFTING        2.000   2.0   0.38   0.39  ran to the ceiling | DRIFTING: sigma_w/u* at the receptor
+[  3506.3s]   seed_cbl-shallow_a060        DRIFTING        2.000   2.0   0.38   0.38  ran to the ceiling | DRIFTING: sigma_v/u*, sigma_w/u* at the receptor, TKE_BL/u*^2
+[  3506.3s]   seed_cbl-shallow_a075        DRIFTING        2.000   2.0   0.38   0.38  ran to the ceiling | DRIFTING: sigma_v/u*, sigma_w/u* at the receptor, TKE_BL/u*^2
+[  3506.3s]   seed_nbl-deep_a000           INDETERMINATE   2.000   2.0   0.54   0.55  ran to the ceiling | indet: U/u* (Kljun Pi_4), sigma_v/u*, sigma_w/u* at the r
+[  3506.3s]   seed_nbl-deep_a015           DRIFTING        2.000   2.0   0.54   0.55  ran to the ceiling | DRIFTING: TKE_BL/u*^2
+[  3506.3s]   seed_nbl-deep_a030           DRIFTING        2.000   2.0   0.53   0.55  ran to the ceiling | DRIFTING: sigma_w/u* at the receptor, Kljun x_peak
+[  3506.3s]   seed_nbl-deep_a045           DRIFTING        2.000   2.0   0.53   0.55  ran to the ceiling | DRIFTING: TKE_BL/u*^2
+[  3506.3s]   seed_nbl-deep_a060           INDETERMINATE   2.000   2.0   0.54   0.55  ran to the ceiling | indet: U/u* (Kljun Pi_4), sigma_v/u*, sigma_w/u* at the r
+[  3506.3s]   seed_nbl-deep_a075           INDETERMINATE   2.000   2.0   0.54   0.55  ran to the ceiling | indet: U/u* (Kljun Pi_4), sigma_v/u*, sigma_w/u* at the r
+[  3506.3s]   seed_nbl-shallow_a000        INDETERMINATE   2.000   2.0   0.53   0.55  ran to the ceiling | indet: U/u* (Kljun Pi_4), sigma_v/u*, sigma_w/u* at the r
+[  3506.3s]   seed_nbl-shallow_a015        DRIFTING        2.000   2.0   0.53   0.55  ran to the ceiling | DRIFTING: TKE_BL/u*^2
+[  3506.3s]   seed_nbl-shallow_a030        DRIFTING        2.000   2.0   0.54   0.56  ran to the ceiling | DRIFTING: TKE_BL/u*^2
+[  3506.3s]   seed_nbl-shallow_a045        DRIFTING        2.000   2.0   0.53   0.54  ran to the ceiling | DRIFTING: sigma_v/u*, TKE_BL/u*^2
+[  3506.3s]   seed_nbl-shallow_a060        DRIFTING        2.000   2.0   0.54   0.55  ran to the ceiling | DRIFTING: TKE_BL/u*^2
+[  3506.3s]   seed_nbl-shallow_a075        DRIFTING        2.000   2.0   0.55   0.56  ran to the ceiling | DRIFTING: TKE_BL/u*^2
+[  3506.3s] 
+  measured GPU-h per seed (n=30): min 0.376  median 0.379  max 0.545  total 13.24
+[  3506.3s]     of which the Steinfeld accelerator (neutral rungs): 1.89 GPU-h over 12 seeds
+[  3506.3s]   measured GPU-h per SIMULATED hour: 0.221  over the 30 seeds that have BOTH numbers   (the 30 m Ada measurement is 0.479)
+[  3506.3s]   stop times vs the 2.0 sim-h ceiling: 30 of 30 ran to the ceiling; 0 stopped early (min 2.000 h, median 2.000 h)
+[  3506.3s] 
+  k0/k1 (the accuracy-CFL check; ~0.27 correct, ~9 means dt is past the boundary): 0.124-0.144 over 30 seeds
+[  3506.3s]   A run whose k0/k1 FAILS never gets this far: docker/k0k1_check.py exits 1,
+[  3506.3s]   check_run.sh fails the run and jobs/run_seed.sh dies before a seed exists.
+[  3506.3s] 
+  HOST MEMORY under 16-way load:
+[  3506.3s]     peak container RSS (cgroup)      :  58.86 GB
+[  3506.3s]     peak summed FastEddy RSS         :   8.98 GB over 32 concurrent process(es)  = 0.28 GB each
+[  3506.3s]     machine RAM                      : 755.39 GB, low-water MemAvailable 718.12 GB
+[  3506.3s]     NOTE: a SEED runs no LPDM, so this is NOT the corpus-case figure. PROJECT_BRIEF.md's
+[  3506.3s]     12.45 GB peak host RSS is a CASE -- the LPDM's 12.0 GB fp16 field cache, which
+[  3506.3s]     a seed never allocates. Size a seed box on the number above; size a CORPUS box
+[  3506.3s]     on ~12.5 GB per concurrent case.
+[  3506.3s] 
+  QUEUE, from the recorded timeline (not from the design):
+[  3506.3s]     workers used            : 16 of 16
+[  3506.3s]     workers that took >1 job: 14  (gpu 0: 2, gpu 1: 2, gpu 3: 2, gpu 4: 2, gpu 6: 2, gpu 7: 2, gpu 8: 2, gpu 9: 2, gpu 10: 2, gpu 11: 2, gpu 12: 2, gpu 13: 2, gpu 14: 2, gpu 15: 2)
+[  3506.3s]     peak concurrent jobs    : 16  (worker count 16)
+[  3506.3s]   peak VRAM per GPU (compute apps): [0] 904 MiB  [1] 904 MiB  [2] 904 MiB  [3] 904 MiB  [4] 904 MiB  [5] 904 MiB  [6] 904 MiB  [7] 904 MiB  [8] 904 MiB  [9] 904 MiB  [10] 904 MiB  [11] 904 MiB  [12] 904 MiB  [13] 904 MiB  [14] 904 MiB  [15] 904 MiB
+[  3506.3s]   peak VRAM per GPU (whole device): [0] 913 MiB  [1] 913 MiB  [2] 913 MiB  [3] 913 MiB  [4] 913 MiB  [5] 913 MiB  [6] 913 MiB  [7] 913 MiB  [8] 913 MiB  [9] 913 MiB  [10] 913 MiB  [11] 913 MiB  [12] 913 MiB  [13] 913 MiB  [14] 913 MiB  [15] 913 MiB
+[  3506.3s]   headroom: the largest seed took 904 MiB of 32607 MiB (2.8%). The ring buffer was sized for a 16 GB card; nothing here assumes that budget.
+[  3506.3s] 
+  DRIFTING (produced an artifact, but pick_seed.py refuses these outright unless ALLOW_DRIFTING admits them):
+[  3506.3s]     seed_cbl-deep_a030: U/u* (Kljun Pi_4)
+[  3506.3s]     seed_cbl-mid_a000: z_i
+[  3506.3s]     seed_cbl-mid_a015: sigma_w/u* at the receptor, Kljun x_peak
+[  3506.3s]     seed_cbl-mid_a060: sigma_v/u*, z_i
+[  3506.3s]     seed_cbl-mid_a075: sigma_w/u* at the receptor, z_i
+[  3506.3s]     seed_cbl-shallow_a000: sigma_w/u* at the receptor
+[  3506.3s]     seed_cbl-shallow_a015: sigma_w/u* at the receptor, TKE_BL/u*^2
+[  3506.3s]     seed_cbl-shallow_a030: sigma_w/u* at the receptor, TKE_BL/u*^2
+[  3506.3s]     seed_cbl-shallow_a045: sigma_w/u* at the receptor
+[  3506.3s]     seed_cbl-shallow_a060: sigma_v/u*, sigma_w/u* at the receptor, TKE_BL/u*^2
+[  3506.3s]     seed_cbl-shallow_a075: sigma_v/u*, sigma_w/u* at the receptor, TKE_BL/u*^2
+[  3506.3s]     seed_nbl-deep_a015: TKE_BL/u*^2
+[  3506.3s]     seed_nbl-deep_a030: sigma_w/u* at the receptor, Kljun x_peak
+[  3506.3s]     seed_nbl-deep_a045: TKE_BL/u*^2
+[  3506.3s]     seed_nbl-shallow_a015: TKE_BL/u*^2
+[  3506.3s]     seed_nbl-shallow_a030: TKE_BL/u*^2
+[  3506.3s]     seed_nbl-shallow_a045: sigma_v/u*, TKE_BL/u*^2
+[  3506.3s]     seed_nbl-shallow_a060: TKE_BL/u*^2
+[  3506.3s]     seed_nbl-shallow_a075: TKE_BL/u*^2
+[  3506.4s] 
+  library-wide direction drift over 30 completed seeds -> /out/direction_drift_library.txt
+[  3506.4s] 
+  -> /out/machine_manifest.json
+[  3506.4s]   -> /out/seeds/<job>/  (seed_restart.nc and the battery)

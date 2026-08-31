@@ -1,0 +1,58 @@
+/flux/lpdm/kljun.py:56: RuntimeWarning: divide by zero encountered in scalar divide
+  return umean / ustar * K
+/flux/bin/seed_stationarity.py:228: RuntimeWarning: invalid value encountered in divide
+  c /= c[-1]
+/flux/bin/seed_stationarity.py:321: RuntimeWarning: divide by zero encountered in divide
+  quantities = (("U/u* (Kljun Pi_4)", s["U"] / us),
+/flux/bin/seed_stationarity.py:322: RuntimeWarning: invalid value encountered in divide
+  ("sigma_v/u*", s["sv"] / us),
+/flux/bin/seed_stationarity.py:323: RuntimeWarning: invalid value encountered in divide
+  ("sigma_w/u* at the receptor", s["sw"] / us),
+/flux/bin/seed_stationarity.py:324: RuntimeWarning: invalid value encountered in divide
+  ("TKE_BL/u*^2", s["tke_bl"] / us ** 2),
+/flux/bin/seed_stationarity.py:375: RuntimeWarning: invalid value encountered in divide
+  ("TKE_column/u*^2 (retired form)", s["tke"] / us ** 2),
+  seed_cbl-mid_a075: 25 dumps to 2.00 simulated hours = 0.11 inertial periods (2pi/f = 17.6 h)
+
+  z_i is the height where resolved TKE falls below a FIXED 0.01 m2/s2 (gated); the 5%-of-running-peak depth is reported beside it and is the currency lpdm/les_stats.py:window_stats uses for the corpus input.
+
+        window       u*   U(10)    U/u*   sw/u*  TKE/u*^2    z_i    dir
+/flux/bin/seed_stationarity.py:502: RuntimeWarning: divide by zero encountered in divide
+  f"{(s['U']/s['ustar'])[m].mean():8.3f}{(s['sw']/s['ustar'])[m].mean():8.3f}"
+/flux/bin/seed_stationarity.py:502: RuntimeWarning: invalid value encountered in divide
+  f"{(s['U']/s['ustar'])[m].mean():8.3f}{(s['sw']/s['ustar'])[m].mean():8.3f}"
+/flux/bin/seed_stationarity.py:503: RuntimeWarning: invalid value encountered in divide
+  f"{(s['tke']/s['ustar']**2)[m].mean():10.3f}{s['zi'][m].mean():7.0f}"
+   0.0-1.0       0.4715   7.696     inf     nan       nan    641  194.4
+   1.0-2.0       0.4693   6.814  14.517   1.094     1.762    908  192.2
+
+  === GATED: the footprint's controlling parameters, last 1.5 h ===
+  U/u* (Kljun Pi_4)              14.5867    -2.11 %/h  (limit 1)    1.41% per 40-min window   INDETERMINATE
+    ^ trend SE 0.48 %/h (AR(1)-corrected, n_eff 8.2 of 18 dumps); |trend| is 4.4 SE from zero and the limit is 2.3 SE away  -- INDETERMINATE: 3 SE of separation is required and there is 2.3. This limit cannot tell PASS from FAIL on this window, so it asserts neither
+  sigma_v/u*                      2.1412    +5.68 %/h  (limit 3)    3.78% per 40-min window   INDETERMINATE
+    ^ trend SE 2.43 %/h (AR(1)-corrected, n_eff 5.6 of 18 dumps); |trend| is 2.3 SE from zero and the limit is 1.1 SE away  -- INDETERMINATE: 3 SE of separation is required and there is 1.1. This limit cannot tell PASS from FAIL on this window, so it asserts neither
+  sigma_w/u* at the receptor      1.0838    +5.40 %/h  (limit 2)    3.60% per 40-min window   DRIFTING
+    ^ trend SE 0.79 %/h (AR(1)-corrected, n_eff 9.7 of 18 dumps); |trend| is 6.8 SE from zero and the limit is 4.3 SE away
+  TKE_BL/u*^2                     2.7607    +8.88 %/h  (limit 5)    5.92% per 40-min window   INDETERMINATE
+    ^ trend SE 3.80 %/h (AR(1)-corrected, n_eff 9.7 of 18 dumps); |trend| is 2.3 SE from zero and the limit is 1.0 SE away  -- INDETERMINATE: 3 SE of separation is required and there is 1.0. This limit cannot tell PASS from FAIL on this window, so it asserts neither
+  z_i                           895.9907    +7.35 %/h  (limit 3)    4.90% per 40-min window   DRIFTING
+    ^ trend SE 0.52 %/h (AR(1)-corrected, n_eff 14.3 of 18 dumps); |trend| is 14.0 SE from zero and the limit is 8.3 SE away
+    ^ on 5 distinct model level(s) spanning 92 m across the window
+  Kljun x_peak                  157.5974    -2.37 %/h  (limit 1)    1.58% per 40-min window   INDETERMINATE
+    ^ trend SE 0.49 %/h (AR(1)-corrected, n_eff 8.1 of 18 dumps); |trend| is 4.9 SE from zero and the limit is 2.8 SE away  -- INDETERMINATE: 3 SE of separation is required and there is 2.8. This limit cannot tell PASS from FAIL on this window, so it asserts neither
+  Kljun x90                    1398.0063    -1.28 %/h  (limit 1)    0.85% per 40-min window   INDETERMINATE
+    ^ trend SE 0.26 %/h (AR(1)-corrected, n_eff 8.2 of 18 dumps); |trend| is 4.9 SE from zero and the limit is 1.1 SE away  -- INDETERMINATE: 3 SE of separation is required and there is 1.1. This limit cannot tell PASS from FAIL on this window, so it asserts neither
+
+  === REPORTED, not gated: the mean flow rides the inertial oscillation ===
+  u*                              0.4775    -9.51 %/h
+  U(10 m)                         6.9684   -11.62 %/h
+  wind direction                192.3634    -2.91 deg/h
+  TKE_column/u*^2 (retired form)    1.7060   +16.01 %/h
+  domain TKE                      0.3874    -2.58 %/h
+  peak resolved TKE               0.9529    -5.58 %/h
+  z_i, 5% of the running peak   797.0138    +1.52 %/h
+  ^ the direction row is the DRIFT AT FREEZE. bin/pick_seed.py projects it forward to the window's own midpoint rather than assuming the adjustment closes a gap; measured, the adjustment WIDENS one.
+  x_peak spans 154.8-161.1 m across the scored window, against a 30 m raster cell.
+
+  SEED STATIONARITY: FAIL -- still drifting: sigma_w/u* at the receptor, z_i; and INDETERMINATE: U/u* (Kljun Pi_4), sigma_v/u*, TKE_BL/u*^2, Kljun x_peak, Kljun x90
+  wrote /out/work/seed_cbl-mid_a075/return/stationarity.json

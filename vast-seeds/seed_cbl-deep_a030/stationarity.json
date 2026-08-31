@@ -1,0 +1,171 @@
+{
+ "label": "seed_cbl-deep_a030",
+ "pass": false,
+ "n_indeterminate": 6,
+ "indeterminate": [
+  "sigma_v/u*",
+  "sigma_w/u* at the receptor",
+  "TKE_BL/u*^2",
+  "z_i",
+  "Kljun x_peak",
+  "Kljun x90"
+ ],
+ "drifting": [
+  "U/u* (Kljun Pi_4)"
+ ],
+ "resolve_se": 3.0,
+ "dt": 0.0308642,
+ "wth": 0.16,
+ "score_h": 1.5,
+ "n_dumps": 25,
+ "t_end_h": 2.00000016,
+ "gated": [
+  {
+   "name": "U/u* (Kljun Pi_4)",
+   "mean": 14.773178598306345,
+   "trend_pct_per_h": -2.007853023644579,
+   "limit": 1.0,
+   "ok": false,
+   "trend_se_pct_per_h": 0.3085547312844997,
+   "n_eff": 11.789072652652235,
+   "resolvable": true,
+   "margin_se": 3.2663671026820156,
+   "verdict": "DRIFTING"
+  },
+  {
+   "name": "sigma_v/u*",
+   "mean": 2.2028281542071273,
+   "trend_pct_per_h": 6.789683456849732,
+   "limit": 3.0,
+   "ok": null,
+   "trend_se_pct_per_h": 2.971865471790414,
+   "n_eff": 5.860513203359686,
+   "resolvable": false,
+   "margin_se": 1.2751867447642642,
+   "verdict": "INDETERMINATE"
+  },
+  {
+   "name": "sigma_w/u* at the receptor",
+   "mean": 1.0725031856669434,
+   "trend_pct_per_h": 2.019034031293583,
+   "limit": 2.0,
+   "ok": null,
+   "trend_se_pct_per_h": 1.382060253433734,
+   "n_eff": 6.485327780023276,
+   "resolvable": false,
+   "margin_se": 0.01377221524625479,
+   "verdict": "INDETERMINATE"
+  },
+  {
+   "name": "TKE_BL/u*^2",
+   "mean": 2.8174803601600247,
+   "trend_pct_per_h": -3.570604509483522,
+   "limit": 5.0,
+   "ok": null,
+   "trend_se_pct_per_h": 5.007161621390744,
+   "n_eff": 13.336424421579098,
+   "resolvable": false,
+   "margin_se": 0.28547021218769086,
+   "verdict": "INDETERMINATE"
+  },
+  {
+   "name": "z_i",
+   "mean": 1239.7825639512803,
+   "trend_pct_per_h": 25.47027861185217,
+   "limit": 3.0,
+   "ok": null,
+   "trend_se_pct_per_h": 11.42299635088383,
+   "n_eff": 18.0,
+   "resolvable": false,
+   "margin_se": 1.9671089722543402,
+   "verdict": "INDETERMINATE",
+   "n_levels": 10,
+   "level_span_m": 1334.8537902832031
+  },
+  {
+   "name": "Kljun x_peak",
+   "mean": 159.9381896201573,
+   "trend_pct_per_h": -4.85434062334371,
+   "limit": 1.0,
+   "ok": null,
+   "trend_se_pct_per_h": 2.9335397765020783,
+   "n_eff": 18.0,
+   "resolvable": false,
+   "margin_se": 1.3138872887346986,
+   "verdict": "INDETERMINATE"
+  },
+  {
+   "name": "Kljun x90",
+   "mean": 1408.237531887142,
+   "trend_pct_per_h": -2.497139322791302,
+   "limit": 1.0,
+   "ok": null,
+   "trend_se_pct_per_h": 1.4335168772354727,
+   "n_eff": 18.0,
+   "resolvable": false,
+   "margin_se": 1.0443820694169466,
+   "verdict": "INDETERMINATE"
+  }
+ ],
+ "reported": [
+  {
+   "name": "u*",
+   "mean": 0.5743651011220481,
+   "trend_pct_per_h": -6.033651477091431,
+   "unit": "%/h"
+  },
+  {
+   "name": "U(10 m)",
+   "mean": 8.487241550111179,
+   "trend_pct_per_h": -8.06247883727182,
+   "unit": "%/h"
+  },
+  {
+   "name": "wind direction",
+   "mean": 238.93501461093007,
+   "trend_deg_per_h": -4.7286928360177525,
+   "unit": "deg/h"
+  },
+  {
+   "name": "TKE_column/u*^2 (retired form)",
+   "mean": 2.2084952794328716,
+   "trend_pct_per_h": 13.958475235744988,
+   "unit": "%/h"
+  },
+  {
+   "name": "domain TKE",
+   "mean": 0.7265971239133399,
+   "trend_pct_per_h": 1.988908484886081,
+   "unit": "%/h"
+  },
+  {
+   "name": "peak resolved TKE",
+   "mean": 1.4949548189706183,
+   "trend_pct_per_h": 4.960769586374069,
+   "unit": "%/h"
+  },
+  {
+   "name": "z_i, 5% of the running peak",
+   "mean": 1010.6048092312283,
+   "trend_pct_per_h": 11.294594953196789,
+   "unit": "%/h"
+  }
+ ],
+ "final": {
+  "ustar": 0.5570476440188706,
+  "U": 8.12706570541566,
+  "zi": 1239.7825639512803,
+  "zi_definition": "fixed resolved-TKE threshold 0.01 m2/s2 (gated)",
+  "zi_peakfrac": 1010.6048092312283,
+  "tke_peak": 1.4949548189706183,
+  "wdir": 234.18283746581898,
+  "dwdir_dt_deg_per_h": -4.7286928360177525,
+  "dwdir_scored_over_h": 1.5,
+  "sigma_v": 1.2855850950378174,
+  "sigma_w": 0.6035060673103928,
+  "theta0": 302.1791992269514,
+  "x_peak": 155.72129640666688,
+  "x90": 1389.0079412220825
+ },
+ "last_dump": "FE_SEED.233280"
+}

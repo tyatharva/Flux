@@ -1,0 +1,85 @@
+=== Is TKE_BL/u*^2 measuring the turbulence, or its own denominator? ===
+  library jobs30, 30 seeds, recovered from returned artifacts only.
+
+  A = trend(TKE_BL/u*^2) + 2*trend(u*)     invert the ratio
+  B = trend(domain TKE)  -   trend(z_i)    de-normalise the column
+  Disjoint inputs, so their AGREEMENT is the evidence. Both are first order in
+  (trend x window); where they disagree by more than 3 %/h the recovery is UNRESOLVED
+  and is reported as such rather than averaged.
+
+  seed                       GATED     u*    z_i |       A       B  |A-B| | ABSOLUTE  reading
+  ------------------------------------------------------------------------------------------------
+  --- cbl-deep ---
+  seed_cbl-deep_a000          -3.4   -8.3  +29.8 |   -19.9   -34.5   14.6 |    -27.2  UNRESOLVED
+  seed_cbl-deep_a015          +6.2   -8.0  +14.6 |    -9.7   -10.9    1.1 |    -10.3  FALLING
+  seed_cbl-deep_a030          -3.6   -6.0  +25.5 |   -15.6   -23.5    7.8 |    -19.6  UNRESOLVED
+  seed_cbl-deep_a045         +14.1   -6.9   +7.6 |    +0.3    +1.0    0.7 |     +0.7  STEADY
+  seed_cbl-deep_a060          -0.1   -6.6   +8.9 |   -13.3   -13.8    0.6 |    -13.6  FALLING
+  seed_cbl-deep_a075          +7.9   -8.0  +13.6 |    -8.2   -14.3    6.2 |    -11.2  UNRESOLVED
+  --- cbl-mid ---
+  seed_cbl-mid_a000          +11.1   -8.3  +11.8 |    -5.4    -7.8    2.4 |     -6.6  FALLING
+  seed_cbl-mid_a015          +10.9   -8.4   +6.0 |    -5.8    -6.5    0.6 |     -6.2  FALLING
+  seed_cbl-mid_a030          +20.9   -9.5   +0.0 |    +1.9    +6.4    4.5 |     +4.1  UNRESOLVED
+  seed_cbl-mid_a045          +12.9   -8.7   +6.3 |    -4.6    -5.0    0.4 |     -4.8  STEADY
+  seed_cbl-mid_a060          +10.5   -8.4   +6.8 |    -6.4    -6.4    0.0 |     -6.4  FALLING
+  seed_cbl-mid_a075           +8.9   -9.5   +7.3 |   -10.1    -9.9    0.2 |    -10.0  FALLING
+  --- cbl-shallow ---
+  seed_cbl-shallow_a000      +23.5  -10.9   +1.2 |    +1.6    +2.1    0.4 |     +1.8  STEADY
+  seed_cbl-shallow_a015      +21.5  -11.3   -1.4 |    -1.1    -0.7    0.4 |     -0.9  STEADY
+  seed_cbl-shallow_a030      +22.0  -10.7   -1.2 |    +0.5    +0.8    0.3 |     +0.7  STEADY
+  seed_cbl-shallow_a045      +18.4  -10.9   -0.7 |    -3.5    -2.1    1.3 |     -2.8  STEADY
+  seed_cbl-shallow_a060      +24.0  -11.2   -0.0 |    +1.7    +2.3    0.6 |     +2.0  STEADY
+  seed_cbl-shallow_a075      +25.3  -11.4   +0.2 |    +2.4    +2.3    0.1 |     +2.3  STEADY
+  --- nbl-deep ---
+  seed_nbl-deep_a000         +17.8   -2.3   +3.7 |   +13.1    +9.7    3.4 |    +11.4  UNRESOLVED
+  seed_nbl-deep_a015         +26.3   -3.8   +3.5 |   +18.7   +14.7    4.0 |    +16.7  UNRESOLVED
+  seed_nbl-deep_a030         +23.9   -2.3   +5.0 |   +19.3   +14.6    4.7 |    +17.0  UNRESOLVED
+  seed_nbl-deep_a045         +26.5   -3.6   +3.0 |   +19.2   +16.0    3.2 |    +17.6  UNRESOLVED
+  seed_nbl-deep_a060          +9.8   -0.7   +4.3 |    +8.5    +5.5    3.0 |     +7.0  RISING
+  seed_nbl-deep_a075         +12.0   -1.6   +4.6 |    +8.8    +4.3    4.4 |     +6.6  UNRESOLVED
+  --- nbl-shallow ---
+  seed_nbl-shallow_a000      +28.3   -2.2   -0.0 |   +23.9   +22.6    1.3 |    +23.2  RISING
+  seed_nbl-shallow_a015      +30.3   -3.8   -0.0 |   +22.6   +22.0    0.6 |    +22.3  RISING
+  seed_nbl-shallow_a030      +44.0   -4.3   -0.1 |   +35.4   +36.6    1.2 |    +36.0  RISING
+  seed_nbl-shallow_a045      +42.2   -6.7   -0.0 |   +28.9   +29.9    1.0 |    +29.4  RISING
+  seed_nbl-shallow_a060      +38.6   -3.1   +1.1 |   +32.5   +33.3    0.8 |    +32.9  RISING
+  seed_nbl-shallow_a075      +32.1   +0.7   +2.0 |   +33.4   +32.0    1.4 |    +32.7  RISING
+
+  === BY RUNG: what the gate reported, against what the turbulence did ===
+  rung             GATED     u*    z_i | ABSOLUTE  |A-B|  reading
+  --------------------------------------------------------------------------
+  cbl-deep          +3.5   -7.3  +16.7 |    -13.5    4.9  UNRESOLVED
+  cbl-mid          +12.5   -8.8   +6.4 |     -5.0    0.2  STEADY
+  cbl-shallow      +22.5  -11.1   -0.3 |     +0.5    0.5  STEADY
+  nbl-deep         +19.4   -2.4   +4.0 |    +12.7    3.8  UNRESOLVED
+  nbl-shallow      +35.9   -3.2   +0.5 |    +29.4    0.1  RISING
+
+  === WHAT THIS SETTLES ===
+  The gated ratio has THREE moving parts and only one of them is the turbulence:
+
+    numerator   int_0^zi TKE dz / zi   -- the averaging DEPTH entrains upward, so a
+                                          layer of fixed integrated TKE reports a
+                                          FALLING BL average as it deepens
+    denominator u*^2                   -- falls through the first quarter of the
+                                          17.6 h inertial period, which PROJECT_BRIEF.md
+                                          already records at ~10 %/h
+
+  Moving the average inside the boundary layer removed the column mean's z_i
+  dependence -- that fix was real -- but it did not make the diagnostic scale-free.
+  It exchanged one reference for two.
+
+  CONVECTIVE rungs: the reported drift is the references, not the turbulence.
+    cbl-deep       gate   +3.5 %/h   absolute  -13.5 %/h   (UNRESOLVED, u* -7.3, z_i +16.7)
+    cbl-mid        gate  +12.5 %/h   absolute   -5.0 %/h   (STEADY, u* -8.8, z_i +6.4)
+    cbl-shallow    gate  +22.5 %/h   absolute   +0.5 %/h   (STEADY, u* -11.1, z_i -0.3)
+
+  NEUTRAL rungs: z_i and u* are both quiet, so the ratio DOES track the
+  turbulence -- and it says these seeds are still spinning up at 2.0 sim-h.
+    nbl-deep       gate  +19.4 %/h   absolute  +12.7 %/h   (UNRESOLVED, u* -2.4, z_i +4.0)
+    nbl-shallow    gate  +35.9 %/h   absolute  +29.4 %/h   (RISING, u* -3.2, z_i +0.5)
+
+  WHAT IS OWED FROM FUTURE SEED RUNS. This recovery is first order and it is
+  arithmetic on trends, not a re-fit. `stationarity.json` returns verdicts and
+  trends but NOT the per-dump series they came from, so the absolute TKE_BL trend
+  cannot be fitted directly, its own standard error cannot be formed, and no
+  verdict here carries an n_eff. Seed runs should return the scored series itself.

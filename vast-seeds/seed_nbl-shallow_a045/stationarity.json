@@ -1,0 +1,170 @@
+{
+ "label": "seed_nbl-shallow_a045",
+ "pass": false,
+ "n_indeterminate": 4,
+ "indeterminate": [
+  "U/u* (Kljun Pi_4)",
+  "sigma_w/u* at the receptor",
+  "Kljun x_peak",
+  "Kljun x90"
+ ],
+ "drifting": [
+  "sigma_v/u*",
+  "TKE_BL/u*^2"
+ ],
+ "resolve_se": 3.0,
+ "dt": 0.0308642,
+ "wth": 0.0,
+ "score_h": 1.5,
+ "n_dumps": 25,
+ "t_end_h": 2.00000016,
+ "gated": [
+  {
+   "name": "U/u* (Kljun Pi_4)",
+   "mean": 17.460741697362046,
+   "trend_pct_per_h": 0.08472534528816604,
+   "limit": 1.0,
+   "ok": null,
+   "trend_se_pct_per_h": 0.9536608437213553,
+   "n_eff": 3.0,
+   "resolvable": false,
+   "margin_se": 0.9597485948361563,
+   "verdict": "INDETERMINATE"
+  },
+  {
+   "name": "sigma_v/u*",
+   "mean": 2.139384271238049,
+   "trend_pct_per_h": 10.824671570967299,
+   "limit": 3.0,
+   "ok": false,
+   "trend_se_pct_per_h": 1.5006653431394579,
+   "n_eff": 6.381133893825315,
+   "resolvable": true,
+   "margin_se": 5.214134921379434,
+   "verdict": "DRIFTING"
+  },
+  {
+   "name": "sigma_w/u* at the receptor",
+   "mean": 1.1926220993560095,
+   "trend_pct_per_h": 2.7551005005223814,
+   "limit": 2.0,
+   "ok": null,
+   "trend_se_pct_per_h": 2.281154907934717,
+   "n_eff": 3.0,
+   "resolvable": false,
+   "margin_se": 0.3310167572994965,
+   "verdict": "INDETERMINATE"
+  },
+  {
+   "name": "TKE_BL/u*^2",
+   "mean": 1.5096689893532103,
+   "trend_pct_per_h": 42.248510113142586,
+   "limit": 5.0,
+   "ok": false,
+   "trend_se_pct_per_h": 5.392342831925842,
+   "n_eff": 3.0,
+   "resolvable": true,
+   "margin_se": 6.907667274530375,
+   "verdict": "DRIFTING"
+  },
+  {
+   "name": "z_i",
+   "mean": 391.8516845703125,
+   "trend_pct_per_h": -2.362523579202936e-14,
+   "limit": 3.0,
+   "ok": true,
+   "trend_se_pct_per_h": 1.606219040012334e-14,
+   "n_eff": 3.0,
+   "resolvable": true,
+   "margin_se": 186774028029012.78,
+   "verdict": "ok",
+   "n_levels": 1,
+   "level_span_m": 0.0
+  },
+  {
+   "name": "Kljun x_peak",
+   "mean": 197.43894615653073,
+   "trend_pct_per_h": 0.08472534528816311,
+   "limit": 1.0,
+   "ok": null,
+   "trend_se_pct_per_h": 0.9536608437213531,
+   "n_eff": 3.0,
+   "resolvable": false,
+   "margin_se": 0.9597485948361616,
+   "verdict": "INDETERMINATE"
+  },
+  {
+   "name": "Kljun x90",
+   "mean": 1569.267111942464,
+   "trend_pct_per_h": 0.04065969791354027,
+   "limit": 1.0,
+   "ok": null,
+   "trend_se_pct_per_h": 0.46191569474868815,
+   "n_eff": 3.0,
+   "resolvable": false,
+   "margin_se": 2.0768731458852088,
+   "verdict": "INDETERMINATE"
+  }
+ ],
+ "reported": [
+  {
+   "name": "u*",
+   "mean": 0.22888740234665653,
+   "trend_pct_per_h": -6.683371745668712,
+   "unit": "%/h"
+  },
+  {
+   "name": "U(10 m)",
+   "mean": 3.995665186449939,
+   "trend_pct_per_h": -6.566681918209519,
+   "unit": "%/h"
+  },
+  {
+   "name": "wind direction",
+   "mean": 210.36227085612552,
+   "trend_deg_per_h": -10.236994896522306,
+   "unit": "deg/h"
+  },
+  {
+   "name": "TKE_column/u*^2 (retired form)",
+   "mean": 0.5359320532184332,
+   "trend_pct_per_h": 41.193670283461394,
+   "unit": "%/h"
+  },
+  {
+   "name": "domain TKE",
+   "mean": 0.02788241668261669,
+   "trend_pct_per_h": 29.9027319426409,
+   "unit": "%/h"
+  },
+  {
+   "name": "peak resolved TKE",
+   "mean": 0.19228602809372392,
+   "trend_pct_per_h": 21.041445959026994,
+   "unit": "%/h"
+  },
+  {
+   "name": "z_i, 5% of the running peak",
+   "mean": 392.60419209798175,
+   "trend_pct_per_h": -0.7263313287375294,
+   "unit": "%/h"
+  }
+ ],
+ "final": {
+  "ustar": 0.2306278057194179,
+  "U": 3.9848496992747444,
+  "zi": 391.8516845703125,
+  "zi_definition": "fixed resolved-TKE threshold 0.01 m2/s2 (gated)",
+  "zi_peakfrac": 392.60419209798175,
+  "tke_peak": 0.19228602809372392,
+  "wdir": 204.01880443830964,
+  "dwdir_dt_deg_per_h": -10.236994896522306,
+  "dwdir_scored_over_h": 1.5,
+  "sigma_v": 0.5208395632797275,
+  "sigma_w": 0.2719738253499519,
+  "theta0": 300.5040105867373,
+  "x_peak": 195.3756405504028,
+  "x90": 1561.2935256086673
+ },
+ "last_dump": "FE_SEED.233280"
+}

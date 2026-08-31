@@ -12,6 +12,113 @@ conditioned on the six scalars by FiLM, and touchdowns are not saved at all. Eve
 below that says "CNF is the primary architecture" and "FNO may be benchmarked against it"
 is the wrong way round now.
 
+## THE LIBRARY EXISTS: 30 SEEDS ON 16x RTX 5090, AND SELECTION USES ALL OF THEM — 2026-08-31
+
+**Full evidence: `SEED_LIBRARY_RESULT.md`.** Thirty seeds in **0.936 h wall / 13.24 GPU-h**,
+all thirty returned complete and finite, all thirty passing every acceptance-battery item
+(`k0/k1` 0.124–0.144, `turb_alive` real OK, C2 bit-for-bit, rotation exact, no `CORRUPTED`
+in any run log), all thirty at **233,280 steps = 2.000 sim-h**. The work queue behaved as
+one under real load: 16 of 16 workers, **14 took a second job**, peak concurrency 16.
+
+**0.189 GPU-h PER SIM-HOUR UNDER FULL 16-WAY LOAD, AND IT IS A SEED NUMBER.** The LES leg is
+identical in both regimes (1365.8 s convective, 1361.9 s neutral); the neutral rungs' 0.268
+all-in is the Steinfeld accelerator (+567 s). Against **0.469 measured single-GPU on the
+4080 from inside this same image** — so **16-way contention costs nothing measurable, it is
+2.5x faster**. Peak VRAM **904 MiB of 32,607 (2.8%)**; host peak 58.9 GiB of 755.
+
+> **DO NOT CARRY 0.189 TO THE CORPUS ESTIMATE.** A seed runs FastEddy and nothing else. A
+> case also runs the LPDM and the ring hand-off, and **the ring's host-side field cache —
+> 12.0 GB per case, which IS the window rather than buildup, random-accessed by a CPU
+> integrator — has never been exercised at 16-way.** Sixteen concurrent cases ask ~200 GB of
+> host residency and the contention behaviour of that is unmeasured. The corpus stays at its
+> own ~0.49 GPU-h/sim-h until a real case runs this path on rented hardware.
+
+**THE THREAD-BLOCK SWEEP PICKED `1x8x16` ON THE LAST PRINTED DIGIT.** 0.00580 s/step against
+Ada's `1x2x64` at 0.00590 — but FastEddy prints five decimals, so **one quantum is 0.00010 s
+= 1.7% at this speed**, three shapes tie exactly at 0.00580 (`1x8x16`, `1x2x32`, `1x8x8`),
+and the top eight span two quanta. The reported "repeat noise 0.00%" is quantisation, not
+precision. The sweep's two-phase design exists to stop it choosing on noise and here it
+chose on the last digit instead. **Worst case if wrong: 1.7%.** Recorded, not fixed. (What
+did carry: `tBx > 1` is no longer the 17% penalty measured at 186² on Ada — `2x2x32` is
+1.017x the winner, inside the same quantum.)
+
+**SEED SELECTION USES THE WHOLE LIBRARY, AND `ALLOW_DRIFTING` DEFAULTS TO `any`.** This
+supersedes the 2026-08-30 `zi-neutral` narrow form. `bin/pick_seed.py` ranks all 30;
+`--strict-gate` restores the old refusal. **The reasoning generalises the one `zi-neutral`
+was already granted on**: a seed is an INITIAL CONDITION, not a corpus point — the case
+restarts from it, adjusts `ADJ_S` under its OWN sounding's forcing, and every ML input is
+measured by `window_stats` over EXACTLY the same window as the footprint. The pair is
+self-consistent whatever the seed's drift state, which is precisely the `z_i` argument, and
+it never depended on the limit being `z_i`. Refusing a seed removes a RESTART POINT without
+removing any error. `gate_state` is still stamped on every pair.
+
+| | strict gate | whole library |
+|---|---|---|
+| seeds available | 11 of 30 | **30** |
+| **cbl-shallow** | **0 of 6** — the weakly-convective rung had NO restart point | 6 |
+| neutral | 4 of 12, i.e. 4 base angles | **12** |
+| Ekman backing calibration | n = 5 / 2 / 3 / 1, one rung absent | **n = 6 every rung** |
+| convective pick | `cbl-mid_a030`, cost 0.346, `z_i` 766 vs 970 m | `cbl-deep_a030`, **0.268**, 1011 vs 970 |
+| neutral pick | `nbl-deep_a000`, cost 0.983, gap **14.5 deg**, half-spacing warning FIRED | `nbl-deep_a015`, **0.216**, gap **1.3 deg**, no warning |
+
+**AND "11 of 30 ACCEPTED" WAS NOT A QUALITY STATEMENT: THE SPLIT TRACKED THE STANDARD ERROR,
+NOT THE DRIFT.** The gate returns INDETERMINATE when the threshold sits within 3 SE, which is
+correct and deliberate — but at these magnitudes it admits the *worse-measured* seed:
+`cbl-shallow_a000` (+23.5 %/h, SE 7.37, n_eff 3.0) was **admitted** while `a030`
+(+22.0 %/h, SE 2.41, n_eff 8.6) was **refused**. Same in nbl-shallow. The eleven are the
+seeds whose drift could not be resolved, not the steady ones.
+
+### `TKE_BL/u*^2` WAS MEASURING ITS OWN REFERENCES — THE FOURTH INSTANCE
+
+**`bin/seed_tke_rescore.py`, `results/seed_tke_rescore.txt`, no GPU.** The rule three
+sections below — *a diagnostic is only as scale-free as its reference* — now has a fourth
+instance, and **`TKE_BL/u*^2` is itself the FIX that was applied to the second one** (the
+column mean, which rose with `z_i` because it divided by the whole box).
+
+The absolute `TKE_BL` series was not returned, but the numerator is recoverable from what
+was, by two routes with **disjoint inputs** — `A = trend(ratio) + 2·trend(u*)` and
+`B = trend(domain TKE) − trend(z_i)` — so **their agreement is the evidence**:
+
+| rung | GATED | u* | z_i | **ABSOLUTE** | \|A−B\| | reading |
+|---|---|---|---|---|---|---|
+| cbl-deep | +3.5 | −7.3 | +16.7 | **−13.5** | 4.9 | UNRESOLVED |
+| cbl-mid | +12.5 | −8.8 | +6.4 | **−5.0** | 0.2 | STEADY |
+| **cbl-shallow** | **+22.5** | −11.1 | −0.3 | **+0.5** | 0.5 | **STEADY** |
+| nbl-deep | +19.4 | −2.4 | +4.0 | **+12.7** | 3.8 | UNRESOLVED |
+| **nbl-shallow** | **+35.9** | −3.2 | +0.5 | **+29.4** | 0.1 | **RISING** |
+
+**Moving the average inside the boundary layer removed the column mean's `z_i` dependence —
+that fix was real — but it exchanged one reference for two**: `u*^2` in the denominator, and
+`z_i` again in the averaging depth `∫₀^zi TKE dz / zi`. Every OTHER gated limit is a ratio
+whose numerator rides the inertial oscillation WITH `u*` and cancels it (`U/u*`,
+`sigma_v/u*`, `sigma_w/u*`); `TKE_BL` is an energy, not a velocity carried by the mean flow,
+so nothing cancels — and `PROJECT_BRIEF.md` already records `u*` falling ~10 %/h through the first
+quarter of the 17.6 h inertial period.
+
+**So the two halves failed for opposite reasons and only one is real.** cbl-shallow's
+absolute BL TKE is **flat**; the entire +22.5 %/h is `u*` falling at −11.1. cbl-mid is
+**falling** where the gate reports rising — the wrong sign. cbl-deep is falling at −13.5 as
+its `z_i` grows +16.7 %/h and dilutes a roughly fixed integrated TKE, **and cbl-deep is the
+rung the refusal accepted best (5 of 6)**. But **nbl-shallow really is rising at +29.4 %/h**
+with both routes agreeing to 0.1, and `z_i`/`u*` are quiet there, so on the neutral rungs the
+ratio DOES track the turbulence: **a 2.0 sim-h ceiling is short for the neutral half.** That
+is a genuine limitation of this library, recorded rather than fixed (+1.0 sim-h on 12 neutral
+seeds is +2.3 GPU-h).
+
+**WHAT IS OWED: seed runs must return the SCORED SERIES, not only the verdicts and trends
+fitted to it.** This recovery is first-order arithmetic and can carry no standard error and
+no `n_eff`. A few kB per seed would have made it a measurement. The gated form is NOT changed
+here — changing a gate on the same pass that reinterprets its output is how a threshold gets
+tuned to a result.
+
+**AND `jobs/run_seed.sh` NOW EXITS ON WHETHER IT PRODUCED A SEED.** It was
+`[ "$VERDICT" = "PASS" ] || exit 1` and returned **1 for all thirty**. A status identical for
+every outcome discriminates nothing, in the dangerous direction: anything keying on it reads
+a complete battery-passing seed as a failed run. `bin/run_seeds.py` survived only because it
+judges on the artifact. Now exit 0 when the seed exists, 1 when it does not,
+`SEED_STRICT_EXIT=1` for the old signal. The verdict lives in the artifact, which is this
+file's own standing rule.
+
 ## THE SEED LIBRARY SHIPS AS ONE IMAGE AND ONE COMMAND, ON CUDA 13.0 — 2026-08-31
 
 **THE `CUDA 11.8 (do not "upgrade")` PIN IS SUPERSEDED FOR DEPLOYMENT, AND ONLY THERE.**
@@ -327,7 +434,10 @@ dump rather than reporting a trend through the spin-up, and `jobs/run_seed.sh` d
 `SCORE_H = min(2.0, sim_h − 0.5)` from the run it actually got: **1.5 h at a 2.0 h ceiling.**
 
 **2. `z_i` IS ACCEPTED AS DRIFTING ON THE NEUTRAL RUNGS, AND ONLY THERE.**
-`ALLOW_DRIFTING` now defaults to **`zi-neutral`** in `bin/run_corpus_case.sh`. `z_i` in a
+**(SUPERSEDED IN SCOPE 2026-08-31 — the default is `any` and selection uses the WHOLE
+library. The argument below is what generalised: it was never specific to `z_i`. See the
+block at the top of this file.)**
+`ALLOW_DRIFTING` then defaulted to **`zi-neutral`** in `bin/run_corpus_case.sh`. `z_i` in a
 neutral boundary layer with no capping inversion grows without bound — measured on
 `seed_nbl-deep_a015` at **+5.76 %/h and still climbing at 3.0 sim-h** — so the limit is
 **unsatisfiable rather than failed**, and refusing it made the neutral half of the corpus
@@ -1745,14 +1855,17 @@ something wider, and stating only the special case is what let the same failure 
 > quantity being measured will report that variation as signal.**
 
 It is a quiet failure every time. The number stays finite, the check still runs, the
-verdict still prints — and it is about the reference rather than the thing. Three
-instances in this project, each of which cost real GPU time or produced a wrong number:
+verdict still prints — and it is about the reference rather than the thing. **FOUR**
+instances in this project, each of which cost real GPU time or produced a wrong number —
+and the fourth is the FIX that was applied to the second, which is the strongest form of
+the warning this rule can carry:
 
 | diagnostic | the reference that moved | what it reported instead |
 |---|---|---|
 | **`z_i`**, gated as 5% of the *running* TKE peak | the peak falls with `u*^2` on the inertial oscillation | **+11.67 %/h** of "deepening" while three independent depths said +1.71 to +2.33 |
 | **`TKE/u*^2`**, as a mean over the *whole 2500 m column* | the column is mostly free atmosphere, so the mean scales with `z_i/H_domain` | a rung **44%** apart from another in a quantity that is **5.7%** apart when scale-free — and it FAILED a seed on it |
 | **`k0/k1`**, a ratio of first-to-second level `w` variance | both levels collapse together when the layer dies | **0.442, a clean pass**, through a stable seed whose boundary layer had died |
+| **`TKE_BL/u*^2`** — and this one IS the fix applied to the row above it | `u*^2` falls ~10 %/h on the inertial oscillation, and the averaging depth `z_i` entrains upward | **+22.5 %/h "drifting"** on a cbl-shallow rung whose absolute BL TKE is **flat (+0.5)**, and the WRONG SIGN on cbl-mid — 19 of 30 seeds refused (2026-08-31, `bin/seed_tke_rescore.py`) |
 
 **The fix is one of two things, and never a looser threshold:**
 

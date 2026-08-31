@@ -1,0 +1,54 @@
+=== seed seed_nbl-shallow_a060: nbl-shallow (neutral), base angle 60 deg ===
+
+--- cost, against the projection the other 14 are budgeted on ---
+  349920 steps x dt 0.0308642 = 3.000 simulated hours
+  --wall-seconds 0.546 h  ->  5.618 ms/step (HAND-PASSED; trust the artifact line below instead)
+  MEASURED off the dumps: 5.841 ms/step
+  from 25 dump mtimes, no pauses
+  planned                 14.900 ms/step   (-60.8%)
+  implied wall for the whole chain 0.568 h
+  wall-to-sim ratio 0.189 GPU-h per simulated hour
+    vs the manifest projection 1.019  (-81.4%)
+    vs the sanctioned SEED CLASS 0.953 (-80.1%)  -> IN CLASS  (0.57 h against a 3.0 sim-h class of ~2.86 h)
+  ONE invocation, 34.1 min wall (planner projected 86.9; chaining is retired, there is no per-run cap)
+  the library at this rate: 15 x 0.57 h = 8.5 GPU-h  (projected 43)
+
+--- the seven stationarity limits, scored on the last 1.5 h ---
+  quantity                            mean      trend   limit    used  verdict
+  TKE_BL/u*^2                       1.5561    +38.59%     5.0    772%  DRIFTING
+  sigma_v/u*                        2.1495     +7.24%     3.0    241%  INDETERMINATE
+  Kljun x_peak                    195.7013     -1.02%     1.0    102%  INDETERMINATE
+  U/u* (Kljun Pi_4)                17.3012     -0.93%     1.0     93%  INDETERMINATE
+  sigma_w/u* at the receptor        1.1729     +1.35%     2.0     67%  INDETERMINATE
+  Kljun x90                      1562.5274     -0.50%     1.0     50%  INDETERMINATE
+  z_i                             390.3887     +1.11%     3.0     37%  INDETERMINATE
+  ALL SEVEN: FAIL  -- DRIFTING: TKE_BL/u*^2  -- INDETERMINATE: sigma_v/u*, Kljun x_peak, U/u* (Kljun Pi_4), sigma_w/u* at the receptor, Kljun x90, z_i
+  BINDS LAST: TKE_BL/u*^2 at 772% of its limit (+38.59 %/h against 5.0)
+  reported, not gated: u* -3.05 %/h, U(10 m) -3.98 %/h, wind direction -9.41 deg/h, TKE_column/u*^2 (retired form) +37.81 %/h, domain TKE +34.36 %/h, peak resolved TKE +15.15 %/h, z_i, 5% of the running peak +0.38 %/h
+
+--- is the stable boundary layer still turbulent? ---
+  column-integrated TKE 117.406 -> 46.215 m3/s2; trend over the last half +36.7 %/h
+  u* 0.4131 -> 0.2440 m/s   (min over the run 0.2273)
+  turb-alive OK: max e_res/U_ref^2=3.81e-03 at k=5  u*=0.2440  U_ref=8.01  (e_res/u*^2=4.10, reported only)  u* trend +11.6 %/h, final/peak 59%
+  TURBULENCE ALIVE: OK
+  k0/k1 at the last dump 0.144   (must be < 1; ~9 means dt too large)
+    ^ note this passed at 0.442 on a FULLY COLLAPSED SBL. k0/k1 is a dt check;
+      the line above it is the physics check. Read both.
+
+--- achieved vs asked ---
+  geostrophic forcing FROM 210.0 deg (base angle 60)
+  achieved receptor wind FROM 189.8 deg  ->  Ekman backing +20.2 deg  (measured 12-24 deg neutrally, 7-13 convectively)
+  z_i 390 m against a 300 m target
+  u* 0.2440,  U 4.155 m/s,  sigma_w 0.2792
+
+--- what comes home ---
+  accel.log                      0.04 MB
+  acceptance.txt                 0.00 MB
+  manifest.json                  0.00 MB
+  run.log                        0.07 MB
+  seed.log                       0.07 MB
+  seed_restart.nc               73.27 MB
+  stationarity.json              0.00 MB
+  stationarity.txt               0.00 MB
+  restart 73.3 MB against the 73.3 MB estimate (-0.0%)
+  return/ total 73.5 MB

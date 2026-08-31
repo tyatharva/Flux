@@ -1,0 +1,235 @@
+########## acceptance battery: seed_cbl-deep_a000 (convective) ##########
+2026-08-31 16:40:03
+
+=== 1. the log: CORRUPTED / NaN / Inf, and the completion banner ===
+  CORRUPTED: 0
+  #NaN: 0
+  #Inf: 0
+  completion banner: present
+
+=== 2. seed_report: cost, artifact, the seven limits ===
+=== seed seed_cbl-deep_a000: cbl-deep (convective), base angle 0 deg ===
+
+--- cost, against the projection the other 14 are budgeted on ---
+  349920 steps x dt 0.0308642 = 3.000 simulated hours
+  --wall-seconds 0.381 h  ->  3.918 ms/step (HAND-PASSED; trust the artifact line below instead)
+  MEASURED off the dumps: 5.855 ms/step
+  from 25 dump mtimes, no pauses
+  planned                 14.900 ms/step   (-60.7%)
+  implied wall for the whole chain 0.569 h
+  wall-to-sim ratio 0.190 GPU-h per simulated hour
+    vs the manifest projection 1.019  (-81.4%)
+    vs the sanctioned SEED CLASS 0.953 (-80.1%)  -> IN CLASS  (0.57 h against a 3.0 sim-h class of ~2.86 h)
+  ONE invocation, 34.1 min wall (planner projected 86.9; chaining is retired, there is no per-run cap)
+  the library at this rate: 15 x 0.57 h = 8.5 GPU-h  (projected 43)
+
+--- the seven stationarity limits, scored on the last 1.5 h ---
+  quantity                            mean      trend   limit    used  verdict
+  z_i                            1081.2476    +29.77%     3.0    992%  INDETERMINATE
+  Kljun x_peak                    164.1739     -5.08%     1.0    508%  INDETERMINATE
+  Kljun x90                      1425.3797     -2.58%     1.0    258%  INDETERMINATE
+  sigma_w/u* at the receptor        1.0715     +3.35%     2.0    168%  INDETERMINATE
+  U/u* (Kljun Pi_4)                14.6700     -1.36%     1.0    136%  INDETERMINATE
+  TKE_BL/u*^2                       3.0081     -3.39%     5.0     68%  INDETERMINATE
+  sigma_v/u*                        2.2033     -0.28%     3.0      9%  INDETERMINATE
+  ALL SEVEN: FAIL  -- INDETERMINATE: z_i, Kljun x_peak, Kljun x90, sigma_w/u* at the receptor, U/u* (Kljun Pi_4), TKE_BL/u*^2, sigma_v/u*
+  BINDS LAST: z_i at 992% of its limit (+29.77 %/h against 3.0)
+  reported, not gated: u* -8.27 %/h, U(10 m) -9.60 %/h, wind direction -3.84 deg/h, TKE_column/u*^2 (retired form) +11.44 %/h, domain TKE -4.75 %/h, peak resolved TKE -14.89 %/h, z_i, 5% of the running peak +16.61 %/h
+
+--- is the stable boundary layer still turbulent? ---
+  column-integrated TKE 0.000 -> 1182.163 m3/s2; trend over the last half -11.5 %/h
+  u* 0.0000 -> 0.5513 m/s   (min over the run 0.0000)
+  turb-alive OK: max e_res/U_ref^2=1.11e-02 at k=4  u*=0.5513  U_ref=11.08  (e_res/u*^2=4.47, reported only)  u* trend -7.5 %/h, final/peak 81%
+  TURBULENCE ALIVE: OK
+  k0/k1 at the last dump 0.129   (must be < 1; ~9 means dt too large)
+    ^ note this passed at 0.442 on a FULLY COLLAPSED SBL. k0/k1 is a dt check;
+      the line above it is the physics check. Read both.
+
+--- achieved vs asked ---
+  geostrophic forcing FROM 270.0 deg (base angle 0)
+  achieved receptor wind FROM 264.5 deg  ->  Ekman backing +5.5 deg  (measured 12-24 deg neutrally, 7-13 convectively)
+  z_i 1081 m against a 950 m target
+  u* 0.5513,  U 7.974 m/s,  sigma_w 0.6148
+
+--- what comes home ---
+  acceptance.txt                 0.00 MB
+  manifest.json                  0.00 MB
+  run.log                        0.06 MB
+  seed.log                       0.06 MB
+  seed_restart.nc               73.27 MB
+  stationarity.json              0.00 MB
+  stationarity.txt               0.01 MB
+  restart 73.3 MB against the 73.3 MB estimate (-0.0%)
+  return/ total 73.4 MB
+
+  wrote /out/work/seed_cbl-deep_a000/return/seed_report.json
+
+=== 3. k0/k1 (accuracy CFL; ~9 means dt is past the boundary) ===
+  k0/k1 OK (0.129 < 1.0): k0/k1= 0.129  ww[0]=4.478e-03 ww[1]=3.461e-02 (z=4.3,12.8 m)
+
+=== 4. turb_alive (the physics check; a SKIP is not a PASS) ===
+  turb-alive OK: max e_res/U_ref^2=1.11e-02 at k=4  u*=0.5513  U_ref=11.08  (e_res/u*^2=4.47, reported only)  u* trend -6.5 %/h, final/peak 81%
+  VERDICT: OK
+  (a SKIP is not a PASS: k0/k1 is a dt check and stayed at 0.442 through a stable
+   seed whose boundary layer had died -- this is the physics check)
+
+=== 5. Ozmidov scale in Delta at the receptor (the stable rungs died at 3.57) ===
+=== Ozmidov / resolution, FE_SEED.233280 ===
+  dx = 30.0 m, u* = 0.5513 m/s
+         z   Delta         N        eps       L_O   L_O/D   f_res         ww
+       4.3   19.75   0.00000  2.384e-02       inf     inf   0.010  4.478e-03
+      12.8   19.76   0.00000  2.348e-02       inf     inf   0.076  3.461e-02
+      21.4   19.77   0.00000  1.295e-02       inf     inf   0.248  9.313e-02
+      30.0   19.78   0.00000  8.500e-03       inf     inf   0.436  1.648e-01
+      38.6   19.80   0.00000  5.119e-03       inf     inf   0.620  2.478e-01
+      47.3   19.83   0.00000  3.611e-03       inf     inf   0.731  3.273e-01
+      55.9   19.86   0.00000  2.654e-03       inf     inf   0.805  4.056e-01
+      64.6   19.89   0.00000  2.154e-03       inf     inf   0.847  4.759e-01
+      73.4   19.93   0.00000  1.817e-03       inf     inf   0.876  5.407e-01
+      82.2   19.97   0.00000  1.611e-03       inf     inf   0.894  5.973e-01
+      91.1   20.02   0.00000  1.451e-03       inf     inf   0.908  6.495e-01
+     100.1   20.08   0.00000  1.321e-03       inf     inf   0.918  6.972e-01
+     109.1   20.14   0.00000  1.213e-03       inf     inf   0.926  7.422e-01
+     118.2   20.20   0.00000  1.130e-03       inf     inf   0.933  7.839e-01
+     127.4   20.27   0.00000  1.060e-03       inf     inf   0.938  8.229e-01
+     136.7   20.34   0.00000  9.978e-04       inf     inf   0.943  8.589e-01
+     146.1   20.41   0.00000  9.360e-04       inf     inf   0.947  8.926e-01
+     155.6   20.49   0.00000  8.859e-04       inf     inf   0.950  9.238e-01
+     165.2   20.58   0.00000  8.448e-04       inf     inf   0.953  9.530e-01
+     175.0   20.67   0.00000  8.081e-04       inf     inf   0.955  9.810e-01
+     184.9   20.76   0.00000  7.741e-04       inf     inf   0.958  1.009e+00
+     194.9   20.85   0.00000  7.439e-04       inf     inf   0.960  1.037e+00
+     205.0   20.95   0.00000  7.198e-04       inf     inf   0.961  1.065e+00
+     215.3   21.05   0.00000  7.002e-04       inf     inf   0.963  1.093e+00
+     225.7   21.16   0.00000  6.788e-04       inf     inf   0.964  1.120e+00
+     236.4   21.27   0.00000  6.595e-04       inf     inf   0.966  1.144e+00
+     247.1   21.38   0.00000  6.472e-04       inf     inf   0.967  1.166e+00
+     258.1   21.50   0.00000  6.372e-04       inf     inf   0.967  1.185e+00
+     269.2   21.62   0.00000  6.309e-04       inf     inf   0.968  1.201e+00
+     280.5   21.74   0.00000  6.215e-04       inf     inf   0.968  1.216e+00
+     292.0   21.86   0.00000  6.099e-04       inf     inf   0.969  1.231e+00
+     303.7   21.99   0.00000  6.013e-04       inf     inf   0.970  1.244e+00
+     315.7   22.12   0.00000  5.955e-04       inf     inf   0.970  1.258e+00
+     327.8   22.25   0.00000  5.859e-04       inf     inf   0.970  1.271e+00
+     340.1   22.38   0.00000  5.786e-04       inf     inf   0.971  1.286e+00
+     352.7   22.52   0.00000  5.726e-04       inf     inf   0.971  1.301e+00
+     365.5   22.66   0.00000  5.671e-04       inf     inf   0.972  1.314e+00
+     378.6   22.80   0.00000  5.608e-04       inf     inf   0.972  1.327e+00
+     391.9   22.94   0.00125  5.494e-04    531.87   23.18   0.972  1.339e+00
+
+  L_O/Delta, whole stratified column to 400 m (n=1):  min 23.18  median 23.18  max 23.18
+    ^ REPORTED, NOT SCORED. L_O/Delta rises steeply with height because N
+      falls, so this median flatters a layer whose surface region is starved.
+  SURFACE LAYER IS UNSTRATIFIED (N^2 <= 0 below 50 m): there is
+  NO Ozmidov constraint at all. Buoyancy produces the largest eddies here
+  rather than limiting them, which is why convective cases are the easy
+  case for this grid and stable ones are the hard case.
+  resolved fraction of sigma_w^2: 0.436 at z = 30.0 m  (receptor);  0.248 at 21.4 m,  0.620 at 38.6 m
+  GABLS1 (Beare et al. 2006) runs this regime at dx = 6.25 m: 4.8x finer, 111x the cells for this domain.
+
+=== 6. Gate C2: restart with Nt = restart step, re-dump, diff byte-for-byte ===
+########## GATE C2: restart seed_restart.nc at step 233280, re-dump, diff ##########
+  k0/k1 OK (0.129 < 1.0): k0/k1= 0.129  ww[0]=4.478e-03 ww[1]=3.461e-02 (z=4.3,12.8 m)
+  turb-alive OK: max e_res/U_ref^2=1.11e-02 at k=4  u*=0.5513  U_ref=11.08  (e_res/u*^2=4.47, reported only)
+  RUN OK (exit 0, no CORRUPTED, no NaN/Inf, completion banner, k0/k1 < 1, turbulence alive)
+  re-dump: FE_C2.233280
+  23 variables compared, 0 differ, worst 0.000e+00
+  GATE C2: PASS -- bit-for-bit
+  WARNING: the per-GPU mutex cannot see its own FastEddy on GPU 1.
+           Concurrent runs on this device would NOT be refused. Check that
+           /proc is readable in this container and that CUDA_VISIBLE_DEVICES
+           is inherited by the mpirun child.
+
+=== 7. rotation check (static; every corpus case is picked on this convention) ===
+=== 90-degree rotation check on seed_restart.nc ===
+  fields present: u, v, w, theta, TKE_0, rho, pressure   shape (122, 122, 122)
+
+  1. four 90-deg turns == identity, bit-for-bit: PASS
+
+  rot 1  (90 deg CCW of the flow)
+    2. file == rotate_stack(src), bit-for-bit: PASS
+    3. slab-mean wind vector: max relative departure from the exact turn 4.16e-20
+       the FROM bearing moved +270.000000 deg; pick_seed.py subtracts 90 -> want 270: PASS
+    4. scalar slab moments invariant: worst relative change 3.29e-16   (TKE_0.mean 4.4e-17, TKE_0.var 8.4e-17, theta.mean 0.0e+00, theta.var 1.1e-16, w.mean 8.8e-17, w.var 3.3e-16)
+
+  rot 2  (180 deg CCW of the flow)
+    2. file == rotate_stack(src), bit-for-bit: PASS
+    3. slab-mean wind vector: max relative departure from the exact turn 0.00e+00
+       the FROM bearing moved +180.000000 deg; pick_seed.py subtracts 180 -> want 180: PASS
+    4. scalar slab moments invariant: worst relative change 3.29e-16   (TKE_0.mean 4.4e-17, TKE_0.var 4.2e-17, theta.mean 0.0e+00, theta.var 2.7e-17, w.mean 0.0e+00, w.var 3.3e-16)
+
+  rot 3  (270 deg CCW of the flow)
+    2. file == rotate_stack(src), bit-for-bit: PASS
+    3. slab-mean wind vector: max relative departure from the exact turn 4.16e-20
+       the FROM bearing moved +90.000000 deg; pick_seed.py subtracts 270 -> want 90: PASS
+    4. scalar slab moments invariant: worst relative change 3.29e-16   (TKE_0.mean 4.4e-17, TKE_0.var 8.4e-17, theta.mean 0.0e+00, theta.var 2.7e-17, w.mean 8.8e-17, w.var 3.3e-16)
+
+  ROTATION CHECK: PASS
+  wrote /out/work/seed_cbl-deep_a000/return/rotation_check.json
+
+=== 8. Ekman backing and direction drift ===
+  seed_nbl-deep_a060            -6.57  0.4044     635      1571         2.868
+  seed_nbl-deep_a075            -6.94  0.4061     630      1552         2.991
+  seed_nbl-shallow_a000         -8.06  0.2530     390      1543         3.455
+  seed_nbl-shallow_a015         -8.87  0.2412     392      1625         4.001
+  seed_nbl-shallow_a030         -9.04  0.2385     390      1637         4.111
+  seed_nbl-shallow_a045        -10.24  0.2306     393      1702         4.841
+  seed_nbl-shallow_a060         -9.41  0.2440     390      1597         4.172
+  seed_nbl-shallow_a075         -8.91  0.2504     393      1568         3.881
+  n = 28 seeds with a measured rate.
+    |drift| vs u*   : not monotone  10.24  9.04  8.87  9.41  8.91  8.06  4.27  4.63  4.08  3.35  4.85  3.77  6.27  6.20  6.75  6.57  6.94  6.65  3.83  2.58  2.41  2.91  1.74  2.83  1.66  2.62  3.84  4.73
+    |drift| vs z_i  : not monotone  9.41  8.06  9.04  8.87  10.24  8.91  4.63  3.35  4.27  4.85  4.08  3.77  6.75  6.65  6.27  6.20  6.94  6.57  2.58  1.74  2.41  3.83  2.83  2.91  3.84  4.73  2.62  1.66
+    |drift| vs h/u* : not monotone  4.85  3.35  6.65  3.77  4.63  8.06  4.08  4.27  6.94  8.91  6.75  6.57  9.41  6.20  6.27  8.87  9.04  3.84  10.24  2.58  1.74  2.83  2.41  2.91  3.83  4.73  2.62  1.66
+    A monotone ordering of 28 points arises by chance with probability 0.000 -- a candidate to watch, not a relationship. And where several candidates order the seeds identically, three points cannot separate them.
+
+  === AND ONE THING FOLLOWS WITHOUT ANY FIT ===
+  A drift that is one-signed and of order 10-20 deg by the time the window is
+  sampled is NOT a spacing that 30-degree base angles deliver +/- 15 deg on.
+  Twelve library directions at 30 deg give a worst-case gap of 15 deg only if the
+  seeds sit where they were placed; a variable 10-20 deg one-signed excursion
+  makes the worst case 25-35 deg, and on the DOMINANT SKILL AXIS.
+
+  Projection (bin/pick_seed.py) removes the MEAN of that excursion and leaves its
+  SCATTER, so it is a partial fix and cannot be the whole one. The honest fix is
+  DENSER BASE ANGLES: 6 base angles at 15 deg = 24 library directions, worst-case
+  7.5 deg before drift and ~15 after, which is what 3 angles were believed to give.
+  Cost: 30 seeds instead of 15, i.e. ~86 GPU-h instead of ~43, against a corpus of
+  ~1700 GPU-h -- 2.5% of the total to fix the axis the emulator is judged on.
+  PROPOSED, NOT APPLIED.
+
+  wrote /out/work/seed_cbl-deep_a000/return/direction_drift.txt
+
+=== 9. lock-in: the 2-D spectrum of w at mid-depth (mode-1 share, r at L/2) ===
+=== lock-in diagnostic: the 2-D spectrum of w at mid-depth ===
+An unconstrained CBL peaks near lambda ~ 1.5 z_i. A locked one snaps to the
+largest mode the box holds (mode 1, lambda = L) and that mode takes an
+anomalous share of the variance.
+
+  dump                          z_i  L/z_i      z  peak lam  lam/z_i  mode1 %  r(L/2)
+  FE_SEED.204120               986m   3.71    492     1830m     1.86    10.4%  -0.133
+  FE_SEED.213840               986m   3.71    492     1830m     1.86     9.5%  -0.182
+  FE_SEED.223560               986m   3.71    492     1830m     1.86    10.5%  -0.043
+  FE_SEED.233280               986m   3.71    492     1830m     1.86    13.1%  -0.164
+
+  READ: lam/z_i near 1.5 and a small mode-1 share = unconstrained.
+        peak lambda pinned at L, a large mode-1 share, and r(L/2) strongly
+        negative = the box is organising the thermals.
+
+=== 10. the measured budget: a fixed-width window swept over end times ===
+=== seed_cbl-deep_a000: when would it have been done? ===
+  25 dumps, run reached 2.00 simulated hours; fixed scoring window 1.50 h
+  criterion: EVERY oscillation-immune limit resolvable AND inside its threshold, and
+  nothing DRIFTING. TKE_BL/u*^2 and z_i are excluded -- they decorrelate on the eddy
+  turnover and cannot be resolved at any width in a 3 h run.
+
+   end (h)  n dumps   immune ok  indet  drift  verdict
+      1.75       21     0/5          5      0  wait
+      2.00       24     0/5          5      0  wait
+
+  NOT IN BAND ANYWHERE up to 2.00 h. The rung needs more than the ceiling, and
+  the honest report is the margin at the ceiling rather than a stop time. This is a
+  RESULT, not a failure of the measurement.
+  wrote /out/work/seed_cbl-deep_a000/return/budget.json
+
+=== battery complete -> /out/work/seed_cbl-deep_a000/return/acceptance.txt ===
+2026-08-31 16:40:16

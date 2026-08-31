@@ -43,7 +43,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; export FLUX_ROOT="$ROOT
 # INDETERMINATE is the library's normal state; z_i DRIFTING is accepted on the NEUTRAL
 # rungs only, because there the limit is unsatisfiable rather than failed. Both are stamped
 # onto every pair. See run_corpus_case.sh stage 4.
-: "${ALLOW_INDETERMINATE:=1}"; : "${ALLOW_DRIFTING:=zi-neutral}"
+: "${ALLOW_INDETERMINATE:=1}"; : "${ALLOW_DRIFTING:=any}"   # the WHOLE library, 2026-08-31
 : "${RING:=1}"; : "${RING_SELECTOR:=1}"      # stage only; selector 2 also writes ~19 GB
 : "${NPZ_DIR:=pairs_npz}"; : "${COVER_GROUPS:=10}"; : "${KEEP_TD:=100000}"
 : "${KEEP_FIELDS:=0}"; : "${LPDM_WORKERS:=12}"

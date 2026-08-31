@@ -1,0 +1,64 @@
+{
+ "src": "/out/work/seed_nbl-shallow_a015/return/seed_restart.nc",
+ "pass": true,
+ "identity_bitwise": true,
+ "rotations": [
+  {
+   "rot": 1,
+   "file_matches_function": true,
+   "n_differing": {
+    "u": 0,
+    "v": 0,
+    "w": 0,
+    "theta": 0,
+    "TKE_0": 0,
+    "rho": 0,
+    "pressure": 0
+   },
+   "vec_rel_departure": 0.0,
+   "bearing_shift_deg": 270.0,
+   "bearing_shift_want_deg": 270.0,
+   "bearing_ok": true,
+   "scalar_worst_rel": 1.3888490006645807e-15,
+   "pass": true
+  },
+  {
+   "rot": 2,
+   "file_matches_function": true,
+   "n_differing": {
+    "u": 0,
+    "v": 0,
+    "w": 0,
+    "theta": 0,
+    "TKE_0": 0,
+    "rho": 0,
+    "pressure": 0
+   },
+   "vec_rel_departure": 0.0,
+   "bearing_shift_deg": 180.0,
+   "bearing_shift_want_deg": 180.0,
+   "bearing_ok": true,
+   "scalar_worst_rel": 2.421953176273862e-16,
+   "pass": true
+  },
+  {
+   "rot": 3,
+   "file_matches_function": true,
+   "n_differing": {
+    "u": 0,
+    "v": 0,
+    "w": 0,
+    "theta": 0,
+    "TKE_0": 0,
+    "rho": 0,
+    "pressure": 0
+   },
+   "vec_rel_departure": 0.0,
+   "bearing_shift_deg": 90.0,
+   "bearing_shift_want_deg": 90.0,
+   "bearing_ok": true,
+   "scalar_worst_rel": 1.3888490006645807e-15,
+   "pass": true
+  }
+ ]
+}

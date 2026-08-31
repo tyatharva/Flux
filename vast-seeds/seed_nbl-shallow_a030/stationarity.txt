@@ -1,0 +1,38 @@
+  seed_nbl-shallow_a030: 25 dumps to 2.00 simulated hours = 0.11 inertial periods (2pi/f = 17.6 h)
+
+  z_i is the height where resolved TKE falls below a FIXED 0.01 m2/s2 (gated); the 5%-of-running-peak depth is reported beside it and is the currency lpdm/les_stats.py:window_stats uses for the corpus input.
+
+        window       u*   U(10)    U/u*   sw/u*  TKE/u*^2    z_i    dir
+   0.0-1.0       0.2960   4.910  16.748   1.083     0.475    408  234.2
+   1.0-2.0       0.2309   4.025  17.432   1.192     0.592    389  224.3
+
+  === GATED: the footprint's controlling parameters, last 1.5 h ===
+  U/u* (Kljun Pi_4)              17.4242    -0.86 %/h  (limit 1)    0.57% per 40-min window   INDETERMINATE
+    ^ trend SE 0.78 %/h (AR(1)-corrected, n_eff 3.0 of 18 dumps); |trend| is 1.1 SE from zero and the limit is 0.2 SE away  -- INDETERMINATE: 3 SE of separation is required and there is 0.2. This limit cannot tell PASS from FAIL on this window, so it asserts neither
+  sigma_v/u*                      2.1365   +13.63 %/h  (limit 3)    9.08% per 40-min window   INDETERMINATE
+    ^ trend SE 5.13 %/h (AR(1)-corrected, n_eff 3.0 of 18 dumps); |trend| is 2.7 SE from zero and the limit is 2.1 SE away  -- INDETERMINATE: 3 SE of separation is required and there is 2.1. This limit cannot tell PASS from FAIL on this window, so it asserts neither
+  sigma_w/u* at the receptor      1.1846    +0.64 %/h  (limit 2)    0.43% per 40-min window   INDETERMINATE
+    ^ trend SE 1.98 %/h (AR(1)-corrected, n_eff 3.0 of 18 dumps); |trend| is 0.3 SE from zero and the limit is 0.7 SE away  -- INDETERMINATE: 3 SE of separation is required and there is 0.7. This limit cannot tell PASS from FAIL on this window, so it asserts neither
+  TKE_BL/u*^2                     1.5582   +44.03 %/h  (limit 5)   29.35% per 40-min window   DRIFTING
+    ^ trend SE 7.82 %/h (AR(1)-corrected, n_eff 3.0 of 18 dumps); |trend| is 5.6 SE from zero and the limit is 5.0 SE away
+  z_i                           389.6362    -0.13 %/h  (limit 3)    0.08% per 40-min window   INDETERMINATE
+    ^ trend SE 1.46 %/h (AR(1)-corrected, n_eff 4.6 of 18 dumps); |trend| is 0.1 SE from zero and the limit is 2.0 SE away  -- INDETERMINATE: 3 SE of separation is required and there is 2.0. This limit cannot tell PASS from FAIL on this window, so it asserts neither
+    ^ on 2 distinct model level(s) spanning 13 m across the window  -- A STAIRCASE: a linear trend through this many levels reports the staircase as much as any drift
+  Kljun x_peak                  197.1225    -0.85 %/h  (limit 1)    0.56% per 40-min window   INDETERMINATE
+    ^ trend SE 0.88 %/h (AR(1)-corrected, n_eff 3.0 of 18 dumps); |trend| is 1.0 SE from zero and the limit is 0.2 SE away  -- INDETERMINATE: 3 SE of separation is required and there is 0.2. This limit cannot tell PASS from FAIL on this window, so it asserts neither
+  Kljun x90                    1568.0448    -0.41 %/h  (limit 1)    0.27% per 40-min window   INDETERMINATE
+    ^ trend SE 0.43 %/h (AR(1)-corrected, n_eff 3.0 of 18 dumps); |trend| is 1.0 SE from zero and the limit is 1.4 SE away  -- INDETERMINATE: 3 SE of separation is required and there is 1.4. This limit cannot tell PASS from FAIL on this window, so it asserts neither
+
+  === REPORTED, not gated: the mean flow rides the inertial oscillation ===
+  u*                              0.2357    -4.32 %/h
+  U(10 m)                         4.1063    -5.16 %/h
+  wind direction                226.0475    -9.04 deg/h
+  TKE_column/u*^2 (retired form)    0.5484   +43.21 %/h
+  domain TKE                      0.0303   +36.42 %/h
+  peak resolved TKE               0.2110   +33.65 %/h
+  z_i, 5% of the running peak   390.4168    -2.57 %/h
+  ^ the direction row is the DRIFT AT FREEZE. bin/pick_seed.py projects it forward to the window's own midpoint rather than assuming the adjustment closes a gap; measured, the adjustment WIDENS one.
+  x_peak spans 194.9-199.2 m across the scored window, against a 30 m raster cell.
+
+  SEED STATIONARITY: FAIL -- still drifting: TKE_BL/u*^2; and INDETERMINATE: U/u* (Kljun Pi_4), sigma_v/u*, sigma_w/u* at the receptor, z_i, Kljun x_peak, Kljun x90
+  wrote /out/work/seed_nbl-shallow_a030/return/stationarity.json

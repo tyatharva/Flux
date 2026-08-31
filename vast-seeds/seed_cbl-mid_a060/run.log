@@ -1,0 +1,1084 @@
+Obtaining parameters from ./run.in
+Successfully opened ./run.in and read 129 lines.
+Warning more than 10000 entries were requested for the parameters hash table.
+Consider changing the requested table size in the PARAMETERS module.
+WARNING: optional parameter ioLPDMmode defaulted to 0.
+WARNING: optional parameter ioLPDMfullFrq defaulted to 0.
+WARNING: optional parameter lpdmOnlineSelector defaulted to 0.
+WARNING: optional parameter lpdmOnlineQueue defaulted to 4.
+WARNING: optional parameter lpdmOnlinePause1 defaulted to 0.
+WARNING: optional parameter lpdmOnlinePause2 defaulted to 0.
+WARNING: optional parameter towerIOSelector defaulted to 0.
+WARNING: optional parameter gridFile defaulted to NULL.
+WARNING: optional parameter pgfSelector defaulted to 1.
+WARNING: optional parameter buoyancySelector defaulted to 1.
+WARNING: optional parameter ceilingAdvectionBC defaulted to 0.
+WARNING: optional parameter surflayer_stab defaulted to 0.
+WARNING: optional parameter surflayer_z0tdyn defaulted to 1.
+WARNING: optional parameter surflayer_offshore_visc defaulted to 1.
+WARNING: optional parameter canopySelector defaulted to 0.
+WARNING: optional parameter cellpertSelector defaulted to 0.
+WARNING: optional parameter filter_6thdiff_hori defaulted to 0.
+WARNING: optional parameter filter_divdamp defaulted to 0.
+WARNING: optional parameter NhydroAuxScalars defaulted to 0.
+WARNING: optional parameter physics_oneRKonly defaulted to 1.
+Rank 0/1:  [rankXid, rankYid] = [0,0]
+mpi_rank_world--0/1 inFile = (null) !!
+mpi_rank_world--0/1 Obtaining devices...
+Obtaining properties for 1 devices...
+
+mpi_rank_world--0/1 assigned accelerator device 0/1...
+Device Number:          0
+---------------------------------------------------------------------
+
+__General__
+   Name                               : NVIDIA GeForce RTX 5090
+   Compute Capability                 : 12.0
+   Clock Rate                         : 2512000
+   Number of multiprocessors          : 170
+   Max Threads/multiprocessor         : 1536
+   Concurrent Copy/Execution          : Yes
+   Concurrent Kernels                 : 1
+   Compute Mode                       : 0
+   Kernel Timeout Enabled             : No
+   Integrated                         : No
+   Host Memory Mapping                : Yes
+
+__Configuration__
+   Registers/Block                    : 65536
+   Warp Size                          : 32
+   Max Threads/Block                  : 1024
+   Max Block-extent / Dimension       :         1024         1024           64
+   Max Grid-extent / Dimension        :   2147483647        65535        65535
+
+__Memory__
+   Tot. Global Memory (GB) / (B)      :   31.35834 / 3605987328
+   Shared Mem/Block   (GB) / (B)      :    0.00005 / 49152
+   Constant Memory    (GB) / (B)      :    0.00006 / 65536
+   Max 1-D Texture                    :       131072
+   Max 2-D Texture                    :       131072        65536
+   Max 3-D Texture                    :        16384        16384        16384
+   Texture Alignment  (B)             : 512
+   Max Memory pitch                   : 2147483647
+
+mpi_rank_world--0/1 done!
+mpi_rank_world--0/1 Assigning threadPerBlock.[xyz]
+mpi_rank_world--0/1 done!
+Nxp = 122, Nyp = 122, Nzp = 122
+****Spatial loop-index Mins & Maxs ****  (i,j,k)-min = (3,3,3) & (i,j,k)-max = (125,125,125)
+Entering hydro_coreInit:------
+WARNING: parameter surflayer_qskin_input was not found but was requested for printing.
+WARNING: parameter surflayer_offshore_opt was not found but was requested for printing.
+WARNING: parameter filter_6thdiff_hori_coeff was not found but was requested for printing.
+hydro_coreInit: allocating/registering arrays/fields with IO
+hydro_coreInit:hydroFlds[0] = rho stored at 0x79bfeeffa080, has been registered with IO.
+hydro_coreInit:hydroFlds[1] = u stored at 0x79bfef7fa080, has been registered with IO.
+hydro_coreInit:hydroFlds[2] = v stored at 0x79bfefffa080, has been registered with IO.
+hydro_coreInit:hydroFlds[3] = w stored at 0x79bff07fa080, has been registered with IO.
+hydro_coreInit:hydroFlds[4] = theta stored at 0x79bff0ffa080, has been registered with IO.
+hydro_coreInit:Field = pressure stored at 0x79bfee7f9080, has been registered with IO.
+hydro_coreInit:sgstkeScalars[0] = TKE_0 stored at 0x79bfeb7f7080, has been registered with IO.
+hydro_coreInit: allocating internal arrays
+hydro_coreInit:Field = tskin stored at 0x64fddc2de280, has been registered with IO.
+hydro_coreInit:Field = fricVel stored at 0x64fddc2be100, has been registered with IO.
+hydro_coreInit:Field = htFlux stored at 0x64fddc2ce200, has been registered with IO.
+hydro_coreInit:Field = invOblen stored at 0x64fddc2ee380, has been registered with IO.
+hydro_coreInit:Field = z0m stored at 0x64fddc2fe400, has been registered with IO.
+hydro_coreInit:Field = z0t stored at 0x64fddc30e500, has been registered with IO.
+mpi_rank_world--0/1: in timeInit(), simTime_it = 0 and simTime =         0.000000 !
+:Variable = time stored at 0x64fdb316cf78, has been registered with IO.
+
+## time_test
+Description=seed seed_cbl-mid_a060: flat uniform convective spin-up, z_i target 700 m, base angle 60 deg # ## A description of this input file.
+## FEMPI parameters---
+numProcsX=1        # ## Number of cores to be used for horizontal domain decomposition in X
+numProcsY=1        # ## Number of cores to be used for horizontal domain decomposition in Y
+## IO parameters---
+ioOutputMode=0     # ## 0: N-to-1 gather and write to a netCDF file, 1:N-to-N writes of FastEddy binary files
+inPath=            # ## Path where initial/restart file is read in from
+inFile=            # ## name of the input file for coordinate system and initial or restart conditions
+outPath=./output/  # ## Path where output files are to be written
+outFileBase=FE_SEED # ## Base name of the output file series as in (outFileBase).element-in-series
+frqOutput=9720     # ## frequency (in timesteps) at which to produce output; should be an even multiple of NtBatch
+towerIOSelector=0  # (DEFAULTED) ## Virtual Tower IO-Selector: 0=off, 1=on 
+## FECUDA parameters---
+tBx=1              # ## Number of threads in x-dimension.
+tBy=8              # ## Number of threads in y-dimension.
+tBz=16             # ## Number of threads in z-dimension.
+## GRID parameters---
+gridFile=          # (DEFAULTED) ## A file containing a complete grid specification
+topoFile=          # ## A file containing terrain(surface elevation in meters ASL)
+Nx=122             # ## Number of discretised domain elements in the x (zonal) direction.
+Ny=122             # ## Number of discretised domain elements in the y (meridional) direction.
+Nz=122             # ## Number of discretised domain elements in the z (vertical) direction.
+Nh=3               # ## Number of halo cells to be used (dependent on largest stencil extent).
+d_xi=30            # ## Computational domain fixed resolution in the 'i' direction.
+d_eta=30           # ## Computational domain fixed resolution in the 'j' direction.
+d_zeta=24.6914     # ## Computational domain fixed resolution in the 'k' direction.
+coordHorizHalos=1  # ## switch to setup coordinate halos as periodic=1 or gradient-following=0.
+verticalDeformSwitch=1 # ## switch to use vertical coordinate deformation 0=off, 1=on
+verticalDeformFactor=0.346601 # ## deformation factor (0.0=max compression,  1.0=no compression)
+verticalDeformQuadCoeff=0 # ## deformation factor (0.0=max compression,  1.0=no compression)
+## HYDRO_CORE parameters---
+## ----------: HYDRO_CORE Submodule Selectors ---
+## ----------: Boundary Conditions Set ---
+hydroBCs=2         # ## Selector for hydro BC set. 1= LAD, Dirichlet lateral, ceiling and surface, 2 = periodic-horizontal & ABL-vertical
+hydroForcingWrite=0 # ## Switch for writing output of hydroFldsFrhs for prognostic fields. 0 = off, 1=on
+hydroSubGridWrite=0 # ## Switch for writing output of Tauij fields. 0 = off, 1=on
+hydroForcingLog=0  # ## Switch for logging Frhs summary metrics. 0 = off, 1=on
+## ----------: PRESSURE GRADIENT FORCE ---
+pgfSelector=1      # (DEFAULTED) ## Pressure Gradient Force (pgf) selector: 0=off, 1=on
+## ----------: BUOYANCY ---
+buoyancySelector=1 # (DEFAULTED) ## Buoyancy force  selector: 0=off, 1=on
+## ----------: CORIOLIS ---
+coriolisSelector=1 # ## Corilis force selector: 0= none, 1= horiz. terms, 2= horiz. & vert. terms
+coriolisLatitude=42.9572 # ## Characteristic latitude in degrees from equator of the LES domain
+## ----------: TURBULENCE ---
+turbulenceSelector=1 # ## turbulence scheme selector: 0= none, 1= Lilly/Smagorinsky 
+TKESelector=1      # ## Prognostic TKE selector: 0= none, 1= Prognostic, 2= requires canopySelector=1
+TKEAdvSelector=3   # ## advection scheme for SGSTKE equation
+TKEAdvSelector_b_hyb=0 # ## hybrid advection scheme parameter
+c_k=0.1            # ## Lilly model constant used for turbulenceSelector = 1 and TKESelector > 0
+## ----------: ADVECTION ---
+advectionSelector=3 # ## advection scheme selector: 0=1st-order upwind, 1=3rd-order QUICK, 2=hybrid 3rd-4th order, 3=hybrid 5th-6th order, 4=3rd-order WENO, 5=5th-order WENO, 6=2nd-order centered
+ceilingAdvectionBC=0 # (DEFAULTED) ## selector to allow advection through the domain ceiling 1=on, 0=off (w-ceiling = 0)
+b_hyb=0            # ## hybrid advection scheme parameter: 0.0= lower-order upwind, 1.0=higher-order centered, 0.0 < b_hyb < 1.0 = hybrid
+## ----------: DIFFUSION ---
+diffusionSelector=0 # ## diffusivity selector: 0= none, 1= const.
+## ----------: SURFACE LAYER ---
+surflayerSelector=1 # ## surfacelayer selector: 0=off, 1=surface kinematic heat flux (surflayer_wth), 2=skin temperature rate (surflayer_tr)
+surflayer_z0=0.061489 # ## roughness length (momentum) when surflayerSelector > 0
+surflayer_z0t=0.01 # ## roughness length (temperature) when surflayerSelector > 0
+surflayer_wth=0.11 # ## kinematic sensible heat flux at the surface when surflayerSelector = 1
+surflayer_idealsine=0 # ## selector for idealized sinusoidal surface heat flux or skin temperature forcing: 0= off, 1= on
+surflayer_stab=0   # (DEFAULTED) ## exchange coeffcient stability correction selector: 0= on, 1= off
+surflayer_z0tdyn=1 # (DEFAULTED) ## dynamic z0t calculation following Zilitinkevich (1995) approach: 0= off, 1= constant Zilitinkevich coeff, 2= variable Zilitinkevich coeff
+## ----------: OFFSHORE ROUGHNESS ---
+surflayer_offshore=0 # ## offshore selector: 0=off, 1=on
+## ----------: CANOPY MODEL ---
+canopySelector=0   # (DEFAULTED) ## canopy selector: 0= off, 1= on
+## ----------: LARGE-SCALE FORCINGS MODEL ---
+lsfSelector=1      # ## large-scale forcings selector: 0= off, 1= on
+lsf_w_surf=0       # ## large-scale forcing to w at the first specified level
+lsf_w_lev1=-25     # ## large-scale forcing w at height 1
+lsf_w_lev2=0       # ## large-scale forcing w at height 2
+lsf_w_zlev1=700    # ## large-scale forcing w height 1
+lsf_w_zlev2=1400   # ## large-scale forcing w height 2
+lsf_th_surf=0      # ## large-scale forcing to theta at the first specified level
+lsf_th_lev1=0      # ## large-scale forcing theta at height 1
+lsf_th_lev2=0      # ## large-scale forcing theta at height 2
+lsf_th_zlev1=500   # ## large-scale forcing theta height 1
+lsf_th_zlev2=2000  # ## large-scale forcing theta height 2
+lsf_qv_surf=-0.0432 # ## large-scale forcing to qv at the first specified level
+lsf_qv_lev1=-0.0432 # ## large-scale forcing qv at height 1
+lsf_qv_lev2=0      # ## large-scale forcing qv at height 2
+lsf_qv_zlev1=300   # ## large-scale forcing qv height 1
+lsf_qv_zlev2=500   # ## large-scale forcing qv height 2
+lsf_horMnSubTerms=1 # ## large-scale subsidence terms Switch: 0= off, 1= on
+lsf_freq=1         # ## large-scale forcing frequency (seconds)
+## ----------: MOISTURE ---
+moistureSelector=0 # ## moisture selector: 0= off, 1= on
+## ----------: EXPLICIT FILTERS ---
+filterSelector=1   # ## explicit filter selector: 0=off, 1=on
+filter_6thdiff_vert=1 # ## vertical 6th-order filter on w selector: 0=off, 1=on
+filter_6thdiff_vert_coeff=0.03 # ## vertical 6th-order filter factor: 0.0=off, 1.0=full
+filter_6thdiff_hori=0 # (DEFAULTED) ## horizontal 6th-order filter on rho,theta,qv selector: 0=off, 1=on
+filter_divdamp=0   # (DEFAULTED) ## divergence damping selector: 0=off, 1=on
+## ----------: CELL PERTURBATION METHOD ---
+cellpertSelector=0 # (DEFAULTED) ## CP method selector: 0= off, 1= on
+## ----------: RAYLEIGH DAMPING LAYER ---
+dampingLayerSelector=1 # ## Rayleigh damping layer selector: 0= off, 1= on.
+dampingLayerDepth=500 # ## Rayleigh damping layer depth in meters
+## ----------: AUXILIARY SCALARS ---
+NhydroAuxScalars=0 # (DEFAULTED) ## Number of prognostic auxiliary scalar fields
+## ----------: BASE-STATE ---
+stabilityScheme=2  # ## Scheme used to set hydrostatic, stability-dependent Base-State EOS fields
+temp_grnd=298.012  # ## Air Temperature (K) at the ground used to set hydrostatic Base-State EOS fields
+pres_grnd=97700    # ## Pressure (Pa) at the ground used to set hydrostatic Base-State EOS fields
+zStableBottom=700  # ## Height (m) of the first stable upper-layer when stabilityScheme = 2
+stableGradient=0.08 # ## Vertical gradient (K/m) of the first stable upper-layer when stabilityScheme = 2
+zStableBottom2=800 # ## Height (m) of the second stable upper-layer when stabilityScheme = 2
+zStableBottom3=20000 # ## Height (m) of the third stable upper-layer when stabilityScheme = 2
+stableGradient2=0.004 # ## Vertical gradient (K/m) of the second stable upper-layer when stabilityScheme = 2
+stableGradient3=0.004 # ## Vertical gradient (K/m) of the third stable upper-layer when stabilityScheme = 2
+U_g=4.5            # ## Zonal (West-East) component of the geostrophic wind (m/s).
+V_g=7.79423        # ## Meridional (South-North) component of the geostrophic wind (m/s).
+z_Ug=10000         # ## Height (m) above ground for linear geostrophic wind gradient (zonal component).
+z_Vg=10000         # ## Height (m) above ground for linear geostrophic wind gradient (meridional component).
+Ug_grad=0          # ## U_g gradient above z_Ug (ms-1/m).
+Vg_grad=0          # ## V_g gradient above z_Vg (ms-1/m).
+thetaPerturbationSwitch=1 # ## Switch to include initial theta perturbations: 0=off, 1=on
+thetaHeight=300    # ## Height below which to include initial theta perturbations: (meters)
+thetaAmplitude=0.25 # ## Maximum amplitude for theta perturbations: thetaAmplitude*[-1,+1] K
+physics_oneRKonly=1 # (DEFAULTED) ## selector to apply physics RHS forcing only at the latest RK stage: 0= off, 1= on
+## TIME_INTEGRATION parameters---
+timeMethod=0       # ## Selector for time integration method. [0=RK3-WS2002 (default)]
+Nt=233280          # ## Number of timesteps to perform.
+dt=0.0308642       # ## timestep resolution in seconds.
+NtBatch=9720       # ## Number of timesteps to compute in batch launch, must have NtBatch <= Nt.
+
+moistureMPcallTscale = 1.0   # NOT VALIDATED
+c_s = 0.18   # NOT VALIDATED
+nu_0 = 0.0   # NOT VALIDATED
+moistureCond = 3   # NOT VALIDATED
+moistureAdvSelectorQi = 2   # NOT VALIDATED
+moistureAdvSelectorQv = 2   # NOT VALIDATED
+surflayer_qr = 0.0   # NOT VALIDATED
+surflayer_tr = -0.0   # NOT VALIDATED
+surflayer_wq = 0.0   # NOT VALIDATED
+moistureNvars = 2   # NOT VALIDATED
+moistureCondTscale = 1.0   # NOT VALIDATED
+moistureAdvSelectorQv_b = 0.0   # NOT VALIDATED
+surflayer_ideal_qamp = 2.0   # NOT VALIDATED
+surflayer_ideal_amp = 4.0   # NOT VALIDATED
+surflayer_ideal_qte = 10.0   # NOT VALIDATED
+surflayer_ideal_qts = 1.75   # NOT VALIDATED
+surflayer_ideal_te = 43200   # NOT VALIDATED
+surflayer_ideal_ts = 0.0   # NOT VALIDATED
+moistureCondBasePres = 1   # NOT VALIDATED
+moistureSGSturb = 1   # NOT VALIDATED
+Input parameters passed verification.
+No input file has been specified, no gridFile has been specified.
+ Using default grid and initial condition schemes.
+**** Coordinate generation ****  (i,j,k)-extents = (122,122,122) & (i,j,k)-deltas = (30.000000,30.000000,24.691359)
+mpi_rank_world--0/1 grid-Coord-gen(), else-coordHorizHalos = 1!
+mpi_rank_world--0/1 coordHalos, Western-Eastern Boundaries!
+mpi_rank_world--0/1 coordHalos, Southern-Northern Boundaries!
+stabilityScheme == 2: Base State setup complete.
+Rank 0/1: Profile preparations complete!
+cuda_gridDeviceSetup:-- (i,j,k)Min, ()Max = (3,3,3), (125,125,125)
+fecuda_SetBlocksPerGrid: tBlock = {1, 8, 16}
+fecuda_SetBlocksPerGrid: grid = {128, 16, 8}
+lsf_horMnSubTerms = 1, setting up for 5 phi-fields.cuda_hydroCoreDeviceSetup() complete.
+cuda_towersDeviceSetup: NelemsTowers = 0, NelemsTowersSurf = -48110424
+0/1 cuda_hydroCoreDeviceSecondaryStageSetup(): BdyUpdateSteps = 0 
+Initializations complete after   1.3010 (s).
+Main Time: Advancing simulation timestep = 0... and time =    0.00000
+
+_____________________#######_________  STATE-SUMMARY @ it = 0 _________#######____________________ 
+
+			!!!!!	  HYDRO_CORE 	 !!!!! 
+Field 	|	 max	     --(i,j,k)		 |	  min	     --(i,j,k)		 |	 mean
+---------------------------------------------------------------------------------------------------------
+********-----
+ Model Fields -
+ ********-----
+rho	Rank 0/1:       1.14173782 	 (3,3,3)	 |        0.84174883 	 (3,3,124)	 |       1.03571296 
+-----
+u	Rank 0/1:       4.50000048 	 (3,3,6)	 |        4.49999952 	 (3,3,44)	 |       4.50000000 
+-----
+v	Rank 0/1:       7.79422951 	 (3,3,8)	 |        7.79422855 	 (3,3,11)	 |       7.92935324 
+-----
+w	Rank 0/1:       0.00000000 	 (3,3,3)	 |        0.00000000 	 (3,3,3)	 |       0.00000000 
+-----
+theta	Rank 0/1:     316.79882812 	 (3,3,124)	 |      299.74884033 	 (14,55,27)	 |     305.85073853 
+-----
+press	Rank 0/1:       0.00000000 	 (3,3,3)	 |        0.00000000 	 (3,3,3)	 |       0.00000000 
+-----
+TKE_0	Rank 0/1:       0.00000000 	 (3,3,3)	 |        0.00000000 	 (3,3,3)	 |       0.00000000 
+Dumping state at timestep = 0...
+Dumped state at timestep = 0...
+Rank 0/1: Batch complete results sent via cudaMemcpyDeviceToHost.
+
+			!!!!!	  TIMESTEP PERFORMANCE  	 !!!!! 
+ Total Time (s) | Batch Steps 	| Time/step (s) | Comp./step (s) | IO Time (s)
+---------------------------------------------------------------------------------------------------------
+    56.6350 	|     9720 	|    0.0058 	|    0.0058 	 |   0.266420 
+
+********************************************************************************************************
+Main Time: Advancing simulation timestep = 9720... and time =  300.00003
+
+_____________________#######_________  STATE-SUMMARY @ it = 9720 _________#######____________________ 
+
+			!!!!!	  HYDRO_CORE 	 !!!!! 
+Field 	|	 max	     --(i,j,k)		 |	  min	     --(i,j,k)		 |	 mean
+---------------------------------------------------------------------------------------------------------
+********-----
+ Model Fields -
+ ********-----
+rho	Rank 0/1:       1.13837826 	 (5,84,3)	 |        0.84179693 	 (42,69,124)	 |       1.03563952 
+-----
+u	Rank 0/1:       4.71596956 	 (49,70,19)	 |        2.24195695 	 (108,82,3)	 |       4.45243835 
+-----
+v	Rank 0/1:       8.06169796 	 (11,91,26)	 |        4.06789875 	 (108,86,3)	 |       7.83324003 
+-----
+w	Rank 0/1:       0.33487242 	 (32,38,20)	 |       -0.31590825 	 (124,124,29)	 |       0.00011518 
+-----
+theta	Rank 0/1:     316.80029297 	 (121,102,124)	 |      299.90637207 	 (64,116,27)	 |     305.91638184 
+-----
+press	Rank 0/1:       9.17187500 	 (68,122,21)	 |        4.41406250 	 (109,93,3)	 |       7.25203371 
+-----
+TKE_0	Rank 0/1:       0.68807340 	 (7,88,4)	 |        0.00000000 	 (100,103,12)	 |       0.02218117 
+Dumping state at timestep = 9720...
+Dumped state at timestep = 9720...
+Rank 0/1: Batch complete results sent via cudaMemcpyDeviceToHost.
+
+			!!!!!	  TIMESTEP PERFORMANCE  	 !!!!! 
+ Total Time (s) | Batch Steps 	| Time/step (s) | Comp./step (s) | IO Time (s)
+---------------------------------------------------------------------------------------------------------
+    56.6549 	|     9720 	|    0.0058 	|    0.0058 	 |   0.296737 
+
+********************************************************************************************************
+Main Time: Advancing simulation timestep = 19440... and time =  600.00006
+
+_____________________#######_________  STATE-SUMMARY @ it = 19440 _________#######____________________ 
+
+			!!!!!	  HYDRO_CORE 	 !!!!! 
+Field 	|	 max	     --(i,j,k)		 |	  min	     --(i,j,k)		 |	 mean
+---------------------------------------------------------------------------------------------------------
+********-----
+ Model Fields -
+ ********-----
+rho	Rank 0/1:       1.14026678 	 (13,55,3)	 |        0.84185338 	 (29,41,124)	 |       1.03515971 
+-----
+u	Rank 0/1:       5.55711746 	 (83,112,6)	 |        1.19240141 	 (106,113,3)	 |       4.42341661 
+-----
+v	Rank 0/1:       8.50469112 	 (25,111,8)	 |        2.85590458 	 (93,97,3)	 |       7.78541470 
+-----
+w	Rank 0/1:       1.76026893 	 (27,34,12)	 |       -1.16556239 	 (16,109,11)	 |       0.00014550 
+-----
+theta	Rank 0/1:     316.80059814 	 (66,32,124)	 |      299.90338135 	 (94,109,9)	 |     305.95578003 
+-----
+press	Rank 0/1:      15.87500000 	 (21,105,65)	 |       11.13281250 	 (89,93,3)	 |      14.18629646 
+-----
+TKE_0	Rank 0/1:       1.10233450 	 (19,113,4)	 |        0.00000000 	 (16,61,7)	 |       0.02491491 
+Dumping state at timestep = 19440...
+Dumped state at timestep = 19440...
+Rank 0/1: Batch complete results sent via cudaMemcpyDeviceToHost.
+
+			!!!!!	  TIMESTEP PERFORMANCE  	 !!!!! 
+ Total Time (s) | Batch Steps 	| Time/step (s) | Comp./step (s) | IO Time (s)
+---------------------------------------------------------------------------------------------------------
+    56.5595 	|     9720 	|    0.0058 	|    0.0058 	 |   0.255786 
+
+********************************************************************************************************
+Main Time: Advancing simulation timestep = 29160... and time =  900.00006
+
+_____________________#######_________  STATE-SUMMARY @ it = 29160 _________#######____________________ 
+
+			!!!!!	  HYDRO_CORE 	 !!!!! 
+Field 	|	 max	     --(i,j,k)		 |	  min	     --(i,j,k)		 |	 mean
+---------------------------------------------------------------------------------------------------------
+********-----
+ Model Fields -
+ ********-----
+rho	Rank 0/1:       1.14141989 	 (6,105,3)	 |        0.84190398 	 (65,113,124)	 |       1.03511584 
+-----
+u	Rank 0/1:       6.50860357 	 (52,104,18)	 |        1.07443213 	 (104,58,37)	 |       4.39639568 
+-----
+v	Rank 0/1:       9.73794937 	 (45,76,27)	 |        3.35441875 	 (32,123,3)	 |       7.70986462 
+-----
+w	Rank 0/1:       4.06737900 	 (19,59,42)	 |       -2.53233457 	 (73,103,28)	 |       0.00015263 
+-----
+theta	Rank 0/1:     316.80093384 	 (112,110,124)	 |      299.80340576 	 (10,113,7)	 |     306.02810669 
+-----
+press	Rank 0/1:      23.17187500 	 (78,102,51)	 |       13.25781250 	 (29,73,22)	 |      20.09236717 
+-----
+TKE_0	Rank 0/1:       1.27984953 	 (63,56,4)	 |        0.00000000 	 (9,111,7)	 |       0.03310842 
+Dumping state at timestep = 29160...
+Dumped state at timestep = 29160...
+Rank 0/1: Batch complete results sent via cudaMemcpyDeviceToHost.
+
+			!!!!!	  TIMESTEP PERFORMANCE  	 !!!!! 
+ Total Time (s) | Batch Steps 	| Time/step (s) | Comp./step (s) | IO Time (s)
+---------------------------------------------------------------------------------------------------------
+    56.5304 	|     9720 	|    0.0058 	|    0.0058 	 |   0.253735 
+
+********************************************************************************************************
+Main Time: Advancing simulation timestep = 38880... and time = 1200.00012
+
+_____________________#######_________  STATE-SUMMARY @ it = 38880 _________#######____________________ 
+
+			!!!!!	  HYDRO_CORE 	 !!!!! 
+Field 	|	 max	     --(i,j,k)		 |	  min	     --(i,j,k)		 |	 mean
+---------------------------------------------------------------------------------------------------------
+********-----
+ Model Fields -
+ ********-----
+rho	Rank 0/1:       1.14145017 	 (12,118,3)	 |        0.84195483 	 (65,19,124)	 |       1.03508723 
+-----
+u	Rank 0/1:       7.28082132 	 (117,30,7)	 |        0.85429329 	 (119,71,3)	 |       4.36568260 
+-----
+v	Rank 0/1:      10.15540695 	 (109,9,9)	 |        2.82309055 	 (69,31,3)	 |       7.64883184 
+-----
+w	Rank 0/1:       4.18881226 	 (106,8,38)	 |       -3.13918519 	 (18,75,20)	 |       0.00016526 
+-----
+theta	Rank 0/1:     316.80081177 	 (101,39,124)	 |      299.26986694 	 (41,40,62)	 |     306.15802002 
+-----
+press	Rank 0/1:      31.27343750 	 (34,92,60)	 |       16.06250000 	 (113,24,10)	 |      26.15855026 
+-----
+TKE_0	Rank 0/1:       1.53637552 	 (44,58,4)	 |        0.00000000 	 (24,93,6)	 |       0.03904054 
+Dumping state at timestep = 38880...
+Dumped state at timestep = 38880...
+Rank 0/1: Batch complete results sent via cudaMemcpyDeviceToHost.
+
+			!!!!!	  TIMESTEP PERFORMANCE  	 !!!!! 
+ Total Time (s) | Batch Steps 	| Time/step (s) | Comp./step (s) | IO Time (s)
+---------------------------------------------------------------------------------------------------------
+    56.5484 	|     9720 	|    0.0058 	|    0.0058 	 |   0.255710 
+
+********************************************************************************************************
+Main Time: Advancing simulation timestep = 48600... and time = 1500.00012
+
+_____________________#######_________  STATE-SUMMARY @ it = 48600 _________#######____________________ 
+
+			!!!!!	  HYDRO_CORE 	 !!!!! 
+Field 	|	 max	     --(i,j,k)		 |	  min	     --(i,j,k)		 |	 mean
+---------------------------------------------------------------------------------------------------------
+********-----
+ Model Fields -
+ ********-----
+rho	Rank 0/1:       1.14145124 	 (68,95,3)	 |        0.84200567 	 (78,102,124)	 |       1.03508902 
+-----
+u	Rank 0/1:       7.18124771 	 (38,32,22)	 |       -0.10045122 	 (115,74,3)	 |       4.33425140 
+-----
+v	Rank 0/1:      10.62662506 	 (76,107,18)	 |        2.52178240 	 (104,17,3)	 |       7.60921669 
+-----
+w	Rank 0/1:       3.43111086 	 (71,63,46)	 |       -2.89976168 	 (96,90,29)	 |       0.00018657 
+-----
+theta	Rank 0/1:     316.80108643 	 (78,102,124)	 |      299.60739136 	 (108,59,61)	 |     306.23522949 
+-----
+press	Rank 0/1:      37.28125000 	 (32,41,63)	 |       21.78906250 	 (97,10,6)	 |      32.57193375 
+-----
+TKE_0	Rank 0/1:       1.42285013 	 (23,8,4)	 |        0.00000000 	 (65,37,6)	 |       0.04185949 
+Dumping state at timestep = 48600...
+Dumped state at timestep = 48600...
+Rank 0/1: Batch complete results sent via cudaMemcpyDeviceToHost.
+
+			!!!!!	  TIMESTEP PERFORMANCE  	 !!!!! 
+ Total Time (s) | Batch Steps 	| Time/step (s) | Comp./step (s) | IO Time (s)
+---------------------------------------------------------------------------------------------------------
+    56.5381 	|     9720 	|    0.0058 	|    0.0058 	 |   0.238809 
+
+********************************************************************************************************
+Main Time: Advancing simulation timestep = 58320... and time = 1800.00012
+
+_____________________#######_________  STATE-SUMMARY @ it = 58320 _________#######____________________ 
+
+			!!!!!	  HYDRO_CORE 	 !!!!! 
+Field 	|	 max	     --(i,j,k)		 |	  min	     --(i,j,k)		 |	 mean
+---------------------------------------------------------------------------------------------------------
+********-----
+ Model Fields -
+ ********-----
+rho	Rank 0/1:       1.14165664 	 (44,29,3)	 |        0.84205610 	 (117,87,124)	 |       1.03503823 
+-----
+u	Rank 0/1:       7.02760839 	 (69,30,17)	 |        0.59960896 	 (81,62,12)	 |       4.30715752 
+-----
+v	Rank 0/1:      10.38602257 	 (94,46,6)	 |        2.15470958 	 (72,69,3)	 |       7.57644606 
+-----
+w	Rank 0/1:       3.80572343 	 (15,72,36)	 |       -2.92395639 	 (77,112,17)	 |       0.00022766 
+-----
+theta	Rank 0/1:     316.80126953 	 (117,87,124)	 |      299.83135986 	 (81,72,61)	 |     306.25866699 
+-----
+press	Rank 0/1:      44.98437500 	 (29,118,61)	 |       26.95312500 	 (19,14,8)	 |      38.75716400 
+-----
+TKE_0	Rank 0/1:       1.39863229 	 (4,50,4)	 |        0.00000000 	 (13,68,7)	 |       0.04138344 
+Dumping state at timestep = 58320...
+Dumped state at timestep = 58320...
+Rank 0/1: Batch complete results sent via cudaMemcpyDeviceToHost.
+
+			!!!!!	  TIMESTEP PERFORMANCE  	 !!!!! 
+ Total Time (s) | Batch Steps 	| Time/step (s) | Comp./step (s) | IO Time (s)
+---------------------------------------------------------------------------------------------------------
+    56.5450 	|     9720 	|    0.0058 	|    0.0058 	 |   0.243236 
+
+********************************************************************************************************
+Main Time: Advancing simulation timestep = 68040... and time = 2100.00024
+
+_____________________#######_________  STATE-SUMMARY @ it = 68040 _________#######____________________ 
+
+			!!!!!	  HYDRO_CORE 	 !!!!! 
+Field 	|	 max	     --(i,j,k)		 |	  min	     --(i,j,k)		 |	 mean
+---------------------------------------------------------------------------------------------------------
+********-----
+ Model Fields -
+ ********-----
+rho	Rank 0/1:       1.14081669 	 (50,103,3)	 |        0.84210658 	 (101,68,124)	 |       1.03500772 
+-----
+u	Rank 0/1:       7.33700466 	 (60,124,30)	 |        0.49793667 	 (6,3,3)	 |       4.27722025 
+-----
+v	Rank 0/1:      10.05471706 	 (122,40,55)	 |        2.38554263 	 (113,6,3)	 |       7.54534245 
+-----
+w	Rank 0/1:       3.90861511 	 (117,3,25)	 |       -2.66145754 	 (90,20,16)	 |       0.00021852 
+-----
+theta	Rank 0/1:     316.80191040 	 (101,68,124)	 |      299.68154907 	 (55,20,62)	 |     306.26733398 
+-----
+press	Rank 0/1:      51.60156250 	 (60,18,61)	 |       33.59375000 	 (112,3,12)	 |      45.19631958 
+-----
+TKE_0	Rank 0/1:       1.39792204 	 (37,24,4)	 |        0.00000000 	 (118,103,7)	 |       0.03780554 
+Dumping state at timestep = 68040...
+Dumped state at timestep = 68040...
+Rank 0/1: Batch complete results sent via cudaMemcpyDeviceToHost.
+
+			!!!!!	  TIMESTEP PERFORMANCE  	 !!!!! 
+ Total Time (s) | Batch Steps 	| Time/step (s) | Comp./step (s) | IO Time (s)
+---------------------------------------------------------------------------------------------------------
+    56.5587 	|     9720 	|    0.0058 	|    0.0058 	 |   0.238878 
+
+********************************************************************************************************
+Main Time: Advancing simulation timestep = 77760... and time = 2400.00024
+
+_____________________#######_________  STATE-SUMMARY @ it = 77760 _________#######____________________ 
+
+			!!!!!	  HYDRO_CORE 	 !!!!! 
+Field 	|	 max	     --(i,j,k)		 |	  min	     --(i,j,k)		 |	 mean
+---------------------------------------------------------------------------------------------------------
+********-----
+ Model Fields -
+ ********-----
+rho	Rank 0/1:       1.14018440 	 (16,65,3)	 |        0.84215885 	 (99,100,124)	 |       1.03499579 
+-----
+u	Rank 0/1:       7.21368694 	 (37,66,48)	 |        0.10131396 	 (74,9,3)	 |       4.25042915 
+-----
+v	Rank 0/1:       9.98466015 	 (76,16,15)	 |        2.13457084 	 (81,76,3)	 |       7.51405573 
+-----
+w	Rank 0/1:       4.14374352 	 (96,119,23)	 |       -2.44166040 	 (89,79,13)	 |       0.00022001 
+-----
+theta	Rank 0/1:     316.80157471 	 (99,100,124)	 |      299.74191284 	 (24,124,61)	 |     306.28283691 
+-----
+press	Rank 0/1:      60.55468750 	 (37,78,61)	 |       39.21093750 	 (83,74,9)	 |      51.55318451 
+-----
+TKE_0	Rank 0/1:       1.41607046 	 (73,57,4)	 |        0.00000000 	 (107,59,6)	 |       0.03631718 
+Dumping state at timestep = 77760...
+Dumped state at timestep = 77760...
+Rank 0/1: Batch complete results sent via cudaMemcpyDeviceToHost.
+
+			!!!!!	  TIMESTEP PERFORMANCE  	 !!!!! 
+ Total Time (s) | Batch Steps 	| Time/step (s) | Comp./step (s) | IO Time (s)
+---------------------------------------------------------------------------------------------------------
+    56.5462 	|     9720 	|    0.0058 	|    0.0058 	 |   0.242994 
+
+********************************************************************************************************
+Main Time: Advancing simulation timestep = 87480... and time = 2700.00024
+
+_____________________#######_________  STATE-SUMMARY @ it = 87480 _________#######____________________ 
+
+			!!!!!	  HYDRO_CORE 	 !!!!! 
+Field 	|	 max	     --(i,j,k)		 |	  min	     --(i,j,k)		 |	 mean
+---------------------------------------------------------------------------------------------------------
+********-----
+ Model Fields -
+ ********-----
+rho	Rank 0/1:       1.14038873 	 (98,75,3)	 |        0.84221095 	 (13,46,124)	 |       1.03500307 
+-----
+u	Rank 0/1:       7.44546509 	 (111,72,22)	 |       -0.43604678 	 (76,12,3)	 |       4.22279358 
+-----
+v	Rank 0/1:      10.00160408 	 (80,21,35)	 |        2.34950995 	 (24,110,3)	 |       7.48702431 
+-----
+w	Rank 0/1:       3.87165928 	 (112,118,22)	 |       -2.32067037 	 (58,28,28)	 |       0.00023082 
+-----
+theta	Rank 0/1:     316.80139160 	 (13,46,124)	 |      299.54678345 	 (75,32,62)	 |     306.28463745 
+-----
+press	Rank 0/1:      65.79687500 	 (63,72,61)	 |       44.76562500 	 (75,13,12)	 |      58.25473785 
+-----
+TKE_0	Rank 0/1:       1.30268764 	 (79,112,4)	 |        0.00000000 	 (93,83,7)	 |       0.03585405 
+Dumping state at timestep = 87480...
+Dumped state at timestep = 87480...
+Rank 0/1: Batch complete results sent via cudaMemcpyDeviceToHost.
+
+			!!!!!	  TIMESTEP PERFORMANCE  	 !!!!! 
+ Total Time (s) | Batch Steps 	| Time/step (s) | Comp./step (s) | IO Time (s)
+---------------------------------------------------------------------------------------------------------
+    56.5450 	|     9720 	|    0.0058 	|    0.0058 	 |   0.237848 
+
+********************************************************************************************************
+Main Time: Advancing simulation timestep = 97200... and time = 3000.00024
+
+_____________________#######_________  STATE-SUMMARY @ it = 97200 _________#######____________________ 
+
+			!!!!!	  HYDRO_CORE 	 !!!!! 
+Field 	|	 max	     --(i,j,k)		 |	  min	     --(i,j,k)		 |	 mean
+---------------------------------------------------------------------------------------------------------
+********-----
+ Model Fields -
+ ********-----
+rho	Rank 0/1:       1.14040411 	 (53,26,3)	 |        0.84226209 	 (118,67,124)	 |       1.03493571 
+-----
+u	Rank 0/1:       7.39077806 	 (102,8,32)	 |        0.34352255 	 (56,113,3)	 |       4.19073772 
+-----
+v	Rank 0/1:       9.79166889 	 (88,101,11)	 |        2.21298003 	 (28,63,3)	 |       7.45986843 
+-----
+w	Rank 0/1:       4.28772545 	 (35,71,39)	 |       -2.57905197 	 (9,61,28)	 |       0.00026412 
+-----
+theta	Rank 0/1:     316.80154419 	 (5,84,124)	 |      299.64791870 	 (47,30,61)	 |     306.30313110 
+-----
+press	Rank 0/1:      72.28125000 	 (95,107,65)	 |       49.94531250 	 (91,67,3)	 |      64.63084412 
+-----
+TKE_0	Rank 0/1:       1.20019424 	 (18,52,4)	 |        0.00000000 	 (89,49,7)	 |       0.03605853 
+Dumping state at timestep = 97200...
+Dumped state at timestep = 97200...
+Rank 0/1: Batch complete results sent via cudaMemcpyDeviceToHost.
+
+			!!!!!	  TIMESTEP PERFORMANCE  	 !!!!! 
+ Total Time (s) | Batch Steps 	| Time/step (s) | Comp./step (s) | IO Time (s)
+---------------------------------------------------------------------------------------------------------
+    56.5460 	|     9720 	|    0.0058 	|    0.0058 	 |   0.242342 
+
+********************************************************************************************************
+Main Time: Advancing simulation timestep = 106920... and time = 3300.00024
+
+_____________________#######_________  STATE-SUMMARY @ it = 106920 _________#######____________________ 
+
+			!!!!!	  HYDRO_CORE 	 !!!!! 
+Field 	|	 max	     --(i,j,k)		 |	  min	     --(i,j,k)		 |	 mean
+---------------------------------------------------------------------------------------------------------
+********-----
+ Model Fields -
+ ********-----
+rho	Rank 0/1:       1.14006829 	 (11,116,3)	 |        0.84231335 	 (104,80,124)	 |       1.03490770 
+-----
+u	Rank 0/1:       7.18141890 	 (8,65,32)	 |        0.29077974 	 (67,104,3)	 |       4.15962410 
+-----
+v	Rank 0/1:       9.97843361 	 (7,14,14)	 |        2.42533612 	 (5,72,3)	 |       7.43029356 
+-----
+w	Rank 0/1:       3.76403165 	 (72,51,16)	 |       -2.35274482 	 (50,5,27)	 |       0.00024589 
+-----
+theta	Rank 0/1:     316.80163574 	 (49,40,124)	 |      300.07623291 	 (14,61,61)	 |     306.31225586 
+-----
+press	Rank 0/1:      79.17968750 	 (65,81,65)	 |       54.63281250 	 (73,50,16)	 |      70.85856628 
+-----
+TKE_0	Rank 0/1:       1.40886796 	 (15,11,4)	 |        0.00000000 	 (36,29,7)	 |       0.03647277 
+Dumping state at timestep = 106920...
+Dumped state at timestep = 106920...
+Rank 0/1: Batch complete results sent via cudaMemcpyDeviceToHost.
+
+			!!!!!	  TIMESTEP PERFORMANCE  	 !!!!! 
+ Total Time (s) | Batch Steps 	| Time/step (s) | Comp./step (s) | IO Time (s)
+---------------------------------------------------------------------------------------------------------
+    56.5461 	|     9720 	|    0.0058 	|    0.0058 	 |   0.238305 
+
+********************************************************************************************************
+Main Time: Advancing simulation timestep = 116640... and time = 3600.00024
+
+_____________________#######_________  STATE-SUMMARY @ it = 116640 _________#######____________________ 
+
+			!!!!!	  HYDRO_CORE 	 !!!!! 
+Field 	|	 max	     --(i,j,k)		 |	  min	     --(i,j,k)		 |	 mean
+---------------------------------------------------------------------------------------------------------
+********-----
+ Model Fields -
+ ********-----
+rho	Rank 0/1:       1.13970745 	 (26,4,3)	 |        0.84236521 	 (27,36,124)	 |       1.03487623 
+-----
+u	Rank 0/1:       7.33939314 	 (98,46,41)	 |       -0.23340131 	 (107,112,3)	 |       4.12983704 
+-----
+v	Rank 0/1:       9.74784660 	 (74,124,44)	 |        2.44285870 	 (37,117,3)	 |       7.40536213 
+-----
+w	Rank 0/1:       4.74649572 	 (40,121,38)	 |       -2.31716394 	 (35,109,33)	 |       0.00023774 
+-----
+theta	Rank 0/1:     316.80166626 	 (26,36,124)	 |      299.69131470 	 (42,35,61)	 |     306.32199097 
+-----
+press	Rank 0/1:      86.62500000 	 (3,110,65)	 |       62.25781250 	 (97,42,16)	 |      77.25462341 
+-----
+TKE_0	Rank 0/1:       1.19934273 	 (107,110,4)	 |        0.00000000 	 (29,8,7)	 |       0.03557549 
+Dumping state at timestep = 116640...
+Dumped state at timestep = 116640...
+Rank 0/1: Batch complete results sent via cudaMemcpyDeviceToHost.
+
+			!!!!!	  TIMESTEP PERFORMANCE  	 !!!!! 
+ Total Time (s) | Batch Steps 	| Time/step (s) | Comp./step (s) | IO Time (s)
+---------------------------------------------------------------------------------------------------------
+    56.5421 	|     9720 	|    0.0058 	|    0.0058 	 |   0.234371 
+
+********************************************************************************************************
+Main Time: Advancing simulation timestep = 126360... and time = 3900.00024
+
+_____________________#######_________  STATE-SUMMARY @ it = 126360 _________#######____________________ 
+
+			!!!!!	  HYDRO_CORE 	 !!!!! 
+Field 	|	 max	     --(i,j,k)		 |	  min	     --(i,j,k)		 |	 mean
+---------------------------------------------------------------------------------------------------------
+********-----
+ Model Fields -
+ ********-----
+rho	Rank 0/1:       1.13987303 	 (53,88,4)	 |        0.84241647 	 (17,9,124)	 |       1.03480005 
+-----
+u	Rank 0/1:       7.20166349 	 (19,53,15)	 |        0.05778850 	 (19,52,3)	 |       4.10191870 
+-----
+v	Rank 0/1:       9.62974548 	 (71,79,52)	 |        2.35967374 	 (115,22,3)	 |       7.37914276 
+-----
+w	Rank 0/1:       3.74995685 	 (10,75,40)	 |       -2.60155463 	 (45,99,18)	 |       0.00024628 
+-----
+theta	Rank 0/1:     316.80166626 	 (68,22,124)	 |      299.94741821 	 (101,52,61)	 |     306.33953857 
+-----
+press	Rank 0/1:      93.50781250 	 (87,98,65)	 |       70.09375000 	 (18,52,8)	 |      83.75716400 
+-----
+TKE_0	Rank 0/1:       1.26024902 	 (85,24,4)	 |        0.00000000 	 (31,74,7)	 |       0.03435211 
+Dumping state at timestep = 126360...
+Dumped state at timestep = 126360...
+Rank 0/1: Batch complete results sent via cudaMemcpyDeviceToHost.
+
+			!!!!!	  TIMESTEP PERFORMANCE  	 !!!!! 
+ Total Time (s) | Batch Steps 	| Time/step (s) | Comp./step (s) | IO Time (s)
+---------------------------------------------------------------------------------------------------------
+    56.5491 	|     9720 	|    0.0058 	|    0.0058 	 |   0.238863 
+
+********************************************************************************************************
+Main Time: Advancing simulation timestep = 136080... and time = 4200.00049
+
+_____________________#######_________  STATE-SUMMARY @ it = 136080 _________#######____________________ 
+
+			!!!!!	  HYDRO_CORE 	 !!!!! 
+Field 	|	 max	     --(i,j,k)		 |	  min	     --(i,j,k)		 |	 mean
+---------------------------------------------------------------------------------------------------------
+********-----
+ Model Fields -
+ ********-----
+rho	Rank 0/1:       1.13980818 	 (47,12,3)	 |        0.84246707 	 (61,86,124)	 |       1.03478587 
+-----
+u	Rank 0/1:       7.34571695 	 (3,26,40)	 |       -0.03862836 	 (64,6,3)	 |       4.07531023 
+-----
+v	Rank 0/1:      10.09344482 	 (54,121,7)	 |        2.40123153 	 (108,10,3)	 |       7.35157919 
+-----
+w	Rank 0/1:       3.85770130 	 (40,66,56)	 |       -2.61805105 	 (58,121,32)	 |       0.00027120 
+-----
+theta	Rank 0/1:     316.80187988 	 (61,86,124)	 |      300.00476074 	 (12,41,60)	 |     306.33908081 
+-----
+press	Rank 0/1:     100.45312500 	 (38,83,65)	 |       73.04687500 	 (52,119,8)	 |      90.03372955 
+-----
+TKE_0	Rank 0/1:       1.31267536 	 (54,120,4)	 |        0.00000000 	 (47,13,6)	 |       0.03411652 
+Dumping state at timestep = 136080...
+Dumped state at timestep = 136080...
+Rank 0/1: Batch complete results sent via cudaMemcpyDeviceToHost.
+
+			!!!!!	  TIMESTEP PERFORMANCE  	 !!!!! 
+ Total Time (s) | Batch Steps 	| Time/step (s) | Comp./step (s) | IO Time (s)
+---------------------------------------------------------------------------------------------------------
+    56.5481 	|     9720 	|    0.0058 	|    0.0058 	 |   0.239103 
+
+********************************************************************************************************
+Main Time: Advancing simulation timestep = 145800... and time = 4500.00049
+
+_____________________#######_________  STATE-SUMMARY @ it = 145800 _________#######____________________ 
+
+			!!!!!	  HYDRO_CORE 	 !!!!! 
+Field 	|	 max	     --(i,j,k)		 |	  min	     --(i,j,k)		 |	 mean
+---------------------------------------------------------------------------------------------------------
+********-----
+ Model Fields -
+ ********-----
+rho	Rank 0/1:       1.13956082 	 (67,117,3)	 |        0.84251964 	 (83,107,124)	 |       1.03475034 
+-----
+u	Rank 0/1:       7.04407358 	 (24,69,33)	 |       -0.78238970 	 (93,102,10)	 |       4.05075455 
+-----
+v	Rank 0/1:      10.12849998 	 (84,64,7)	 |        2.31292987 	 (119,22,3)	 |       7.32909536 
+-----
+w	Rank 0/1:       4.13636494 	 (4,17,39)	 |       -2.82029676 	 (33,73,17)	 |       0.00025570 
+-----
+theta	Rank 0/1:     316.80157471 	 (33,38,124)	 |      300.00765991 	 (86,36,62)	 |     306.34866333 
+-----
+press	Rank 0/1:     108.00781250 	 (84,32,61)	 |       77.19531250 	 (83,64,8)	 |      96.83609009 
+-----
+TKE_0	Rank 0/1:       1.51013780 	 (84,63,4)	 |        0.00000000 	 (38,123,7)	 |       0.03374463 
+Dumping state at timestep = 145800...
+Dumped state at timestep = 145800...
+Rank 0/1: Batch complete results sent via cudaMemcpyDeviceToHost.
+
+			!!!!!	  TIMESTEP PERFORMANCE  	 !!!!! 
+ Total Time (s) | Batch Steps 	| Time/step (s) | Comp./step (s) | IO Time (s)
+---------------------------------------------------------------------------------------------------------
+    56.5442 	|     9720 	|    0.0058 	|    0.0058 	 |   0.241187 
+
+********************************************************************************************************
+Main Time: Advancing simulation timestep = 155520... and time = 4800.00049
+
+_____________________#######_________  STATE-SUMMARY @ it = 155520 _________#######____________________ 
+
+			!!!!!	  HYDRO_CORE 	 !!!!! 
+Field 	|	 max	     --(i,j,k)		 |	  min	     --(i,j,k)		 |	 mean
+---------------------------------------------------------------------------------------------------------
+********-----
+ Model Fields -
+ ********-----
+rho	Rank 0/1:       1.13936019 	 (23,57,3)	 |        0.84256804 	 (29,64,124)	 |       1.03473341 
+-----
+u	Rank 0/1:       7.29434681 	 (119,79,34)	 |       -0.74537134 	 (114,11,3)	 |       4.02455044 
+-----
+v	Rank 0/1:      10.21277618 	 (119,82,10)	 |        2.16717744 	 (77,105,3)	 |       7.30766392 
+-----
+w	Rank 0/1:       4.07345390 	 (116,28,56)	 |       -2.92131090 	 (12,66,35)	 |       0.00024341 
+-----
+theta	Rank 0/1:     316.80270386 	 (29,64,124)	 |      300.13281250 	 (30,75,60)	 |     306.34960938 
+-----
+press	Rank 0/1:     114.57031250 	 (67,42,65)	 |       83.13281250 	 (3,49,17)	 |     102.92172241 
+-----
+TKE_0	Rank 0/1:       1.30357313 	 (114,10,4)	 |        0.00000000 	 (28,65,6)	 |       0.03386832 
+Dumping state at timestep = 155520...
+Dumped state at timestep = 155520...
+Rank 0/1: Batch complete results sent via cudaMemcpyDeviceToHost.
+
+			!!!!!	  TIMESTEP PERFORMANCE  	 !!!!! 
+ Total Time (s) | Batch Steps 	| Time/step (s) | Comp./step (s) | IO Time (s)
+---------------------------------------------------------------------------------------------------------
+    56.5449 	|     9720 	|    0.0058 	|    0.0058 	 |   0.241124 
+
+********************************************************************************************************
+Main Time: Advancing simulation timestep = 165240... and time = 5100.00049
+
+_____________________#######_________  STATE-SUMMARY @ it = 165240 _________#######____________________ 
+
+			!!!!!	  HYDRO_CORE 	 !!!!! 
+Field 	|	 max	     --(i,j,k)		 |	  min	     --(i,j,k)		 |	 mean
+---------------------------------------------------------------------------------------------------------
+********-----
+ Model Fields -
+ ********-----
+rho	Rank 0/1:       1.13946784 	 (90,27,3)	 |        0.84261948 	 (75,19,124)	 |       1.03468823 
+-----
+u	Rank 0/1:       6.85346556 	 (25,3,20)	 |       -0.35878041 	 (21,88,30)	 |       3.99684286 
+-----
+v	Rank 0/1:      10.01281643 	 (22,74,10)	 |        2.19270492 	 (89,97,3)	 |       7.29222441 
+-----
+w	Rank 0/1:       4.39064503 	 (23,80,27)	 |       -2.70564675 	 (32,19,23)	 |       0.00024735 
+-----
+theta	Rank 0/1:     316.80273438 	 (75,19,124)	 |      299.94198608 	 (95,97,62)	 |     306.36001587 
+-----
+press	Rank 0/1:     121.78125000 	 (34,86,65)	 |       89.97656250 	 (20,73,9)	 |     109.17515564 
+-----
+TKE_0	Rank 0/1:       1.47201741 	 (30,83,4)	 |        0.00000000 	 (90,24,6)	 |       0.03368361 
+Dumping state at timestep = 165240...
+Dumped state at timestep = 165240...
+Rank 0/1: Batch complete results sent via cudaMemcpyDeviceToHost.
+
+			!!!!!	  TIMESTEP PERFORMANCE  	 !!!!! 
+ Total Time (s) | Batch Steps 	| Time/step (s) | Comp./step (s) | IO Time (s)
+---------------------------------------------------------------------------------------------------------
+    56.4441 	|     9720 	|    0.0058 	|    0.0058 	 |   0.241888 
+
+********************************************************************************************************
+Main Time: Advancing simulation timestep = 174960... and time = 5400.00049
+
+_____________________#######_________  STATE-SUMMARY @ it = 174960 _________#######____________________ 
+
+			!!!!!	  HYDRO_CORE 	 !!!!! 
+Field 	|	 max	     --(i,j,k)		 |	  min	     --(i,j,k)		 |	 mean
+---------------------------------------------------------------------------------------------------------
+********-----
+ Model Fields -
+ ********-----
+rho	Rank 0/1:       1.13917160 	 (114,5,3)	 |        0.84267151 	 (46,29,124)	 |       1.03466463 
+-----
+u	Rank 0/1:       7.15247631 	 (10,15,32)	 |       -0.43929899 	 (10,105,3)	 |       3.96355033 
+-----
+v	Rank 0/1:      10.07055759 	 (111,97,32)	 |        1.86202133 	 (50,80,3)	 |       7.27351618 
+-----
+w	Rank 0/1:       3.98693347 	 (8,114,33)	 |       -2.71226954 	 (107,92,16)	 |       0.00027035 
+-----
+theta	Rank 0/1:     316.80197144 	 (46,29,124)	 |      300.14700317 	 (70,63,61)	 |     306.36923218 
+-----
+press	Rank 0/1:     128.56250000 	 (90,73,65)	 |       95.70312500 	 (109,92,16)	 |     116.11848450 
+-----
+TKE_0	Rank 0/1:       1.25090122 	 (3,34,4)	 |        0.00000000 	 (40,85,7)	 |       0.03373293 
+Dumping state at timestep = 174960...
+Dumped state at timestep = 174960...
+Rank 0/1: Batch complete results sent via cudaMemcpyDeviceToHost.
+
+			!!!!!	  TIMESTEP PERFORMANCE  	 !!!!! 
+ Total Time (s) | Batch Steps 	| Time/step (s) | Comp./step (s) | IO Time (s)
+---------------------------------------------------------------------------------------------------------
+    56.4462 	|     9720 	|    0.0058 	|    0.0058 	 |   0.245269 
+
+********************************************************************************************************
+Main Time: Advancing simulation timestep = 184680... and time = 5700.00049
+
+_____________________#######_________  STATE-SUMMARY @ it = 184680 _________#######____________________ 
+
+			!!!!!	  HYDRO_CORE 	 !!!!! 
+Field 	|	 max	     --(i,j,k)		 |	  min	     --(i,j,k)		 |	 mean
+---------------------------------------------------------------------------------------------------------
+********-----
+ Model Fields -
+ ********-----
+rho	Rank 0/1:       1.13894832 	 (98,71,4)	 |        0.84272259 	 (113,87,124)	 |       1.03464794 
+-----
+u	Rank 0/1:       6.68493557 	 (89,17,18)	 |       -0.25946918 	 (11,29,23)	 |       3.92877650 
+-----
+v	Rank 0/1:      10.02911091 	 (17,42,25)	 |        1.79747725 	 (30,96,3)	 |       7.25394964 
+-----
+w	Rank 0/1:       4.21222305 	 (82,82,53)	 |       -2.66797566 	 (14,40,17)	 |       0.00025427 
+-----
+theta	Rank 0/1:     316.80184937 	 (19,124,124)	 |      300.15475464 	 (95,108,61)	 |     306.37362671 
+-----
+press	Rank 0/1:     135.43750000 	 (122,14,65)	 |      102.43750000 	 (31,92,3)	 |     121.69139862 
+-----
+TKE_0	Rank 0/1:       1.23393488 	 (121,116,4)	 |        0.00000000 	 (21,65,6)	 |       0.03266366 
+Dumping state at timestep = 184680...
+Dumped state at timestep = 184680...
+Rank 0/1: Batch complete results sent via cudaMemcpyDeviceToHost.
+
+			!!!!!	  TIMESTEP PERFORMANCE  	 !!!!! 
+ Total Time (s) | Batch Steps 	| Time/step (s) | Comp./step (s) | IO Time (s)
+---------------------------------------------------------------------------------------------------------
+    56.4356 	|     9720 	|    0.0058 	|    0.0058 	 |   0.242746 
+
+********************************************************************************************************
+Main Time: Advancing simulation timestep = 194400... and time = 6000.00049
+
+_____________________#######_________  STATE-SUMMARY @ it = 194400 _________#######____________________ 
+
+			!!!!!	  HYDRO_CORE 	 !!!!! 
+Field 	|	 max	     --(i,j,k)		 |	  min	     --(i,j,k)		 |	 mean
+---------------------------------------------------------------------------------------------------------
+********-----
+ Model Fields -
+ ********-----
+rho	Rank 0/1:       1.13879490 	 (122,49,3)	 |        0.84277219 	 (99,8,124)	 |       1.03460097 
+-----
+u	Rank 0/1:       6.90191269 	 (50,106,7)	 |       -0.56859487 	 (8,8,3)	 |       3.89448833 
+-----
+v	Rank 0/1:       9.51421642 	 (3,91,42)	 |        2.15405083 	 (68,31,3)	 |       7.24291849 
+-----
+w	Rank 0/1:       4.09157276 	 (67,13,45)	 |       -2.73500490 	 (47,106,13)	 |       0.00024046 
+-----
+theta	Rank 0/1:     316.80221558 	 (99,8,124)	 |      300.15441895 	 (117,25,61)	 |     306.38296509 
+-----
+press	Rank 0/1:     142.59375000 	 (118,82,65)	 |      110.44531250 	 (119,96,8)	 |     128.63619995 
+-----
+TKE_0	Rank 0/1:       1.11805892 	 (54,37,4)	 |        0.00000000 	 (57,117,6)	 |       0.03265627 
+Dumping state at timestep = 194400...
+Dumped state at timestep = 194400...
+Rank 0/1: Batch complete results sent via cudaMemcpyDeviceToHost.
+
+			!!!!!	  TIMESTEP PERFORMANCE  	 !!!!! 
+ Total Time (s) | Batch Steps 	| Time/step (s) | Comp./step (s) | IO Time (s)
+---------------------------------------------------------------------------------------------------------
+    56.4221 	|     9720 	|    0.0058 	|    0.0058 	 |   0.240125 
+
+********************************************************************************************************
+Main Time: Advancing simulation timestep = 204120... and time = 6300.00049
+
+_____________________#######_________  STATE-SUMMARY @ it = 204120 _________#######____________________ 
+
+			!!!!!	  HYDRO_CORE 	 !!!!! 
+Field 	|	 max	     --(i,j,k)		 |	  min	     --(i,j,k)		 |	 mean
+---------------------------------------------------------------------------------------------------------
+********-----
+ Model Fields -
+ ********-----
+rho	Rank 0/1:       1.13875902 	 (98,107,4)	 |        0.84282207 	 (110,71,124)	 |       1.03456104 
+-----
+u	Rank 0/1:       6.34959507 	 (84,111,6)	 |       -0.49083239 	 (30,75,8)	 |       3.86041975 
+-----
+v	Rank 0/1:       9.86296272 	 (6,75,14)	 |        1.97253370 	 (117,91,3)	 |       7.22519159 
+-----
+w	Rank 0/1:       4.18264103 	 (51,118,42)	 |       -2.46998405 	 (90,71,34)	 |       0.00024311 
+-----
+theta	Rank 0/1:     316.80227661 	 (111,73,124)	 |      300.43362427 	 (115,62,60)	 |     306.40100098 
+-----
+press	Rank 0/1:     149.34375000 	 (100,122,65)	 |      113.29687500 	 (99,84,3)	 |     134.67739868 
+-----
+TKE_0	Rank 0/1:       1.32138681 	 (35,20,4)	 |        0.00000000 	 (97,102,6)	 |       0.03218082 
+Dumping state at timestep = 204120...
+Dumped state at timestep = 204120...
+Rank 0/1: Batch complete results sent via cudaMemcpyDeviceToHost.
+
+			!!!!!	  TIMESTEP PERFORMANCE  	 !!!!! 
+ Total Time (s) | Batch Steps 	| Time/step (s) | Comp./step (s) | IO Time (s)
+---------------------------------------------------------------------------------------------------------
+    56.4152 	|     9720 	|    0.0058 	|    0.0058 	 |   0.238483 
+
+********************************************************************************************************
+Main Time: Advancing simulation timestep = 213840... and time = 6600.00049
+
+_____________________#######_________  STATE-SUMMARY @ it = 213840 _________#######____________________ 
+
+			!!!!!	  HYDRO_CORE 	 !!!!! 
+Field 	|	 max	     --(i,j,k)		 |	  min	     --(i,j,k)		 |	 mean
+---------------------------------------------------------------------------------------------------------
+********-----
+ Model Fields -
+ ********-----
+rho	Rank 0/1:       1.13854444 	 (95,19,4)	 |        0.84287083 	 (5,75,124)	 |       1.03450072 
+-----
+u	Rank 0/1:       6.26255703 	 (69,83,30)	 |       -1.27651989 	 (43,16,13)	 |       3.83207655 
+-----
+v	Rank 0/1:       9.36588383 	 (5,19,28)	 |        2.07596660 	 (22,29,3)	 |       7.21603537 
+-----
+w	Rank 0/1:       3.72656727 	 (57,34,22)	 |       -2.22054696 	 (52,61,11)	 |       0.00026851 
+-----
+theta	Rank 0/1:     316.80276489 	 (5,75,124)	 |      300.44985962 	 (123,9,61)	 |     306.42089844 
+-----
+press	Rank 0/1:     156.35156250 	 (87,59,65)	 |      117.78906250 	 (44,17,7)	 |     140.61039734 
+-----
+TKE_0	Rank 0/1:       1.34163177 	 (60,83,4)	 |        0.00000000 	 (95,17,7)	 |       0.03248846 
+Dumping state at timestep = 213840...
+Dumped state at timestep = 213840...
+Rank 0/1: Batch complete results sent via cudaMemcpyDeviceToHost.
+
+			!!!!!	  TIMESTEP PERFORMANCE  	 !!!!! 
+ Total Time (s) | Batch Steps 	| Time/step (s) | Comp./step (s) | IO Time (s)
+---------------------------------------------------------------------------------------------------------
+    56.4241 	|     9720 	|    0.0058 	|    0.0058 	 |   0.240537 
+
+********************************************************************************************************
+Main Time: Advancing simulation timestep = 223560... and time = 6900.00049
+
+_____________________#######_________  STATE-SUMMARY @ it = 223560 _________#######____________________ 
+
+			!!!!!	  HYDRO_CORE 	 !!!!! 
+Field 	|	 max	     --(i,j,k)		 |	  min	     --(i,j,k)		 |	 mean
+---------------------------------------------------------------------------------------------------------
+********-----
+ Model Fields -
+ ********-----
+rho	Rank 0/1:       1.13830411 	 (12,58,4)	 |        0.84292156 	 (50,32,124)	 |       1.03449380 
+-----
+u	Rank 0/1:       6.20615244 	 (32,82,8)	 |       -0.42973164 	 (64,58,3)	 |       3.80798531 
+-----
+v	Rank 0/1:       9.69202614 	 (65,58,7)	 |        1.91694784 	 (6,32,3)	 |       7.20487118 
+-----
+w	Rank 0/1:       4.16023636 	 (108,123,36)	 |       -2.26844382 	 (17,29,37)	 |       0.00025544 
+-----
+theta	Rank 0/1:     316.80249023 	 (50,32,124)	 |      300.43496704 	 (82,92,62)	 |     306.41912842 
+-----
+press	Rank 0/1:     163.37500000 	 (108,12,65)	 |      127.55468750 	 (64,58,8)	 |     147.45509338 
+-----
+TKE_0	Rank 0/1:       1.44174123 	 (81,44,4)	 |        0.00000000 	 (89,86,6)	 |       0.03246351 
+Dumping state at timestep = 223560...
+Dumped state at timestep = 223560...
+Rank 0/1: Batch complete results sent via cudaMemcpyDeviceToHost.
+
+			!!!!!	  TIMESTEP PERFORMANCE  	 !!!!! 
+ Total Time (s) | Batch Steps 	| Time/step (s) | Comp./step (s) | IO Time (s)
+---------------------------------------------------------------------------------------------------------
+    56.4306 	|     9720 	|    0.0058 	|    0.0058 	 |   0.240313 
+
+********************************************************************************************************
+
+_____________________#######_________  STATE-SUMMARY @ it = 233280 _________#######____________________ 
+
+			!!!!!	  HYDRO_CORE 	 !!!!! 
+Field 	|	 max	     --(i,j,k)		 |	  min	     --(i,j,k)		 |	 mean
+---------------------------------------------------------------------------------------------------------
+********-----
+ Model Fields -
+ ********-----
+rho	Rank 0/1:       1.13818967 	 (124,79,3)	 |        0.84297138 	 (21,101,124)	 |       1.03441346 
+-----
+u	Rank 0/1:       6.52741480 	 (87,11,5)	 |       -1.02603209 	 (18,85,34)	 |       3.78404450 
+-----
+v	Rank 0/1:       9.68375969 	 (97,23,30)	 |        1.94450843 	 (96,29,3)	 |       7.18680000 
+-----
+w	Rank 0/1:       3.79096913 	 (69,14,52)	 |       -2.25983286 	 (28,95,20)	 |       0.00024208 
+-----
+theta	Rank 0/1:     316.80273438 	 (21,101,124)	 |      300.34295654 	 (25,106,61)	 |     306.43295288 
+-----
+press	Rank 0/1:     169.63281250 	 (28,73,65)	 |      130.56250000 	 (12,73,10)	 |     153.11132812 
+-----
+TKE_0	Rank 0/1:       1.27269959 	 (108,105,4)	 |        0.00000000 	 (29,109,6)	 |       0.03178177 
+
+_____________________#######_________  TOWER-SUMMARY @ it = 233280 _________#######____________________ 
+Dumping state at timestep = 233280...
+Dumped state at timestep = 233280...
+
+			!!!!!	  TIMESTEP PERFORMANCE  	 !!!!! 
+ Total Time (s) | Batch Steps 	| Time/step (s) | Comp./step (s) | IO Time (s)
+---------------------------------------------------------------------------------------------------------
+     0.2397 	|        0 	|    0.0000 	|    0.0000 	 |   0.180373 
+
+********************************************************************************************************
+Your FastEddy simulation is complete!
+Cleaning up...
+Shutting down MPI...
+ Goodbye!

@@ -129,7 +129,7 @@ def _drift_admitted(mode, drifting, wth):
 
 
 def load_library(index_path, library_dir, available_only=False,
-                 allow_indeterminate=False, allow_drifting="off", exclude=()):
+                 allow_indeterminate=True, allow_drifting="any", exclude=()):
     """Prefer each job's RETURNED manifest (it carries `achieved`); fall back to the index.
 
     The fallback is not silent. A seed with no achieved block is matched on its TARGET, and
@@ -310,7 +310,24 @@ def load_library(index_path, library_dir, available_only=False,
         print(f"  EXCLUDED BY REQUEST ({len(excluded_by_hand)}): "
               f"{', '.join(sorted(excluded_by_hand))} -- named on the command line, not "
               f"rejected by any gate.")
-    for job, lim, why in drifting_used:
+    # === THE WHOLE LIBRARY IS THE DEFAULT, AND IT IS SAID ONCE ==========================
+    # With the gate no longer filtering, the per-seed notices below would print a paragraph
+    # for every seed in the library on every case -- 30 of them, identical, on 1469 cases.
+    # That is not disclosure, it is noise that trains the reader to skip the block where the
+    # genuinely per-seed notices live. So the POLICY is stated once, with the counts, and
+    # the per-seed loops below run only when a seed was admitted by a NARROWER opt-in than
+    # "everything", which is the case where which seed got in is the information.
+    whole_library = bool(allow_indeterminate) and allow_drifting == "any"
+    if whole_library and (drifting_used or indeterminate):
+        nd, ni = len(drifting_used), len(indeterminate)
+        print(f"  SEED SELECTION USES THE WHOLE LIBRARY (the default since 2026-08-31): "
+              f"{nd} seed(s) with a DRIFTING limit and {ni} INDETERMINATE are ranked "
+              f"alongside any that passed. A seed is an INITIAL CONDITION, not a corpus "
+              f"point -- the case adjusts 30 min under its own forcing and every ML input "
+              f"is measured by window_stats over the same window as the footprint, so the "
+              f"pair is self-consistent whatever the seed's drift state. gate_state is "
+              f"still stamped on every pair. --strict-gate restores the refusal.")
+    for job, lim, why in (drifting_used if not whole_library else ()):
         if allow_drifting == "zi-neutral":
             print(f"  *** USING A z_i-DRIFTING NEUTRAL SEED: {job} ({why}), admitted by "
                   f"--allow-drifting zi-neutral. The limit is UNSATISFIABLE on this rung "
@@ -338,7 +355,7 @@ def load_library(index_path, library_dir, available_only=False,
               f"{', '.join(lim)}) -- nothing is drifting, but the gate cannot resolve "
               f"these limits in a 3.0 h run. Pass --allow-indeterminate to use it anyway; "
               f"every pair built on it is stamped with this state.")
-    for j, lim in sorted(indeterminate):
+    for j, lim in (sorted(indeterminate) if not whole_library else ()):
         print(f"  *** USING AN INDETERMINATE SEED: {j} is INDETERMINATE on "
               f"{', '.join(lim)} and was admitted by --allow-indeterminate. Its "
               f"stationarity is UNESTABLISHED, not established. Every pair built on it "
@@ -468,7 +485,7 @@ def main():
     ap.add_argument("--exclude", default=None,
                     help="comma-separated seed job names to exclude explicitly, "
                          "regardless of their gate verdict. Named in the output.")
-    ap.add_argument("--allow-drifting", nargs="?", const="any", default="off",
+    ap.add_argument("--allow-drifting", nargs="?", const="any", default="any",
                     choices=DRIFT_MODES,
                     help="admit a seed with a DRIFTING limit. NOT the same concession as "
                          "--allow-indeterminate: a drifting seed is KNOWN to be moving in a "
@@ -482,10 +499,30 @@ def main():
                          "`any` (the bare flag) admits any drifting limit on any rung and "
                          "stays a wide, loud, manual opt-in. `off` refuses both. "
                          "gate_state is stamped DRIFTING on every pair either way.")
-    ap.add_argument("--allow-indeterminate", action="store_true",
-                    help="admit seeds whose gate returned INDETERMINATE (no limit "
-                         "drifting, but the trend estimator cannot resolve its own "
-                         "threshold). NOT a pass: the state is stamped onto every pair.")
+    ap.add_argument("--allow-indeterminate", action="store_true", default=True,
+                    help="admit seeds whose gate returned INDETERMINATE. ON BY DEFAULT "
+                         "since 2026-08-31 -- see --strict-gate for the reasoning and for "
+                         "how to restore the refusal. NOT a pass: the state is still "
+                         "stamped onto every pair.")
+    ap.add_argument("--strict-gate", action="store_true",
+                    help="RESTORE THE PRE-2026-08-31 BEHAVIOUR: refuse every seed whose "
+                         "stationarity gate did not return a clean PASS. Equivalent to "
+                         "--allow-drifting off with --allow-indeterminate off. "
+                         "THE DEFAULT IS NOW THE WHOLE LIBRARY, and the reason is that a "
+                         "seed is an INITIAL CONDITION rather than a corpus point: the "
+                         "case restarts from it, integrates 30 minutes of adjustment under "
+                         "its OWN sounding's forcing, and every ML input is then measured "
+                         "by window_stats over exactly the same window as the footprint. "
+                         "So the pair is self-consistent whatever the seed's drift state, "
+                         "and refusing a seed removes a RESTART POINT without removing any "
+                         "error. What it removed, measured on the 30-seed library "
+                         "(SEED_LIBRARY_RESULT.md): all six cbl-shallow seeds, leaving the "
+                         "weakly-convective rung with no restart point at all; eight of "
+                         "twelve neutral seeds, dropping the neutral half to four base "
+                         "angles and firing this script's own half-spacing warning; and "
+                         "the Ekman-backing calibration down to n = 1 and 2 on three of "
+                         "five rungs. Use this flag to reproduce a pre-2026-08-31 pick, "
+                         "not to build a corpus.")
     ap.add_argument("--available-only", action="store_true",
                     help="rank only seeds that have a returned artifact on disk. Use "
                          "while the library is partially built: an unbuilt seed cannot be "
@@ -493,6 +530,8 @@ def main():
                          "measurement, so ranking it against a spun seed compares a guess "
                          "with a number.")
     a = ap.parse_args()
+    if a.strict_gate:
+        a.allow_drifting, a.allow_indeterminate = "off", False
 
     fc = json.load(open(a.forcing))
     lab, par = fc["labels"], fc["params"]

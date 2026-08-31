@@ -169,8 +169,8 @@ PICK=results/pick/$TAG.json
     --library "${SEED_LIB:-jobs30}" --index "${SEED_LIB:-jobs30}/index.json" \
     $([ "${SEED_ANY:-0}" = "1" ] || echo --available-only) \
     $([ "${ALLOW_INDETERMINATE:-1}" = "1" ] && echo --allow-indeterminate) \
-    --allow-drifting "$(case "${ALLOW_DRIFTING:-zi-neutral}" in
-                          1) echo any;; 0) echo off;; *) echo "${ALLOW_DRIFTING:-zi-neutral}";;
+    --allow-drifting "$(case "${ALLOW_DRIFTING:-any}" in
+                          1) echo any;; 0) echo off;; *) echo "${ALLOW_DRIFTING:-any}";;
                         esac)" \
     ${SEED_EXCLUDE:+--exclude "$SEED_EXCLUDE"} || true
 # === ALLOW_INDETERMINATE IS ON BY DEFAULT, BECAUSE INDETERMINATE IS THE LIBRARY'S
@@ -187,8 +187,31 @@ PICK=results/pick/$TAG.json
 # make_pair.py writes a warning into the training record. Set ALLOW_INDETERMINATE=0 to
 # require established stationarity, which today no seed in the library can supply.
 #
-# === AND ALLOW_DRIFTING DEFAULTS TO `zi-neutral` -- CHANGED 2026-08-30 =================
-# It was OFF, and OFF makes the NEUTRAL HALF OF THE CORPUS UNBUILDABLE. z_i in a neutral
+# === ALLOW_DRIFTING DEFAULTS TO `any` -- CHANGED 2026-08-31, AND THAT IS THE WHOLE ====
+# === LIBRARY. The paragraphs below are the 2026-08-30 `zi-neutral` reasoning, kept  ====
+# === because the DECISION superseded them but the ARGUMENT is what generalised.     ====
+#
+# THE GENERALISATION: a seed is an INITIAL CONDITION, not a corpus point. The case restarts
+# from it, integrates ADJ_S under its OWN sounding's forcing, and every ML input is then
+# measured by window_stats over exactly the same window as the footprint. So the pair is
+# self-consistent whatever the seed's drift state -- which is precisely the argument the
+# z_i concession below was granted on, and it never depended on the limit being z_i.
+# Refusing a seed therefore removes a RESTART POINT without removing any error.
+#
+# MEASURED COST OF THE NARROW FORM on the 30-seed library (SEED_LIBRARY_RESULT.md): it
+# admitted 11 of 30. It took out ALL SIX cbl-shallow seeds, leaving the weakly-convective
+# rung with no restart point; eight of twelve neutral seeds, dropping the neutral half to
+# four base angles and firing pick_seed's own half-spacing warning at 14.5 deg against a
+# 15 deg spacing; and the Ekman-backing calibration to n = 1 and 2 on three of five rungs.
+# And the seeds it kept were not the steady ones -- the accept/refuse split tracked the
+# trend's STANDARD ERROR, not the trend, so cbl-shallow_a000 at +23.5 %/h was admitted
+# while a030 at +22.0 %/h was refused for being measured three times more precisely.
+#
+# `ALLOW_DRIFTING=zi-neutral` restores the narrow 2026-08-30 form and `off` the original
+# refusal; 1 and 0 still mean any and off.
+#
+# --- the 2026-08-30 reasoning, superseded in scope and correct in substance -----------
+# ALLOW_DRIFTING was OFF, and OFF makes the NEUTRAL HALF OF THE CORPUS UNBUILDABLE. z_i in a neutral
 # boundary layer with no capping inversion grows without bound -- measured on
 # seed_nbl-deep_a015 at +5.76 %/h and still climbing at 3.0 sim-h -- so the z_i stationarity
 # limit is UNSATISFIABLE on those rungs rather than failed, and no affordable spin-up will

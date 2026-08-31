@@ -917,10 +917,15 @@ def main():
     if gpuh:
         say(f"\n  measured GPU-h per seed (n={len(gpuh)}): min {min(gpuh):.3f}  median "
             f"{sorted(gpuh)[len(gpuh) // 2]:.3f}  max {max(gpuh):.3f}  total {sum(gpuh):.2f}")
-        acc = [(r["gpu_s_accel"] or 0) / 3600.0 for r in ok if r.get("gpu_s_accel")]
-        if acc:
+        # NOT `acc`. That name holds the ACCEPTED SEEDS from further up this function, and
+        # rebinding it here made `n_accepted` in the machine manifest the count of seeds
+        # with an accelerator leg -- i.e. the number of NEUTRAL seeds. On the first real
+        # library that printed "11 accepted" to the log and wrote 12 to the JSON, and 12 is
+        # a plausible enough number that it was read and quoted before the log was checked.
+        accel_h = [(r["gpu_s_accel"] or 0) / 3600.0 for r in ok if r.get("gpu_s_accel")]
+        if accel_h:
             say(f"    of which the Steinfeld accelerator (neutral rungs): "
-                f"{sum(acc):.2f} GPU-h over {len(acc)} seeds")
+                f"{sum(accel_h):.2f} GPU-h over {len(accel_h)} seeds")
     if pairs:
         rate = sum(p[0] for p in pairs) / sum(p[1] for p in pairs)
         say(f"  measured GPU-h per SIMULATED hour: {rate:.3f}  over the {len(pairs)} seeds"
@@ -1047,7 +1052,11 @@ def main():
                            "mem_available_min_bytes": host.mem_avail_min,
                            "note": "A seed runs no LPDM. PROJECT_BRIEF.md's 12.45 GB is a CORPUS "
                                    "CASE (the LPDM field cache), not a seed."},
-           "n_attempted": len(results), "n_completed": len(ok), "n_accepted": len(acc),
+           # ASSERT ON THE VALUE, not on the variable still being in scope: this field and
+           # the SUMMARY line above must be the same number, and for one library they were
+           # not (see the accel_h rename above).
+           "n_attempted": len(results), "n_completed": len(ok),
+           "n_accepted": sum(1 for r in ok if r["accepted"]),
            "seeds": results}
     mp = os.path.join(a.out, "machine_manifest.json")
     json.dump(man, open(mp, "w"), indent=1)

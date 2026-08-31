@@ -1,3 +1,67 @@
+# THE LIBRARY IS SPUN. 30 SEEDS, 16x RTX 5090, 0.936 h WALL — 2026-08-31
+
+> **The deployment path below was exercised for real and it worked.** Full evidence:
+> `SEED_LIBRARY_RESULT.md`. Every number here is measured on the rented machine; the only
+> things NOT exercised are the LPDM and the ring, which a seed never touches.
+
+| # | item | verdict |
+|---|---|---|
+| 1 | 30 seeds returned, complete | **PASS** — 30 of 30, all `seed_restart.nc` exactly 73,271,565 B, **30 distinct md5s**, no NaN/Inf, no `CORRUPTED`, zero empty files |
+| 2 | acceptance battery on real Blackwell hardware | **PASS 30/30** — `k0/k1` **0.124–0.144**, `turb_alive` real OK, C2 bit-for-bit, rotation exact, no battery failure lines. This closes the "k0/k1 on Blackwell" item the build left owed. |
+| 3 | ceiling arithmetic on hardware it had never run on | **PASS** — `233,280 steps = 2.000 sim-h` in every manifest |
+| 4 | the work queue under real load | **PASS** — 16 of 16 workers, **14 took a second job**, peak concurrency 16, queue drained, zero failures |
+| 5 | **GPU-h per seed at 16-way** | **0.189 GPU-h/sim-h**, against **0.469** single-GPU on the 4080 in the same image — **contention costs nothing; it is 2.5x faster.** Neutral's 0.268 all-in is the accelerator. |
+| 6 | peak VRAM / host RSS across the machine | **904 MiB of 32,607 (2.8%)** per GPU; host peak 58.9 GiB, FastEddy RSS 8.98 GiB, of 755 GiB |
+| 7 | thread-block sweep on Blackwell | **ran, winner `1x8x16` — but NOT ESTABLISHED.** Three shapes tie at the timer's last printed digit (one quantum = **1.7%** at this speed). Worst case 1.7%. |
+| 8 | stationarity gate | **11 of 30 under the old refusal — and the split tracked the SE, not the drift.** Superseded by the decision below. |
+
+**0.189 IS A SEED NUMBER AND MUST NOT REACH THE CORPUS ESTIMATE.** A seed runs FastEddy
+only. A case also runs the LPDM and the ring, and **the ring's host-side 12.0 GB field cache
+has never been exercised at 16-way** — sixteen concurrent cases ask ~200 GB of host
+residency and the contention behaviour is unmeasured. The corpus keeps its own measured
+~0.49 GPU-h/sim-h until a real case runs this path on rented hardware.
+
+## The two decisions taken on the returned library
+
+**1. SEED SELECTION USES ALL 30. `ALLOW_DRIFTING` defaults to `any`**, superseding the
+2026-08-30 `zi-neutral` narrow form; `--strict-gate` restores the refusal. The reasoning
+GENERALISES the one `zi-neutral` was granted on — a seed is an initial condition, the case
+adjusts under its own forcing, and every ML input comes from `window_stats` over the
+footprint's own window, so the pair is self-consistent whatever the seed's drift state.
+**Measured cost of the narrow form: cbl-shallow lost ALL SIX seeds (the weakly-convective
+rung had no restart point at all), neutral fell to 4 base angles of 12, Ekman calibration to
+n = 1 and 2 on three rungs, and `pick_seed`'s own half-spacing warning fired at 14.5 deg
+against a 15 deg spacing.** With all 30 the neutral pick improves **4.6x in cost and 11x in
+direction gap** and the warning stops firing.
+
+**2. `TKE_BL/u*^2` WAS MEASURING ITS OWN REFERENCES — the FOURTH instance of the failure
+class `PROJECT_BRIEF.md` has a standing rule about, and this diagnostic was itself the FIX for the
+second one.** Rescored with no GPU (`bin/seed_tke_rescore.py`) by recovering the absolute
+numerator two ways with disjoint inputs, whose agreement is the evidence:
+
+* **cbl-shallow: absolute BL TKE is FLAT (+0.5 %/h)** where the gate read +22.5. The whole
+  drift is `u*` falling at −11.1 %/h in the denominator.
+* **cbl-mid is FALLING (−5.0)** where the gate read +12.5 rising — the wrong sign.
+* **cbl-deep is falling at −13.5** as `z_i` grows +16.7 %/h and dilutes a fixed integrated
+  TKE over a deepening layer, **and it is the rung the refusal accepted best (5 of 6)**.
+* **nbl-shallow really IS rising at +29.4 %/h** (both routes agree to 0.1) with `z_i` and
+  `u*` quiet, so on the neutral rungs the ratio does track the turbulence.
+
+**The gated form is NOT changed here** — changing a gate on the same pass that reinterprets
+its output is how a threshold gets tuned to a result.
+
+## What this leaves owed
+
+1. **The neutral rungs are short at 2.0 sim-h** — a real limitation, not an artifact.
+   +1.0 sim-h on 12 neutral seeds costs **+2.3 GPU-h** at the measured rate. Not done.
+2. **Seed runs must return the SCORED SERIES**, not only the verdicts and trends fitted to
+   it. The rescore above is first-order arithmetic and can carry no SE and no `n_eff`.
+3. **Reconsider the gated form of `TKE_BL/u*^2`**, once (2) makes it measurable.
+4. **The corpus cost at 16-way is unmeasured** and 0.189 does not answer it.
+5. **Nothing has run the ring or the LPDM on Blackwell.**
+
+---
+
 # THE SEED LIBRARY HAS A DEPLOYMENT PATH: ONE IMAGE, ONE COMMAND, 16 GPUs — 2026-08-31
 
 > **The blocker was the compiler, not the code.** The library has to be spun on rented
@@ -128,7 +192,7 @@ sitting in `pairs_npz/`. Identical array shape, incompatible cell size. Moved to
 
 | the ninth pass asked | the answer, and what changed in code |
 |---|---|
-| **1.** Should the corpus admit a DRIFTING neutral seed, given `pick_seed`'s refusal makes the neutral half unbuildable and its fallback is worse? | **Yes, narrowly.** `ALLOW_DRIFTING` defaults to **`zi-neutral`**: a neutral rung drifting in `z_i` ALONE. Not a convective rung drifting in `z_i` (its inversion is holding the depth), not a neutral rung drifting in anything else. `zi_accepted_drifting`, `zi_achieved_m` and the seed's frozen depth go into every record and onto the manifest line. **No capping inversion added.** |
+| **1.** Should the corpus admit a DRIFTING neutral seed, given `pick_seed`'s refusal makes the neutral half unbuildable and its fallback is worse? | **(SUPERSEDED IN SCOPE 2026-08-31: the answer is now the WHOLE library, `ALLOW_DRIFTING=any` — the argument below generalised and was never specific to `z_i`.)** **Yes, narrowly.** `ALLOW_DRIFTING` defaults to **`zi-neutral`**: a neutral rung drifting in `z_i` ALONE. Not a convective rung drifting in `z_i` (its inversion is holding the depth), not a neutral rung drifting in anything else. `zi_accepted_drifting`, `zi_achieved_m` and the seed's frozen depth go into every record and onto the manifest line. **No capping inversion added.** |
 | **2.** Does the LES–Kljun parity that justified accepting truncation survive the official FFP at 24 m? | **Yes — 24 m stays at parity (+0.0069) and 30 m does not (−0.1730).** The σ_y fix moves the 24 m Kljun raster by 22.5% of its peak and its integral by −0.0001. **So the asymmetry is the 30 m grid, not Kljun.** `bin/kljun_parity.py`, `results/kljun_parity.json`. |
 | **3.** Is the second window worth 0.75 sim-h, given it is a near-duplicate in shape on both cases? | **No.** `N_WINDOWS = 1` is the corpus default; a case is **1.25 sim-h** and the footprint is its last 30 minutes. `N_WINDOWS = 2` stays supported — the windows ARE independent draws and a spread-estimating model would want them. |
 | *(not asked, but forced by 1)* the seed ceiling | **2.0 sim-h, every rung, every regime**, replacing 1.0/3.0. 0.96 GPU-h per seed. |

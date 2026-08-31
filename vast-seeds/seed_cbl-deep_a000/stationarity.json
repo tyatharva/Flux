@@ -1,0 +1,170 @@
+{
+ "label": "seed_cbl-deep_a000",
+ "pass": false,
+ "n_indeterminate": 7,
+ "indeterminate": [
+  "U/u* (Kljun Pi_4)",
+  "sigma_v/u*",
+  "sigma_w/u* at the receptor",
+  "TKE_BL/u*^2",
+  "z_i",
+  "Kljun x_peak",
+  "Kljun x90"
+ ],
+ "drifting": [],
+ "resolve_se": 3.0,
+ "dt": 0.0308642,
+ "wth": 0.16,
+ "score_h": 1.5,
+ "n_dumps": 25,
+ "t_end_h": 2.00000016,
+ "gated": [
+  {
+   "name": "U/u* (Kljun Pi_4)",
+   "mean": 14.669979234630347,
+   "trend_pct_per_h": -1.3552465423900366,
+   "limit": 1.0,
+   "ok": null,
+   "trend_se_pct_per_h": 0.5670674983602757,
+   "n_eff": 9.25557295146832,
+   "resolvable": false,
+   "margin_se": 0.6264625347375091,
+   "verdict": "INDETERMINATE"
+  },
+  {
+   "name": "sigma_v/u*",
+   "mean": 2.203312077366476,
+   "trend_pct_per_h": -0.279756631174122,
+   "limit": 3.0,
+   "ok": null,
+   "trend_se_pct_per_h": 1.8939676644829861,
+   "n_eff": 6.623194593764427,
+   "resolvable": false,
+   "margin_se": 1.436267059801387,
+   "verdict": "INDETERMINATE"
+  },
+  {
+   "name": "sigma_w/u* at the receptor",
+   "mean": 1.0714708856711743,
+   "trend_pct_per_h": 3.3516525630890737,
+   "limit": 2.0,
+   "ok": null,
+   "trend_se_pct_per_h": 1.297576706425147,
+   "n_eff": 6.9623978333229575,
+   "resolvable": false,
+   "margin_se": 1.0416744970807212,
+   "verdict": "INDETERMINATE"
+  },
+  {
+   "name": "TKE_BL/u*^2",
+   "mean": 3.0080904049323713,
+   "trend_pct_per_h": -3.3908579200980284,
+   "limit": 5.0,
+   "ok": null,
+   "trend_se_pct_per_h": 7.557061075198635,
+   "n_eff": 13.19743510272182,
+   "resolvable": false,
+   "margin_se": 0.2129322581741442,
+   "verdict": "INDETERMINATE"
+  },
+  {
+   "name": "z_i",
+   "mean": 1081.247560289171,
+   "trend_pct_per_h": 29.77356545822486,
+   "limit": 3.0,
+   "ok": null,
+   "trend_se_pct_per_h": 24.8500101091842,
+   "n_eff": 13.998471402271395,
+   "resolvable": false,
+   "margin_se": 1.0774066223952858,
+   "verdict": "INDETERMINATE",
+   "n_levels": 11,
+   "level_span_m": 1273.4331970214844
+  },
+  {
+   "name": "Kljun x_peak",
+   "mean": 164.17389497958496,
+   "trend_pct_per_h": -5.081712839604268,
+   "limit": 1.0,
+   "ok": null,
+   "trend_se_pct_per_h": 7.430498128804424,
+   "n_eff": 11.618392988966175,
+   "resolvable": false,
+   "margin_se": 0.5493188705319034,
+   "verdict": "INDETERMINATE"
+  },
+  {
+   "name": "Kljun x90",
+   "mean": 1425.3796964131684,
+   "trend_pct_per_h": -2.583054767628492,
+   "limit": 1.0,
+   "ok": null,
+   "trend_se_pct_per_h": 3.6162368093327326,
+   "n_eff": 11.593217203486558,
+   "resolvable": false,
+   "margin_se": 0.4377630257905032,
+   "verdict": "INDETERMINATE"
+  }
+ ],
+ "reported": [
+  {
+   "name": "u*",
+   "mean": 0.5809792776001479,
+   "trend_pct_per_h": -8.274146376560191,
+   "unit": "%/h"
+  },
+  {
+   "name": "U(10 m)",
+   "mean": 8.524581099447113,
+   "trend_pct_per_h": -9.602021457217386,
+   "unit": "%/h"
+  },
+  {
+   "name": "wind direction",
+   "mean": 267.5078015546322,
+   "trend_deg_per_h": -3.8369688536515456,
+   "unit": "deg/h"
+  },
+  {
+   "name": "TKE_column/u*^2 (retired form)",
+   "mean": 2.228415913434298,
+   "trend_pct_per_h": 11.441088157672128,
+   "unit": "%/h"
+  },
+  {
+   "name": "domain TKE",
+   "mean": 0.7503495168552902,
+   "trend_pct_per_h": -4.752317353814798,
+   "unit": "%/h"
+  },
+  {
+   "name": "peak resolved TKE",
+   "mean": 1.523761234085245,
+   "trend_pct_per_h": -14.891936673694858,
+   "unit": "%/h"
+  },
+  {
+   "name": "z_i, 5% of the running peak",
+   "mean": 903.2631378173828,
+   "trend_pct_per_h": 16.60861775633035,
+   "unit": "%/h"
+  }
+ ],
+ "final": {
+  "ustar": 0.5512527558543099,
+  "U": 7.973585808887099,
+  "zi": 1081.247560289171,
+  "zi_definition": "fixed resolved-TKE threshold 0.01 m2/s2 (gated)",
+  "zi_peakfrac": 903.2631378173828,
+  "tke_peak": 1.523761234085245,
+  "wdir": 264.4507588952965,
+  "dwdir_dt_deg_per_h": -3.8369688536515456,
+  "dwdir_scored_over_h": 1.5,
+  "sigma_v": 1.2114791858973526,
+  "sigma_w": 0.6147567161935579,
+  "theta0": 302.2244450733951,
+  "x_peak": 154.3865563248127,
+  "x90": 1382.512113442914
+ },
+ "last_dump": "FE_SEED.233280"
+}

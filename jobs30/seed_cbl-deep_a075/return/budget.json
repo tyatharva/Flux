@@ -1,0 +1,24 @@
+{
+ "job": "seed_cbl-deep_a075",
+ "width_h": 1.5,
+ "t_end_max_h": 2.00000016,
+ "first_in_band_h": null,
+ "rows": [
+  {
+   "t_end_h": 1.75,
+   "n_dumps": 21,
+   "immune_ok": 0,
+   "immune_indeterminate": 5,
+   "drifting": [],
+   "in_band": false
+  },
+  {
+   "t_end_h": 2.0,
+   "n_dumps": 24,
+   "immune_ok": 0,
+   "immune_indeterminate": 5,
+   "drifting": [],
+   "in_band": false
+  }
+ ]
+}

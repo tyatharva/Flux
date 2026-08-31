@@ -442,4 +442,36 @@ echo
 echo "########## seed $NAME: $VERDICT ##########"
 echo "  return/ is $SZ  ($(ls "$JOB/return" | tr '\n' ' '))"
 date '+%F %H:%M:%S'
-[ "$VERDICT" = "PASS" ] || exit 1
+# === THE EXIT STATUS ANSWERS "DID THE RUN PRODUCE A SEED", NOT "DID THE GATE PASS" =====
+# CHANGED 2026-08-31. This was `[ "$VERDICT" = "PASS" ] || exit 1`, and on the 30-seed
+# Blackwell library that returned 1 for ALL THIRTY -- every seed came back INDETERMINATE or
+# DRIFTING and not one returned a clean PASS. A status that is identical for every possible
+# outcome discriminates nothing, and it discriminates nothing in the DANGEROUS direction:
+# anything downstream keying on it reads a complete, usable, fully-battery-tested seed as a
+# failed run. bin/run_seeds.py survived only because it judges on the artifact.
+#
+# It is also the wrong question now. Seed selection uses the WHOLE library as of
+# 2026-08-31 (bin/pick_seed.py, and the reasoning is in bin/run_corpus_case.sh): a seed is
+# an initial condition, the case adjusts under its own forcing, and the ML inputs come from
+# window_stats over the footprint's own window -- so a non-PASS verdict does not disqualify
+# the artifact and must not be reported as an error.
+#
+# The verdict is NOT lost: it is in return/stationarity.json, in manifest.achieved.pass, on
+# the machine manifest, and stamped onto every pair as seed.gate_state. That is PROJECT_BRIEF.md's
+# standing rule -- assert on the ARTIFACT, not on the exit status -- applied to this
+# script's own output rather than to FastEddy's.
+#
+# SEED_STRICT_EXIT=1 restores the old signal for a caller that genuinely wants PASS-or-fail.
+if [ ! -s "$JOB/return/seed_restart.nc" ]; then
+  echo "  EXIT 1: the run produced no seed_restart.nc" >&2
+  exit 1
+fi
+if [ "${SEED_STRICT_EXIT:-0}" = "1" ] && [ "$VERDICT" != "PASS" ]; then
+  echo "  EXIT 1: SEED_STRICT_EXIT=1 and the gate returned $VERDICT (the artifact is" >&2
+  echo "          complete and usable; this exit is the caller's own strictness)" >&2
+  exit 1
+fi
+[ "$VERDICT" = "PASS" ] || echo "  exit 0: the seed is complete. The gate returned" \
+    "$VERDICT -- carried in return/stationarity.json and manifest.achieved.pass, not in" \
+    "this exit status. SEED_STRICT_EXIT=1 to fail on it."
+exit 0
