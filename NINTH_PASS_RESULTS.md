@@ -457,6 +457,66 @@ rests on (LES–Kljun parity under truncation) holds at 2928 m and does **not** 
 3660 m. Any relative claim against Kljun on the neutral flat control now has to carry the
 15.8-point gap explicitly.
 
+### Run 5 — neutral target `case_2023112120`: the LES ran clean and the case is REFUSED
+
+The plumbing worked exactly as on the convective target. 1442 snapshots, both pauses,
+LES exited 0:
+
+| | |
+|---|---|
+| staged snapshots vs netCDF dumps written | **1442 vs 1442** |
+| peak staging directory | **58.3 MB = 1.6 snapshots** |
+| peak consumer host RSS | **12.46 GB** |
+| LES pause per window boundary | **46.8 s / 46.9 s** |
+| release period | 1800.0000 s, margin +0.00e+00 |
+| σ_w against the tower | **INSIDE the IQR**, 1.19× the median (0.555 against 0.468 for the +1 W/m² bin) |
+
+**And the case is not usable, because `h` came out 2372 m.** `bin/corpus_monitor.py`'s G1
+failed it and named the cause: *"the floor adds the most variance at z = 681 m, where the LES
+already resolves 94.9% of σ_w² … the floor reaches 1.21e+04 somewhere in the column … Check
+st['h'] = 2372 m before trusting this footprint."* The integral came out 1.212 (1.227 of its
+asymptote) and the array share 1.52% where the northerly geometry predicts ~25%.
+
+**The diagnosis, from the profile itself.** Resolved TKE is 0.83 at 56 m and decays to 0.14
+at 760 m — an ordinary neutral boundary layer — and then **rises monotonically to 1.91 at
+2011 m**, higher than anything in the boundary layer, with `e_sgs` only 0.11 there. That is
+internal-wave activity in the stable free atmosphere. `bl_depth` takes `argmax` over the
+whole column below the sponge, so **the global peak landed in the wave layer and the entire
+depth search happened in the wrong fluid.**
+
+PROJECT_BRIEF.md documents the first version of this defect and its fix — bound the search by the
+decay minimum. **That fix assumed the peak was in the boundary layer.** Here it is not, and
+the `h >= 0.98·z[-1]` guard does not catch it either: 2372 m is comfortably under a 2960 m
+column top. Every downstream number stayed finite and plausible.
+
+`lpdm/les_stats.py:bl_depth` now **refuses** such a profile. The test is structural rather
+than a height threshold: find the surface-attached layer by walking up from the ground on a
+smoothed profile to its first minimum, and require the global peak to lie inside it.
+Verified on five existing records — `h` is **bit-identical** on all of them (986.3, 643.3,
+1229.5, 937.5, 559.0 m) — and only the broken profile is refused.
+
+**It is a refusal and not a re-definition, deliberately.** The surface-attached layer's own
+decay minimum is at 433–492 m while the profile's true minimum before the wave layer is at
+760 m, so what `h` *should* be here is genuinely ambiguous. Deciding it needs its own
+measurement across the corpus, not a guess made at the end of a validation pass on one case.
+
+**Which of the three this is: the MODEL BREAKS** — specifically the `h` estimator, on a
+regime the corpus is ~50% made of. It is the one result in this pass that is a failure
+rather than a measurement, and the pipeline behaved correctly around it: the gate caught it,
+named it, and `bin/test_floor_health.py`'s specificity arm refused to call the corpus clean
+until the records were removed. Both windows carry it, so the neutral pair is refused;
+`results/pass9/refused/` keeps the evidence and the corpus index and manifest no longer
+reference it.
+
+**Both windows also read `h = 2372 m`, so `bin/window_independence.py`'s "SAME condition
+(z_i moved +0 m)" verdict for this case is an artifact of the defect and must not be
+quoted.** Its shape comparison (NEAR-DUPLICATE, median |diff|/floor 0.33, decorrelation
+180 s against a 1800 s separation) is unaffected by it and agrees with the convective case.
+
+**What the neutral half of this pass therefore rests on is the flat/neutral control (run 4),
+not this target**: D1-neutral, the containment acceptance and the regression baseline all
+come from there, and none of them uses this case.
+
 ### Run 1 — convective seed `seed_cbl-mid_a015`, 1.0 sim-h ceiling
 
 Ran clean: 106 920 steps = **0.917 sim-h** in one invocation (the ceiling rounds DOWN to a
