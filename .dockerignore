@@ -44,6 +44,15 @@ jobs24
 jobs/seed_*
 jobs30/*/output
 jobs30/*/window
+
+# --- RETURNED ARTIFACTS FROM A FINISHED RUN --------------------------------
+# vast-seeds/ is the seed library exactly as it came back off the rented box, and it is a
+# 2.1 GB DUPLICATE of what jobs30/*/return/ now holds. It was baked into one build --
+# /flux came to 4.2 GB of which half was this -- and the jobs30 size ceiling did not see it
+# because the ceiling named one directory. A per-directory ceiling cannot catch a NEW
+# directory; the Dockerfile now bounds the whole /flux tree as well.
+vast-seeds
+corpus-out
 jobs30/*/FE_*
 jobs30/*/*.log
 

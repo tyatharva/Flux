@@ -372,3 +372,241 @@ performance knob and cannot move the physics: the one reduction that accumulates
 templated on compile-time constants that do not follow `tBx/tBy/tBz`. It reports the shapes
 it did NOT measure by name, so the winner is "best of what was tried" rather than an implied
 "best that exists".
+
+---
+
+# Generating the CORPUS on Vast.ai — 8 machines x 8 RTX 5090
+
+Same image, a different command. The seed library above is **baked into this image**, so a
+corpus machine pulls one thing and needs no seed transfer at all.
+
+| | |
+|---|---|
+| what one machine does | **8 of the 64 corpus months**, ~243 calendar days, as a SHARED QUEUE over its 8 GPUs |
+| what you pass | `--machine N`, N = 0..7. Nothing else differs between the eight boxes. |
+| what lands in `/out` | one `pairs_npz/case_YYYYMMDDHH.npz` per accepted day, plus `manifest.json` accounting for **every** day |
+| how long | measured and reported after the first 5 cases, and again at the end. **Not assumed** — see §C4. |
+
+## C0. The partition — verify it before renting anything
+
+```bash
+docker run --rm ghcr.io/tyatharva/flux-seeds:latest \
+  python3 -c "import sys;sys.path.insert(0,'/flux');from lpdm.partition import describe;print(describe())"
+```
+
+Prints the whole 8 x 8 table with a coverage line **recomputed from the printed rows**, so
+"all 64 months exactly once" is checkable without trusting the code. Every machine prints
+the same table at startup with its own row marked, so a machine's log is self-describing.
+
+The rule is `sort by (calendar month, year), then index % 8`. Chronological order was tried
+first and rejected on its own output: `gcd(8,12) = 4` gave each machine only three distinct
+calendar months and left seven of eight missing a season. Under the shipped rule **every
+machine holds 8 distinct calendar months, all four seasons, and at most 25% of any one
+split** — so losing a machine to a dead rental costs a slice of everything rather than a
+season or a split.
+
+## C1. Vast instance — the values to enter
+
+Identical to §1 above with three changes:
+
+| field | value |
+|---|---|
+| image | `ghcr.io/tyatharva/flux-seeds:df621efce19e-fe0ce48d5dff06` |
+| **GPUs** | **8x RTX 5090** (or any 8 of `sm_120`) |
+| **Disk** | **120 GB** — see below |
+| **RAM** | **≥ 256 GB.** See below; this is the one spec that is a genuine unknown. |
+| CUDA driver | **≥ 580** (the `CUDA >= 13.0` filter), exactly as for the seed run |
+| On-start script | **EMPTY.** Nothing auto-runs. |
+| Launch mode | SSH |
+
+### Disk: 120 GB, and most of it is HRRR
+
+| | |
+|---|---|
+| image on disk | ~15.5 GB (13.4 GB toolchain and code + **2.1 GB baked seed library**) |
+| HRRR screening cache | ~0.1 GB for 243 days — `.idx` files and small subsets |
+| HRRR soundings | **~407 MB each**, and `run_corpus` DELETES each one once that day's record is written and validated. Without that, 190 accepted days would leave **~77 GB**. |
+| the corpus itself | **~40 kB per record**, so ~190 records = **~8 MB per machine** |
+| headroom | the pruning is per-day, so the peak is a handful of concurrent soundings, not the total |
+
+`--keep-hrrr` disables the pruning. Then size for **200 GB**.
+
+### RAM: this is the number that is not yet known, and the run measures it in minutes
+
+`PROJECT_BRIEF.md` records **12.45 GB peak host RSS for ONE corpus case** — the LPDM's 12.0 GB
+fp16 field cache, which is not buildup but the window itself, random-accessed by a CPU
+integrator. **That has never been measured 8-way.** Eight concurrent cases could approach
+100 GB, and a box that starts swapping does not fail — it runs several times slower with
+nothing in the output to say why.
+
+So: **rent ≥ 256 GB for the first machine**, and read the early report (§C4) before renting
+the other seven. If it comes in well under, size the rest down. If it swaps, drop to
+`--gpu-count 4` and say so in the manifest.
+
+## C2. Launch procedure — paste this
+
+```bash
+# --- on your machine ----------------------------------------------------------------
+ssh -p <PORT> root@<HOST>
+
+# --- on the instance ----------------------------------------------------------------
+verify                                  # SASS vs the cards, then a 200-step run. Seconds.
+
+# The partition, and the days THIS box owns. No work, no GPU.
+run_corpus --machine 0 --dry-run
+
+# The run itself. nohup so an SSH drop cannot take it with you.
+nohup run_corpus --machine 0 --out /out > /out/nohup.log 2>&1 &
+
+# Watch it. Separate process reading /out/progress.json -- kill and restart it freely.
+corpus_progress
+```
+
+**`--machine` is the ONLY thing that differs between the eight boxes.** Machine 0 through
+machine 7, one each.
+
+`corpus_progress` shows, refreshed in place: a progress bar over the machine's days, the
+case/missing/failed counts, elapsed and projected finish, running mean GPU-h per case,
+machine-wide peak host RSS, and **per-GPU current month, day and pipeline stage**. Ctrl-C
+it whenever; the run neither knows nor cares.
+
+## C3. What it does per day
+
+Drawn without replacement from the day's round hours, seeded from the date alone so a
+re-run reproduces the same selection:
+
+1. draw an hour uniformly from what is left of the pool
+2. screen it: `z/L < 0`, `z_i` in 300–1250 m, `|dz_i/dt| < 15 %/h`
+3. rejected -> the hour is spent anyway; draw again. Pool exhausted -> **DAY MISSING with a
+   reason**, logged, queue continues.
+4. accepted -> sounding from the HRRR analysis valid at **exactly that hour**, seed from the
+   **whole 30-seed library**, 1.25 sim-h, footprint over the last 30 minutes, **one npz**.
+
+2026-08-31 is capped at 12 UTC (`lpdm/corpus.py:HOUR_CAPS`) because the later analyses do
+not exist.
+
+**Why a shared queue and not one month per GPU.** Wall time is set by the slowest worker,
+and the months are not equal — a month's cost is its ACCEPTED days, and acceptance is
+meteorological. Measured on the stubbed dry run's own yields: a rigid month-per-GPU
+assignment finishes at its busiest month, the queue at the mean, **16% of wall time**, and
+the queue kept all eight workers within **1.4%** of each other. On calendar days alone the
+figure would be 2%; the rest is yield, which is the part a pinned assignment cannot see.
+
+## C4. The early report — read this before renting the other seven
+
+After the first **5 cases** the run prints, and puts in `progress.json`:
+
+```
+  EARLY REPORT after 5 case(s) -- the numbers the next rental turns on
+    GPU-h per case (occupancy)   : 0.xxx   [8 concurrent]
+    peak container RSS           : xx.x GB of xxx GB
+    MemAvailable low-water       : xxx GB
+    swap used (peak)             : x.xx GB
+    projected finish             : x.xx h for 243 days
+```
+
+- **GPU-h per case is OCCUPANCY**, wall clock x 1 GPU, not FastEddy kernel time. A case
+  holds its card through the CPU-bound LPDM too, and occupancy is what the rental bills.
+- **If MemAvailable falls below 12% of total, or swap is touched, it says so loudly** and
+  puts an alert in `progress.json`. That is the 8-way field-cache question being answered.
+- **If the projection exceeds `--max-hours` (default 12) it prints a `!!!!` block** naming
+  the number. It keeps running — stopping wastes the rental too — and `--abort-on-overrun`
+  stops instead if you would rather it did.
+
+**Do not carry the seed run's 0.189 GPU-h/sim-h to this.** A seed runs FastEddy and nothing
+else; a case also runs the LPDM and the ring. That is exactly what this report measures.
+
+## C5. Resume — a dead machine costs one day, not eight months
+
+The artifacts on the mounted volume ARE the checkpoint. Re-run the identical command:
+
+```bash
+nohup run_corpus --machine 0 --out /out > /out/nohup.log 2>&1 &
+```
+
+- a day whose record is in `pairs_npz/` is **skipped** and keeps its original timing in the
+  manifest — a resumed pass never overwrites what the pass that did the work measured
+- a day recorded MISSING is **not re-drawn** (the draw is seeded from the date, so it would
+  reach the same answer). `--retry-missing` re-evaluates them — use it if a day was lost to
+  a network outage rather than to the weather.
+- a **failed** day is retried automatically on the next run, and the summary lists them
+
+If the *instance* is destroyed, mount the same volume on a new one and run the same command.
+If the volume is gone, pull `/out` first (§C6) and re-run against a directory holding it.
+
+## C6. Getting the corpus back
+
+```bash
+# the corpus itself -- ~8 MB per machine
+rsync -avP -e 'ssh -p <PORT>' root@<HOST>:/out/pairs_npz/ ./corpus/machine0/pairs_npz/
+
+# the accounting: manifest, log, progress. A few MB.
+rsync -avP -e 'ssh -p <PORT>' root@<HOST>:/out/manifest.json root@<HOST>:/out/run_corpus.log \
+      ./corpus/machine0/
+
+# all eight, into one place -- the filenames are globally unique (case_YYYYMMDDHH)
+for m in 0 1 2 3 4 5 6 7; do
+  rsync -avP -e "ssh -p ${PORT[$m]}" root@${HOST[$m]}:/out/pairs_npz/ ./pairs_npz/
+  rsync -avP -e "ssh -p ${PORT[$m]}" root@${HOST[$m]}:/out/manifest.json ./manifests/machine$m.json
+done
+```
+
+**Total expected size: ~60 MB for the whole corpus.** ~1500 records at ~40 kB. The eight
+manifests add a few MB. That is the entire deliverable — everything else is scratch and is
+deleted by `bin/get_case.sh` on its way out, including on failure.
+
+Check what came back before destroying anything:
+
+```bash
+python3 bin/check_npz.py pairs_npz/*.npz --quiet     # every record against the schema
+python3 -c "
+import json,glob,collections
+c=collections.Counter(); d=collections.Counter()
+for p in sorted(glob.glob('manifests/*.json')):
+    m=json.load(open(p))
+    for v in m['days'].values(): c[v['status']]+=1
+    d[m['machine']]=m['counts']
+print(c); [print(' machine',k,v) for k,v in sorted(d.items())]"
+```
+
+## C7. It is verified without a GPU
+
+```bash
+bash bin/test_corpus_machine.sh
+```
+
+Runs in ~15 s and checks, from the artifacts rather than from the design: the 64-month
+partition covers every month exactly once across `--machine 0..7`; all 8 of a machine's
+months are walked and every calendar day is accounted for; **every worker takes work and
+they take UNEVEN numbers of days** (the queue actually rebalances); worker busy time is a
+sane measurement and they finish within 25% of each other; the progress file renders in the
+separate viewer; a resume marks every day resumed while the manifest still says what each
+day IS; one record per accepted day and no others; and every record passes the npz schema
+check *and* is refused as a corpus record because it carries `meta.stub`.
+
+The LES, the LPDM, the ring and the footprint do not run in it — those are validated
+elsewhere and none of them is a scheduling question. **The stub deliberately does not return
+instantly**: a few milliseconds, varied per case from the case's own hash. With an instant
+stub every worker finishes at the same moment and a rigid month-per-GPU assignment would
+produce an identical timeline, so the rebalancing claim would be untested while looking
+tested.
+
+## C8. Things that are true and easy to be surprised by
+
+- **A stubbed record can never be mistaken for a corpus record.** `--stub` stamps
+  `meta.stub = true` and `bin/check_npz.py` refuses it unless asked for one. The stub paths
+  also require `FLUX_STUB=1` in the environment, so no ordinary corpus command can reach
+  them.
+- **The seed library is in the image, not on the volume.** All 30 seeds, because a case
+  picks its seed per case. The image build asserts 30 restarts of identical size plus each
+  seed's `manifest.json` and `stationarity.json` — a partial library would otherwise be an
+  unexplained failure hours into a rental.
+- **Seed selection uses the whole library** (`ALLOW_DRIFTING=any`, 2026-08-31). Every pair
+  still carries `seed.gate_state`. See `SEED_LIBRARY_RESULT.md`.
+- **`--only-month` refuses a month this machine does not own**, by name, rather than running
+  it — otherwise two boxes would generate the same days.
+- **The manifest describes the corpus, not the pass.** A resumed day is recorded as
+  `case`/`missing` with `resumed: true`, never as a status of its own, and a day this pass
+  has not reached keeps what an earlier pass found.
+- **`nohup`, not `tmux`.** The run writes `progress.json` and needs no terminal. `tmux`
+  works too if you prefer it.

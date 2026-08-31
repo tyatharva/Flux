@@ -456,6 +456,16 @@ RUN set -eux; \
                             echo "       covered until it is named."; \
                             du -sm /flux/jobs30/* | sort -rn | head -5; exit 1; }; \
     echo "seed library baked in: 30 restarts at $SZ bytes each, ${JM} MB total"; \
+    # AND A CEILING ON THE WHOLE TREE, not just on jobs30. The per-directory ceiling above
+    # cannot see a directory nobody has named: `vast-seeds/` -- the seed library exactly as
+    # it came back off the rented box, a 2.1 GB duplicate of what jobs30 now holds -- was
+    # baked into a build and passed every check, because every check named a path. The
+    # payload is the 2.10 GB library plus ~60 MB of code, grids and vendored FFP.
+    FM=$(du -sm /flux | cut -f1); \
+    [ "$FM" -le 2400 ] || { echo "FATAL: /flux is ${FM} MB, over the 2400 MB ceiling."; \
+                            echo "       Expected ~2160: the 2098 MB seed library plus code."; \
+                            echo "       Something bulky is in the build context:"; \
+                            du -sm /flux/* | sort -rn | head -8; exit 1; }; \
     python3 -c "import json;d=json.load(open('/flux/jobs30/index.json'));assert d['n_jobs']==30, d['n_jobs'];print('30 seed jobs, index.json consistent')"
 
 # The provenance goes into the FILESYSTEM as well as into the labels, because
