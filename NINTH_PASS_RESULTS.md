@@ -10,6 +10,51 @@ being unrealistic.
 
 ---
 
+## The report the directive asked for, in one place
+
+| item | result |
+|---|---|
+| **Kljun verification** | official FFP v1.42 vendored; adapter faithful to **9.4e-16**. Our reimplementation is **1.2500× wide in σ_y at \|L\| > 5000** and exact elsewhere |
+| **D1 well-mixed, both directions, both regimes** | **PASS convective** (run 2, max \|ratio−1\| 19.39%) and **PASS neutral** (run 4, 9.86%). The deferred item is closed at this grid |
+| **does the peak MOVE between w0 and w1** | **NO — identical, 180 m and 180 m** on the convective case, against a 30 m floor. Median \|diff\|/floor **0.19**; the windows ARE independent draws (decorrelation 180 s, separation 1800 s) and still agree. Integrals 0.983 vs 1.021, **3.8% apart**, against 44% on record |
+| **neutral integral saturates by 2.5 L** | **PASS at 0.0%** — 0.730 at 2.0, 2.5 and 3.0 L. The 1 L cap keeps **97.5%** of it, against 93.5% at 2928 m |
+| **sub-grid fraction of σ_w² at the receptor** | **59.3% / 57.7%** convective (predicted ~56%); **90.4%** on the neutral flat control |
+| **LES σ_w vs the tower at 30 m** | convective **OUTSIDE**, 0.68× the median — and at matched u* (0.468 vs 0.457) the LES is **0.716×** MOST at its own ζ, which the floor lifts to 0.88×. Neutral **INSIDE**, 1.19× |
+| **measured GPU-h/sim-h** | **0.525** at selector 2, **0.512** net of pauses, against 0.479 at bring-up; the +7% is the double write |
+| **measured seed stop times** | **neither seed stopped early.** cbl-mid ran to its 0.917 h ceiling; nbl-deep to its 2.917 h ceiling, watcher WAIT at every poll |
+| **pause duration per window boundary** | **45.4 s, 46.8 s, 46.9 s** |
+| **peak host RSS / staging** | **12.45 GB** (the field cache) and **58.3 MB = 1.6 snapshots**, against 19.7 GB of window if retained |
+| **one complete .npz** | printed in §2; 45 kB, 128², signed target 6.6% negative, receptor (61,61) → (64,64) |
+| **persisted per case** | **3.6 MB** against **19 GB** of window dumps |
+
+**Total GPU: ~5.1 h** against a ≤4.32 estimate. The overrun is run 3's accelerator burn-in
+(+24 min, which the estimate omitted) and the 13 minutes of run 5 that was killed for using
+a convective seed on a neutral case.
+
+### What is FAILING rather than merely measured
+
+**One thing: the `h` estimator, on neutral profiles with a wave layer stronger than the
+boundary layer.** It refused nothing, returned 2372 m, and drove the σ_w floor to 1.2e+04.
+The gate caught it, `bl_depth` now refuses it, and the neutral target is refused with it.
+**This blocks neutral corpus cases until `h` is decided for such profiles** — and the corpus
+is roughly half neutral.
+
+### The three decisions this pass hands back, with the numbers
+
+1. **`z_i` in neutral seeds trends AWAY from band as the run lengthens** — PLAN.md 0aa
+   predicted it, run 3 confirmed it at +5.76 %/h — so `pick_seed`'s DRIFTING refusal makes
+   the neutral half of the corpus unbuildable at any affordable spin-up, and its FALLBACK
+   (a convective seed for a neutral case) is worse than the thing it avoids.
+   `--allow-drifting` exists, default off; **whether the corpus uses it is yours.**
+2. **The LES–Kljun parity that justified accepting truncation does not hold at 3660 m** —
+   0.765 vs 0.923 of asymptote, against 0.874 vs 0.867 at 2928 m — and it is the LES, not
+   the Kljun fix (verified: both Kljun implementations give 0.8263 on the 24 m control).
+3. **The second window is a near-duplicate in shape on both cases.** It costs 0.75 sim-h and
+   buys ~0.19–0.33 of a floor in shape. Whether to keep paying for it is a pricing decision.
+
+
+---
+
 ## 0. Kljun is now the official FFP, and our reimplementation was 25% wide where it matters
 
 `third_party/FFP/` holds Natascha Kljun's own `calc_footprint_FFP.py` **v1.42**, vendored
