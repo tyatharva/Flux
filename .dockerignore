@@ -48,6 +48,27 @@ jobs30/*/window
 jobs30/*/FE_*
 jobs30/*/*.log
 
+# --- BUT THE SEED LIBRARY ITSELF IS BAKED IN, AND ONLY THE THREE FILES A CASE NEEDS ---
+# A corpus case restarts from a seed chosen PER CASE by bin/pick_seed.py, which reads
+# every seed's manifest.json (for `achieved`) and stationarity.json (for the gate state)
+# before deciding -- so the whole library has to be present, not a subset, and which seed
+# a case wants is not knowable in advance.
+#
+# BAKED IN RATHER THAN MOUNTED, deliberately. The library is 2.1 GB of restarts and it is
+# IMMUTABLE: it is the output of a finished run, versioned by the same commit as the code
+# that reads it. Mounting it would mean copying 2.1 GB onto each of eight rented boxes by
+# hand -- eight chances to copy the wrong library, or a partial one, onto a machine that
+# would then generate plausible cases off it. In the image the tag pins both the code and
+# the seeds together, `docker pull` is the only transfer, and a machine cannot start with
+# the wrong library because there is nowhere else for it to come from.
+#
+# The rest of return/ -- run.log, seed.log, acceptance.txt, budget.json, rotation_check,
+# turb_alive, direction_drift -- is evidence about how the seed was made and no case reads
+# any of it. Those stay out; SEED_LIBRARY_RESULT.md is where that evidence lives.
+!jobs30/*/return/seed_restart.nc
+!jobs30/*/return/manifest.json
+!jobs30/*/return/stationarity.json
+
 # --- data: the small model grids stay, the archives go ----------------------
 data/raw
 data/hrrr

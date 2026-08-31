@@ -413,13 +413,38 @@ RUN set -eux; \
 # does not cross a second `/`. A guard that only looks where the pattern already looks
 # cannot catch the pattern being wrong. `find` over everything is the check.
 RUN set -eux; \
-    STRAY=$(find /flux/jobs /flux/jobs30 -name 'FE_*' -o -name '*.nc' 2>/dev/null | head -20); \
+    # THE ONLY BULK ALLOWED UNDER jobs30 IS THE SEED LIBRARY ITSELF, AND IT IS COUNTED.
+    # This assertion is the one that caught 560 MB of stray FE_SMOKE dumps, so relaxing it
+    # for the 2.1 GB library must not blunt it: `*.nc` is allowed at exactly one path, and
+    # anything else of any size at any depth is still fatal.
+    STRAY=$(find /flux/jobs /flux/jobs30 \( -name 'FE_*' -o \( -name '*.nc' \
+              -not -path '/flux/jobs30/*/return/seed_restart.nc' \) \) 2>/dev/null | head -20); \
     [ -z "$STRAY" ] || { echo "FATAL: baked job dirs carry run artifacts; fix .dockerignore"; \
                          echo "$STRAY"; exit 1; }; \
-    BIG=$(du -sm /flux/jobs /flux/jobs30 2>/dev/null | awk '$1 > 20 {print}'); \
-    [ -z "$BIG" ] || { echo "FATAL: a job tree is over 20 MB, so something bulky is baked in:"; \
+    BIG=$(du -sm /flux/jobs 2>/dev/null | awk '$1 > 20 {print}'); \
+    [ -z "$BIG" ] || { echo "FATAL: /flux/jobs is over 20 MB, so something bulky is baked in:"; \
                        echo "$BIG"; exit 1; }; \
     test "$(ls -d /flux/jobs30/seed_* | wc -l)" = 30 || { echo "FATAL: expected 30 seed jobs"; exit 1; }; \
+    # THE LIBRARY, ASSERTED AS AN ARTIFACT AND NOT AS A DIRECTORY LISTING. A corpus case
+    # picks its seed per case, so a library that is 29 of 30 -- or 30 restarts one of which
+    # is truncated -- produces plausible cases for 29 days and an unexplained failure on
+    # the thirtieth, on a rented box, hours in. Every restart is the same size by
+    # construction (one grid, one dump), so the size is checkable, not just the count.
+    NR=$(ls /flux/jobs30/seed_*/return/seed_restart.nc 2>/dev/null | wc -l); \
+    test "$NR" = 30 || { echo "FATAL: $NR seed restarts baked in, expected 30. A corpus"; \
+                         echo "       case picks its seed per case; a partial library is"; \
+                         echo "       an unexplained failure hours into a rental."; exit 1; }; \
+    SZ=$(stat -c%s /flux/jobs30/seed_*/return/seed_restart.nc | sort -u); \
+    test "$(echo "$SZ" | wc -l)" = 1 || { echo "FATAL: seed restarts differ in size, so at"; \
+                                          echo "       least one is truncated:"; \
+                                          echo "$SZ"; exit 1; }; \
+    for f in manifest.json stationarity.json; do \
+      N=$(ls /flux/jobs30/seed_*/return/$f 2>/dev/null | wc -l); \
+      test "$N" = 30 || { echo "FATAL: $N of 30 seeds carry return/$f; bin/pick_seed.py"; \
+                          echo "       reads both to rank a seed and would silently fall"; \
+                          echo "       back to the index for the ones missing it."; exit 1; }; \
+    done; \
+    echo "seed library baked in: 30 restarts at $SZ bytes each, $(du -sh /flux/jobs30 | cut -f1) total"; \
     python3 -c "import json;d=json.load(open('/flux/jobs30/index.json'));assert d['n_jobs']==30, d['n_jobs'];print('30 seed jobs, index.json consistent')"
 
 # The provenance goes into the FILESYSTEM as well as into the labels, because
@@ -462,9 +487,14 @@ LABEL org.opencontainers.image.title="Flux FastEddy seed generator" \
 # run -e` either. ENV lands in the image config, which Vast's injected
 # entrypoint does propagate, and /etc/environment below covers the login-shell
 # path as well. Both, because either alone has a hole.
+# FLUX_COMMIT is the authority on the commit INSIDE the image. There is no .git here --
+# the code is baked in and the tag IS the commit -- so bin/run_corpus_machine.py:git_commit
+# reads this and stamps it into every machine manifest. Without it the manifest that
+# outlives the rented box would not say which code produced the corpus.
 ENV FLUX_ROOT=/flux \
     FLUX_NATIVE=1 \
     FLUX_OUT=/out \
+    FLUX_COMMIT=${GIT_COMMIT} \
     PYTHONUNBUFFERED=1 \
     PATH=/flux/bin:/flux/docker:${PATH}
 
@@ -492,7 +522,7 @@ ENV FLUX_ROOT=/flux \
 # ---------------------------------------------------------------------------
 RUN set -eux; \
     mkdir -p /out /var/lock/flux /run/sshd; \
-    for c in run_seeds verify seed accept provenance flux-seeds; do \
+    for c in run_seeds run_corpus corpus_progress verify seed accept provenance flux-seeds; do \
       printf '#!/bin/sh\nexec /flux/docker/entrypoint.sh %s "$@"\n' \
         "$([ "$c" = flux-seeds ] && echo '' || echo "$c")" > "/usr/local/bin/$c"; \
       chmod +x "/usr/local/bin/$c"; \
@@ -514,7 +544,8 @@ RUN set -eux; \
       'fi' > /etc/profile.d/zz-flux.sh; \
     chmod 0644 /etc/profile.d/zz-flux.sh; \
     run_seeds --help > /dev/null 2>&1 || true; \
-    test -x /usr/local/bin/run_seeds && test -x /usr/local/bin/verify
+    test -x /usr/local/bin/run_seeds && test -x /usr/local/bin/verify \
+      && test -x /usr/local/bin/run_corpus && test -x /usr/local/bin/corpus_progress
 
 WORKDIR /flux
 # ENTRYPOINT IS CLEARED EXPLICITLY, NOT MERELY LEFT UNSET.

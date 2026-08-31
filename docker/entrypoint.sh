@@ -50,6 +50,27 @@ COMMANDS
                        --prune-dumps     delete each seed's output/ on success (~1.8 GB)
                        --dry-run         list what would run
 
+  run_corpus --machine N [opts]
+                     THE CORPUS COMMAND. One machine's 8 of the 64 corpus months, as a
+                     SHARED QUEUE over all ~243 days across N GPUs -- not one month per
+                     GPU, because a month's cost is its ACCEPTED days and those are
+                     meteorological. Prints the whole 64-month partition at startup so
+                     coverage is checkable from any one machine's log. Resumable: a day
+                     with a record on the volume is skipped.
+                       --out /out          the mounted volume (everything lands here)
+                       --gpu-count N       use the first N visible GPUs (0 = all)
+                       --early-n 5         cases before the cost/RAM report is printed
+                       --max-hours 12      warn loudly if the projection exceeds this
+                       --retry-missing     re-evaluate days recorded MISSING
+                       --only-month YYYY-MM   one of this machine's own, for a smoke test
+                       --stub --assume-gpus N   CPU-only dry run, no HRRR, no LES
+                       --dry-run           print the partition and the day list, then stop
+
+  corpus_progress    The live view, refreshed in place. A SEPARATE PROCESS reading
+                     $FLUX_OUT/progress.json, so it survives an SSH drop and can be
+                     reattached: the run never depends on anyone watching.
+                       --out /out   --once   --interval 2
+
   seed <job_dir>     One seed, this GPU (honours CUDA_VISIBLE_DEVICES). jobs/run_seed.sh.
   accept <job_dir>   The acceptance battery alone. bin/seed_accept.sh.
   verify             Self-check: SASS in the binary vs the visible GPUs, and a 200-step run.
@@ -60,7 +81,12 @@ COMMANDS
 
 MOUNTS
   -v /out:/out       REQUIRED. Everything the run produces lands here.
-  -v /data:/flux/data/hrrr:ro   ONLY for corpus CASES. A SEED NEEDS NO DATA AT ALL:
+  -v /out/hrrr:...   NOT a mount. run_corpus caches HRRR under <out>/hrrr itself, so the
+                     cache survives a container restart and a resume re-fetches nothing.
+                     The 30-seed library is BAKED INTO THE IMAGE (2.1 GB): a case picks its
+                     seed per case, so the whole library must be present, and baking it
+                     means the tag pins the code and the seeds together.
+  (historic)         ONLY for corpus CASES. A SEED NEEDS NO DATA AT ALL:
                      seed.in carries an empty topoFile and an empty inFile, so it reads no
                      sounding, no terrain and no land cover. The library is self-contained
                      in this image.
@@ -72,6 +98,8 @@ case "$CMD" in
   help|--help|-h|"")  banner; usage ;;
   provenance)         cat "${FLUX_ROOT}/IMAGE_PROVENANCE.txt" ;;
   run_seeds)          banner; exec python3 "${FLUX_ROOT}/bin/run_seeds.py" "$@" ;;
+  run_corpus)         banner; exec python3 "${FLUX_ROOT}/bin/run_corpus_machine.py" "$@" ;;
+  corpus_progress)    exec python3 "${FLUX_ROOT}/bin/corpus_progress.py" "$@" ;;
   seed)               banner; exec "${FLUX_ROOT}/jobs/run_seed.sh" "$@" ;;
   accept)             banner; exec "${FLUX_ROOT}/bin/seed_accept.sh" "$@" ;;
   verify)             banner; exec "${FLUX_ROOT}/docker/verify_image.sh" "$@" ;;
