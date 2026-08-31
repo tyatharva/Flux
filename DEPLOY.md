@@ -407,11 +407,32 @@ season or a split.
 
 ## C1. Vast instance — the values to enter
 
+**The exact reference, and it is the same image the seed library came out of:**
+
+```
+ghcr.io/tyatharva/flux-seeds:corpus                          <- put this in the template
+ghcr.io/tyatharva/flux-seeds:cb49f1e95be5-fe0ce48d5dff06     <- the immutable one
+digest sha256:a4f4650311df71f0725ebf5655ae0100f7fbdb2e97267681d1b30332a69a310b
+```
+
+`:corpus` is a moving tag, for convenience in the template. **The SHA tag is what a result
+is attributable to** and it names both repositories — flux `cb49f1e95be5`, FastEddy
+`0ce48d5dff06`. `provenance` inside the container prints both, plus the CUDA version, the
+gencode list, and the SASS actually present in the binary. Every machine manifest records
+`git_commit` from the image's own `FLUX_COMMIT`, so a record says which code made it after
+the box is gone.
+
+**5.33 GB compressed** in the registry; **16.3 GB on disk**, of which 2.2 GB is the code and
+the baked 30-seed library.
+
+*(The tag names the commit the image was built from; this file was edited afterwards to
+record the tag, so `git log` shows one later doc-only commit. Nothing executable differs.)*
+
 Identical to §1 above with three changes:
 
 | field | value |
 |---|---|
-| image | `ghcr.io/tyatharva/flux-seeds:a1ee30158776-fe0ce48d5dff06` |
+| image | `ghcr.io/tyatharva/flux-seeds:corpus` |
 | **GPUs** | **8x RTX 5090** (or any 8 of `sm_120`) |
 | **Disk** | **120 GB** — see below |
 | **RAM** | **≥ 256 GB.** See below; this is the one spec that is a genuine unknown. |
