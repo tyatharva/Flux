@@ -411,12 +411,12 @@ season or a split.
 
 ```
 ghcr.io/tyatharva/flux-seeds:corpus                          <- put this in the template
-ghcr.io/tyatharva/flux-seeds:cb49f1e95be5-fe0ce48d5dff06     <- the immutable one
-digest sha256:a4f4650311df71f0725ebf5655ae0100f7fbdb2e97267681d1b30332a69a310b
+ghcr.io/tyatharva/flux-seeds:ce7837a4bd0e-fe0ce48d5dff06     <- the immutable one
+digest sha256:8b7c0b05c49491e6ce1ad0d29b0ffac0bead1aef4cdb4140767f9f2c8c615845
 ```
 
 `:corpus` is a moving tag, for convenience in the template. **The SHA tag is what a result
-is attributable to** and it names both repositories — flux `cb49f1e95be5`, FastEddy
+is attributable to** and it names both repositories — flux `ce7837a4bd0e`, FastEddy
 `0ce48d5dff06`. `provenance` inside the container prints both, plus the CUDA version, the
 gencode list, and the SASS actually present in the binary. Every machine manifest records
 `git_commit` from the image's own `FLUX_COMMIT`, so a record says which code made it after
