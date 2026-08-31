@@ -23,10 +23,15 @@ library must be present. Mounting it would mean copying 2.1 GB onto eight rented
 hand, which is eight chances to put a partial or wrong library on a machine that would then
 generate plausible cases off it.
 
-**HRRR IS FETCHED AT RUNTIME AND PRUNED.** The accepted hour's hybrid-level GRIB is ~407 MB
-and one machine's 243 days would leave **~77 GB** of files nothing reads again. Deleted once
-the record exists AND passed its schema check — which is also when resume stops needing it.
-The small screening files are kept, so a resume re-downloads nothing.
+**HRRR IS BYTE-RANGE SUBSETTED AND NOTHING IS RETAINED.** Herbie is called with a search
+regex and `remove_grib=True`, so each subset is deleted as it is read and disk cost is ~0.3 GB
+of `.idx`. **The cost is TRANSFER**: a sounding is **168.6 MB**, 91% of it the 100
+hybrid-level messages, because GRIB subsetting is per MESSAGE and a message is a full CONUS
+field. There is no spatial subsetting to enable for a historical archive. **The screen no
+longer fetches the 10 m wind** — it reads only `hpbl`/`shtfl`/`dz_i/dt`, and the wind is a
+label taken once at acceptance: 9.19 -> 4.66 MB per candidate, and the screening term is
+dominated by days that exhaust 26 hours and yield nothing. **47 GB per machine, down from
+58.7, and 2-3% of wall time.**
 
 ## Four defects found while doing it, all silent, none in scope
 

@@ -63,15 +63,24 @@ class Screener:
         self._c = {}
         self.n_fetch = 0
 
-    def at(self, when):
-        """The screening fields at `when`, or None if HRRR has nothing there."""
-        key = when.strftime("%Y%m%d%H")
+    def at(self, when, with_wind=False):
+        """The screening fields at `when`, or None if HRRR has nothing there.
+
+        `with_wind=False` by default and that is the whole point: the screen reads hpbl,
+        shtfl and dz_i/dt, and the 10 m wind is a LABEL on the accepted hour. Fetching it
+        for every candidate costs 4.53 MB a time on days that reject 24 hours and yield
+        nothing. Asked for once, at acceptance.
+
+        The wind result is cached under its own key, so a later request for it re-fetches
+        rather than getting a wind-free record back from the cache.
+        """
+        key = when.strftime("%Y%m%d%H") + ("+w" if with_wind else "")
         if key in self._c:
             return self._c[key]
         from enumerate_times import screen_hour
         try:
             self.n_fetch += 1
-            v = screen_hour(when, self.cache_dir)
+            v = screen_hour(when, self.cache_dir, with_wind=with_wind)
         except Exception as e:                       # noqa: BLE001 - any failure is "absent"
             if self.verbose:
                 print(f"      HRRR at {when:%Y-%m-%d %H}Z unavailable: "
@@ -126,7 +135,11 @@ class StubScreener:
         b = hashlib.sha256(f"{salt}|{when:%Y%m%d%H}".encode()).digest()
         return int.from_bytes(b[:6], "big") / float(1 << 48)      # uniform [0, 1)
 
-    def at(self, when):
+    def at(self, when, with_wind=False):
+        # SAME SIGNATURE AS Screener.at, INCLUDING with_wind. It was not, and the accepted
+        # hour's one wind fetch raised TypeError on every accepted day -- 133 of 245 days
+        # of a stubbed machine came back FAILED. A stub that does not match the interface
+        # it stands in for tests the wrong thing, loudly and late.
         key = when.strftime("%Y%m%d%H")
         if key in self._c:
             return self._c[key]
@@ -193,17 +206,32 @@ def pick(day, screener, verbose=True):
         why = screen(c.get("hpbl"), c.get("shtfl"), screener.dzidt_rel(when))
         if why is None:
             d.accept(h)
+            # THE ONE WIND FETCH OF THE DAY, on the hour that was accepted. If it fails the
+            # case is still valid -- the wind is a label and window_stats reads the achieved
+            # direction off the LES itself -- so a failure is recorded, not raised.
+            wind_err = None
+            try:
+                cw = screener.at(when, with_wind=True) or c
+            except Exception as e:                                   # noqa: BLE001
+                cw, wind_err = c, f"{type(e).__name__}: {e}"
             if verbose:
                 print(f"    {h:02d}Z  ACCEPTED  z_i {c['hpbl']:.0f} m, "
                       f"SHTFL {c.get('shtfl', float('nan')):+.0f} W/m2, "
                       f"dz_i/dt {screener.dzidt_rel(when):+.1f} %/h, "
-                      f"wind from {c['wdir']:.0f} deg", file=sys.stderr)
+                      f"wind from "
+                      f"{cw.get('wdir', float('nan')):.0f} deg", file=sys.stderr)
             rec = d.summary()
+            # NOT into d.reasons: that dict is keyed by INT hour and summary() sorts it, so
+            # a string key raises TypeError inside sorted() -- which would have fired only
+            # when the wind fetch failed, i.e. on a network hiccup on the rented box, and
+            # taken the whole day's record with it.
+            if wind_err:
+                rec["wind_fetch_error"] = wind_err
             rec["accepted"] = {
                 "timestamp": when.strftime("%Y-%m-%dT%H:00"),
                 "zi_m": c.get("hpbl"), "shtfl_wm2": c.get("shtfl"),
                 "dzidt_rel_per_h": screener.dzidt_rel(when),
-                "wdir_deg": c.get("wdir"), "wspd_ms": c.get("wspd"),
+                "wdir_deg": cw.get("wdir"), "wspd_ms": cw.get("wspd"),
             }
             rec["n_hrrr_fetches"] = screener.n_fetch
             return when, rec

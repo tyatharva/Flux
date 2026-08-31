@@ -49,6 +49,7 @@ network outage rather than to the weather.
 from __future__ import annotations
 
 import argparse
+import collections
 import datetime as dt
 import json
 import os
@@ -206,8 +207,15 @@ class Progress:
             "counts": {"case": 0, "missing": 0, "failed": 0, "resumed": 0, "done": 0},
             "gpu_h_per_case": None, "elapsed_h": 0.0,
             "projected_total_h": None, "projected_finish_utc": None,
+            "eta_h": None, "eta_utc": None, "days_per_h": None,
             "host": {}, "recent": [], "alerts": [], "finished": False,
         }
+        # Completion timestamps, for an ETA off the RECENT rate rather than the run
+        # average. The two differ a lot here and the difference is not noise: the queue
+        # walks the machine's months in order, and a winter month that rejects most of its
+        # days is ~2x faster per day than a July that yields a case from nearly every one.
+        # An ETA from the whole-run average therefore lags reality all the way through.
+        self._done_t = collections.deque(maxlen=400)
         self.flush()
 
     def flush(self):
@@ -226,6 +234,27 @@ class Progress:
             self.d["gpus"][str(g)].update(kv)
             self.flush()
 
+    def _eta(self):
+        """Hours remaining, from the rate over a TRAILING WINDOW of completed days.
+
+        The window is the last third of what has been done, floored at 12 days and capped
+        at 120, so it is short enough to follow a change of month and long enough not to
+        chase one slow case. Below 5 completed days there is no trend to speak of and the
+        ETA is withheld rather than guessed -- an ETA off two samples is a number, not an
+        estimate.
+        """
+        n_done = len(self._done_t)
+        left = self.d["n_days_total"] - self.d["counts"]["done"]
+        if n_done < 5 or left <= 0:
+            return None, None
+        w = max(12, min(120, n_done // 3))
+        recent = list(self._done_t)[-w:]
+        span = recent[-1] - recent[0]
+        if span <= 0:
+            return None, None
+        rate = (len(recent) - 1) / span                  # days per second
+        return left / rate / 3600.0, rate * 3600.0
+
     def finish_day(self, g, status, day, note="", resumed=False):
         with self.lock:
             c = self.d["counts"]
@@ -233,6 +262,16 @@ class Progress:
             c["done"] += 1
             if resumed:
                 c["resumed"] = c.get("resumed", 0) + 1
+            else:
+                # RESUMED DAYS ARE NOT IN THE RATE. They resolve in milliseconds off the
+                # disk, so including them would make the ETA of a restarted machine
+                # collapse toward zero while the real work ahead is unchanged.
+                self._done_t.append(time.time())
+            eta, dph = self._eta()
+            self.d["eta_h"] = round(eta, 2) if eta is not None else None
+            self.d["days_per_h"] = round(dph, 1) if dph is not None else None
+            self.d["eta_utc"] = ((dt.datetime.utcnow() + dt.timedelta(hours=eta))
+                                 .isoformat(timespec="seconds") + "Z") if eta else None
             self.d["gpus"][str(g)] = {"state": "idle"}
             self.d["recent"] = ([f"{day} {status}" + (f": {note}" if note else "")]
                                 + self.d["recent"])[:12]
@@ -288,17 +327,23 @@ def _run_watching(cmd, env, log_path, timeout, on_tick=None, period=2.0):
 
 
 def _prune_hrrr(cache, day, min_bytes=50 << 20):
-    """Delete the day's full GRIB after its record is written and validated.
+    """A BACKSTOP. Normally there is nothing here to delete, and that is the point.
 
-    MEASURED: screening a day costs ~300 kB of `.idx` and subset files, but the accepted
-    hour's hybrid-level sounding is a ~407 MB `wrfnat` GRIB. Kept, one machine's 243 days
-    accumulate ~77 GB -- which is most of a rented box's disk, bought to hold files nothing
-    will read again.
+    Every HRRR fetch goes through `Herbie.xarray(search=...)` with `remove_grib=True`, so
+    the byte-range subset is removed the moment it is read and what persists is the `.idx`
+    inventory at a few kB. MEASURED against the live archive at `nlev=20`: a sounding is
+    **168.6 MB transferred and 0 MB retained**.
 
-    SAFE BECAUSE OF WHEN IT RUNS: only after the record exists AND passed its schema check,
-    and resume keys off the record, so the day is never revisited. The small screening
-    files are deliberately KEPT, so a resume re-screens nothing and a --retry-missing pass
-    costs no downloads.
+    This exists for the one way that stops being true -- a `--keep-grib` left in a debug
+    run, or a fetch that raises after the download and before the delete. Both leave a
+    ~150 MB file that nothing will ever read again, and 243 days of them would fill the
+    box. It runs only after the record exists AND passed its schema check, which is also
+    when resume stops needing anything for that day.
+
+    An earlier version of this docstring claimed ~407 MB per case and ~77 GB per machine.
+    Those came from `data/hrrr` on the workstation, which holds cache written before `nlev`
+    was cut to 20 and by runs that passed `--keep-grib`; measuring a cache is not measuring
+    a transfer.
     """
     d = os.path.join(cache, "hrrr", day.strftime("%Y%m%d"))
     if not os.path.isdir(d):

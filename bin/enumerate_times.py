@@ -57,21 +57,41 @@ TOWER_LAT = 42.957160
 TOWER_LON = -89.292362
 RD, CP = 287.05, 1004.5
 
-SCREEN = (r":(?:HPBL:surface|SHTFL:surface|[UV]GRD:10 m above ground):")
+# === THE SCREEN DOES NOT USE THE WIND, SO THE SCREEN DOES NOT FETCH IT ==================
+# MEASURED against the real archive (2023-07-15 19Z): the four-message pattern is 9.19 MB
+# and the two the screen actually reads are 4.66 MB. GRIB byte-range subsetting is per
+# MESSAGE and each message is a full CONUS field (1799x1059) whatever a caller wants from
+# it, so a field nobody reads costs its whole 2.3 MB.
+#
+# It matters because of WHERE the fetches are. An accepted day draws ~1.5 hours and costs
+# ~4.5 fetches, but a day that exhausts its pool costs ~26 -- so the screening term is
+# dominated by the days that yield nothing, and halving it takes ~8.8 GB off a machine.
+#
+# lpdm/corpus.py:screen() takes hpbl, shtfl and dz_i/dt and nothing else. The 10 m wind is
+# recorded on the ACCEPTED hour only, as a label, so it is fetched once at acceptance
+# instead of on every candidate.
+SCREEN = r":(?:HPBL|SHTFL):surface:"
+SCREEN_WIND = r":[UV]GRD:10 m above ground:"
 # cfgrib names, in the order we try them
 NAMEMAP = {"blh": "hpbl", "hpbl": "hpbl", "HPBL": "hpbl",
            "ishf": "shtfl", "sshf": "shtfl", "SHTFL": "shtfl",
            "u10": "u10", "UGRD": "u10", "v10": "v10", "VGRD": "v10"}
 
 
-def screen_hour(ts, save_dir, keep_grib=False):
-    """The four screening fields at the tower for one analysis hour."""
+def screen_hour(ts, save_dir, keep_grib=False, with_wind=True):
+    """The screening fields at the tower for one analysis hour.
+
+    `with_wind=False` fetches only what lpdm/corpus.py:screen() reads -- 4.66 MB instead of
+    9.19 -- and returns no u10/v10. The hour draw uses that for every CANDIDATE and asks
+    for the wind once, on the hour it accepts.
+    """
     from herbie import Herbie
     import pandas as pd
     from hrrr_sounding import crs_of, meridian_convergence, rotate_to_earth
 
     H = Herbie(ts, model="hrrr", product="sfc", fxx=0, save_dir=save_dir)
-    ds = H.xarray(SCREEN, remove_grib=not keep_grib)
+    ds = H.xarray(SCREEN + ("|" + SCREEN_WIND if with_wind else ""),
+                  remove_grib=not keep_grib)
     dss = list(ds) if isinstance(ds, (list, tuple)) else [ds]
     pts = pd.DataFrame({"latitude": [TOWER_LAT], "longitude": [TOWER_LON]})
     out, crs = {}, None
@@ -86,16 +106,21 @@ def screen_hour(ts, save_dir, keep_grib=False):
             key = NAMEMAP.get(v)
             if key:
                 out[key] = float(np.asarray(p[v].values).ravel()[0])
-    if not {"hpbl", "u10", "v10"} <= set(out):
-        raise KeyError(f"screen missing {{'hpbl','u10','v10'}} - set(out) at {ts}")
-    # WINDS ARE GRID-RELATIVE. 5.11 deg here, invisible in the speed, and it is most of a
-    # direction bin -- which is the axis this whole selection is stratifying on.
-    gamma = meridian_convergence(crs, TOWER_LON, TOWER_LAT) if crs is not None else 0.0
-    u, v = rotate_to_earth(out["u10"], out["v10"], gamma)
-    out["u10"], out["v10"] = float(u), float(v)
-    out["wdir"] = float((270.0 - np.degrees(np.arctan2(v, u))) % 360.0)
-    out["wspd"] = float(np.hypot(u, v))
-    out["gamma"] = float(gamma)
+    need = {"hpbl", "u10", "v10"} if with_wind else {"hpbl"}
+    if not need <= set(out):
+        raise KeyError(f"screen missing {need} - set(out) at {ts}")
+    if with_wind:
+        # WINDS ARE GRID-RELATIVE. 5.11 deg here, invisible in the speed, and it is most of
+        # a direction bin -- which is the axis this whole selection is stratifying on.
+        gamma = meridian_convergence(crs, TOWER_LON, TOWER_LAT) if crs is not None else 0.0
+        u, v = rotate_to_earth(out["u10"], out["v10"], gamma)
+        out["u10"], out["v10"] = float(u), float(v)
+        # INSIDE the guard: u, v and gamma only exist on this branch, and these three lines
+        # sat outside it -- a NameError on the first wind-free screen, i.e. on every
+        # candidate hour of every day, on the rented box.
+        out["wdir"] = float((270.0 - np.degrees(np.arctan2(v, u))) % 360.0)
+        out["wspd"] = float(np.hypot(u, v))
+        out["gamma"] = float(gamma)
     return out
 
 

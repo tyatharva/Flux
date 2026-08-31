@@ -434,25 +434,98 @@ Identical to §1 above with three changes:
 |---|---|
 | image | `ghcr.io/tyatharva/flux-seeds:corpus` |
 | **GPUs** | **8x RTX 5090** (or any 8 of `sm_120`) |
-| **Disk** | **120 GB** — see below |
+| **Disk** | **60 GB** (100 GB for comfort) — see below |
 | **RAM** | **≥ 256 GB.** See below; this is the one spec that is a genuine unknown. |
 | CUDA driver | **≥ 580** (the `CUDA >= 13.0` filter), exactly as for the seed run |
 | On-start script | **EMPTY.** Nothing auto-runs. |
 | Launch mode | SSH |
 
-### Disk: 120 GB, and most of it is HRRR
+### Disk: 60 GB is plenty. The HRRR figure in an earlier draft of this file was wrong.
 
 | | |
 |---|---|
 | image on disk | **16.3 GB** measured (14.1 GB toolchain and CUDA + 2.2 GB code and baked seed library) |
-| HRRR screening cache | ~0.1 GB for 243 days — `.idx` files and small subsets |
-| HRRR soundings | **~407 MB each**, and `run_corpus` DELETES each one once that day's record is written and validated. Without that, 190 accepted days would leave **~77 GB**. |
-| the corpus itself | **~40 kB per record**, so ~190 records = **~8 MB per machine** |
-| headroom | the pruning is per-day, so the peak is a handful of concurrent soundings, not the total |
+| HRRR on disk | **~0.3 GB.** Herbie is called with `remove_grib=True`, so every subset is deleted the moment it is read — what persists is `.idx` inventories at a few kB each. |
+| the corpus itself | **~40 kB per record**, ~190 records = **~8 MB per machine** |
+| logs, manifest, progress | a few MB |
 
-`--keep-hrrr` disables the pruning. Then size for **200 GB**.
+**60 GB is comfortable; 100 GB if you want room to not think about it.**
 
-### RAM: this is the number that is not yet known, and the run measures it in minutes
+> **CORRECTION.** An earlier draft of this file said each sounding was 407 MB and that a
+> machine would accumulate ~77 GB. Both numbers came from measuring `data/hrrr` on this
+> workstation, which holds cache written **before** `nlev` was reduced to 20 **and** by runs
+> that passed `--keep-grib`. Re-measured against the live archive at `nlev=20`, a sounding
+> is **168.6 MB transferred and 0 MB retained**. The disk line was wrong; the transfer is
+> the real cost and it is §C1b.
+
+`--keep-hrrr` keeps the GRIBs instead of deleting them (for debugging a fetch). Then a
+machine does accumulate ~40 GB and you want **200 GB**.
+
+### C1b. Network transfer — measured, subsetted, and not on the critical path
+
+**Byte-range subsetting IS active.** Every fetch goes through `Herbie.xarray(search=...)`,
+which downloads only the `.idx` byte ranges the regex matches — the cache filenames are
+`subset_<hash>__hrrr...grib2`, which is Herbie's own name for a range-fetched file.
+
+**But GRIB subsetting is per MESSAGE, and a message is a full CONUS field** (1799 x 1059,
+~1.5 MB compressed) whatever a caller wants from it. There is no spatial subsetting to
+enable: NOMADS offers a `subregion` GRIB filter, but it holds only the last ~2 days and this
+corpus spans 2021–2026, so the historical archive has full messages or nothing. **One grid
+point costs a whole CONUS field, and that is inherent.**
+
+Measured against the live archive (2023-07-15 19Z, `nlev=20`):
+
+| fetch | messages | size | time |
+|---|---|---|---|
+| `nat` — 5 vars x 20 hybrid levels | 100 | **152.8 MB** | 17.7 s |
+| `sfc` — 8 surface fields | 8 | 15.1 MB | 2.7 s |
+| `prs` — HGT at 700 mb | 1 | 0.7 MB | 0.6 s |
+| **one sounding (an accepted day)** | 109 | **168.6 MB** | **~22 s** |
+| one screening candidate, **before** | 4 | 9.19 MB | 1.1 s |
+| one screening candidate, **now** | 2 | **4.66 MB** | 0.7 s |
+
+**`nat` is 91% of a case.** The only lever on it is `nlev` (levels 1–20 reach ~6.1 km AGL
+against a 4 km `z_i` search ceiling), and that is a **sounding-fit input**, not a plumbing
+knob — it is left alone rather than trimmed to save bandwidth.
+
+**What did change: the screen no longer fetches the 10 m wind.** `lpdm/corpus.py:screen()`
+reads `hpbl`, `shtfl` and `dz_i/dt` and nothing else; the wind is a *label* on the accepted
+hour. Fetching it for every candidate cost 4.53 MB a time on days that reject 24 hours and
+yield nothing — and **the screening term is dominated by exactly those days** (an accepted
+day costs ~8 fetches, an exhausted one **26**, both measured). It is now fetched once, on
+the hour that is accepted. Verified against the archive: **identical `hpbl` and `shtfl`,
+49% fewer bytes per candidate.**
+
+| | accepted day | missing day | **per machine (243 days, 80% yield)** |
+|---|---|---|---|
+| before | 242 MB | 239 MB | **58.7 GB** |
+| **now** | **210 MB** | **121 MB** | **46.8 GB** |
+| saved | 32 MB | 118 MB | **11.9 GB (20%)** |
+
+**~47 GB per machine, ~374 GB across all eight.**
+
+### Is download serial with compute? Yes, and it is ~2-3% of wall time.
+
+A worker does `pick_hour` (network) then `get_case` (compute) for its day, so the fetch is
+serial *within that day*. The ratio is what matters:
+
+| | |
+|---|---|
+| network, serial per machine | **2.4 h** (accepted day 34 s, missing day 39 s) |
+| compute, 194 cases over 8 GPUs at 0.4–0.61 GPU-h/case | 9.7–14.8 h |
+| **network share of wall time** | **2.0–3.0%** |
+| average bandwidth across the run | **~1.1 MB/s = 9 Mbit/s** per machine |
+| peak, if all 8 workers fetch a sounding at once | ~61 MB/s = **491 Mbit/s**, briefly |
+
+So it is negligible against compute and the sustained draw on a shared Vast link is
+single-digit Mbit/s. The only thing that would sting is eight workers hitting `nat`
+simultaneously, which is transient and self-desynchronises within the first few days.
+
+**The compute side of that ratio is not yet measured** — 0.4–0.61 GPU-h/case brackets it
+from the LES cost and the ninth pass's per-case figure. The early report (§C4) prints the
+real one after 5 cases.
+
+### RAM: ≥256 GB, and the run reports what it actually used
 
 `PROJECT_BRIEF.md` records **12.45 GB peak host RSS for ONE corpus case** — the LPDM's 12.0 GB
 fp16 field cache, which is not buildup but the window itself, random-accessed by a CPU
@@ -487,9 +560,19 @@ corpus_progress
 machine 7, one each.
 
 `corpus_progress` shows, refreshed in place: a progress bar over the machine's days, the
-case/missing/failed counts, elapsed and projected finish, running mean GPU-h per case,
-machine-wide peak host RSS, and **per-GPU current month, day and pipeline stage**. Ctrl-C
-it whenever; the run neither knows nor cares.
+case/missing/failed counts, **a live ETA**, running mean GPU-h per case, machine-wide peak
+host RSS, and **per-GPU current month, day and pipeline stage**. Ctrl-C it whenever; the run
+neither knows nor cares.
+
+**The ETA is computed from the RECENT completion rate**, over a trailing window of the last
+third of completed days (floored at 12, capped at 120), not from the run average — the queue
+walks the machine's months in order and a winter month that rejects most of its days runs
+about twice as fast per day as a July that yields a case from nearly every one, so a
+run-average ETA lags the whole way through. It is withheld below 5 completed days rather
+than guessed, and resumed days are excluded from the rate (they resolve in milliseconds off
+the disk and would otherwise collapse a restarted machine's ETA toward zero). The one-shot
+projection from the early report is shown beside it, labelled, because that is the number
+the rental decision was taken on.
 
 ## C3. What it does per day
 
@@ -529,7 +612,8 @@ After the first **5 cases** the run prints, and puts in `progress.json`:
 - **GPU-h per case is OCCUPANCY**, wall clock x 1 GPU, not FastEddy kernel time. A case
   holds its card through the CPU-bound LPDM too, and occupancy is what the rental bills.
 - **If MemAvailable falls below 12% of total, or swap is touched, it says so loudly** and
-  puts an alert in `progress.json`. That is the 8-way field-cache question being answered.
+  puts an alert in `progress.json`. **Not a gate** — with ≥256 GB the 8-way field cache
+  (~100 GB worst case) has room. It is recorded so the number exists.
 - **If the projection exceeds `--max-hours` (default 12) it prints a `!!!!` block** naming
   the number. It keeps running — stopping wastes the rental too — and `--abort-on-overrun`
   stops instead if you would rather it did.
@@ -618,6 +702,9 @@ tested.
   `meta.stub = true` and `bin/check_npz.py` refuses it unless asked for one. The stub paths
   also require `FLUX_STUB=1` in the environment, so no ordinary corpus command can reach
   them.
+- **HRRR is byte-range subsetted, and a subset is deleted as soon as it is read.** What
+  costs is that a GRIB message is a full CONUS field however little of it you want — 168.6
+  MB per case, of which 91% is the 100 hybrid-level messages. See §C1b.
 - **The seed library is in the image, not on the volume.** All 30 seeds, because a case
   picks its seed per case. The image build asserts 30 restarts of identical size plus each
   seed's `manifest.json` and `stationarity.json` — a partial library would otherwise be an

@@ -47,7 +47,7 @@ cannot see.
 | a day always ends as | `case` / `missing` with a reason / `failed` (retryable). **Every calendar day is in the manifest.** |
 | resume | keyed off the artifacts on the volume, not a checkpoint. A resumed day keeps its RESOLVED status and the ORIGINAL pass's timing. |
 | the seed library | **BAKED INTO THE IMAGE** (2.1 GB). A case picks its seed per case, so the whole library must be present; baking it means the tag pins code and seeds together and there is nowhere else for a wrong library to come from. |
-| HRRR | fetched at runtime, and the accepted hour's ~407 MB GRIB is **deleted once the record exists and passed its schema check**. Kept, 243 days would leave ~77 GB. |
+| HRRR | fetched at runtime with **byte-range subsetting active** and every subset deleted as it is read, so disk cost is ~0.3 GB of `.idx`. The cost is TRANSFER: **168.6 MB per case**, 91% of it the 100 hybrid-level messages, because a GRIB message is a full CONUS field however little of it you want. **~47 GB per machine, 2-3% of wall time.** |
 | output | `pairs_npz/<case>.npz` (~40 kB) + `manifest.json`. **~60 MB for the whole corpus.** |
 
 **THE EARLY REPORT IS THE POINT, AND IT ANSWERS A QUESTION THIS FILE HAS OPEN.** After 5

@@ -53,8 +53,15 @@ def render(d, width):
     L.append(f"  cases {c.get('case', 0):<5} missing {c.get('missing', 0):<5} "
              f"failed {c.get('failed', 0):<5} skipped {c.get('skipped', 0):<5}")
     gph = d.get("gpu_h_per_case")
+    eta, dph = d.get("eta_h"), d.get("days_per_h")
+    # THE ETA IS THE BAR'S OWN, from the recent completion rate, and it is separate from
+    # the one-shot projection the early report made after 5 cases. Both are shown: the
+    # early one is what the rental decision was taken on, the ETA is what is happening now.
     L.append(f"  elapsed {_hms(d.get('elapsed_h'))}   "
-             f"projected total {_hms(d.get('projected_total_h'))}   "
+             f"ETA {_hms(eta)}"
+             + (f" ({dph:.1f} days/h)" if dph else "")
+             + f"   -> {d.get('eta_utc') or '--'}")
+    L.append(f"  early projection (at 5 cases): {_hms(d.get('projected_total_h'))} total, "
              f"finish {d.get('projected_finish_utc') or '--'}")
     L.append(f"  mean GPU-h per case (occupancy): "
              f"{gph if gph is None else f'{gph:.3f}'}")
