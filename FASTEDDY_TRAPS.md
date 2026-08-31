@@ -1067,3 +1067,49 @@ confusion, and on an unattended campaign it would have been the whole campaign.
 `docker/run_case.sh` now names the container deterministically from the case directory and
 the driver's trap removes it by name. **A process supervisor that does not know about
 containers is not supervising the work**, only the shell that asked for it.
+
+---
+
+## §22 — `h` was measured in the wrong fluid, and only the closure noticed
+
+Added 2026-08-30, from the ninth pass's neutral target.
+
+**A boundary-layer depth was taken from the free atmosphere.** `lpdm/les_stats.py:bl_depth`
+finds the resolved-TKE maximum below the sponge and searches DOWN from it for a threshold
+crossing, bounded by the decay minimum. On `case_2023112120`, a neutral case, the profile is:
+
+```
+  z (m)     4    56   109   226   366   540   760   891  1200  1585  2011  2324
+  TKE   0.582 0.829 0.579 0.384 0.243 0.225 0.144 0.178 0.638 1.510 1.913 1.551
+  e_sgs 0.406 0.165 0.058 0.024 0.015 0.003 0.001 0.002 0.028 0.090 0.112 0.080
+```
+
+An ordinary neutral boundary layer decaying to 0.14 at 760 m — and then a layer aloft that
+is **thirteen times stronger**, essentially all resolved `w`, which is internal-wave activity
+in the stable free atmosphere. `argmax` picked **2011 m**, the search ran downward from
+there, and `h` came out **2372 m**.
+
+**Three guards were in place and none of them fired.** The `h >= 0.98 z[-1]` refusal: 2372 m
+is comfortably under a 2960 m column top. The decay-minimum bound (§ the les_stats comment,
+added for exactly this shape of profile): it bounds the search ABOVE the peak and assumes
+the peak is in the boundary layer. `turb_alive` and `k0/k1`: both fine, because the LES is
+fine — this is an estimator defect, not a model one.
+
+**What did fire was the closure's own health gate**, two stages later:
+`bin/corpus_monitor.py` G1 reported the σ_w floor adding its most variance at 681 m where
+the LES already resolves 94.9%, reaching a factor of **1.2e+04**, and printed *"Check
+st['h'] = 2372 m before trusting this footprint."* The footprint's integral came out 1.212
+and its array share 1.52% where the geometry predicts ~25%. Every number was finite.
+
+The generalisation, and it is the one this file keeps re-learning in new clothes: **a fix
+that bounds a search inherits every assumption the search's STARTING POINT makes.** Bounding
+the descent by the decay minimum was correct and insufficient, because the argmax that
+chose where to start descending from was the thing that was wrong.
+
+The refusal added is structural rather than a height threshold — walk up from the ground on
+a smoothed profile to the surface-attached layer's first minimum, and require the global
+peak to lie inside it. It leaves `h` bit-identical on all five existing records and refuses
+only the broken profile. **It refuses rather than re-defines**, because the surface-attached
+layer's own minimum is at 433-492 m while the profile's true minimum before the wave layer
+is at 760 m: what `h` should be here is genuinely ambiguous, and picking one at the end of a
+validation pass would be substituting a guess for the measurement the corpus needs.
