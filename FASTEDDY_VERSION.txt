@@ -10,17 +10,24 @@
 fork_url        = git@github.com:tyatharva/FastEddy-model.git
 fork_url_https  = https://github.com/tyatharva/FastEddy-model
 branch          = kegonsa
-pinned_sha      = 159c85597eff4b20836b6a24f7f43c8669f61492
+pinned_sha      = 0ce48d5dff06be64d6817de36e1b4c43a9547b6b
 
 upstream_url    = https://github.com/NCAR/FastEddy-model
 upstream_tag    = v5.0.1
 upstream_sha    = e0cd2f3efcdff8ea543668228a983a95953478ca
 
-# Divergence from upstream v5.0.1 as of 2026-08-21: ONE feature area, lean LPDM output.
+# THE PIN WAS STALE UNTIL 2026-08-31 -- it still named 159c855 while the branch had moved
+# four commits past it. Corrected, and the divergence list below now covers all of them.
+#
+# Divergence from upstream v5.0.1 as of 2026-08-31: FOUR feature areas.
 #
 #   59f0472  ioLPDMmode: lean 16-bit output for offline Lagrangian dispersion
 #   692a3cd  Fix ioLPDMmode: rho must be processed; packed range must avoid the fill value
 #   159c855  ioLPDMfullFrq: interleave a restartable full dump into lean output
+#   4c83d89  lsf_horMnSubTerms=1 crashes with moisture off: guard two unallocated pointers
+#   fc6cc14  SRC/LPDM: a GPU backward Lagrangian dispersion model, validated against the CPU
+#   e43776b  In-process LPDM hand-off: the LES stops writing its window to a filesystem
+#   0ce48d5  CUDA 13.0 removed four cudaDeviceProp members; guard the one place we read them
 #
 # TWO optional parameters (SRC/IO/io.c:92-95), both defaulting to 0 = upstream behaviour,
 # so the diff is inert unless asked for:
@@ -36,11 +43,21 @@ upstream_sha    = e0cd2f3efcdff8ea543668228a983a95953478ca
 #                  dump and differs from an independent mode-0 run only at the ~1e-4
 #                  nondeterminism floor.
 #
-# The kegonsa branch touches SRC/IO/ ONLY -- io.c, io.h and io_netcdf.c. No solver,
-# grid or hydro-core file is modified, so NCAR bugfixes outside SRC/IO/ merge cleanly.
-# All build customization for this project (sm_89, include/library paths) is applied via
-# make command-line overrides in docker/build_fasteddy.sh, NOT by editing the FastEddy
-# Makefile, so the build setup contributes nothing to the diff.
+# THE "SRC/IO ONLY" CLAIM IS NO LONGER TRUE, and saying so matters for merges.
+# The branch now touches four areas:
+#
+#   SRC/IO/            io.c, io.h, io_netcdf.c, io_lpdmonline.c  (lean output, hand-off)
+#   SRC/LPDM/          new: the GPU backward dispersion model
+#   SRC/HYDRO_CORE/    the moisture-off subsidence guard, which is an upstream BUG FIX
+#   SRC/FECUDA/        fecuda_Device.cu: a CUDART_VERSION guard around four cudaDeviceProp
+#                      members CUDA 13.0 removed. Diagnostic printf only, no physics --
+#                      see FASTEDDY_TRAPS.md 23.
+#
+# No time-integration, grid or advection file is modified, so NCAR bugfixes in the solver
+# still merge cleanly. All build customization for this project (the architecture list,
+# the C++ dialect, include/library paths) is applied via make command-line overrides in
+# docker/build_fasteddy.sh and Dockerfile.blackwell, NOT by editing the FastEddy Makefile,
+# so the build setup contributes nothing to the diff.
 #
 # A vertical-subset (k-range) limit remains possible if storage ever binds again, but
 # ioLPDMmode already clears the Stage 3 gate by a factor of two, so it has not been needed.

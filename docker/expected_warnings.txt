@@ -1,0 +1,25 @@
+# The CUDA 11.8 warning baseline for FastEddy-model-5.0.1 (kegonsa branch).
+#
+# Dockerfile.blackwell compares the CUDA 13.0 build's warning SET against this file and
+# fails the build on ANY difference, in either direction. A COUNT would not do: nine
+# warnings that are a different nine would pass.
+#
+# Every line here is a PRE-EXISTING UPSTREAM printf format mismatch. Nothing is suppressed
+# -- upstream's own -Wall is on and these are what it says. They are recorded rather than
+# fixed because fixing them would put this fork's diff into files it otherwise does not
+# touch (FASTEDDY_VERSION.txt), for a set of diagnostics with no runtime effect on a 64-bit
+# host: %u and %d against size_t print the low 32 bits of a value that is a device
+# capability, and the zero-length format strings write an empty name.
+#
+# Line and column numbers are normalised to N, so the file survives an edit that shifts a
+# line -- as the CUDART_VERSION guard in fecuda_Device.cu did.
+#
+# REGENERATE (from a CUDA 11.8 build log) with the same extraction the Dockerfile uses:
+#   grep -oiE '(^|[[:space:]])[^[:space:]]+[:(][0-9]+[):][^[:space:]]*[[:space:]]*warning.*' \
+#       build_fasteddy.log | sed -E 's/[0-9]+/N/g; s/^[[:space:]]+//' | sort -u
+#
+# MEASURED 2026-08-31: the CUDA 11.8 and CUDA 13.0 sets are IDENTICAL, three distinct
+# diagnostics, nine occurrences.
+../FECUDA/fecuda_Device.cu:N:N: warning: format '%u' expects argument of type 'unsigned int', but argument N has type 'size_t' {aka 'long unsigned int'} [-Wformat=]
+../HYDRO_CORE/CUDA/cuda_towersDevice.cu:N:N: warning: format '%d' expects argument of type 'int', but argument N has type 'size_t' {aka 'long unsigned int'} [-Wformat=]
+../HYDRO_CORE/hydro_core.c:N:N: warning: zero-length gnu_printf format string [-Wformat-zero-length]

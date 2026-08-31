@@ -1,6 +1,69 @@
-# The image is toolchain-only: it contains no project files at all.
-# Everything reaches the container via the bind mount at run time, so the build
-# context should be effectively empty. Without this, docker ships the 5.4 GB DEM
-# archive and the entire FastEddy source tree to the daemon on every build.
-*
-!Dockerfile
+# Build context, shared by BOTH Dockerfiles in this repo.
+#
+# ONE FILE, BECAUSE THERE CAN ONLY BE ONE. Per-Dockerfile ignore files
+# (Dockerfile.blackwell.dockerignore) are a BuildKit feature, and this machine's
+# docker has BuildKit enabled but no buildx component, so builds run on the
+# classic builder -- which reads `.dockerignore` and nothing else. Two ignore
+# files that only one builder reads is exactly the kind of silently-inert
+# configuration this project keeps paying for.
+#
+# `Dockerfile` (CUDA 11.8) is toolchain-only and COPYs nothing, so the context
+# is irrelevant to it beyond a few seconds of tar. `Dockerfile.blackwell`
+# (CUDA 12.8) COPIES THE WHOLE REPO IN -- that is the point of it: the tag pins
+# a commit and a rented machine runs `docker run` with no clone and no build.
+#
+# So what is excluded here is exactly the artifact trees -- ~120 GB of past runs
+# and archives, none of which is an INPUT to anything the image does. A seed is
+# a flat uniform spin-up: empty topoFile, empty inFile, no sounding, no terrain,
+# no land cover. data/grid* is carried anyway (4 MB) because the same image also
+# runs corpus cases, which do read it.
+.git
+.gitignore
+**/__pycache__
+**/*.pyc
+
+# --- artifact trees ---------------------------------------------------------
+runs
+figures
+pairs
+pairs_npz
+pairs_npz_retired
+jobs24
+
+# jobs/ IS THE RETIRED 16 m LIBRARY AND ONLY ITS TWO SCRIPTS ARE NEEDED.
+# jobs/run_seed.sh and jobs/seed_watch.sh drive production; the eighteen 16 m job
+# DIRECTORIES under it are not read by anything the image runs (bin/run_seeds.py defaults
+# --jobs-dir to jobs30).
+#
+# AND EXCLUDING THEM BY ARTIFACT PATTERN DID NOT WORK, MEASURED: `jobs/*/FE_*` is a
+# ONE-LEVEL pattern -- `*` does not cross `/` -- and four of those directories keep their
+# dumps one level deeper, in `jobs/<seed>/smoke_aside/FE_SMOKE.{0,20520}`. Eight files at
+# 73,271,565 bytes: **560 MB inside the image**, on a layer DEPLOY.md tells the operator to
+# push to a registry, against an intended payload of ~59 MB. The Dockerfile assertion meant
+# to catch exactly this globbed only /flux/jobs30/*/ and passed.
+jobs/seed_*
+jobs30/*/output
+jobs30/*/return
+jobs30/*/window
+jobs30/*/FE_*
+jobs30/*/*.log
+
+# --- data: the small model grids stay, the archives go ----------------------
+data/raw
+data/hrrr
+data/smokelib
+data/case_grids
+
+# --- results: the JSON/txt record stays, the arrays go ----------------------
+results/**/*.npz
+results/**/*.nc
+
+# --- the FastEddy fork's own artifacts and non-inputs -----------------------
+FastEddy-model-5.0.1/.git
+FastEddy-model-5.0.1/**/*.o
+FastEddy-model-5.0.1/SRC/FEMAIN/FastEddy
+FastEddy-model-5.0.1/tutorials
+FastEddy-model-5.0.1/docs
+
+# --- prebuilt binaries: the image compiles its own --------------------------
+lib/liblpdm.so

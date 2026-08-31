@@ -1,3 +1,78 @@
+# THE SEED LIBRARY HAS A DEPLOYMENT PATH: ONE IMAGE, ONE COMMAND, 16 GPUs — 2026-08-31
+
+> **The blocker was the compiler, not the code.** The library has to be spun on rented
+> **16x RTX 5090** boxes; a 5090 is `sm_120` and nvcc 11.8 cannot emit code for it in any
+> form. Everything below is verified ON AN RTX 4080 (sm_89) from inside the shipped image —
+> **no Blackwell hardware was used, and what that can and cannot establish is stated.**
+> Full rationale: `PROJECT_BRIEF.md`, the dated block at the top; `FASTEDDY_TRAPS.md` §23.
+
+| # | item | verdict |
+|---|---|---|
+| 1 | FastEddy builds on **CUDA 13.0.1** | **PASS** — two frictions, both one line: CCCL now requires **C++17** (raised, not suppressed), and four `cudaDeviceProp` members were removed (guarded on `CUDART_VERSION`, so one tree still builds under 11.8) |
+| 2 | zero warnings suppressed, zero introduced | **PASS** — **the same nine** pre-existing upstream `-Wall` printf warnings under 11.8 and 13.0, byte-for-byte the same messages; the image build fails on a tenth or on any `nvcc warning` |
+| 3 | `sm_120` **SASS**, not just PTX | **PASS**, asserted in the build from `cuobjdump --list-elf` |
+| 4 | PTX fallback for other cards | **NOT POSSIBLE, and this is a finding** — `nvcc -dlink` silently DROPS every PTX image from a separately-compiled binary. Replaced by **real SASS for seven architectures, sm_75 … sm_120** |
+| 5 | the same image still runs `sm_89` locally | **PASS** — `docker run --gpus all -v /out:/out <image> verify` |
+| 6 | the toolkit did not move the physics | **PASS** — 0.97–1.12x the model's OWN run-to-run floor (`bin/test_toolkit_parity.py`) |
+| 7 | code baked in, tag = commit, output-only mount | **done** — `Dockerfile.blackwell`, `docker/build_image.sh`; **a seed needs no data mount at all** |
+| 8 | one command fans 30 seeds over N GPUs | **done** — `bin/run_seeds.py`, a work queue; `--pass N/M` is for splitting across MACHINES |
+| 9 | thread block re-measured on the machine | **done** — 1 min 54 s, two-phase; winner **1x2x64 at 0.01450 s/step**, reproducing the 2026-08-22 Ada sweep exactly |
+| 10 | a failed seed never aborts the machine | **verified** on a deliberately-too-short run: recorded with its reason, queue continued |
+| 11 | **one full seed, end to end, inside the image** | **done** — 2.000 sim-h, **0.939 GPU-h = 0.469 GPU-h/sim-h** against Ada's 0.479, peak VRAM 1038 MiB of 16376, acceptance battery run, gate DRIFTING on `sigma_v/u*` and recorded as such |
+
+## What was found while doing it, in the code that already existed
+
+* **`SEED_CEILING_H` was still losing a whole dump at every ceiling** — the defect both
+  `PROJECT_BRIEF.md` and this file record as FIXED on 2026-08-30. `int()` became `round()`, and
+  the verify clause added with it rejected any overshoot beyond **1e-6 s** while the only
+  action it can take removes a **300 s** dump. The production 2.0 h ceiling was running
+  **1.9167 sim-h**. Now 233,280 steps = **2.000 sim-h**, verified on the real path.
+* **`jobs/run_seed.sh`'s "a newer architecture JITs from PTX" reassurance was false for
+  every binary this project has ever built** (`-arch=sm_89` embeds no PTX), and it checked
+  **GPU 0's** capability rather than the one the seed was given.
+* **Four pieces of machine-global state** would have made 16 GPUs behave as one — and the
+  worst, `seed_watch.sh`'s early stop, would have had the first seed to reach band
+  `docker stop` the other fifteen mid-dump.
+* **`SCORE_H` was never exported**, so the live watcher and the final verdict scored
+  different window widths; `kill $WATCH_PID` orphaned the gate the watcher was blocked in;
+  and `seed_accept.sh` reported every run against a ceiling it never had.
+* **The thread-block sweep, on its first two versions, made both of this project's classic
+  errors**: it read FastEddy's zero-step shutdown block (so all 14 shapes scored the same
+  and the spread was 1.00x — a number came out), then picked a winner on 0.7% from one run.
+  The measured repeat noise is **0.68%**, so the two-phase fix reversed that call.
+* **`bin/seed_compare.py` compared a run with ITSELF on its first invocation** — both sides
+  keyed their scratch directory on the job basename, which is identical by construction for
+  a comparison of one seed. It reported +0.00% on every field and every ratio, which is
+  impossible physics; it now refuses an exact zero rather than printing it.
+* **`cuobjdump --list-elf` and `--list-ptx` name images differently** — `sm_89.cubin` and
+  `<n>.sm_120.ptx`. A `compute_` pattern finds nothing in a binary that HAS PTX, which is
+  how an assertion first fired against a library carrying exactly what it asked for.
+* **560 MB of stray `FE_SMOKE` dumps were baked into the image**, because `jobs/*/FE_*`
+  does not cross a second `/` and four job dirs keep theirs in `smoke_aside/`. The
+  assertion meant to catch it globbed the same one level. `find` over the whole tree now.
+
+## What is NOT established, and cannot be from here
+
+1. **Nothing has run on Blackwell.** What is established is that the binary CONTAINS
+   `sm_120` SASS, that the same binary runs correctly on `sm_89`, and that the toolkit that
+   produced both does not move the physics. Whether `sm_120` is fast, and whether the
+   thread-block winner is the same there, are measurements the first rented box makes —
+   which is why the sweep runs automatically and the summary prints GPU-h per seed.
+2. **`k0/k1` on Blackwell.** The CFL accuracy boundary is a numerics property and should
+   carry, but this project's standing rule is that it is re-measured on every grid. The
+   acceptance battery scores it per seed and `check_run.sh` rejects the run if it fails;
+   a 200-step `verify` legitimately SKIPs it (turbulence undeveloped) and says so.
+3. **Bitwise reproducibility across architectures.** Not claimed, not sought, not possible.
+4. **The pip layers are not version-pinned.** The base image is pinned by DIGEST, so the
+   toolkit, distro, gcc, MPI and NetCDF-C — everything the FastEddy binary links against —
+   are fixed by construction and the parity measurement is reproducible. `numpy`, `scipy`,
+   `netCDF4` and the rest float; they match the 11.8 image today (2.2.6 / 1.15.3 / 1.7.4,
+   checked) by coincidence of build date. Accepted because they are the ANALYSIS stack and
+   no seed's physics passes through them; `IMAGE_PROVENANCE.txt` records what was installed
+   so a number that moves later can be attributed.
+
+---
+
 # THE CORPUS IS UNBLOCKED AND HAS AN ENTRY POINT — 2026-08-31
 
 > **No GPU. Full rationale: `PROJECT_BRIEF.md`, the dated block at the top.** The one thing the

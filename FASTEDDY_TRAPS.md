@@ -1113,3 +1113,179 @@ only the broken profile. **It refuses rather than re-defines**, because the surf
 layer's own minimum is at 433-492 m while the profile's true minimum before the wave layer
 is at 760 m: what `h` should be here is genuinely ambiguous, and picking one at the end of a
 validation pass would be substituting a guess for the measurement the corpus needs.
+
+---
+
+## §23 — the CUDA 11.8 pin was a floor, not a ceiling, and moving it cost four things
+
+**Written 2026-08-31, while building the portable seed image (`Dockerfile.blackwell`).**
+The library has to be generated on rented 16x RTX 5090 boxes. A 5090 is **sm_120**, and
+`nvcc` 11.8's highest target is sm_90 — so the pin PROJECT_BRIEF.md states as "CUDA 11.8 (do not
+upgrade)" had to move. It was always a floor: 11.8 is the FIRST release with sm_89, which
+is why it was pinned, and the pin was written when sm_89 was the only architecture that
+mattered.
+
+**This is not a general licence to move it.** The 11.8 image (`Dockerfile`) is unchanged and
+every published result in this project came out of it. What follows is what the newer
+toolkit changed, what it did not, and how each was established.
+
+### It is not a JIT problem. It is a compiler problem.
+
+CUDA's forward compatibility runs through PTX: a binary carrying `compute_XX` PTX will JIT
+onto any `sm_YY >= XX`. That is why "it will JIT" is the reflex. It does not apply here in
+either direction:
+
+* **11.8 cannot emit compute_120 PTX**, because compute_120 did not exist when it was
+  written. Its newest virtual architecture is compute_90. There is nothing to JIT from.
+* **`-arch=sm_89`, which `docker/build_fasteddy.sh` used, embeds a cubin and no PTX at
+  all.** So `jobs/run_seed.sh`'s standing reassurance — "Newer: JIT from PTX, slower but
+  correct" — was false for every binary this project has ever built. On a 5090 it would
+  have been `no kernel image is available for execution on the device`, after the grid was
+  built and the banner had printed, i.e. late enough to look like a physics problem.
+
+### AND `nvcc -dlink` SILENTLY DROPS PTX, so a JIT fallback CANNOT EXIST for this binary
+
+The intended architecture set was real SASS for sm_89 and sm_120 plus `compute_90` and
+`compute_80` PTX as a fallback. MEASURED, on a three-line test program:
+
+| step | `--list-elf` | `--list-ptx` |
+|---|---|---|
+| `nvcc -gencode ...code=compute_90 -dc a.cu -o a.o` | sm_89, sm_120 | **compute_90, compute_80** |
+| `nvcc -gencode ...code=compute_90 a.o -dlink -o dl.o` | sm_89, sm_120 | **none** |
+| the same flags, WHOLE-PROGRAM (`nvcc a.cu -o wp`) | sm_89, sm_120 | compute_90, compute_80 |
+
+FastEddy uses **separate compilation** (`-dc` then `-dlink`) because it has `__device__`
+functions crossing translation units, and the executable's fatbin comes from the device
+link. The PTX is in the objects and never reaches the binary, **with no warning from nvcc
+and no difference in the flags**. The identical flags on a whole-program build keep it,
+which is what makes this easy to assume and hard to notice -- and the shipped image carries
+BOTH HALVES OF THAT COMPARISON ON PURPOSE. `lib/liblpdm.so` is ONE translation unit, built
+whole-program from the same toolkit with the same kind of `-gencode`, and
+`cuobjdump --list-ptx` lists `compute_80` and `compute_120` for it and NOTHING for
+`FastEddy`. The image build asserts both directions, so the finding is reproducible from
+the artifact rather than only from a throwaway test.
+translation unit, so it DOES carry PTX, and comparing the two is what makes the effect
+visible.
+
+**So the fallback is real SASS for seven architectures instead** — sm_75, sm_80, sm_86,
+sm_89, sm_90, sm_100, sm_120, Turing through Blackwell. That is the better answer anyway,
+for exactly the reason a PTX fallback was wanted to be avoided: hydro-core kernels are
+register-heavy and JIT defers register allocation to the driver at load time, where it is
+invisible and unmeasurable. Cost: 83 s of build and an 18 MB binary against 5 MB.
+
+**The rule: `--list-elf` and `--list-ptx` are different questions, and on a separately
+compiled binary the second one always answers "none".** Assert on both.
+
+### CUDA 13.0's two frictions, and both are one line
+
+**1. CCCL requires C++17.** `SRC/FEMAIN/Makefile:40` sets `-std=c++11`. CUDA 13.0 ships CCCL
+(CUB/Thrust/libcu++), which now hard-errors below C++17:
+
+```
+cccl/cub/util_cpp_dialect.cuh:88:   error: CUB requires at least C++17.
+cccl/cuda/std/.../cpp_dialect.h:40: error: libcu++ requires at least C++ 17.
+cccl/thrust/.../cpp_dialect.h:78:   error: Thrust requires at least C++17.
+```
+
+FastEddy reaches CCCL through exactly one include: `fecuda_PlugIns.cu:17` pulls
+`<cub/cub.cuh>` for `cub::BlockReduce`, which implements `cuda_singleRankHorizSlabMeans` —
+**the slab means the `lsf_horMnSubTerms = 1` subsidence forcing uses**. It is on the physics
+path and cannot be dropped. The Makefile offers `-DCUB_IGNORE_DEPRECATED_CPP_DIALECT`
+(11.8-era spelling) and CCCL offers `-DCCCL_IGNORE_DEPRECATED_CPP_DIALECT`; **neither is
+used.** CCCL says *requires*, not *prefers*, and suppressing it would be building on a
+configuration its authors say is not supported. `TEST_CU_CFLAGS` is a plain `=` assignment,
+so the dialect is raised from the make command line and the fork's Makefile is not edited.
+
+**2. Four `cudaDeviceProp` members are GONE.** `clockRate`, `deviceOverlap`, `computeMode`
+and `kernelExecTimeoutEnabled` were deprecated through 12.x and removed in 13.0. FastEddy
+reads all four in exactly one place, `fecuda_Device.cu:fecuda_logDeviceProperties`, which
+only writes to stdout — no caller consumes a return value and no field feeds a launch
+configuration. All four survive as `cudaDeviceGetAttribute` attributes, which is the
+migration NVIDIA documents, so the printed values are the same values. The fork is patched
+under `#if CUDART_VERSION >= 13000` so **one tree still compiles under 11.8**, which is what
+keeps the parity measurement below possible at all.
+
+**What did NOT need touching, which was the anticipated friction**: NetCDF, HDF5 and MPI.
+None of them links against CUDA, so holding Ubuntu at 22.04 held all three fixed. gcc: nvcc
+13.0 accepts 8–15, so 22.04's gcc-11 is now a choice rather than a ceiling.
+
+### The warning set is IDENTICAL, and that is asserted rather than asserted-in-a-comment
+
+Both toolkits compile the same tree with upstream's `-Wall` and emit **exactly the same nine
+warnings**, from the same files with the same messages — all pre-existing upstream printf
+format mismatches (`%u` for `size_t`, `%d` for `size_t`, a zero-length format string). Zero
+new warnings, zero suppressed, zero `nvcc warning` lines. `Dockerfile.blackwell` fails the
+build if a tenth appears or if nvcc emits any warning at all.
+
+### THE PHYSICS DID NOT MOVE, AND IT IS SCORED AGAINST THE MODEL'S OWN FLOOR
+
+`bin/test_toolkit_parity.py`. FastEddy is not bitwise reproducible run-to-run on ONE GPU
+with ONE binary — the slab-mean `atomicAdd` accumulates in block-retirement order — so
+old-vs-new **cannot** be zero and comparing it against zero would fail a correct change.
+
+| | A vs B (11.8 vs 13.0) | A vs C (11.8 vs 11.8) | ratio |
+|---|---|---|---|
+| u | 2.4509e-04 | 2.5272e-04 | **0.97** |
+| v | 2.4438e-04 | 2.3651e-04 | **1.03** |
+| w | 4.0478e-04 | 3.8383e-04 | **1.05** |
+| theta | 8.8501e-04 | 7.9346e-04 | **1.12** |
+
+200 steps, `jobs30/seed_nbl-deep_a015`, cold start, the same physical GPU for all three.
+**The toolkit change is worth 0.97–1.12x re-running the same case.** Re-run against the
+SHIPPED IMAGE's own baked binary rather than a scratch build: **1.07 / 1.06 / 1.00 / 1.11**
+— so the number is a property of the artifact, not of a build made to measure it.
+
+**And the initial condition being bit-identical across all three is what makes it a test at
+all.** `hydro_core.c:1881` draws the initial theta perturbation with `rand()`, seeded at
+`FastEddy.c:113` by `srand(mpi_rank_world + 12345)` -- a FIXED seed at one rank, so every
+cold start of a given case gets the same perturbation field. Both images are Ubuntu 22.04,
+so it is the same glibc producing that sequence. **Moving the distro at the same time as
+the toolkit would have changed the libc, changed the initial condition, and made this a
+measurement of `rand()`.** That is the reason the distro is pinned, and it is not a
+tidiness point.
+
+*(An earlier version of this section said "nothing in FastEddy ever calls `srand()`, so
+every cold start gets glibc's default seed-1 sequence". That is false -- `FastEddy.c:113`
+-- and it is corrected in place rather than quietly dropped, because the CONCLUSION
+survived the wrong mechanism. A mechanism nobody has to re-derive is a mechanism nobody
+checks.)*
+
+### Three tooling traps found while building the checks, all of the same shape
+
+**`cuobjdump --list-elf` and `--list-ptx` NAME IMAGES DIFFERENTLY.** SASS is
+`<file>.<n>.sm_120.cubin`; PTX is `<file>.<n>.sm_120.ptx` — **`sm_`, not `compute_`**, even
+though what was requested was `code=compute_120`. A `sed` matching `compute_[0-9]*\.ptx`
+therefore returns nothing for a binary that HAS the PTX, which is exactly how the assertion
+above first failed against a `liblpdm.so` carrying precisely the two images it was asking
+for. Neither naming is guessable; read the tool's output before writing the pattern.
+
+**`[^\n]` IS NOT A NEWLINE CLASS IN POSIX ERE.** GNU grep reads it as "not a backslash and
+not the letter n", so `grep -oE '...warning[^\n]*'` TRUNCATES every diagnostic at its first
+`n` — "warning: format '%u' expects argume". The warning baseline would have been generated
+already truncated and the comparison would have compared two truncations. Found only
+because the development host's `grep` is `ugrep`, which DOES accept it, so the same command
+behaved differently inside and outside the image.
+
+**`read -r x < /proc/<pid>/cmdline` ASSIGNS AND THEN RETURNS 1.** That file is
+NUL-separated with no trailing delimiter, so `read` hits EOF before a delimiter and reports
+failure even though `x` holds the value. MEASURED:
+
+```
+sleep 5 & { read -r c < /proc/$!/cmdline; }; echo $? "[$c]"   ->   1 [sleep5]
+```
+
+A per-GPU mutex written as `{ read -r _cmd < "$p/cmdline"; } || continue` therefore
+`continue`s on every pid and never refuses anything — and it was written that way to
+suppress a cosmetic "/proc/196/cmdline: No such file" race message. **A cosmetic fix
+disabled a correctness guard, and the guard's failure mode is silence.** It is now
+`tr`-based, tested on the VALUE rather than on the status, and `docker/run_case.sh` runs
+the same scan against its OWN FastEddy five seconds after launching it — if the mutex
+cannot see a process that is demonstrably there, it says so.
+
+### Two things that are NOT claimed
+
+* **Bitwise reproducibility across architectures.** It does not hold and is not sought. A
+  seed is a turbulence realisation; two of them are not meant to be diffed.
+* **That 13.0 is required.** 12.8 also targets sm_120 and would also have worked; 13.0 was
+  tried first because it matches the r580 driver generation on the target boxes, so nothing
+  in the stack runs in a compatibility mode. It built, so it shipped.

@@ -1,7 +1,17 @@
 # Seed jobs — how to run one on a rented GPU
 
+> **THE WHOLE LIBRARY NOW HAS A ONE-COMMAND PATH, AND IT IS NOT THIS ONE — 2026-08-31.**
+> `docker run --gpus all -v /out:/out <image> run_seeds --gpu-count 16` builds all 30 seeds
+> across every visible GPU from a self-contained image with the code baked in: no clone, no
+> build, no chance of the wrong commit. See `bin/run_seeds.py` and `Dockerfile.blackwell`.
+> This file describes running ONE seed by hand from a checkout, which is still how the
+> development workstation does it and is what the orchestrator drives underneath.
+>
+> **THIS DIRECTORY IS THE RETIRED 16 m LIBRARY. `jobs30/` IS PRODUCTION** — 5 rungs x 6 base
+> angles = 30 seeds at 122^3 @ 30 m. The 18 here are a 16 m grid at a 10 m receptor.
+
 Each directory here is one **self-contained spin-up job**: one `.in`, one manifest, one
-entrypoint, no absolute paths, no shared state. 18 of them make the seed library.
+entrypoint, no absolute paths, no shared state.
 
 A seed is **pre-spun flat, uniform, doubly-periodic turbulence**. It is not a corpus point
 and is never trained on. Its only job is to delete the 3 simulated hours of spin-up a
@@ -12,13 +22,13 @@ cases. See `../LIBRARY_PLAN.md`.
 
 | | |
 |---|---|
-| GPU | **sm_89** (compute capability 8.9), ~1.6 GB VRAM. The entrypoint checks and warns: a **newer** architecture JITs from PTX and works but is slower; an **older** one will not run at all. |
+| GPU | **an architecture the binary actually carries SASS for**, ~0.65 GB VRAM (MEASURED at 122^3; the manifests' 1.6 GB is an unverified literal and nothing reads it). The old wording here said a newer architecture "JITs from PTX and works but is slower" — **that was false for every binary this project has ever built**, and would have been a `no kernel image` failure on a 5090. `-arch=sm_89` embeds no PTX, and `nvcc -dlink` drops PTX from a separately-compiled binary anyway (`FASTEDDY_TRAPS.md` §23). The entrypoint now compares the GPU's capability against `cuobjdump --list-elf` on the binary itself and refuses rather than warns. |
 | runtime | Docker with `nvidia-container-toolkit`, and `--gpus all` available |
-| image | `flux-fasteddy:cuda118`, built by `docker/build_fasteddy.sh` |
+| image | `flux-seeds:<commit>` (`docker/build_image.sh`, CUDA 13.0, real SASS sm_75-sm_120, code baked in) — or `flux-fasteddy:cuda118` (`docker/build_fasteddy.sh`) for the toolchain-only workstation path |
 | repo | a checkout of this repository, **anywhere** — the entrypoint discovers its own root |
 | build | **FastEddy must be built inside the checkout** at `FastEddy-model-5.0.1/SRC/FEMAIN/FastEddy`. It is gitignored, so a fresh clone does not have it. |
-| disk | ~2.7 GB per job while running (36 dumps x 73 MB); **~70 MB** comes home (measured) |
-| time | 4 segments of ~46 min wall = **~3.1 h per job** |
+| disk | ~1.8 GB per job while running (24 dumps x 73 MB at the 2.0 sim-h ceiling); **~70 MB** comes home (measured) |
+| time | **ONE invocation, ~58 min wall** at the 2.0 sim-h ceiling and 0.48 GPU-h/sim-h; usually less, because the watcher stops the run when the oscillation-immune limits enter band |
 | network | none during the run; the job is entirely local once the repo and image are present |
 
 ## Run one
@@ -28,10 +38,20 @@ jobs/run_seed.sh jobs/seed_cbl-mid_a030 --dry-run   # preflight only, no GPU tim
 jobs/run_seed.sh jobs/seed_cbl-mid_a030
 ```
 
-It is **resumable**: the chain restarts from the newest dump on disk, so a kill costs at
-most one segment. It is **serialised**: `docker/run_case.sh` refuses to start a second
-FastEddy container, because two of them writing the same `output/` interleave their dumps
-and corrupt both while looking merely stalled.
+**IT IS NOT RESUMABLE, AND THIS FILE SAID THE OPPOSITE UNTIL 2026-08-31.** It claimed "the
+chain restarts from the newest dump on disk, so a kill costs at most one segment" — the
+chain was retired 2026-08-26 and a seed is now ONE continuous invocation. `run_seed.sh`
+REFUSES a partial run rather than resuming or wiping it (`--restart-over` discards it
+deliberately); re-invoking a COMPLETE job is a no-op, which is idempotence and not a
+restart. **A killed job costs the whole run.** The correction matters because the old
+sentence made a kill look cheap.
+
+It is **serialised**, and the scope depends on where it runs: on the workstation
+`docker/run_case.sh` refuses to start a second FastEddy container anywhere on the machine;
+inside the portable image (`FLUX_NATIVE=1`) it refuses a second FastEddy **on the same
+GPU**, keyed on `CUDA_VISIBLE_DEVICES`. Machine-wide would serialise all sixteen cards onto
+one seed at a time. What the rule protects against — two runs writing one `output/` and
+interleaving their dumps, which looks like a stall rather than an error — is per-device.
 
 ## What comes back
 

@@ -1,5 +1,17 @@
 # The seed library and the sounding-forced corpus
 
+> **THE LIBRARY HAS A DEPLOYMENT PATH — 2026-08-31.** One image, one command, N GPUs:
+> `docker run --gpus all -v /out:/out flux-seeds:<tag> run_seeds --gpu-count 16`.
+> The code is baked in and the tag names the commit; **a seed needs no data mount at all**,
+> because it is a flat uniform spin-up with an empty `topoFile` and an empty `inFile`.
+> Operator reference: `DEPLOY.md`. Toolkit and architecture: `FASTEDDY_TRAPS.md` §23.
+>
+> **Two numbers below are corrected by it.** `SEED_CEILING_H = 2.0` was producing
+> **1.9167** simulated hours, not 2.0, because a 1e-6 s tolerance on a whole-dump decision
+> fired on a 0.6 ms floating-point artifact and removed a 300 s dump — at every ceiling.
+> And a 122³ seed takes **0.65 GB of VRAM, measured**, against the 1.6 GB the manifests
+> carry, which is an unverified literal nothing reads.
+
 > **THE CORPUS IS ONE WINDOW PER CASE AND EVERY SEED RUNS 2.0 SIM-H — 2026-08-30.**
 > **This supersedes every cost table below it** — the two-window arithmetic, the 3.0 h seed
 > ceiling, and the earlier 16 m-era per-case figures alike. Full rationale:

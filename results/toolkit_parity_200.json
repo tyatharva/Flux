@@ -1,0 +1,41 @@
+{
+ "job": "jobs30/seed_nbl-deep_a015",
+ "steps": 200,
+ "gpu": "0",
+ "tol": 3.0,
+ "old_image": "flux-fasteddy:cuda118",
+ "old_tree": "/home/atyagi/Flux/FastEddy-model-5.0.1",
+ "new_image": "flux-seeds:latest",
+ "new_tree": "",
+ "fields": {
+  "u": {
+   "toolkit_absmax": 0.00025844573974609375,
+   "floor_absmax": 0.00024127960205078125,
+   "ratio": 1.0711462450592886,
+   "toolkit_relmax": 2.2309429441094436e-05,
+   "floor_relmax": 2.0827622319545728e-05
+  },
+  "v": {
+   "toolkit_absmax": 0.00025081634521484375,
+   "floor_absmax": 0.00023603439331054688,
+   "ratio": 1.0626262626262626,
+   "toolkit_relmax": 8.080186910715766e-05,
+   "floor_relmax": 7.603978176434038e-05
+  },
+  "w": {
+   "toolkit_absmax": 0.000414619455114007,
+   "floor_absmax": 0.00041542109102010727,
+   "ratio": 0.9980703052314176,
+   "toolkit_relmax": 0.08743715665190638,
+   "floor_relmax": 0.08760620989683963
+  },
+  "theta": {
+   "toolkit_absmax": 0.00091552734375,
+   "floor_absmax": 0.000823974609375,
+   "ratio": 1.1111111111111112,
+   "toolkit_relmax": 2.9842595058336303e-06,
+   "floor_relmax": 2.685833555250267e-06
+  }
+ },
+ "pass": true
+}

@@ -1,0 +1,456 @@
+# FastEddy v5.0.1 (kegonsa fork) — PORTABLE SEED IMAGE, CUDA 13.0, Blackwell-capable
+# =============================================================================
+# Kegonsa Solar Array flux-footprint project. Built to be pulled onto a rented
+# multi-GPU box and run with ONE command, with no clone, no build and no chance
+# of the wrong commit:
+#
+#     docker run --gpus all -v /out:/out <image> run_seeds --gpu-count 16
+#
+# THIS IS NOT THE `Dockerfile` NEXT TO IT. That one is CUDA 11.8 and TOOLCHAIN
+# ONLY -- it contains no project files, compiles nothing, and every result this
+# project has published came out of it. It is kept unchanged as the record of
+# how those results were produced. This file is the deployable one: newer
+# toolkit, code baked in, FastEddy compiled at image build time.
+#
+# WHY THE TOOLKIT MOVED -- THE BLOCKING FACT
+# ------------------------------------------
+# nvcc 11.8's highest target is sm_90. The RTX 5090 is sm_120, an architecture
+# that did not exist when 11.8 was written, and CUDA's forward compatibility
+# runs through PTX JIT rather than through the compiler: a toolkit cannot emit
+# code -- SASS or PTX -- for a virtual architecture it has never heard of.
+# 11.8's newest PTX is compute_90, so an 11.8 binary cannot even JIT onto
+# sm_120. It fails at cuModuleLoad, before any physics.
+#
+# PROJECT_BRIEF.md's "CUDA 11.8 (do not upgrade)" was written when sm_89 was the only
+# target that mattered and 11.8 was the FIRST release that had it -- a floor,
+# not a ceiling. That pin is superseded HERE and only here. What the upgrade
+# changed, and what it measurably did not, is FASTEDDY_TRAPS.md 23.
+#
+# WHY 13.0 RATHER THAN 12.8. 12.8 is the first toolkit with sm_120 and would
+# have done; 13.0 was tried first because it matches the driver generation on
+# the target boxes (r580), so nothing anywhere in the stack is running in a
+# compatibility mode. It built, so it shipped. The two frictions 13.0 has that
+# 12.8 does not are both recorded below and both are one-line fixes.
+#
+# ARCHITECTURES: SEVEN, ALL REAL SASS, NO PTX -- AND THE "NO PTX" IS FORCED
+# -------------------------------------------------------------------------
+# The intent was real SASS for sm_89 and sm_120 plus compute_90/compute_80 PTX
+# as a JIT fallback. MEASURED, and it does not work, silently:
+#
+#     nvcc -gencode ...code=compute_90 -dc a.cu -o a.o   ->  a.o HAS the PTX
+#     nvcc -gencode ...code=compute_90 a.o -dlink -o dl.o -> dl.o HAS NONE
+#
+# FastEddy is built with SEPARATE COMPILATION (-dc then -dlink) because it has
+# __device__ functions crossing translation units, and `nvcc -dlink` drops
+# every PTX image from the fatbin WITHOUT A WARNING. The executable's fatbin
+# comes from the device link, so a PTX fallback cannot exist for this binary.
+# The same flags on a whole-program compile keep the PTX, which is what makes
+# the behaviour easy to assume and hard to notice.
+#
+# So the fallback is REAL CODE for every architecture instead, which is the
+# better answer anyway for exactly the reason a PTX fallback was wanted to be
+# avoided: hydro-core kernels are register-heavy, and JIT defers register
+# allocation to the driver at load time where it is invisible and unmeasurable.
+#
+#   sm_75  Turing    T4, RTX 2080          -- the oldest CUDA 13.0 supports
+#   sm_80  Ampere    A100
+#   sm_86  Ampere    A10, A40, RTX 3090
+#   sm_89  Ada       RTX 4080/4090, L40S   -- the local smoke-test card
+#   sm_90  Hopper    H100, H200
+#   sm_100 Blackwell B200, GB200
+#   sm_120 Blackwell RTX 5090, RTX PRO     -- THE DEPLOYMENT TARGET
+#
+# Turing through Blackwell, natively, with no JIT anywhere. Cost: 83 s of build
+# and an 18 MB binary against 5 MB for one architecture. Anything older than
+# sm_75 will not run, and docker/verify_image.sh says so at startup rather than
+# at the first kernel launch.
+#
+# BITWISE REPRODUCIBILITY DOES NOT SURVIVE THIS, AND IS NOT MEANT TO.
+# FastEddy is not bitwise reproducible run-to-run on ONE GPU (~1e-4 relative in
+# velocity after 200 steps -- PROJECT_BRIEF.md), so it certainly is not across a
+# toolkit change or an architecture change. The claim this image makes is the
+# one that matters and the one that was measured, against that same floor:
+#
+#     bin/test_toolkit_parity.py, 200 steps, jobs30/seed_nbl-deep_a015, one GPU
+#     |11.8 - 13.0| against |11.8 - 11.8| :  u 0.97x  v 1.03x  w 1.05x  th 1.12x
+#
+# The toolkit change is worth no more than re-running the same case. Seeds are
+# turbulence REALISATIONS; do not diff two of them.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Stage 1: toolchain. Its own stage so an edit below this line does not re-run
+# 4 GB of apt and pip.
+# -----------------------------------------------------------------------------
+# PINNED BY DIGEST, NOT BY TAG. `13.0.1-devel-ubuntu22.04` is mutable and NVIDIA re-pushes
+# it; the digest is what makes "rebuild this commit and get this toolchain" true rather
+# than true-on-the-day. Update the digest and the tag together, deliberately.
+FROM nvidia/cuda:13.0.1-devel-ubuntu22.04@sha256:93a8d207db5aaa6384f834a6bf70d417433f709e61b57a91e7cc99c16172f49c AS toolchain
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# ---------------------------------------------------------------------------
+# Layer 1: compilers, MPI, NetCDF/HDF5.
+#
+# UBUNTU 22.04, DELIBERATELY, AND NOT 24.04. Every apt package below is a CPU
+# library CUDA does not touch: OpenMPI 4.1.2, NetCDF-C 4.8.1, HDF5 1.10.7, and
+# gcc 11.4. Holding the distro fixed holds all four fixed, so the ONLY thing
+# this image changes against the 11.8 one is the CUDA toolkit. If a number
+# moves there is exactly one candidate. Moving to 24.04 would have changed the
+# MPI, the NetCDF and the compiler at the same time and made the parity
+# measurement above uninterpretable.
+#
+# AND THAT CLAIM IS ONLY AS STRONG AS WHAT IS PINNED. STATED PLAINLY:
+# the BASE is pinned by digest (above), so the toolkit, the distro, gcc, MPI and
+# NetCDF-C are fixed by construction -- those are the ones the FastEddy binary
+# links against, so the parity measurement is reproducible. The pip layers are
+# NOT pinned: `numpy`, `scipy`, `netCDF4` and the rest float. Today they match
+# the 11.8 image exactly (numpy 2.2.6, scipy 1.15.3, netCDF4 1.7.4 in both,
+# checked), but that is a coincidence of build date, not a construction. It is
+# accepted because those packages are the ANALYSIS stack -- they read a dump and
+# score it; none of them is in the LES, and a seed's physics does not pass
+# through them. IMAGE_PROVENANCE.txt records the versions that were actually
+# installed, so a number that moves later can at least be attributed.
+#
+# AND IT IS LOAD-BEARING FOR THAT MEASUREMENT IN A WAY THAT IS EASY TO MISS.
+# hydro_core.c:1881 draws the initial theta perturbation with rand(), seeded at
+# FastEddy.c:113 by `srand(mpi_rank_world + 12345)` -- a FIXED seed at one rank.
+# So the perturbation field is reproducible, but only for a given libc: the
+# sequence rand() returns for seed 12345 is a property of glibc, not of the C
+# standard. Same distro, same glibc, same initial condition on both sides of
+# the comparison. A distro bump would have changed the initial condition and
+# the parity test would have been measuring rand().
+#
+# (An earlier version of this comment said "nothing in FastEddy ever calls
+# srand(), so the cold start uses glibc's default seed-1 sequence". That is
+# false -- FastEddy.c:113 -- and it is recorded rather than quietly replaced
+# because the CONCLUSION survived the wrong mechanism, which is exactly how a
+# wrong mechanism gets to stay in a file.)
+#
+# The 11.8-era gcc ceiling is gone (nvcc 13.0 accepts gcc 8-15, and 22.04 ships
+# 11.4), so gcc-11 is now a choice rather than a constraint. It is kept because
+# it is what the published results were compiled with.
+#
+# NetCDF/HDF5/MPI needed NO rebuild for the toolkit change, which was the one
+# piece of anticipated friction that did not materialise: none of them link
+# against CUDA.
+#
+# Stock OpenMPI, not a CUDA-aware build. FastEddy hands raw device pointers to
+# MPI_Isend/MPI_Irecv under hydroBCs==2 with no numProcs==1 bypass, which looks
+# like it needs CUDA-awareness -- so it was tested rather than assumed (see the
+# 11.8 Dockerfile): at one rank the two builds differ only at the model's own
+# nondeterminism floor. Every seed is numProcsX = numProcsY = 1.
+#
+# Fortran MPI bindings are REQUIRED even though FastEddy has no Fortran source:
+# its C code broadcasts with MPI_INTEGER and MPI_CHARACTER (60 occurrences),
+# which are Fortran datatype handles. --disable-mpi-fortran removes them and
+# the model aborts in MPI_Bcast with MPI_ERR_TYPE. Verified by doing it.
+# ---------------------------------------------------------------------------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        gfortran \
+        make \
+        wget \
+        ca-certificates \
+        file \
+        git \
+        bc \
+        procps \
+        openmpi-bin \
+        libopenmpi-dev \
+        libhdf5-openmpi-dev \
+        libnetcdf-dev \
+        libnetcdff-dev \
+        libpnetcdf-dev \
+        pnetcdf-bin \
+        netcdf-bin \
+        python3 \
+        python3-pip \
+        python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Fail the build here rather than at model startup.
+RUN ompi_info | grep -q "Fort mpif.h: yes" \
+    || { echo "FATAL: MPI lacks Fortran bindings; FastEddy's MPI_INTEGER/MPI_CHARACTER broadcasts would fail."; exit 1; }
+
+# ---------------------------------------------------------------------------
+# Layer 2: the analysis stack. The host has no scipy, so every gate, every
+# footprint and every acceptance check in this project runs inside this image.
+# Mirrors the 11.8 image exactly, plus scikit-image (SimGrid.py imports
+# skimage.measure.block_reduce and NCAR's own environment.yml omits it).
+# ---------------------------------------------------------------------------
+RUN pip3 install --no-cache-dir \
+        numpy \
+        scipy \
+        matplotlib \
+        netCDF4 \
+        xarray \
+        pandas \
+        dask \
+        scikit-image \
+        mpi4py
+
+# ---------------------------------------------------------------------------
+# Layer 3: HRRR pseudo-sounding retrieval (bin/hrrr_sounding.py).
+#
+# A SEED NEEDS NONE OF THIS -- a seed is a flat uniform spin-up with an empty
+# topoFile and an empty inFile, so it reads no sounding, no terrain and no land
+# cover. It is here because the same image also runs corpus CASES, which do.
+#
+# `eccodes` is the pip wheel, which ships its own libeccodes; the apt package
+# is deliberately NOT installed, because the two disagree on definitions paths
+# and cfgrib picks whichever it finds first. One source of eccodes only.
+# ---------------------------------------------------------------------------
+RUN pip3 install --no-cache-dir \
+        "eccodes>=1.7" \
+        "cfgrib>=0.9.10" \
+        "herbie-data>=2024.3.0" \
+        "pyproj>=3.6" \
+        s3fs \
+        scikit-learn \
+    && python3 -c "import cfgrib, herbie; print('cfgrib', cfgrib.__version__, 'herbie', herbie.__version__)"
+
+# OMPI_MCA_plm=isolated: OpenMPI's default launcher is `rsh`, which aborts
+# hunting for an ssh binary a single-node container has no use for.
+# OMPI_ALLOW_RUN_AS_ROOT: the image declares no USER, so a container started
+# without --user runs as root, and OpenMPI refuses to launch as root without
+# these two. The host path uses --user and never needed them.
+ENV CUDA_HOME=/usr/local/cuda \
+    MPI_ROOT=/usr/lib/x86_64-linux-gnu/openmpi \
+    NETCDF_ROOT=/usr \
+    OMPI_MCA_plm=isolated \
+    OMPI_ALLOW_RUN_AS_ROOT=1 \
+    OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+
+# -----------------------------------------------------------------------------
+# Stage 2: the image. Code baked in, FastEddy compiled, SASS asserted.
+# -----------------------------------------------------------------------------
+FROM toolchain AS flux
+
+# THE ARCHITECTURE LIST IS ONE STRING, USED TWICE. The Makefile threads
+# ARCH_CU_FLAGS through BOTH the -dc compile rule (Makefile:161) and the -dlink
+# step (Makefile:196), and a device link whose gencode list disagrees with the
+# objects' produces a binary that links and then finds no image for the running
+# device. Passing the whole list through the one variable makes the two agree
+# by construction -- which is also why no Makefile edit is needed.
+ARG FE_GENCODE="-gencode arch=compute_75,code=sm_75 -gencode arch=compute_80,code=sm_80 -gencode arch=compute_86,code=sm_86 -gencode arch=compute_89,code=sm_89 -gencode arch=compute_90,code=sm_90 -gencode arch=compute_100,code=sm_100 -gencode arch=compute_120,code=sm_120"
+ARG FE_STD="-std=c++17"
+# PTX FOR liblpdm ONLY, AND IT IS EVIDENCE RATHER THAN A FEATURE.
+# liblpdm.so is ONE translation unit, so it is compiled WHOLE-PROGRAM and its PTX
+# survives -- while FastEddy's identical request does not survive `nvcc -dlink`.
+# Asking for it here makes that contrast checkable on the shipped image itself
+# (`cuobjdump --list-ptx` on the two files), instead of only in a throwaway test.
+# It also gives the analysis library a genuine JIT fallback, which costs nothing.
+ARG LPDM_PTX="-gencode arch=compute_80,code=compute_80 -gencode arch=compute_120,code=compute_120"
+ARG GIT_COMMIT=unknown
+ARG GIT_COMMIT_FE=unknown
+ARG BUILD_DATE=unknown
+
+WORKDIR /flux
+COPY . /flux/
+
+# ---------------------------------------------------------------------------
+# FastEddy, compiled into the image.
+#
+# The fork's Makefile is written for NCAR's Casper/Derecho module environment,
+# where the `ncarcompilers` wrapper injects every include and library path. Off
+# it, three lines are wrong -- and all three are plain `=` assignments, so make
+# command-line overrides win and THE FORK'S MAKEFILE IS NOT EDITED:
+#
+#   Makefile:39  ARCH_CU_FLAGS  = -arch=sm_80                  # A100 only
+#   Makefile:46  OTHER_INCLUDES = -I${NCAR_ROOT_MPI}/include    # -> "-I/include"
+#   Makefile:48  TEST_LDFLAGS   = -L.                           # no lib paths
+#
+# A FOURTH OVERRIDE IS NEW AND IS THE FIRST OF CUDA 13.0's TWO FRICTIONS.
+# Makefile:40 sets `-std=c++11` inside TEST_CU_CFLAGS. CUDA 13.0 ships CCCL
+# (CUB/Thrust/libcu++), and CCCL now HARD-REQUIRES C++17:
+#
+#   cccl/cub/util_cpp_dialect.cuh:88: error: CUB requires at least C++17.
+#   cccl/cuda/std/__internal/cpp_dialect.h:40: libcu++ requires at least C++17.
+#   cccl/thrust/detail/config/cpp_dialect.h:78: Thrust requires at least C++17.
+#
+# FastEddy reaches CCCL through exactly one include -- fecuda_PlugIns.cu:17
+# pulls <cub/cub.cuh> for cub::BlockReduce, which implements
+# cuda_singleRankHorizSlabMeans, i.e. the slab means the subsidence forcing
+# uses. It is on the physics path, so it cannot simply be dropped.
+#
+# The dialect is RAISED rather than the diagnostic suppressed. CCCL offers
+# -DCCCL_IGNORE_DEPRECATED_CPP_DIALECT, and that would be exactly the
+# "suppressed warning" this build refuses to have: CCCL says "requires", not
+# "prefers". C++17 changes no floating-point semantics, and the parity
+# measurement quoted at the top of this file is what establishes that in fact
+# rather than in principle. TEST_CU_CFLAGS is a plain `=` too, and the
+# override is written with $(...) so make still expands DEFINES/INCLUDES.
+#
+# Serial. The FastEddy_devlink.o rule has no prerequisites and begins with
+# `rm -rf`, which races under -j.
+# ---------------------------------------------------------------------------
+RUN set -eux; \
+    cd /flux/FastEddy-model-5.0.1/SRC/FEMAIN; \
+    MK="TEST_CC=mpicc \
+        ARCH_CU_FLAGS=${FE_GENCODE} \
+        OTHER_INCLUDES=-I${MPI_ROOT}/include -I${CUDA_HOME}/include -I${NETCDF_ROOT}/include"; \
+    make clean TEST_CC=mpicc "ARCH_CU_FLAGS=${FE_GENCODE}" \
+        "OTHER_INCLUDES=-I${MPI_ROOT}/include -I${CUDA_HOME}/include -I${NETCDF_ROOT}/include" \
+        "TEST_LDFLAGS=-L." || true; \
+    make \
+        TEST_CC=mpicc \
+        "ARCH_CU_FLAGS=${FE_GENCODE}" \
+        "TEST_CU_CFLAGS=\$(ARCH_CU_FLAGS) -m64 ${FE_STD} \$(DEFINES) \$(INCLUDES) \$(OTHER_INCLUDES)" \
+        "OTHER_INCLUDES=-I${MPI_ROOT}/include -I${CUDA_HOME}/include -I${NETCDF_ROOT}/include" \
+        "TEST_LDFLAGS=-L. -L${CUDA_HOME}/lib64 -L${MPI_ROOT}/lib -L${NETCDF_ROOT}/lib/x86_64-linux-gnu" \
+        2>&1 | tee /flux/build_fasteddy.log; \
+    test -x /flux/FastEddy-model-5.0.1/SRC/FEMAIN/FastEddy
+
+# NO WARNING IS SUPPRESSED AND NO NEW WARNING IS INTRODUCED -- and that is
+# asserted rather than asserted-in-a-comment. The build carries upstream's
+# -Wall on all host C and emits exactly NINE warnings, every one of them a
+# pre-existing upstream printf format mismatch (%u for size_t, %d for size_t,
+# a zero-length format string). The CUDA 11.8 build of the same tree emits the
+# SAME NINE, from the same files with the same messages. If a tenth appears,
+# the build stops here rather than letting it scroll past in a log.
+# THE PATTERN HAS TO MATCH EVERY SHAPE A WARNING CAN TAKE HERE, and its first version
+# matched one. `^\.\./.*: warning:` anchors on `../`, so it saw NONE of:
+#   FastEddy.c:120:5: warning: ...        (FEMAIN is compiled from inside itself, no ../)
+#   cuda_sgsTurbDevice.cu(88): warning #177-D: ...   (nvcc/cicc device-side form)
+#   nvcc warning : ...  /  ptxas warning : ...
+# A gate that cannot see two of the three formats is not a gate. And a COUNT cannot see a
+# substitution: nine warnings that are a DIFFERENT nine would pass. Compare the SET.
+#
+# `.*` AND NOT `[^\n]*`. POSIX ERE has no \n escape inside a bracket expression, so GNU
+# grep reads that class as "not a backslash and not the letter n" and TRUNCATES every
+# diagnostic at its first n -- "warning: format '%u' expects argume". The baseline file
+# would have been generated already truncated and the comparison would have compared two
+# truncations. (The development host's grep is ugrep, which DOES accept it there, so the
+# same command behaved differently inside and outside the image -- which is how this was
+# found.) grep -o is per-line anyway, so `.*` is both correct and simpler.
+RUN set -eux; \
+    grep -oiE '(^|[[:space:]])[^[:space:]]+[:(][0-9]+[):][^[:space:]]*[[:space:]]*warning.*' \
+        /flux/build_fasteddy.log \
+      | sed -E 's/[0-9]+/N/g; s/^[[:space:]]+//' | sort -u > /flux/warnings_seen.txt; \
+    echo "distinct diagnostics:"; sed 's/^/  /' /flux/warnings_seen.txt; \
+    grep -v '^#' /flux/docker/expected_warnings.txt | grep -v '^$' > /flux/warnings_expected.txt; \
+    diff -u /flux/warnings_expected.txt /flux/warnings_seen.txt \
+      || { echo "FATAL: the warning set differs from the CUDA 11.8 baseline in"; \
+           echo "       docker/expected_warnings.txt. NOTHING here is suppressed -- if the"; \
+           echo "       new line is a real pre-existing upstream warning, add it there and"; \
+           echo "       say so; if it is new, it is the toolkit and must be understood."; exit 1; }; \
+    ! grep -qiE '^(nvcc|ptxas) warning' /flux/build_fasteddy.log \
+      || { echo "FATAL: nvcc/ptxas emitted a warning"; exit 1; }
+
+# The GPU-resident LPDM as a shared library. One translation unit, two
+# front-ends: the same .cu is linked into FastEddy for production and built
+# here for the acceptance suite, so both paths exercise the same integrator.
+# Not on a seed's path; built because this image is also the analysis image.
+# WHOLE-PROGRAM here (no -dc), so unlike FastEddy this one CAN carry PTX -- and
+# ${LPDM_PTX} asks for it, which is what makes the -dlink finding reproducible
+# FROM THE IMAGE: cuobjdump --list-ptx on liblpdm.so lists compute_80 and
+# compute_120, and on FastEddy lists nothing, from the same toolkit and the same
+# kind of request. The difference is separate vs whole-program compilation and
+# nothing else.
+RUN set -eux; \
+    mkdir -p /flux/lib; \
+    nvcc -O3 ${FE_STD} ${FE_GENCODE} ${LPDM_PTX} -Xcompiler -fPIC -shared \
+         -I /flux/FastEddy-model-5.0.1/SRC/LPDM/CUDA \
+         /flux/FastEddy-model-5.0.1/SRC/LPDM/CUDA/cuda_lpdmDevice.cu \
+         -o /flux/lib/liblpdm.so 2>&1 | tee /flux/build_lpdm.log; \
+    test -s /flux/lib/liblpdm.so
+
+# ---------------------------------------------------------------------------
+# ASSERT ON THE ARTIFACT, NOT ON THE FLAGS. PROJECT_BRIEF.md's most expensive standing
+# rule, and this project has paid for it four separate times. `-gencode ...
+# code=sm_120` on the command line is a REQUEST; what the binary carries is the
+# answer. cuobjdump reads the fatbin out of the ELF, so the build fails HERE if
+# an architecture is missing rather than on a rented box at the first kernel.
+# ---------------------------------------------------------------------------
+RUN set -eux; \
+    BIN=/flux/FastEddy-model-5.0.1/SRC/FEMAIN/FastEddy; \
+    cuobjdump --list-elf "$BIN" | sed 's/.*\.\(sm_[0-9]*\)\.cubin/\1/' | sort -u > /flux/sass_elf.txt; \
+    (cuobjdump --list-ptx "$BIN" 2>/dev/null | sed 's/.*\.sm_\([0-9]*\)\.ptx/compute_\1/' | sort -u || true) > /flux/sass_ptx.txt; \
+    echo "--- SASS in FastEddy ---"; cat /flux/sass_elf.txt; \
+    echo "--- PTX in FastEddy (expected EMPTY: nvcc -dlink drops it) ---"; cat /flux/sass_ptx.txt; \
+    # NOTE THE EXTRACTION: cuobjdump names a PTX image `<file>.<n>.sm_XX.ptx`, with the
+    # `sm_` prefix, NOT `compute_XX.ptx`. Matching on `compute_` returns nothing for a
+    # binary that HAS PTX -- which is how the liblpdm assertion below first fired against
+    # a library that carried exactly the two images it was asking for. `--list-elf` and
+    # `--list-ptx` name things differently and neither is guessable. \
+    for arch in sm_75 sm_80 sm_86 sm_89 sm_90 sm_100 sm_120; do \
+      grep -qx "$arch" /flux/sass_elf.txt || { echo "FATAL: no $arch SASS in the binary"; exit 1; }; \
+    done; \
+    cuobjdump --list-elf /flux/lib/liblpdm.so | sed 's/.*\.\(sm_[0-9]*\)\.cubin/\1/' | sort -u > /flux/sass_elf_lpdm.txt; \
+    (cuobjdump --list-ptx /flux/lib/liblpdm.so 2>/dev/null | sed 's/.*\.sm_\([0-9]*\)\.ptx/compute_\1/' | sort -u || true) > /flux/sass_ptx_lpdm.txt; \
+    grep -qx sm_120 /flux/sass_elf_lpdm.txt || { echo "FATAL: no sm_120 SASS in liblpdm.so"; exit 1; }; \
+    grep -qx sm_89  /flux/sass_elf_lpdm.txt || { echo "FATAL: no sm_89 SASS in liblpdm.so"; exit 1; }; \
+    # THE CONTRAST IS ASSERTED, because it is the evidence for the -dlink finding and a
+    # claim in three files. Same toolkit, same kind of -gencode request, opposite outcome:
+    # whole-program keeps PTX, separately-compiled-then-device-linked does not.
+    grep -qx compute_120 /flux/sass_ptx_lpdm.txt \
+      || { echo "FATAL: liblpdm.so carries no compute_120 PTX, so the whole-program-vs--dlink"; \
+           echo "       contrast documented in FASTEDDY_TRAPS.md 23 is not checkable here."; exit 1; }; \
+    [ ! -s /flux/sass_ptx.txt ] \
+      || { echo "FATAL: FastEddy carries PTX. The -dlink finding may no longer hold;"; \
+           echo "       re-check FASTEDDY_TRAPS.md 23 before trusting it."; exit 1; }
+
+# THE JOB DIRECTORIES MUST BE CLEAN, or run_seed.sh refuses. A partial run on
+# disk is refused rather than silently wiped (it may be hours of GPU someone
+# wants), and a COMPLETE one is skipped and only re-scored. The .dockerignore
+# excludes jobs*/*/output and jobs*/*/return for exactly that reason; this
+# asserts that it worked, because a stale dump baked into the image would make
+# every rented machine skip the LES and return a two-month-old restart.
+# THE ASSERTION SEARCHES THE WHOLE TREE, NOT ONE GLOB LEVEL. Its first version globbed
+# `/flux/jobs30/*/{output,return,FE_*}` and passed while 560 MB of FE_SMOKE dumps sat in
+# `/flux/jobs/<seed>/smoke_aside/` -- excluded, it was assumed, by `jobs/*/FE_*`, which
+# does not cross a second `/`. A guard that only looks where the pattern already looks
+# cannot catch the pattern being wrong. `find` over everything is the check.
+RUN set -eux; \
+    STRAY=$(find /flux/jobs /flux/jobs30 -name 'FE_*' -o -name '*.nc' 2>/dev/null | head -20); \
+    [ -z "$STRAY" ] || { echo "FATAL: baked job dirs carry run artifacts; fix .dockerignore"; \
+                         echo "$STRAY"; exit 1; }; \
+    BIG=$(du -sm /flux/jobs /flux/jobs30 2>/dev/null | awk '$1 > 20 {print}'); \
+    [ -z "$BIG" ] || { echo "FATAL: a job tree is over 20 MB, so something bulky is baked in:"; \
+                       echo "$BIG"; exit 1; }; \
+    test "$(ls -d /flux/jobs30/seed_* | wc -l)" = 30 || { echo "FATAL: expected 30 seed jobs"; exit 1; }; \
+    python3 -c "import json;d=json.load(open('/flux/jobs30/index.json'));assert d['n_jobs']==30, d['n_jobs'];print('30 seed jobs, index.json consistent')"
+
+# The provenance goes into the FILESYSTEM as well as into the labels, because
+# `docker inspect` cannot be run from inside a container and the entrypoint has
+# to be able to print what it is into a log someone will paste into a message.
+RUN set -eux; \
+    { echo "flux_commit        = ${GIT_COMMIT}"; \
+      echo "fasteddy_commit    = ${GIT_COMMIT_FE}"; \
+      echo "build_date         = ${BUILD_DATE}"; \
+      echo "cuda               = $(nvcc --version | sed -n 's/.*release \([0-9.]*\).*/\1/p' | head -1)"; \
+      echo "gcc                = $(gcc -dumpfullversion)"; \
+      echo "cxx_dialect        = ${FE_STD}"; \
+      echo "mpi                = $(ompi_info --version | head -1 | tr -s ' ')"; \
+      echo "netcdf             = $(nc-config --version)"; \
+      echo "fasteddy_sass      = $(tr '\n' ' ' < /flux/sass_elf.txt)"; \
+      echo "fasteddy_ptx       = $(tr '\n' ' ' < /flux/sass_ptx.txt)  (empty by construction: nvcc -dlink drops PTX)"; \
+      echo "liblpdm_sass       = $(tr '\n' ' ' < /flux/sass_elf_lpdm.txt)"; \
+      echo "liblpdm_ptx        = $(tr '\n' ' ' < /flux/sass_ptx_lpdm.txt)  (whole-program, so it survives -- the contrast)"; \
+      echo "numpy/scipy/netCDF4 = $(python3 -c 'import numpy,scipy,netCDF4;print(numpy.__version__, scipy.__version__, netCDF4.__version__)')"; \
+      echo "hdf5_via_netcdf4   = $(python3 -c 'import netCDF4;print(netCDF4.__hdf5libversion__)')"; \
+    } > /flux/IMAGE_PROVENANCE.txt; \
+    cat /flux/IMAGE_PROVENANCE.txt
+
+LABEL org.opencontainers.image.title="Flux FastEddy seed generator" \
+      org.opencontainers.image.description="FastEddy v5.0.1 (kegonsa fork) + Kegonsa flux-footprint pipeline; CUDA 13.0; real SASS sm_75..sm_120" \
+      org.opencontainers.image.revision="${GIT_COMMIT}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      flux.fasteddy.revision="${GIT_COMMIT_FE}" \
+      flux.cuda="13.0.1" \
+      flux.gencode="${FE_GENCODE}"
+
+# FLUX_NATIVE=1 is what makes the project's own drivers run INSIDE a container
+# instead of shelling out to `docker run` on a host. docker/run_case.sh and
+# docker/pyrun.sh both branch on it; nothing else in the tree changes, and the
+# host workflow is byte-for-byte what it was.
+ENV FLUX_ROOT=/flux \
+    FLUX_NATIVE=1 \
+    FLUX_OUT=/out \
+    PYTHONUNBUFFERED=1 \
+    PATH=/flux/bin:/flux/docker:${PATH}
+
+WORKDIR /flux
+ENTRYPOINT ["/flux/docker/entrypoint.sh"]
+CMD ["help"]

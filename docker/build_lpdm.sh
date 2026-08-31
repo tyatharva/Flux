@@ -11,7 +11,7 @@ set -uo pipefail
 FLUX_ROOT="${FLUX_ROOT:-/home/atyagi/Flux}"
 ARCH="${SM_ARCH:-sm_89}"
 docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
-  -v "${FLUX_ROOT}":/work -w /work --entrypoint nvcc flux-fasteddy:cuda118 \
+  -v "${FLUX_ROOT}":/work -w /work --entrypoint nvcc "${FLUX_IMAGE:-flux-fasteddy:cuda118}" \
   -O3 -std=c++11 -arch="${ARCH}" -Xcompiler -fPIC -shared \
   -I FastEddy-model-5.0.1/SRC/LPDM/CUDA \
   FastEddy-model-5.0.1/SRC/LPDM/CUDA/cuda_lpdmDevice.cu \

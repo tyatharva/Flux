@@ -79,17 +79,36 @@ PYMAN
 # stops there and THAT IS THE RESULT -- no extension, no respec.
 SEED_CEILING_H="${SEED_CEILING_H:-2.0}"
 if [ -n "$SEED_CEILING_H" ]; then
-  # ROUNDED TO A WHOLE NUMBER OF DUMPS, and the rounding is TOLERANT rather than a bare
-  # int(). MEASURED: at dt = 0.0308642 and frq = 9720, 1.0*3600/dt/frq evaluates to
-  # 11.999999040000077 in binary floating point, so `int()` returned 11 and the 1.0 h
-  # ceiling silently became 3300 s -- 0.917 sim-h, a whole dump and 8.3% of the run gone,
-  # with nothing in the output to say so. The ninth pass's run 1 is exactly that run.
-  # Round to nearest and only then verify the result does not EXCEED the request.
+  # ROUNDED TO A WHOLE NUMBER OF DUMPS, WITH A TOLERANCE THE SIZE OF THE FAILURE IT IS
+  # LOOKING FOR -- and the previous version was not, so it lost a dump at every ceiling.
+  #
+  # History, because this is the same bug twice. First a bare `int()`: at dt = 0.0308642
+  # and frq = 9720, 1.0*3600/dt/frq evaluates to 11.999999040000077, so int() returned 11
+  # and a 1.0 h ceiling silently became 0.917 sim-h. The ninth pass's run 1 is that run.
+  # The fix was round()-then-verify -- and the VERIFY re-introduced it, because it rejected
+  # any overshoot beyond 1e-6 SECONDS. MEASURED, at the production dt and cadence:
+  #
+  #     ceiling   round()    n*FRQ*dt - H*3600      old guard        cost
+  #       1.0 h      12          +0.288 ms          -> 11 dumps      8.3%
+  #       2.0 h      24          +0.576 ms          -> 23 dumps      4.2%
+  #       3.0 h      36          +0.864 ms          -> 35 dumps      2.8%
+  #
+  # The overshoot is not a scheduling error, it is the .in's dt: the true value is
+  # 5/162 = 0.030864197530864196 and the file carries 0.0308642, rounded UP at the 7th
+  # decimal, so steps*dt always lands a fraction of a millisecond long. The guard exists
+  # to catch "the rounding added a WHOLE DUMP", a 300-second event, and it was scoring
+  # against one microsecond -- so it fired on an artifact 500,000 times smaller than the
+  # thing it can act on, and paid for it in whole dumps.
+  #
+  # The tolerance is now expressed in DUMPS, which is the unit the decision is made in:
+  # accept up to a thousandth of a dump of overshoot (0.3 s at the production cadence),
+  # which is four orders of magnitude above the float artifact and three below one dump.
   _NEW=$(python3 -c "
 import math
-n = round($SEED_CEILING_H*3600.0/$DT/$FRQ)
-if n*$FRQ*$DT > $SEED_CEILING_H*3600.0 + 1e-6: n -= 1
-print(int(n)*$FRQ)")
+dumps = $SEED_CEILING_H*3600.0/($DT*$FRQ)
+n = int(math.floor(dumps + 1e-3))
+assert n*$FRQ*$DT <= $SEED_CEILING_H*3600.0 + 1e-3*$FRQ*$DT, 'ceiling overshoot'
+print(n*$FRQ)")
   [ "$_NEW" -gt 0 ] || die "SEED_CEILING_H=$SEED_CEILING_H rounds to zero dumps"
   if [ "$_NEW" -lt "$TOTAL" ]; then
     WALLMIN=$(python3 -c "print(f'{$WALLMIN*$_NEW/$TOTAL:.1f}')")
@@ -123,17 +142,64 @@ date '+%F %H:%M:%S'
 echo "  dt $DT, dump every $FRQ steps, $TOTAL steps in ONE invocation (proj ${WALLMIN} min wall)"
 
 # ---- preflight: the GPU, before any GPU time is spent -----------------------------
-CC=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -1 | tr -d ' ')
+#
+# THIS CHECK USED TO ASK THE WRONG GPU A QUESTION WHOSE ANSWER IT THEN GOT WRONG.
+# It read `nvidia-smi --query-gpu=compute_cap | head -1` -- GPU 0's capability, whatever
+# card this seed was actually going to run on -- compared it against the literal "8.9",
+# and, when they differed, reassured the operator that a newer architecture would "JIT
+# from PTX, slower but correct".
+#
+# THAT REASSURANCE WAS FALSE, and on a 5090 it was the difference between a slow run and
+# no run. docker/build_fasteddy.sh emitted `-arch=sm_89`, which is shorthand for
+# `-gencode arch=compute_89,code=sm_89`: a cubin and NO PTX. There was nothing to JIT
+# from. And it is worse than an omission -- MEASURED here, and it is why the deployable
+# image carries real SASS for every architecture it supports rather than a PTX fallback:
+# FastEddy is built with SEPARATE COMPILATION (-dc then -dlink), and `nvcc -dlink` DROPS
+# every PTX image from the fatbin without a word. Adding `-gencode arch=compute_90,
+# code=compute_90` puts PTX in the .o files and none of it survives into the executable.
+#
+# So the question is not "what capability is GPU 0" but "does the binary I am about to run
+# contain SASS for the card THIS seed was given", and that is answerable exactly.
+GPU_Q="${CUDA_VISIBLE_DEVICES:-0}"; GPU_Q="${GPU_Q%%,*}"
+CC=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader -i "$GPU_Q" 2>/dev/null | head -1 | tr -d ' ')
 if [ -z "$CC" ]; then
-  echo "  WARNING: nvidia-smi gave no compute capability; cannot verify sm_89" >&2
-elif [ "$CC" != "8.9" ]; then
-  # Not fatal. The image is compiled for sm_89 and CUDA will JIT from PTX on a newer
-  # architecture, which works and is slower; on an OLDER one it will not run at all.
-  echo "  WARNING: compute capability $CC, image built for 8.9 (sm_89)." >&2
-  echo "           Newer: JIT from PTX, slower but correct. Older: it will not run." >&2
+  # FATAL IN NATIVE MODE, AND THE REASON IS TIMING RATHER THAN SILENCE.
+  # MEASURED on the shipped image: a CUDA_VISIBLE_DEVICES naming a card this box does not
+  # have makes cudaGetDeviceCount set cudaErrorNoDevice, and gpuErrchk at
+  # fecuda_Device.cu:55 prints "GPUassert: no CUDA-capable device is detected" and exits
+  # 100. So it fails LOUDLY -- the exit(0) branch at fecuda_Device.cu:75-79 is unreachable
+  # on this stack, and an earlier version of this comment wrongly cited it as a silent
+  # success. The check stays because failing HERE costs nothing and failing there costs a
+  # container start, an mpirun and a confusing log on a machine running fifteen other
+  # seeds.
+  if [ "${FLUX_NATIVE:-0}" = "1" ]; then
+    die "nvidia-smi reports no GPU $GPU_Q. FastEddy would abort in gpuAssert at
+      fecuda_Device.cu:55 with 'no CUDA-capable device is detected' and exit 100, after a
+      container start and an mpirun. Check CUDA_VISIBLE_DEVICES and that the container was
+      started with --gpus all."
+  fi
+  echo "  WARNING: nvidia-smi gave no compute capability for GPU $GPU_Q" >&2
+else
+  WANT="sm_$(echo "$CC" | tr -d '.')"
+  FE_BIN_CHK="${FE_BIN:-${ROOT}/FastEddy-model-5.0.1/SRC/FEMAIN/FastEddy}"
+  if [ "${FLUX_NATIVE:-0}" = "1" ] && [ -x "$FE_BIN_CHK" ] && command -v cuobjdump >/dev/null 2>&1; then
+    HAVE=$(cuobjdump --list-elf "$FE_BIN_CHK" 2>/dev/null | sed 's/.*\.\(sm_[0-9]*\)\.cubin/\1/' | sort -u | tr '\n' ' ')
+    case " $HAVE " in
+      *" $WANT "*) echo "  GPU $GPU_Q is $CC -> $WANT, and the binary carries it (has: $HAVE)";;
+      *) die "GPU $GPU_Q is compute capability $CC ($WANT) and the FastEddy binary carries
+      SASS for [$HAVE] and no PTX at all. It would fail at cuModuleLoad with 'no kernel
+      image is available for execution on the device'. Rebuild the image with $WANT in
+      FE_GENCODE.";;
+    esac
+  elif [ "$CC" != "8.9" ]; then
+    echo "  WARNING: GPU $GPU_Q is compute capability $CC; this checkout's image is built" >&2
+    echo "           for 8.9 (sm_89) with NO PTX, so it will not run there." >&2
+  fi
 fi
-docker image inspect flux-fasteddy:cuda118 >/dev/null 2>&1 \
-  || die "image flux-fasteddy:cuda118 not present; build it with docker/build_fasteddy.sh"
+if [ "${FLUX_NATIVE:-0}" != "1" ]; then
+  docker image inspect "${FLUX_IMAGE:-flux-fasteddy:cuda118}" >/dev/null 2>&1 \
+    || die "image ${FLUX_IMAGE:-flux-fasteddy:cuda118} not present; build it with docker/build_fasteddy.sh"
+fi
 
 if [ "$DRY" = "1" ]; then echo "  --dry-run: preflight only, stopping here"; exit 0; fi
 
@@ -214,14 +280,28 @@ else
   date '+%F %H:%M:%S'
   rm -f "$JOB/output/.early_stop"
   WATCH_PID=""
+  # SCORE_H IS EXPORTED, and it was not. The watcher is a CHILD PROCESS, so a plain shell
+  # variable never reached it: jobs/seed_watch.sh:30 fell back to its own `${SCORE_H:-2.0}`
+  # while the final gate below used the value derived from the run that was actually
+  # produced. The two therefore scored DIFFERENT WINDOW WIDTHS -- the watcher deciding
+  # when to stop on one width, the verdict written down on another -- which is exactly the
+  # kind of disagreement that looks like a physics result.
+  export SCORE_H
+  # And the ceiling, so the watcher reports the run's own rather than the manifest's.
+  export SEED_TOTAL_STEPS="$TOTAL"
   if [ "${SEED_EARLY_STOP:-1}" = "1" ]; then
     # OPEN-ENDED WITH A CEILING. Nt is the ceiling; the watcher usually ends the run
     # sooner and stamps the step it stopped at. See jobs/seed_watch.sh for why the
     # criterion is the oscillation-immune limits only.
-    ./jobs/seed_watch.sh "$JOB" & WATCH_PID=$!
+    # setsid, so the watcher is a process GROUP LEADER. `kill $WATCH_PID` reaches only
+    # the watcher's bash -- and the watcher spends most of its life blocked inside a
+    # seed_stationarity.py it launched, so killing the shell ORPHANS that child. One per
+    # seed is a curiosity on a workstation; sixteen per wave on a rented box is a leak
+    # that outlives the run it belonged to.
+    setsid ./jobs/seed_watch.sh "$JOB" & WATCH_PID=$!
   fi
   ./docker/run_case.sh "$JOB_REL" "run.in" "$JOB/return/run.log"; RC_RUN=$?
-  [ -n "$WATCH_PID" ] && kill "$WATCH_PID" 2>/dev/null
+  [ -n "$WATCH_PID" ] && { kill -TERM -- "-$WATCH_PID" 2>/dev/null || kill "$WATCH_PID" 2>/dev/null; }
   # A container the watcher stopped exits non-zero, which is not a failure -- but a run
   # that failed for any OTHER reason must still fail. Distinguish on the marker, and on
   # the artifact, never on the exit status alone (FASTEDDY_TRAPS.md 12).
@@ -279,12 +359,21 @@ VERDICT=$(python3 -c "import json;print('PASS' if json.load(open('$JOB/return/st
 FINAL=$(ls -1 "$JOB/output/$OUTBASE".* | sort -t. -k2 -n | tail -1)
 cp -f "$FINAL" "$JOB/return/seed_restart.nc" || die "could not stage the restart"
 cp -f "$JOB/manifest.json" "$JOB/return/manifest.json"
-python3 - "$JOB/return/manifest.json" "$JOB/return/stationarity.json" "$(basename "$FINAL")" <<'PY'
+python3 - "$JOB/return/manifest.json" "$JOB/return/stationarity.json" "$(basename "$FINAL")" \
+        "$TOTAL" "$(python3 -c "print(f'{$TOTAL*$DT/3600:.6f}')")" <<'PY'
 import json,sys
 man=json.load(open(sys.argv[1])); st=json.load(open(sys.argv[2]))
 man["achieved"]=st["final"]                 # LABEL THE SEED BY WHAT IT ACHIEVED, not by
 man["achieved"]["pass"]=st["pass"]          # what it was asked for -- pick_seed.py reads
 man["achieved"]["source_dump"]=sys.argv[3]  # these, and PROJECT_BRIEF.md says the same for
+# THE CEILING THIS RUN WAS ACTUALLY HELD TO, STAMPED INTO THE ARTIFACT.
+# steps_total in the manifest is the job's DESIGN ceiling (349920 = 3.0 sim-h for every
+# jobs30 job); SEED_CEILING_H is applied inside this script and, until now, left no trace.
+# bin/seed_accept.sh then reported "1.92 of 3.00 simulated hours" against a ceiling the run
+# never had -- and could only avoid it if the operator happened to have SEED_CEILING_H set
+# in their own shell. Assert on the artifact, not on an inherited environment variable.
+man.setdefault("run",{})["ceiling_steps"]=int(sys.argv[4])
+man["run"]["ceiling_sim_h"]=float(sys.argv[5])
 json.dump(man,open(sys.argv[1],"w"),indent=1) # direction.
 PY
 SZ=$(du -sh "$JOB/return" | cut -f1)

@@ -34,10 +34,40 @@ print(m['job'],r['dt'],r['steps_total'],m['target']['wth_virtual'],r['outFileBas
 LAST=$(ls -1 "$JOB/output/$OUTBASE".[0-9]* 2>/dev/null | sort -t. -k2 -n | tail -1)
 [ -n "$LAST" ] && [ -f "$LAST" ] || { echo "FATAL: no dump in $JOB/output" >&2; exit 1; }
 STOPPED_AT=${LAST##*.}
-if [ "$STOPPED_AT" != "$TOTAL" ]; then
-  echo "  the run stopped at step $STOPPED_AT of a $TOTAL ceiling = $(python3 -c \
+# THE CEILING THE RUN ACTUALLY HAD IS NOT ALWAYS THE MANIFEST'S. Every jobs30 manifest
+# carries steps_total = 349920 (3.0 sim-h), and SEED_CEILING_H -- 2.0 h by default since
+# 2026-08-30 -- is applied inside jobs/run_seed.sh and never written back. Reporting
+# "1.92 of 3.00 simulated hours" against a ceiling the run never had reads as a run that
+# stopped two-thirds of the way through something, which is the opposite of what happened.
+# READ IT FROM THE ARTIFACT jobs/run_seed.sh STAMPED, and fall back to the environment
+# only if it is absent (an older return/ predating the stamp). An env-only version was
+# right exactly when the operator's shell happened to carry the variable the run was made
+# under -- which is not a property of the run.
+EFF_TOTAL=$(python3 - "$JOB/return/manifest.json" "$TOTAL" "${SEED_CEILING_H:-}" "$DT" <<'PYC'
+import json, math, sys
+path, total, ceil_h, dt = sys.argv[1], int(sys.argv[2]), sys.argv[3], float(sys.argv[4])
+eff = total
+try:
+    m = json.load(open(path))
+    eff = int(m["run"].get("ceiling_steps") or total)
+except Exception:
+    if ceil_h:
+        frq = 9720
+        try:
+            frq = int(json.load(open(path))["run"]["frqOutput"])
+        except Exception:
+            pass
+        eff = min(int(math.floor(float(ceil_h) * 3600.0 / (dt * frq) + 1e-3)) * frq, total)
+print(eff)
+PYC
+)
+if [ "$STOPPED_AT" != "$EFF_TOTAL" ]; then
+  echo "  the run stopped at step $STOPPED_AT of a $EFF_TOTAL ceiling = $(python3 -c \
     "print(f'{$STOPPED_AT*$DT/3600:.2f}')") of $(python3 -c \
-    "print(f'{$TOTAL*$DT/3600:.2f}')") simulated hours" | tee_
+    "print(f'{$EFF_TOTAL*$DT/3600:.2f}')") simulated hours" | tee_
+  [ "$EFF_TOTAL" != "$TOTAL" ] && echo "  (the job's DESIGN ceiling is $TOTAL steps "\
+"= $(python3 -c "print(f'{$TOTAL*$DT/3600:.2f}')") sim-h; the ceiling this run was actually "\
+"held to is stamped in return/manifest.json as run.ceiling_steps)" | tee_
 fi
 echo "########## acceptance battery: $NAME ($REGIME) ##########" | tee_
 date '+%F %H:%M:%S' | tee_
@@ -85,9 +115,23 @@ say "6. Gate C2: restart with Nt = restart step, re-dump, diff byte-for-byte"
 # C2 IS THE ONE STEP THAT NEEDS THE GPU, and docker/run_case.sh refuses a second FastEddy
 # container. Say which it is rather than emitting a confusing refusal, so a battery run
 # while another seed is on the GPU produces a legible "not yet" instead of a FAIL.
+#
+# AND THE "IS THE GPU BUSY" TEST IS PER-GPU IN NATIVE MODE. On the host it asked whether
+# ANY container from the image was running, which is the correct question when only one
+# FastEddy may run at a time. Inside the portable image, on a 16-GPU box, that question is
+# always "yes" -- fifteen other seeds are running -- so C2 would be DEFERRED for every
+# seed in the library and no seed would ever be fully accepted. What C2 actually needs is
+# its OWN GPU free, and docker/run_case.sh already enforces exactly that per device.
+_c2_busy(){
+  if [ "${FLUX_NATIVE:-0}" = "1" ]; then
+    # run_case.sh owns the per-GPU mutex; it will refuse and say why if the card is busy.
+    return 1
+  fi
+  [ -n "$(docker ps -q --filter ancestor="${FLUX_IMAGE:-flux-fasteddy:cuda118}")" ]
+}
 if [ "${SKIP_C2:-0}" = "1" ]; then
   echo "  SKIP_C2=1: deferred. THIS IS NOT A PASS -- rerun before accepting the seed." | tee_
-elif [ -n "$(docker ps -q --filter ancestor=flux-fasteddy:cuda118)" ]; then
+elif _c2_busy; then
   # MATCH ON THE IMAGE, the way docker/run_case.sh does. Matching on {{.Command}}
   # does not work: docker truncates it to "/opt/nvidia/nvidia_..." and the grep
   # for FastEddy never fires, so this guard fell through and C2 reported a FAIL
@@ -95,12 +139,27 @@ elif [ -n "$(docker ps -q --filter ancestor=flux-fasteddy:cuda118)" ]; then
   echo "  DEFERRED: a FastEddy container is already running, and only one may run at a" | tee_
   echo "  time. THIS IS NOT A PASS. Rerun step 6 when the GPU is free." | tee_
 else
-  ./bin/c2_restart_check.sh "$JOB/return/seed_restart.nc" "$TOTAL" "$JOB/seed.in" 2>&1 | tee_
+  # The template is the seed's own .in, and the scratch directory is per-seed -- see
+  # bin/c2_restart_check.sh for why a fixed one cannot survive concurrency.
+  # THE STEP IS THE ONE THE RUN STOPPED AT, NOT THE MANIFEST'S CEILING. It was $TOTAL --
+  # the manifest's steps_total, 349920 for every job in jobs30 -- while SEED_CEILING_H and
+  # the early-stop watcher routinely end a run hundreds of thousands of steps earlier. The
+  # result was not WRONG (c2_restart_check names the copy FE_RST.$STEP and sets Nt to the
+  # same value, so traps 4 and 6 stay consistent with each other whatever the number), but
+  # every stored acceptance file says "restart seed_restart.nc at step 349920" for a run
+  # that stopped at 106920 -- a provenance line that names a step the seed never reached.
+  C2_DIR="${C2_ROOT:-runs}/c2_check_${NAME}" \
+    ./bin/c2_restart_check.sh "$JOB/return/seed_restart.nc" "$STOPPED_AT" "$JOB/seed.in" 2>&1 | tee_
 fi
 
 # ---- 7. the 90-degree re-index the whole library rests on -------------------------
 say "7. rotation check (static; every corpus case is picked on this convention)"
+# --tmp IS PASSED, because its default is the fixed `runs/rotchk` and this step writes
+# three ~73 MB rotated restarts into it and deletes them again. Sixteen concurrent
+# batteries sharing that directory would read each other's rotations and the check would
+# be scoring a different seed's field -- silently, because every file would exist.
 ./docker/pyrun.sh bin/rotation_check.py "$JOB_REL/return/seed_restart.nc" \
+    --tmp "${ROTCHK_ROOT:-runs}/rotchk_${NAME}" \
     --json "$JOB_REL/return/rotation_check.json" 2>&1 | tee_
 
 # ---- 8. direction: backing, drift, and the projection ----------------------------
@@ -113,7 +172,11 @@ say "8. Ekman backing and direction drift"
 # "NO SPUN SEEDS WITH A RECORDED DRIFT YET" rather than failing. Same shape as every other
 # trap here: a plausible output rather than an error.
 JOB_REL_DIR="$(dirname "${JOB#$ROOT/}")"
+# --out IS PASSED for the same reason --tmp is above: its default is the single
+# results/direction_drift.txt, which sixteen batteries would overwrite in turn, leaving
+# one file that belongs to whichever seed finished last and reads as if it belongs to all.
 ./docker/pyrun.sh bin/direction_drift.py --library "$JOB_REL_DIR" \
+    --out "$JOB_REL/return/direction_drift.txt" \
     2>&1 | tail -30 | tee_
 
 # ---- 9. CONVECTIVE ONLY: is the box organising the thermals? ----------------------
@@ -143,7 +206,11 @@ fi
 # 3.0 h ceiling it never reaches the 2.0 h width the trends need to resolve. This is the
 # retrospective measurement, at a FIXED width, and it is what actually sets the budget.
 say "10. the measured budget: a fixed-width window swept over end times"
-./docker/pyrun.sh bin/seed_budget.py "${JOB#$ROOT/}" --width "${BUDGET_WIDTH:-2.0}" \
+# THE BUDGET WINDOW MUST FIT INSIDE THE RUN. --width defaults to 2.0 h, swept inside a
+# 3.0 h run; at the 2.0 h ceiling that width IS the whole run and the sweep has no end
+# times to move over. Derived from what the run actually produced, exactly as SCORE_H is.
+: "${BUDGET_WIDTH:=$(python3 -c "print(f'{min(2.0, max(0.5, $STOPPED_AT*$DT/3600.0 - 0.5)):.3f}')")}"
+./docker/pyrun.sh bin/seed_budget.py "${JOB#$ROOT/}" --width "${BUDGET_WIDTH}" \
     2>&1 | tee_
 
 say "battery complete -> $OUT"

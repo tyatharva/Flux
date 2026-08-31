@@ -12,6 +12,170 @@ conditioned on the six scalars by FiLM, and touchdowns are not saved at all. Eve
 below that says "CNF is the primary architecture" and "FNO may be benchmarked against it"
 is the wrong way round now.
 
+## THE SEED LIBRARY SHIPS AS ONE IMAGE AND ONE COMMAND, ON CUDA 13.0 — 2026-08-31
+
+**THE `CUDA 11.8 (do not "upgrade")` PIN IS SUPERSEDED FOR DEPLOYMENT, AND ONLY THERE.**
+The library has to be generated on rented **16x RTX 5090** boxes. A 5090 is **sm_120** and
+nvcc 11.8's highest target is sm_90 — and this is a COMPILER limit, not a JIT one: 11.8's
+newest virtual architecture is compute_90, so an 11.8 binary cannot even JIT onto sm_120.
+It fails at `cuModuleLoad`. The pin was always a FLOOR (11.8 is the first release with
+sm_89, which is why it was chosen), and `Dockerfile` — the CUDA 11.8 toolchain-only image
+every published result came out of — is **unchanged**. What is new is `Dockerfile.blackwell`.
+
+| | |
+|---|---|
+| toolkit | **CUDA 13.0.1**, Ubuntu 22.04, gcc 11.4, OpenMPI 4.1.2, NetCDF 4.8.1 — the distro is held FIXED so the toolkit is the only variable |
+| architectures | **real SASS for sm_75, sm_80, sm_86, sm_89, sm_90, sm_100, sm_120** — Turing through Blackwell, no JIT anywhere |
+| code | **baked in**. The tag is the commit (`flux-seeds:<flux-sha>-fe<fasteddy-sha>`); a rented box clones nothing and builds nothing |
+| mounts | **the output directory, and nothing else.** A seed is a flat uniform spin-up with an empty `topoFile` and an empty `inFile` — it reads no sounding, no terrain, no land cover |
+| the command | `docker run --gpus all -v /out:/out <image> run_seeds --gpu-count 16` |
+| size / build | 13.8 GB; FastEddy compiles in 83 s for all seven architectures |
+
+**AND `nvcc -dlink` SILENTLY DROPS PTX, SO THERE IS NO JIT FALLBACK TO HAVE.** The design
+was real SASS for sm_89 and sm_120 plus `compute_90`/`compute_80` PTX as a fallback.
+MEASURED: `-dc` puts the PTX in the objects and `-dlink` removes every PTX image from the
+fatbin **with no warning**. FastEddy uses separate compilation because it has `__device__`
+functions crossing translation units, so the executable's fatbin comes from the device
+link. The same flags on a whole-program build KEEP the PTX — `lib/liblpdm.so` is one
+translation unit and does carry it — which is what makes this easy to assume and hard to
+notice. So the fallback is real code for seven architectures instead, which is the better
+answer anyway for register-heavy hydro-core kernels. **`--list-elf` and `--list-ptx` are
+different questions; assert on both.** The contrast is checkable on the shipped image:
+`liblpdm.so` is one translation unit, is compiled whole-program, and DOES carry
+`compute_80` and `compute_120` PTX; `FastEddy` asks for nothing less and carries none.
+`FASTEDDY_TRAPS.md` §23.
+
+**THE STANDING "a newer architecture JITs from PTX, slower but correct" REASSURANCE IN
+`jobs/run_seed.sh` WAS FALSE FOR EVERY BINARY THIS PROJECT HAS BUILT.**
+`docker/build_fasteddy.sh` emits `-arch=sm_89`, which is a cubin and no PTX at all. The
+preflight now reads `cuobjdump --list-elf` off the binary it is about to run, compares it
+against the capability of **the GPU this seed was assigned** (it used to read GPU 0's,
+whichever card the seed would use), and refuses.
+
+**THE TOOLKIT DID NOT MOVE THE PHYSICS, AND IT IS SCORED AGAINST THE MODEL'S OWN FLOOR.**
+`bin/test_toolkit_parity.py`, 200 steps, `jobs30/seed_nbl-deep_a015`, one physical GPU,
+**the shipped image's own baked binary against the 11.8 build**: old-vs-new over old-vs-old
+is **u 1.07x, v 1.06x, w 1.00x, theta 1.11x**. The toolkit change is worth no more than
+re-running the same case. **The initial condition is
+bit-identical across all three legs** because `hydro_core.c:1881` draws the theta
+perturbation with `rand()` under `srand(mpi_rank_world + 12345)` (`FastEddy.c:113`) — a
+FIXED seed at one rank — and the sequence glibc returns for a given seed is a property of
+glibc. That is why the distro is pinned: moving Ubuntu at the same time would have changed
+the libc, changed the perturbation field, and made this a measurement of `rand()`.
+
+**CUDA 13.0 COST TWO ONE-LINE FIXES, BOTH RECORDED.** CCCL now hard-requires **C++17**
+(`fecuda_PlugIns.cu:17` pulls `<cub/cub.cuh>` for the slab-mean `BlockReduce`, which the
+subsidence forcing uses), so the dialect is RAISED from the make command line rather than
+the diagnostic suppressed — `CCCL_IGNORE_DEPRECATED_CPP_DIALECT` exists and is deliberately
+not used. And four `cudaDeviceProp` members were **removed** in 13.0; FastEddy reads them
+in one diagnostic printf, now guarded on `CUDART_VERSION` so **one tree still builds under
+11.8**. **The warning set is IDENTICAL between the two toolkits — the same nine pre-existing
+upstream `-Wall` printf warnings — and the image build fails if a tenth appears.**
+
+**THE ORCHESTRATOR IS `bin/run_seeds.py`, AND 30 SEEDS OVER 16 GPUs IS A WORK QUEUE, NOT
+TWO PASSES.** A pass model idles 15 cards through the tail of pass 1, and the spread is
+real — the watcher stops a convective rung on `z_i/w* ~ 350 s` and a neutral one on
+`h/u* ~ 1500 s`. `--pass N/M` still exists and means something different and useful:
+splitting the library across SEVERAL machines. Per seed it runs `jobs/run_seed.sh` then the
+full `bin/seed_accept.sh` battery, copies `return/` to the mount, and **records a failure
+with its reason instead of aborting the machine**. It is resumable: a work directory
+holding a finished `seed_restart.nc` is skipped, a partial one is restarted from step 0.
+
+**THE GPU IS PINNED WITH `CUDA_VISIBLE_DEVICES` AND NOTHING ELSE, AND NO FastEddy SOURCE
+CHANGE WAS NEEDED.** `fecuda_Device.cu:59` is `cudaSetDevice(mpi_rank_world % numDevs)` and
+every seed is `mpirun -np 1`, so the rank is always 0 — but MEASURED, with
+`CUDA_VISIBLE_DEVICES=0` `cudaGetDeviceCount()` returns **1**, so `0 % 1 = 0` is the card
+the variable names. **An out-of-range index fails LOUDLY, and this file said the opposite
+for one revision**: it claimed the `exit(0)` at `fecuda_Device.cu:75-79` made it a silent
+success. Measured on the shipped image, that branch is unreachable — `cudaGetDeviceCount`
+sets `cudaErrorNoDevice` and `gpuErrchk` at `fecuda_Device.cu:55` fires first, printing
+`GPUassert: no CUDA-capable device is detected` and exiting **100**. The orchestrator and
+the preflight still assert the device exists, because failing at the preflight beats
+failing after an `mpirun` on a box running fifteen other seeds — but not because anything
+is silent. **The per-GPU mutex compares NORMALISED device indices**, not raw
+`CUDA_VISIBLE_DEVICES` strings: unset, `"0,1"` and a `GPU-<uuid>` all name device 0 and
+none of them is the string `"0"`.
+
+**FOUR PIECES OF MACHINE-GLOBAL STATE WOULD HAVE MADE 16 GPUs BEHAVE AS ONE**, all of them
+correct on a one-GPU workstation and all now scoped under `FLUX_NATIVE=1`:
+
+| | on the host | inside the image |
+|---|---|---|
+| `run_case.sh` "one FastEddy" mutex | any container from the image | **per GPU**, scanning `/proc` for another FastEddy with the same `CUDA_VISIBLE_DEVICES` |
+| `seed_watch.sh` early stop | `docker stop` EVERY FastEddy container — the first seed to reach band would have killed the other fifteen mid-dump | `kill` the process group in `<job>/.fe.pid`, written by `run_case.sh` under `setsid` |
+| `c2_restart_check.sh` scratch | fixed `runs/c2_check`, whose first act is `rm -rf` | per-seed, so sixteen batteries cannot delete each other's 73 MB restart |
+| `rotation_check.py` scratch | fixed `runs/rotchk` | per-seed |
+
+**THE THREAD-BLOCK SHAPE IS RE-MEASURED ON THE MACHINE BEFORE ANY SEED RUNS**
+(`bin/threadblock_sweep.py`, **1 min 54 s measured**, 106 legal shapes at 122³ of which 14
+are measured and the other 92 are NAMED rather than silently dropped). It is a pure
+performance knob — the one reduction that accumulates is templated on
+`tBx_red/tBy_red/tBz_red`, compile-time constants 2/8/1 in `fecuda_PlugIns_cu.h`, which do
+NOT follow `tBx/tBy/tBz` — so it cannot move the physics. Re-measured on the 4080 it
+**reproduces the 2026-08-22 sweep**: winner **1x2x64 at 0.01450 s/step** (median of 3)
+against the recorded 0.01475, then 1x2x32 0.01450, 1x8x16/1x4x32/2x1x64 0.01470; the
+measured set spans **1.84x** and `1x128x1` is slowest at 0.02670.
+
+**AND THE SWEEP'S FIRST TWO VERSIONS MADE BOTH OF THIS PROJECT'S CLASSIC ERRORS, IN
+ORDER.** It read `m[-1]` of the TIMESTEP PERFORMANCE blocks — which is FastEddy's
+**zero-step shutdown block**, `0.1651 | 0 | 0.0008 | 0.0002` — so all fourteen shapes
+scored 0.0002 s/step and the reported spread was **1.00x**. Nothing failed; a number came
+out. Fixed to select the block whose Batch Steps is the count asked for, it then declared
+`2x2x32` the winner over `1x2x64` on **0.7%** from ONE 200-step run. It is now two-phase:
+screen once, repeat everything within 5% of the leader, rank on the MEDIAN, and keep the
+incumbent unless a challenger beats it by more than the measured repeat noise. **The
+measured noise is 0.68% and the "win" was 0.7%** — so the fix reversed the call: `1x2x64`
+holds, and `2x2x32` is 1.007x it, inside the noise.
+
+**AND `SEED_CEILING_H` WAS STILL LOSING A WHOLE DUMP AT EVERY CEILING** — the identical
+defect `PROJECT_BRIEF.md` and `PLAN.md` both record as FIXED on 2026-08-30. The `int()` became
+`round()`, and then a verify clause rejected any overshoot beyond **1e-6 seconds**. The
+`.in` carries `dt = 0.0308642`, rounded UP from 5/162, so a whole number of dumps always
+overshoots by 0.3–0.9 **milliseconds** — and the guard, whose only available action is to
+remove a **300 s** dump, fired every time:
+
+| ceiling | `round()` | overshoot | old guard | cost |
+|---|---|---|---|---|
+| 1.0 h | 12 | +0.288 ms | 11 dumps | **8.3%** |
+| **2.0 h** | **24** | **+0.576 ms** | **23 dumps** | **4.2%** |
+| 3.0 h | 36 | +0.864 ms | 35 dumps | 2.8% |
+
+The tolerance is now expressed in DUMPS — a thousandth of one, four orders above the float
+artifact and three below the thing it protects. **The production 2.0 h ceiling is 233,280
+steps = 2.000 sim-h**, verified on the real path, not 223,560 = 1.9167.
+
+**Three more concurrency defects found and fixed while porting**: `SCORE_H` was never
+exported, so the live watcher scored a different window width than the verdict it decided;
+`kill $WATCH_PID` reached only the watcher's bash and orphaned the `seed_stationarity.py`
+it was blocked inside; and `seed_accept.sh` reported every run against the manifest's
+349,920-step ceiling rather than the one `SEED_CEILING_H` actually imposed.
+
+**AND ONE FULL SEED RAN END TO END INSIDE THE IMAGE, ON THE 4080** —
+`run_seeds --only seed_cbl-mid_a015`, sweep and acceptance battery included:
+
+| | |
+|---|---|
+| length | **2.000 sim-h**, 24 dumps — the corrected ceiling, on the real path (the old guard gave 1.9167) |
+| cost | **0.939 GPU-h**, i.e. **0.469 GPU-h per simulated hour** against the 0.479 measured on Ada |
+| peak VRAM | **1038 MiB** attributed to the process, 2135 MiB on the whole device, of 16376 |
+| gate | **DRIFTING on `sigma_v/u*`** — a verdict about that realisation's boundary layer, recorded and NOT counted as accepted |
+| against the stored 11.8 seed | at a matched step (106920 = 0.917 sim-h), two independent realisations: `u*` −1.03%, `U` +1.21%, direction −0.36 deg, `sigma_w` −4.06%, `z_i` −0.01%, `x_peak` +3.7 m = **0.12 of one 30 m raster cell**; `U/u*` +2.27%, `sigma_v/u*` +0.37%, `sigma_w/u*` −3.06% |
+
+**That comparison is NOT a tolerance and must not be read as one** — two runs of one seed
+over an hour are two turbulence realisations, and `bin/seed_compare.py` refuses outright if
+they come out EXACTLY equal, because that can only mean it scored the same dumps twice. (It
+did, on its first run: both sides keyed their scratch directory on the job's basename,
+which is the same on both sides by construction, and it reported +0.00% on every field.)
+The tight physics claim is the 200-step parity above; this one is the pipeline.
+
+**WHAT IS NOT CLAIMED.** Bitwise reproducibility across architectures — it does not hold,
+it does not hold run-to-run on ONE GPU either, and seeds are turbulence realisations that
+are not meant to be diffed. And 13.0 is not REQUIRED: 12.8 also targets sm_120 and would
+have done. 13.0 was tried first because it matches the r580 driver generation on the target
+boxes, so nothing in the stack runs in a compatibility mode; it built, so it shipped.
+
+---
+
 ## THE NEUTRAL BLOCKER IS GONE AND THE CORPUS HAS ONE ENTRY POINT — 2026-08-31
 
 **`h` IS THE SURFACE-ATTACHED BOUNDARY LAYER, AND THE ESTIMATOR NOW DECIDES IT INSTEAD OF
@@ -695,10 +859,29 @@ Four things that follow, each of which contradicts something written further dow
 
 ## Hardware / environment
 
-- Single NVIDIA RTX 4080 (16 GB), Ada, `sm_89`
-- CUDA **11.8** (do not "upgrade" — other versions have failed to build)
+**TWO ENVIRONMENTS, AND THEY DIFFER IN EXACTLY ONE THING: THE CUDA TOOLKIT.**
+
+| | development workstation | rented boxes |
+|---|---|---|
+| GPU | single **RTX 4080** (16 GB), Ada, `sm_89` | **16x RTX 5090** (32 GB), Blackwell, `sm_120` |
+| image | `flux-fasteddy:cuda118` (`Dockerfile`) — toolchain only, FastEddy compiled in the bind mount | `flux-seeds:<commit>` (`Dockerfile.blackwell`) — code baked in, FastEddy compiled at image build |
+| CUDA | **11.8** | **13.0.1** |
+| architectures | `-arch=sm_89`, cubin only, no PTX | real SASS `sm_75 … sm_120`, no PTX (see below) |
+| distro / MPI / NetCDF / gcc | Ubuntu 22.04, OpenMPI 4.1.2, NetCDF 4.8.1, gcc 11.4 | **IDENTICAL** — held fixed so the toolkit is the only variable |
+
+- **The 11.8 pin is a FLOOR, not a ceiling**, and it is superseded for deployment only.
+  11.8 is the FIRST release with `sm_89`, which is why it was pinned; its highest target is
+  `sm_90`, so it cannot target a 5090 at all — not with SASS and not with PTX. **Every
+  published result in this project came out of the 11.8 image and that image is
+  unchanged.** The upgrade's effect on the physics is measured, not assumed:
+  `bin/test_toolkit_parity.py` puts it at 0.97–1.12x the model's own run-to-run floor.
+  `FASTEDDY_TRAPS.md` §23.
 - FastEddy **v5.0.1**, on our fork, branch `kegonsa`
 - FastEddy runs in **fp32**. **Confirmed (Stage 0b, 2026-08-17)** — see Conventions.
+- **A 122³ seed takes 0.65 GB of VRAM, MEASURED** (`nvidia-smi --query-compute-apps`), not
+  the 1.6 GB the manifests carry — that figure is an unverified literal in
+  `bin/make_seed_jobs.py` and nothing in the pipeline reads it. Nothing here assumes a
+  16 GB budget.
 
 ## Repository layout
 
@@ -708,7 +891,15 @@ Flux/                          <- working dir, main project repo root
 ├── PLAN.md
 ├── FASTEDDY_TRAPS.md          <- every trap that has cost GPU time. Read before running.
 ├── SIXTH_PASS_RESULTS.md      <- the sigma_w closure: fixed, validated, and what it cost
-├── Dockerfile
+├── Dockerfile                 <- CUDA 11.8, TOOLCHAIN ONLY. Every published result. Frozen.
+├── Dockerfile.blackwell       <- CUDA 13.0, code BAKED IN, sm_75..sm_120. The deployable one.
+├── .dockerignore              <- ONE file, read by both. Excludes the ~120 GB of artifacts.
+├── docker/build_image.sh      <- builds flux-seeds:<flux-sha>-fe<fasteddy-sha>
+├── docker/entrypoint.sh       <- run_seeds | seed | accept | verify | provenance
+├── docker/verify_image.sh     <- SASS vs the cards in this box, then a 200-step run
+├── bin/run_seeds.py           <- THE orchestrator: 30 seeds, N GPUs, one command
+├── bin/threadblock_sweep.py   <- re-measures the block shape on the machine, first
+├── bin/test_toolkit_parity.py <- did the toolkit move the physics? vs the model's own floor
 ├── inst.txt                   <- crude dependency/build notes, written for v4.0.1
 ├── data/raw/                  <- NOT in git. USGS 3DEP + ESA WorldCover.
 └── FastEddy-model-5.0.1/      <- separate repo (the fork). Gitignored by the main repo.

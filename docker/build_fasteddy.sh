@@ -61,5 +61,27 @@ echo "=== verify ==="
 ls -l "${BIN}"
 echo "--- linked libraries ---"
 ldd "${BIN}" | grep -E "mpi|cud|netcdf|hdf5" || true
-echo "--- compiled GPU architectures (must include sm_89) ---"
+echo "--- compiled GPU architectures ---"
 cuobjdump --list-elf "${BIN}" | head -20
+echo "--- PTX images ---"
+cuobjdump --list-ptx "${BIN}" 2>&1 | head -5
+# THIS BINARY HAS NO PTX AND THEREFORE NO JIT FALLBACK. Two independent reasons, and the
+# second one means the first cannot simply be fixed by adding a -gencode:
+#
+#   1. -arch=sm_89 is shorthand for -gencode arch=compute_89,code=sm_89. It embeds a cubin
+#      and NO PTX. jobs/run_seed.sh used to reassure the operator that a newer architecture
+#      would "JIT from PTX, slower but correct" -- that was false for every binary this
+#      script has ever produced.
+#   2. MEASURED: nvcc -dlink DROPS every PTX image from the fatbin, silently. FastEddy is
+#      built with separate compilation (-dc then -dlink), so even asking for
+#      -gencode arch=compute_90,code=compute_90 puts PTX in the .o files and none of it in
+#      the executable. FASTEDDY_TRAPS.md 23.
+#
+# So this binary runs on ${SM} and on nothing else. That is fine for the workstation, which
+# has one card. The DEPLOYABLE image (Dockerfile.blackwell) carries real SASS for seven
+# architectures instead, and asserts each one.
+_HAVE=$(cuobjdump --list-elf "${BIN}" | sed "s/.*\.\(sm_[0-9]*\)\.cubin/\1/" | sort -u | tr "\n" " ")
+case " ${_HAVE} " in
+  *" ${SM} "*) echo "  ${SM} present. NO PTX, so this binary runs on ${SM} ONLY.";;
+  *) echo "  FATAL: asked for ${SM}, binary carries [${_HAVE}]" >&2; exit 1;;
+esac
