@@ -12,6 +12,71 @@ conditioned on the six scalars by FiLM, and touchdowns are not saved at all. Eve
 below that says "CNF is the primary architecture" and "FNO may be benchmarked against it"
 is the wrong way round now.
 
+## THE CORPUS IS PARTITIONED OVER 8 MACHINES AND THE QUEUE IS PER-DAY — 2026-08-31
+
+**`DEPLOY.md` §C is the procedure; `lpdm/partition.py` is the rule; `PLAN.md` has the
+verdicts.** No GPU was spent: everything below is CPU, with the LES, the LPDM and HRRR
+stubbed, because none of it is a physics question.
+
+**THE MONTH -> MACHINE MAP IS A RULE, NOT A TABLE, AND IT IS ASSERTED TOTAL AND DISJOINT AT
+IMPORT.** 64 corpus months, 8 machines, 8 each; `--machine 0..7` is the only thing that
+differs between the boxes. The whole 8x8 table prints at startup with a coverage line
+**recomputed from the printed rows**, so "each month exactly once" is checkable from one
+machine's log without trusting the code.
+
+**AND THE OBVIOUS RULE WAS WRONG.** Chronological order with `index % 8` was written first:
+`gcd(8, 12) = 4`, so stepping 8 months walks an orbit of only THREE calendar months —
+machine 0 drew Jan/May/Sep and nothing else, and **seven of eight machines were missing an
+entire season**. Ordering by **(calendar month, year)** instead breaks the resonance. Every
+machine now holds **8 distinct calendar months, all four seasons, and at most 25% of any one
+split**, and both properties are asserted at import rather than claimed in a comment. The
+trade is explicit: this rule does NOT give every machine every split and the chronological
+one did — a missing split is months the training code re-derives from the calendar, a
+missing season is physics nothing downstream can reconstruct.
+
+**WITHIN A MACHINE IT IS A SHARED QUEUE OVER ~243 DAYS, NOT A MONTH PER GPU.** Wall time is
+set by the slowest worker and the months are not equal: a month's cost is its ACCEPTED days,
+and acceptance is meteorological. **MEASURED on the stubbed dry run's own yields: 16% of
+wall time, and the queue kept all eight workers within 1.4% of each other.** On calendar
+days alone the figure is 2%; the rest is yield, which is exactly what a pinned assignment
+cannot see.
+
+| | |
+|---|---|
+| per day | draw a round hour without replacement (seeded from the date), screen `z/L<0`, `z_i` 300-1250 m, `\|dz_i/dt\|<15 %/h`; sounding from the analysis valid at EXACTLY that hour; seed from the whole 30-seed library; 1.25 sim-h; footprint over the last 30 min; **one npz** |
+| a day always ends as | `case` / `missing` with a reason / `failed` (retryable). **Every calendar day is in the manifest.** |
+| resume | keyed off the artifacts on the volume, not a checkpoint. A resumed day keeps its RESOLVED status and the ORIGINAL pass's timing. |
+| the seed library | **BAKED INTO THE IMAGE** (2.1 GB). A case picks its seed per case, so the whole library must be present; baking it means the tag pins code and seeds together and there is nowhere else for a wrong library to come from. |
+| HRRR | fetched at runtime, and the accepted hour's ~407 MB GRIB is **deleted once the record exists and passed its schema check**. Kept, 243 days would leave ~77 GB. |
+| output | `pairs_npz/<case>.npz` (~40 kB) + `manifest.json`. **~60 MB for the whole corpus.** |
+
+**THE EARLY REPORT IS THE POINT, AND IT ANSWERS A QUESTION THIS FILE HAS OPEN.** After 5
+cases each machine prints measured GPU-h per case (OCCUPANCY — wall clock x 1 GPU, which is
+what the rental bills, not FastEddy kernel time) and **machine-wide peak host RSS**. One
+case peaks at **12.45 GB** host RSS — the LPDM's 12.0 GB fp16 field cache, which is the
+window itself rather than buildup — and **eight concurrent has never been measured**. The
+run warns loudly if MemAvailable falls below 12% or swap is touched, and prints a `!!!!`
+block if the projection exceeds `--max-hours` (12). **Rent 256 GB for the first machine and
+read that report before renting the other seven.**
+
+**DO NOT CARRY 0.189 GPU-h/sim-h FROM THE SEED RUN TO THE CORPUS.** A seed runs FastEddy and
+nothing else; a case also runs the LPDM and the ring. That is what the early report measures.
+
+**FOUR SILENT DEFECTS WERE FOUND BY THE DRY RUN, AND EACH PASSED A GREEN CHECK FIRST.**
+`t_start_s` and `t_end_s` were rounded to different precisions, so sub-100 ms days had
+NEGATIVE durations and the balance check passed on "−73% imbalance" and "108% of wall time
+saved"; a resumed day was recorded as status `skipped`, so a twice-resumed machine would end
+with a manifest that had forgotten which days are cases; `write_manifest` stamped "not
+reached" over every day the current pass had not revisited, which on a resume erased seven
+of eight months' timings and would have told an interrupted machine its finished corpus was
+never attempted; and **a 2.1 GB duplicate of the seed library (`vast-seeds/`) was baked into
+an image and passed every assertion, because every assertion named a path** — a
+per-directory size ceiling cannot see a directory nobody named, so the build now bounds the
+whole `/flux` tree. Also measured: **a `!` re-include in `.dockerignore` does not work under
+the classic builder when the parent directory is excluded.**
+
+---
+
 ## THE LIBRARY EXISTS: 30 SEEDS ON 16x RTX 5090, AND SELECTION USES ALL OF THEM — 2026-08-31
 
 **Full evidence: `SEED_LIBRARY_RESULT.md`.** Thirty seeds in **0.936 h wall / 13.24 GPU-h**,

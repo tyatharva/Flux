@@ -411,7 +411,7 @@ Identical to §1 above with three changes:
 
 | field | value |
 |---|---|
-| image | `ghcr.io/tyatharva/flux-seeds:df621efce19e-fe0ce48d5dff06` |
+| image | `ghcr.io/tyatharva/flux-seeds:a1ee30158776-fe0ce48d5dff06` |
 | **GPUs** | **8x RTX 5090** (or any 8 of `sm_120`) |
 | **Disk** | **120 GB** — see below |
 | **RAM** | **≥ 256 GB.** See below; this is the one spec that is a genuine unknown. |
@@ -423,7 +423,7 @@ Identical to §1 above with three changes:
 
 | | |
 |---|---|
-| image on disk | ~15.5 GB (13.4 GB toolchain and code + **2.1 GB baked seed library**) |
+| image on disk | **16.3 GB** measured (14.1 GB toolchain and CUDA + 2.2 GB code and baked seed library) |
 | HRRR screening cache | ~0.1 GB for 243 days — `.idx` files and small subsets |
 | HRRR soundings | **~407 MB each**, and `run_corpus` DELETES each one once that day's record is written and validated. Without that, 190 accepted days would leave **~77 GB**. |
 | the corpus itself | **~40 kB per record**, so ~190 records = **~8 MB per machine** |

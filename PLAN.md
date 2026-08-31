@@ -1,3 +1,64 @@
+# THE CORPUS HAS A DEPLOYMENT: 8 MACHINES x 8 GPUs, ONE COMMAND EACH — 2026-08-31
+
+> **No GPU was spent. Full procedure: `DEPLOY.md` §C.** The seed library is done and baked
+> into the image; this is what turns it into ~1500 training pairs. Every check below is CPU,
+> with the LES, the LPDM and HRRR stubbed — the science path is validated elsewhere and none
+> of it is a scheduling question.
+
+| # | item | verdict |
+|---|---|---|
+| 1 | 64 months over 8 machines, deterministic, printed at startup | **done** — `lpdm/partition.py`, total and disjoint **asserted at import**, coverage line recomputed from the printed rows |
+| 2 | every machine holds all 4 seasons and ≤25% of any split | **PASS, asserted** — chronological round-robin was written first and REJECTED on its own output (`gcd(8,12)=4` gave 3 calendar months per machine, 7 of 8 missing a season) |
+| 3 | shared day queue within a machine, not a month per GPU | **done**, and **measured**: 16% of wall time on the dry run's own yields, workers within **1.4%** of each other |
+| 4 | one npz per accepted day; every day accounted for with a reason | **PASS** — 243 days, 184 cases, 59 missing, 0 unaccounted |
+| 5 | live per-machine view surviving SSH disconnect | **done** — `bin/corpus_progress.py` reads `progress.json` off the volume; the run never depends on anyone watching |
+| 6 | early report after 5 cases: GPU-h/case + machine-wide peak host RSS | **done**, with a loud block if projected finish exceeds `--max-hours` (12) |
+| 7 | resume skips completed cases | **PASS** — second pass resolved all 243 days doing no work |
+| 8 | code baked in, commit as image label, sm_75..sm_120 | **done** — same image as the seeds; the 30-seed library is **baked in too** |
+| 9 | dry run of a whole machine, no GPU | **`bin/test_corpus_machine.sh`, ~15 s, all checks PASS** |
+
+**THE SEED LIBRARY IS BAKED INTO THE IMAGE, NOT MOUNTED.** 2.1 GB, immutable, versioned by
+the same commit as the code that reads it — and a case picks its seed PER CASE, so the whole
+library must be present. Mounting it would mean copying 2.1 GB onto eight rented boxes by
+hand, which is eight chances to put a partial or wrong library on a machine that would then
+generate plausible cases off it.
+
+**HRRR IS FETCHED AT RUNTIME AND PRUNED.** The accepted hour's hybrid-level GRIB is ~407 MB
+and one machine's 243 days would leave **~77 GB** of files nothing reads again. Deleted once
+the record exists AND passed its schema check — which is also when resume stops needing it.
+The small screening files are kept, so a resume re-downloads nothing.
+
+## Four defects found while doing it, all silent, none in scope
+
+* **`t_start_s` and `t_end_s` were rounded to different precisions**, so a sub-100 ms day had
+  a NEGATIVE duration — and the load-balance check passed on "−73% imbalance" and reported
+  "108% of wall time saved". A tolerance must reject nonsense as well as excess.
+* **A resumed day was recorded with status `skipped`**, so a machine resumed twice would end
+  with a manifest that had forgotten which of its days are cases. The manifest describes the
+  CORPUS, not the pass.
+* **`write_manifest` stamped "not reached" over every day the current pass had not
+  revisited.** On a resume that erased seven of eight months' timings, and an interrupted
+  machine would have written a manifest saying its finished corpus was never attempted.
+* **`vast-seeds/` — a 2.1 GB duplicate of the library — was baked into an image and passed
+  every assertion**, because every assertion named a path. A per-directory size ceiling
+  cannot see a directory nobody named; the Dockerfile now bounds the whole `/flux` tree.
+
+Also measured: **a `!` re-include in `.dockerignore` does not work under the classic builder
+when the parent directory is excluded.** The build failed on its own "30 seed restarts"
+assertion, which is that assertion earning its place. `return/` is a file-level deny list now.
+
+## What is NOT established
+
+1. **No real GPU case has run through `run_corpus`.** The per-case path itself is validated
+   (ninth pass, and `bin/get_case.sh`), but this orchestrator has never driven it.
+2. **The 8-way host-RAM question is open and is the reason for the early report.** One case
+   peaks at 12.45 GB host RSS — the LPDM's field cache — and eight concurrent has never been
+   measured. Rent 256 GB for the first machine and read the report before renting seven more.
+3. **The corpus cost per case at 8-way is unmeasured.** The seed run's 0.189 GPU-h/sim-h does
+   not answer it: a seed runs no LPDM and no ring.
+
+---
+
 # THE LIBRARY IS SPUN. 30 SEEDS, 16x RTX 5090, 0.936 h WALL — 2026-08-31
 
 > **The deployment path below was exercised for real and it worked.** Full evidence:
