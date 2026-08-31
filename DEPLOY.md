@@ -1,4 +1,19 @@
-# Generating the seed library on Vast.ai
+# Running Flux on Vast.ai — the seed library, then the corpus
+
+**This file covers two separate campaigns and they are run months apart.**
+
+| | what it makes | where | when |
+|---|---|---|---|
+| **Part 1 — §0-§7** | the **30-seed library**, 1 machine x 16 GPUs, ~1 h | `/out/seeds/` | **DONE** — see `SEED_LIBRARY_RESULT.md`; the library is baked into the image |
+| **Part 2 — §C0-§C9** | the **corpus**, ~1500 training pairs, **8 machines x 8 GPUs** | `/out/pairs_npz/` -> `corpus.h5` | **this is the one you are about to run** |
+
+Part 1 is kept because the image, the driver, the Vast fields and the SSH workflow are
+shared, and because a seed ever needing to be regenerated is a thing that happens. **If you
+are generating the corpus, start at §C0.**
+
+---
+
+# Part 1 — Generating the seed library on Vast.ai
 
 **Pick the image in Vast, SSH in, run one command.** The code is baked in and the tag names
 the commit, so a rented machine clones nothing, builds nothing, and cannot pull the wrong
@@ -375,7 +390,7 @@ it did NOT measure by name, so the winner is "best of what was tried" rather tha
 
 ---
 
-# Generating the CORPUS on Vast.ai — 8 machines x 8 RTX 5090
+# Part 2 — Generating the CORPUS on Vast.ai — 8 machines x 8 RTX 5090
 
 Same image, a different command. The seed library above is **baked into this image**, so a
 corpus machine pulls one thing and needs no seed transfer at all.
@@ -718,3 +733,82 @@ tested.
   has not reached keeps what an earlier pass found.
 - **`nohup`, not `tmux`.** The run writes `progress.json` and needs no terminal. `tmux`
   works too if you prefer it.
+
+## C9. Consolidate the eight machines into one training file
+
+§C6 brings the records down; nothing merges them. This does, and it is the last step before
+any ML.
+
+```bash
+# from the repo root, with pairs_npz/ and manifests/ as §C6 left them
+docker run --rm -v "$PWD":/w -w /w ghcr.io/tyatharva/flux-seeds:corpus \
+    python3 bin/consolidate_corpus.py \
+        --npz-dir pairs_npz --manifests manifests --out corpus.h5
+```
+
+(The host python has no h5py; the analysis stack lives in the image, as it does for
+everything else in this project.)
+
+### What comes out
+
+```
+corpus.h5
+  scalars          (N, 6)         float32   h, ustar, sigma_v, L, sin_wdir, cos_wdir
+  kljun            (N, 128, 128)  float32   chunked (32,128,128), gzip-4 + shuffle
+  target           (N, 128, 128)  float32   signed and unclipped
+  meta/            datetime, parent_case, run_id, split, split_index, gate_state,
+                   integral, peak_x_m, centroid_dist_m, array_share, zi_achieved_m,
+                   inv_L, wdir_deg, seed_job, seed_rot, git_commit, kljun_source,
+                   h_estimator, scalar_names, valid_mask
+  grid/            n=122, pad=3, n_padded=128, dx_m=30, domain_m=3660, receptor_z_m=30
+  norm/            scalars_mean, scalars_std, kljun_scale, target_scale  (TRAIN ONLY)
+  counts/          cases and missing days per split, and what the manifests expected
+```
+
+**Expected size: ~110 MB** for ~1469 records at `N_WINDOWS = 1`, ~215 MB at 2.
+**Measured** on real records: **73 kB per record**, 1.8x compression against the raw
+arrays (1.6x on stubs, whose rasters are smoother). Compression is gzip-4 with the byte
+**shuffle** filter, which is worth 20% for nothing — measured 1.32x without it, 1.65x with,
+and gzip-9 buys another 1% for 3x the write time.
+
+### It refuses rather than warns, and each refusal is one that training would hide
+
+| refusal | why it is fatal |
+|---|---|
+| **split disagreement** | the split is re-derived from each record's own datetime via `lpdm/corpus.py:split_of` and compared with the split it was generated under. A mismatch means the train/test boundary is not where anyone thinks, and **a good validation score is exactly what that looks like** |
+| **duplicate record** | keyed on `run_id`. Each month belongs to one machine, so a duplicate means two boxes ran the same `--machine`. (Two windows of one case share a `parent_case` and are *not* this — they differ in `run_id`, and the count check compares distinct cases.) |
+| **`meta.stub`** | a record whose LES and LPDM were an analytic blob. `--allow-stub` exists only to test this script and stamps `h.attrs["stub"]` on the output |
+| **count mismatch** | records on disk vs what the eight manifests account for, reported **per machine** so it is obvious which `rsync` to repeat |
+| non-finite cells, wrong shape, non-zero pad, wrong `dx` | a record off a retired grid is complete, plausible and wrong |
+
+### Two things it decides, and both are decisions rather than defaults
+
+**Normalisation is computed on TRAIN only.** Statistics over the whole corpus leak val and
+test into the input scaling — a small leak, and the kind that never appears as a failure,
+only as a uniformly better score with nothing pointing at why. `norm/` records
+`computed_on = "train split only"` and `n_train`.
+
+The rasters use `y = arcsinh(x / s)`, **signed, unclipped**, because a footprint spans
+orders of magnitude and its negative lobes are physical — 5.8–11.1% of |flux| (`PROJECT_BRIEF.md`).
+`s` is the median **over train records of each record's peak |x|** inside the valid frame.
+Not the median over cells: that was the first version and it returned **s = 7.9e-23**,
+because a footprint is a compact blob in a 122² frame and the median *cell* is deep in a
+tail orders of magnitude below the peak.
+
+**The pad extent is recorded so the loss can mask it.** 122 → 128 is a zero-pad of 3 cells,
+not a resize; those 1,500 border cells are structural zero on both channels.
+`meta.attrs["pad_cells"] = 3` and a ready-made `meta/valid_mask` (14,884 of 16,384 cells
+true) are both stored, so a consumer cannot get them inconsistent. **A loss averaged over
+the full frame reports a number 9.2% of which is the model learning to emit zero where it
+was told to.**
+
+### Check what it built
+
+```bash
+docker run --rm -v "$PWD":/w -w /w ghcr.io/tyatharva/flux-seeds:corpus python3 -c "
+import h5py
+with h5py.File('/w/corpus.h5') as h:
+    print(h.attrs['format'], h.attrs['n'], 'records, stub =', h.attrs['stub'])
+    print({k: int(v) for k, v in h['counts'].attrs.items() if k.startswith('cases_')})
+    print('norm computed on:', h['norm'].attrs['computed_on'], h['norm'].attrs['n_train'])"
+```

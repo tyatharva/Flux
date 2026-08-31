@@ -274,6 +274,12 @@ def write_training_npz(a, rec, st, fp, npz_path, target, kljun_raster, xc, yc, z
         "zi_trend_limit_pct_per_h": (rec.get("seed") or {}).get("zi_trend_limit_pct_per_h"),
         "gate_score_h": (rec.get("seed") or {}).get("gate_score_h"),
         "seed_job": (rec.get("seed") or {}).get("job"),
+        # THE ROTATION, WHICH WAS NOT PERSISTED. bin/pick_seed.py chooses a seed AND one of
+        # four 90-degree re-indexes, and the pair is only reproducible from the two
+        # together -- the same seed at rot 1 and rot 3 are boundary layers blowing 180 deg
+        # apart. `rec["seed"]` carried it all along; only the flattened meta dropped it, so
+        # bin/consolidate_corpus.py wrote -1 for every record it could see.
+        "seed_rot": (rec.get("seed") or {}).get("rot"),
         # -- the diagnostics a record is filtered or weighted by, without opening the JSON
         "integral": fp.get("integral_les"),
         "integral_kljun": fp.get("integral_kljun"),
