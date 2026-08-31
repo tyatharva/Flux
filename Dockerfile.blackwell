@@ -194,6 +194,7 @@ RUN pip3 install --no-cache-dir \
         scipy \
         matplotlib \
         netCDF4 \
+        h5py \
         xarray \
         pandas \
         dask \
