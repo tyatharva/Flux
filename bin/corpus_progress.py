@@ -116,8 +116,16 @@ def main():
         # Redraw IN PLACE: home the cursor and clear to end of screen, rather than
         # scrolling. A clear-screen each tick flickers and loses whatever the operator
         # scrolled back to look at.
-        sys.stdout.write(("\033[2J" if first else "") + "\033[H" + "\n".join(lines)
-                         + "\033[J\n")
+        #
+        # EVERY LINE ENDS WITH \033[K, AND IT IS NOT COSMETIC. \033[J clears from the
+        # cursor to the end of the SCREEN, so it tidies up surplus LINES -- but a shorter
+        # line drawn over a longer one leaves the old line's tail in place. That is how
+        # "stage 1" came to read as "stage 1gw" and a missing-day reason ran on into
+        # "logs/2021-01-10.logth no acceptance", i.e. how the display invented text that
+        # was never written. A status view that garbles the stage it is reporting is worse
+        # than no status view, because it is what an operator debugs from.
+        sys.stdout.write(("\033[2J" if first else "") + "\033[H"
+                         + "\033[K\n".join(lines) + "\033[K" + "\033[J\n")
         sys.stdout.flush()
         first = False
         if d.get("finished"):

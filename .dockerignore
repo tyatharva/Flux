@@ -23,7 +23,22 @@
 **/*.pyc
 
 # --- artifact trees ---------------------------------------------------------
+# runs/ is 96 GB of output/ and window/ dumps -- and it also holds the .in TEMPLATES every
+# case is built from, which are SOURCE living in an artifact tree. Excluding the tree ate
+# them, and stage 2 then died with FileNotFoundError on runs/g30_base/base.in on EVERY case
+# of all eight machines: 81 cases, 0 produced, ~11 min of 64 GPUs. The dry run could not
+# see it, because the stub replaces the whole case path.
+#
+# MEASURED, and it REFINES the note recorded on 2026-08-31: a `!` re-include DOES work
+# under the classic builder -- but only if EVERY parent directory is itself re-included by
+# name. `runs` + `!runs/g30_base` + `!runs/g30_base/base.in` restores the file (verified in
+# a built image); `runs/**` + `!runs/*/base.in` does NOT, because the glob never restores
+# the intermediate directory. The earlier jobs30 case was the second shape.
 runs
+!runs/g30_base
+!runs/g30_base/base.in
+!runs/g24_base
+!runs/g24_base/base.in
 figures
 pairs
 pairs_npz

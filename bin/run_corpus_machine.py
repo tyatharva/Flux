@@ -554,6 +554,51 @@ def write_manifest(path, a, machine_months, results, gpus, host, commit, expecte
 
 
 # --------------------------------------------------------------------------- main
+def preflight_case_inputs(say):
+    """Refuse to start if a file EVERY case needs is absent. Seconds, not GPU-hours.
+
+    WHY THIS EXISTS. `.dockerignore` excluded the `runs` artifact tree and took
+    `runs/g30_base/base.in` -- the .in TEMPLATE every case is built from -- with it. Stage 2
+    then died `FileNotFoundError` on every case of all eight machines: 81 attempted, 0
+    produced, and the only symptom on the console was `get_case rc=1` next to a per-day log
+    nobody was reading yet.
+
+    THE DRY RUN COULD NOT HAVE CAUGHT IT, and that is the point. `--stub` replaces the
+    screener AND the case, so it exercises the queue, the manifest and the resume and NOTHING
+    the case path reads. A green dry run is a statement about the orchestrator only. This
+    check is the cheap part of the gap: it opens the files the case path opens, before any
+    GPU is claimed, and says which one is missing.
+
+    It is skipped under --stub, where none of these are read.
+    """
+    grid = os.environ.get("GRID", "data/grid30_raised")
+    need = [
+        (os.environ.get("TEMPLATE", "runs/g30_base/base.in"), "the FastEddy .in template"),
+        (os.path.join(grid, "z0m.npy"), "the case surface (z0m)"),
+        (os.path.join(grid, "htFlux.npy"), "the case surface (htFlux)"),
+        (os.path.join(grid, "topo.npy"), "the case surface (topography)"),
+        ("third_party/FFP/calc_footprint_FFP.py", "the official Kljun FFP"),
+        ("jobs30/index.json", "the seed library index"),
+    ]
+    missing = [(p, w) for p, w in need
+               if not os.path.exists(os.path.join(ROOT, p))
+               or os.path.getsize(os.path.join(ROOT, p)) == 0]
+    if not missing:
+        say(f"  preflight: {len(need)} case-path inputs present under {ROOT}", stamp=False)
+        return
+    say("", stamp=False)
+    say("!" * 78, stamp=False)
+    say("REFUSING TO START: the case path cannot run on this machine.", stamp=False)
+    for p, w in missing:
+        say(f"    MISSING  {p}   ({w})", stamp=False)
+    say("", stamp=False)
+    say("Every case would fail at the stage that reads it and the machine would spend its", stamp=False)
+    say("whole rental writing `get_case rc=1` into the manifest. If this is an image, the", stamp=False)
+    say("file was dropped from the build context -- check .dockerignore.", stamp=False)
+    say("!" * 78, stamp=False)
+    raise SystemExit(2)
+
+
 def main():
     global _logfh
     ap = argparse.ArgumentParser(
@@ -622,6 +667,8 @@ def main():
         stamp=False)
     say("=" * 78, stamp=False)
     say("", stamp=False)
+    if not a.stub:
+        preflight_case_inputs(say)
     say(describe(highlight=a.machine), stamp=False)
     say("", stamp=False)
 

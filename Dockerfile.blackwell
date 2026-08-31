@@ -469,6 +469,30 @@ RUN set -eux; \
                             du -sm /flux/* | sort -rn | head -8; exit 1; }; \
     python3 -c "import json;d=json.load(open('/flux/jobs30/index.json'));assert d['n_jobs']==30, d['n_jobs'];print('30 seed jobs, index.json consistent')"
 
+# === THE CASE PATH'S INPUTS, ASSERTED. THIS BLOCK EXISTS BECAUSE THEY WERE NOT. ==========
+# `.dockerignore` excluded `runs` -- 96 GB of output/ and window/ dumps -- and took the .in
+# TEMPLATE with it. Stage 2 then died `FileNotFoundError: runs/g30_base/base.in` on every
+# case of all eight machines: 81 attempted, 0 produced. Every seed-side artifact was
+# asserted here and every case-side one was not, so the build passed and the corpus did not.
+# A file the corpus cannot start without is now a BUILD failure, not a runtime one.
+RUN set -eux; \
+    for f in /flux/runs/g30_base/base.in \
+             /flux/data/grid30_raised/z0m.npy \
+             /flux/data/grid30_raised/htFlux.npy \
+             /flux/data/grid30_raised/topo.npy \
+             /flux/results/sigma_w_curve_30m.json \
+             /flux/third_party/FFP/calc_footprint_FFP.py \
+             /flux/lib/liblpdm.so; do \
+      [ -s "$f" ] || { echo "FATAL: the case path needs $f and it is not in the image."; \
+                       echo "       Check .dockerignore -- an artifact-tree exclusion is"; \
+                       echo "       the way this file gets lost, and the dry run replaces"; \
+                       echo "       the whole case path so it cannot catch it."; exit 1; }; \
+    done; \
+    grep -q 'Nxp' /flux/runs/g30_base/base.in || { \
+      echo "FATAL: /flux/runs/g30_base/base.in is present but is not a FastEddy .in"; \
+      exit 1; }; \
+    echo "case path inputs present: .in template, 30 m surface, sigma_w curve, FFP, liblpdm"
+
 # The provenance goes into the FILESYSTEM as well as into the labels, because
 # `docker inspect` cannot be run from inside a container and the entrypoint has
 # to be able to print what it is into a log someone will paste into a message.
