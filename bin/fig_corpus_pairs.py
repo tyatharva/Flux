@@ -54,6 +54,15 @@ SPLIT_COLOUR = {"train": "#4c72b0", "val": "#dd8452", "test": "#55a868"}
 OCTANTS = [("N", 0.0), ("NE", 45.0), ("E", 90.0), ("SE", 135.0),
            ("S", 180.0), ("SW", 225.0), ("W", 270.0), ("NW", 315.0)]
 
+TGT_LABEL = ["TARGET  LES + backward LPDM",
+             "TARGET: LES + backward LPDM (signed)"]
+
+MASK_CAPTION = (
+    "\nTARGET IS target_masked: every cell on the DOWNWIND side of the receptor has been "
+    "set to zero (bin/mask_wrap.py).  The validation in results/wrap_mask_validation.txt "
+    "does NOT support this as a correction to the integral -- it is an ablation.  "
+    "figures/raw/ is the same set on the unmasked target.")
+
 CAPTION = (
     "North-up map frame, 30 m cells, receptor (star) at the origin, 122 real cells inside "
     "the dotted zero-pad boundary.  green: solar array (fixed -- the tower is inside it)   "
@@ -75,8 +84,11 @@ def _s(a):
     return [x.decode() if isinstance(x, bytes) else str(x) for x in a]
 
 
-def load_corpus(path):
+def load_corpus(path, target_key="target"):
     with h5py.File(path, "r") as f:
+        if target_key not in f:
+            sys.exit(f"FATAL: {path} has no dataset '{target_key}'. Run "
+                     f"bin/mask_wrap.py first if you want target_masked.")
         g = f["grid"].attrs
         # Rule 1: validate the artifact, not the constant you hoped it had.
         for name, want, got in (("n", NRAW, int(g["n"])),
@@ -85,7 +97,8 @@ def load_corpus(path):
                                 ("dx_m", DX, float(g["dx_m"]))):
             if want != got:
                 sys.exit(f"FATAL: {path} grid/{name} is {got}, this script assumes {want}")
-        d = dict(kljun=f["kljun"][:], target=f["target"][:], scalars=f["scalars"][:])
+        d = dict(kljun=f["kljun"][:], target=f[target_key][:], scalars=f["scalars"][:],
+                 target_key=target_key)
         m = f["meta"]
         d["scalar_names"] = _s(m["scalar_names"][:])
         for k in ("run_id", "datetime", "split", "gate_state"):
@@ -97,6 +110,16 @@ def load_corpus(path):
         d["norm_mean"] = f["norm/scalars_mean"][:]
         d["norm_std"] = f["norm/scalars_std"][:]
         d["n"] = int(f.attrs["n"])
+    # meta/integral and meta/peak_x_m describe the UNMASKED target. On a masked run they
+    # would be quietly wrong -- the same shape of bug as validating the config instead of
+    # the artifact -- so they are recomputed from the raster that is actually plotted.
+    if target_key != "target":
+        d["integral"] = d["target"].sum(axis=(1, 2)) * DX * DX
+        d["peak_x_m"] = np.array([crosswind_integrated(d["target"][i],
+                                                       float(d["wdir_deg"][i]))[0][
+            int(np.argmax(crosswind_integrated(d["target"][i],
+                                               float(d["wdir_deg"][i]))[1]))]
+            for i in range(d["n"])])
     if not np.isfinite(d["target"]).all() or not np.isfinite(d["kljun"]).all():
         sys.exit("FATAL: non-finite values in the rasters")   # rule 9
     return d
@@ -290,7 +313,7 @@ def gallery(d, surf, idx, title, outpath, dpi):
 
         for c, (F, name, norm, cmap, floor) in enumerate((
                 (klj, "INPUT  Kljun FFP v1.42", lognorm, "magma", lognorm.vmin),
-                (tgt, "TARGET  LES + backward LPDM", lognorm, "magma", lognorm.vmin),
+                (tgt, TGT_LABEL[0], lognorm, "magma", lognorm.vmin),
                 (tgt - klj, "TARGET - INPUT", symnorm, "RdBu_r", None))):
             ax = axes[r][c]
             im = raster(ax, F, norm, cmap, ext, mask_below=floor)
@@ -361,7 +384,7 @@ def anatomy(d, surf, i, outpath, dpi):
 
     for c, (F, name, norm, cmap, floor) in enumerate((
             (klj, "INPUT: Kljun et al. (2015) FFP v1.42", lognorm, "magma", lognorm.vmin),
-            (tgt, "TARGET: LES + backward LPDM (signed)", lognorm, "magma", lognorm.vmin),
+            (tgt, TGT_LABEL[1], lognorm, "magma", lognorm.vmin),
             (tgt - klj, "TARGET - INPUT (what the FNO predicts)", symnorm, "RdBu_r",
              None))):
         ax = fig.add_subplot(gs[0, c])
@@ -654,7 +677,8 @@ def sanity_figure(d, outpath, dpi):
     ax.tick_params(labelsize=7)
     ax.legend(fontsize=6.4, frameon=False, markerscale=1.6, loc="lower right")
 
-    fig.suptitle("pair sanity -- every panel is computed from corpus.h5 alone\n"
+    fig.suptitle(f"pair sanity -- every panel computed from corpus.h5 alone "
+                 f"[{d['target_key']}]\n"
                  f"zero pad: max |value| over all {d['n']} records and both channels = "
                  f"{worst:.3e}"
                  f"{'  (exactly zero)' if worst == 0 else '  -- NOT ZERO, investigate'};  "
@@ -737,7 +761,12 @@ def pick_random(d, split, k, seed):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--h5", default="corpus/corpus.h5")
-    ap.add_argument("--outdir", default="figures")
+    ap.add_argument("--outdir", default="figures/raw")
+    ap.add_argument("--target", default="target", choices=["target", "target_masked"],
+                    help="which target dataset to plot. target_masked is the "
+                         "downwind-half-plane ablation written by bin/mask_wrap.py; its "
+                         "integral and peak are recomputed from the raster because "
+                         "meta/ describes the unmasked target")
     ap.add_argument("--surface", default="data/grid30_raised",
                     help="production surface dir, for the lake outline; optional")
     ap.add_argument("--dpi", type=int, default=130)
@@ -749,8 +778,13 @@ def main():
     if not os.path.exists(a.h5):
         sys.exit(f"FATAL: {a.h5} does not exist")
     os.makedirs(a.outdir, exist_ok=True)
-    print(f"reading {a.h5}")
-    d = load_corpus(a.h5)
+    print(f"reading {a.h5}  (target dataset: {a.target})")
+    global CAPTION
+    if a.target != "target":
+        TGT_LABEL[0] = "TARGET  masked (downwind zeroed)"
+        TGT_LABEL[1] = "TARGET: masked -- downwind half-plane zeroed"
+        CAPTION = CAPTION + MASK_CAPTION
+    d = load_corpus(a.h5, a.target)
     print(f"  {d['n']} records, splits " +
           ", ".join(f"{s}={int((d['split'] == s).sum())}"
                     for s in ("train", "val", "test")))
@@ -789,7 +823,11 @@ def main():
     print("\nsummary")
     print(f"  zero pad max |value|      {st['pad_max']:.3e}  "
           f"({'exactly zero' if st['pad_max'] == 0 else 'NOT ZERO -- investigate'})")
-    fl = flagged_counts(os.path.join(os.path.dirname(a.h5) or ".", "FLAGGED.tsv"))
+    fl = (flagged_counts(os.path.join(os.path.dirname(a.h5) or ".", "FLAGGED.tsv"))
+          if a.target == "target" else None)
+    if a.target != "target":
+        print("  (FLAGGED.tsv records the gate on the UNMASKED target, so it is not "
+              "compared here)")
     ref = (lambda k: f"   (FLAGGED.tsv: {fl[k]})") if fl else (lambda k: "")
     print(f"  outside G2b [0.6, 1.5]    {st['n_g2b']} of {d['n']}{ref('g2b')}")
     print(f"  outside G3b [0.4, 2.5]    {st['n_g3b']} of {d['n']}{ref('g3b')}")

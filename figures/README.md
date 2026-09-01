@@ -1,16 +1,24 @@
 # Figures
 
-Regenerate everything in this directory with one command, from `corpus/corpus.h5` alone:
+    raw/                    the nine pair figures on the corpus target. THE DEFAULT SET.
+    masked/                   the same nine on target_masked (the ablation, not a fix)
+    wrap_mask_effect.png      why raw/ is still the default
+    old/                      the 22 LES-development-pass figures
 
-    docker run --rm -v $PWD:/w -w /w -u $(id -u):$(id -g) -e MPLCONFIGDIR=/tmp/mpl \
-      ghcr.io/tyatharva/flux-seeds:7de9dee2a01d-fe0ce48d5dff06 \
-      python3 bin/fig_corpus_pairs.py
+Regenerate everything from `corpus/corpus.h5` alone:
+
+    D="docker run --rm -v $PWD:/w -w /w -u $(id -u):$(id -g) -e MPLCONFIGDIR=/tmp/mpl \
+       ghcr.io/tyatharva/flux-seeds:7de9dee2a01d-fe0ce48d5dff06"
+    $D python3 bin/fig_corpus_pairs.py                                     # -> raw/
+    $D python3 bin/fig_corpus_pairs.py --target target_masked \
+                                       --outdir figures/masked             # -> masked/
+    $D python3 bin/fig_wrap_mask.py                                        # -> the PNG
 
 The host python has no h5py, scipy or matplotlib, so this runs in-image like every other
 analysis. `bin/fig_corpus_pairs.py` runs no LES and no LPDM — it opens the same file the
 training loader will open, so a pair that is wrong here is wrong in the dataset.
 
-## The current figures — the (input, target) pairs
+## `raw/` — the (input, target) pairs, on the corpus target
 
 | file | what it shows |
 |---|---|
@@ -61,6 +69,24 @@ Both counts reproduce the file exactly, which is what licenses the wind-axis rec
 the figures use. **G3b is a peak DISTANCE ratio, not a peak amplitude ratio** — the amplitude
 ratio is a different number, is reported in the same panel, and nothing thresholds it.
 Neither gate is an exclusion rule; see `corpus/README.md`.
+
+## `masked/` and `wrap_mask_effect.png` — the wraparound ablation
+
+`bin/mask_wrap.py` writes a second target into `corpus.h5`, `target_masked`, with every cell
+on the **downwind** side of the receptor set to zero. The idea was that downwind mass is
+periodic wrap — Kljun is identically zero downwind, verified at exactly `0.000e+00` over all
+1366 records — and that removing it would pull the footprint integral back to its
+`1 − z_m/z_i` asymptote.
+
+**It does not.** `wrap_mask_effect.png` is the evidence, and its decisive panel is the middle
+one of row 2: `r(|mass| removed, raw error) = −0.496`. The records that lose the most
+downwind mass are the ones that were *already below* the asymptote. Wrap double-counting
+predicts the opposite sign. Median |error| goes 0.144 → 0.146, i.e. slightly worse, and half
+the corpus ends up below the asymptote.
+
+`masked/` is the same nine figures on `target_masked`, for comparison. **Train on `target`.**
+`target_masked` is a defensible ablation, not a correction. Full write-up:
+`docs/results/WRAP_MASK_RESULT.md`.
 
 ## `old/`
 

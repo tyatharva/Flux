@@ -1,0 +1,168 @@
+==============================================================================
+WRAPAROUND MASK -- VALIDATION
+==============================================================================
+records                1366
+asymptote              1 - z_m/z_i with z_m = 30.0 m; z_i is the record's own
+                       zi_achieved_m.  median asymptote 0.9645
+
+------------------------------------------------------------------------------
+0. THE PREMISE: Kljun carries no downwind mass
+------------------------------------------------------------------------------
+  max over all 1366 records of |Kljun| downwind / |Kljun| total = 0.000e+00
+  EXACTLY ZERO -- the input channel has nothing on the downwind side, so the mask
+  removes nothing a perfect emulator would need to reproduce.
+
+------------------------------------------------------------------------------
+1. THE INTEGRAL, before and after, against the asymptote
+------------------------------------------------------------------------------
+                             p5      p25   median      p75      p95      mean
+  integral raw           0.7073   0.8704   1.0146   1.1615   1.4560    1.0368
+  integral masked        0.6556   0.8103   0.9514   1.1059   1.3826    0.9777
+  asymptote              0.9376   0.9594   0.9645   0.9718   0.9756    0.9624
+  error raw             -0.2525  -0.0920   0.0524   0.1996   0.5010    0.0744
+  error masked          -0.3108  -0.1494  -0.0106   0.1413   0.4264    0.0153
+
+  records the mask moved CLOSER to the asymptote     735 of 1366  (53.8%)
+  records above the asymptote before the mask        809 of 1366  (59.2%)
+  records below the asymptote after the mask         712 of 1366  (52.1%)
+  median |error|   raw 0.1443  ->  masked 0.1455
+  mean   error     raw +0.0744  ->  masked +0.0153
+
+------------------------------------------------------------------------------
+2. THE DECISIVE TEST: is the mass removed the mass that was in excess?
+------------------------------------------------------------------------------
+  If downwind mass is wrap double-counting, the records that lose the most of it
+  must be the records whose integral was most inflated. A weak correlation would
+  mean the mask is removing something unrelated to the excess.
+    Pearson  r(|mass| removed, raw error) = -0.4961
+    Spearman rho                          = -0.5043
+
+  2b. WHAT KIND OF MASS IS DOWNWIND -- displaced footprint, or signed noise?
+      A wrapped footprint is a COPY of a footprint, so it is predominantly POSITIVE
+      and removing it must cut the integral by about as much as it cuts |mass|.
+      Shot noise is signed and near mass-neutral, so removing it cuts |mass| and
+      barely moves the integral. The ratio below separates the two.
+      positive removed / |removed|   median 0.743   (1.000 = a pure footprint copy, 0.500 = mass-neutral noise)
+      |net removed| / |removed|      median 0.486   p5 0.143   p95 0.721
+      |mass| removed [integral units] median 0.1232   vs integral drop median 0.0582
+      records where the removed region is mass-balanced (|net|/|removed| < 0.25): 154 of 1366
+
+    top decile by mass removed:    median raw error -0.1247  -> masked -0.2142
+    bottom decile by mass removed: median raw error +0.2729  -> masked +0.2394
+
+------------------------------------------------------------------------------
+3. HOW MUCH IS REMOVED, and from where
+------------------------------------------------------------------------------
+  |mass| removed [% of |f|]   p5 5.24  p25 8.09  median 11.05  p75 14.17  p95 17.87   max 23.66
+    of which within 200 m of the receptor   median 0.000%   max 1.00%
+    of which beyond  200 m                  median 11.029%   max 23.37%
+  The near-field share is the part that could plausibly be a genuine downwind
+  contribution rather than wrap; it is small, and it is removed too.
+
+------------------------------------------------------------------------------
+4. THE NEGATIVE LOBE: does the mask cut physical signal?
+------------------------------------------------------------------------------
+  Steinfeld's wind-turning negatives sit to the RIGHT of the upstream direction --
+  upwind, so they must SURVIVE the mask. A large drop means the mask is cutting
+  physical signal rather than wrap.
+    negative lobe [% of |f|]   raw    median 4.80   p5-p95 2.22-9.58
+                               masked median 2.11   p5-p95 0.55-6.31
+    change [percentage points] median -2.52   p5 -5.12   p95 -1.07
+    records where the negative lobe SURVIVES at >= half its raw share: 565 of 1366
+
+  Steinfeld's prediction has a SIDE to it, so it can be checked rather than
+  asserted: of the negative mass that survives the mask, the fraction lying to the
+  RIGHT of the upstream direction (c = x*cos_wdir - y*sin_wdir > 0).
+    surviving negative mass on the RIGHT   median 0.534   p5 0.102   p95 0.920     (0.500 = no side preference)
+    records with a right-hand majority (> 0.5): 735 of 1366  (53.8%)
+    NO SIDE PREFERENCE. The surviving negatives are distributed about the wind
+    axis as if the side did not matter, so the corpus negative lobe does NOT
+    carry the Steinfeld wind-turning signature. That cuts both ways: the large
+    drop above is therefore NOT evidence that the mask cut Steinfeld signal,
+    because the signal is not identifiable in the raw target either.
+
+------------------------------------------------------------------------------
+5. G2b, the gate corpus_monitor.py already defines: integral in [0.6, 1.5]
+------------------------------------------------------------------------------
+    raw     outside:   65 of 1366   (low 11, high 54)
+    masked  outside:   59 of 1366   (low 19, high 40)
+
+------------------------------------------------------------------------------
+6. THE NAMED CASE: case_2022020316
+------------------------------------------------------------------------------
+    wind FROM [deg]          353.6
+    z_i [m]                    802
+    asymptote               0.9626
+    integral raw            1.6102
+    integral masked         1.5823
+    error raw              +0.6476
+    error masked           +0.6197
+    |mass| removed [%]        8.78
+    negative lobe [%]         6.01  ->  2.60
+    array share [%]          53.11
+
+==============================================================================
+VERDICT
+==============================================================================
+  THE WRAP INTERPRETATION DOES NOT SURVIVE THE VALIDATION.
+  Not because there is nothing downwind -- there is -- but because what is there does
+  not behave like the thing that inflates the integral.
+
+  1. It does not close the gap. Masking moved 53.8% of records closer to the
+     asymptote, barely better than a coin toss, and the median |error| went
+     0.1443 -> 0.1455: slightly WORSE. The named case goes 1.6102 -> 1.5823
+     against an asymptote of 0.9626. It removed 8.8% of |mass| and closed 4% of the gap.
+
+  2. The SIGN of the correlation refutes it. r(|mass| removed, raw error) = -0.496.
+     The records that lose the MOST downwind mass are the records that were ALREADY
+     BELOW the asymptote; the records that were most inflated lose the LEAST. Wrap
+     double-counting predicts the opposite sign.
+
+  3. What IS downwind is a near-uniform offset, not the spread. It is 0.743 positive
+     by |mass| -- so it is NOT pure shot noise, and some of it is plausibly genuine
+     wrap -- but its net is a median 0.058 in integral units on every record alike.
+     A near-constant 6% offset cannot explain raw errors spread from -0.25 to +0.50.
+
+  A CANDIDATE THAT DOES FIT, and that this project has already measured: the
+  advection non-closure. PROJECT_BRIEF.md records that departure from the asymptote tracks
+  w_bar at the receptor with the right sign -- subsidence 1.497x, updraft 0.916x, on
+  two cases with opposite signs. That is a vertical-velocity effect, it predicts
+  departures of BOTH signs, and both-signed is what the raw errors are (p5 -0.25,
+  p95 +0.50). Testing it needs w_bar per record, which the corpus does not carry.
+
+  target_masked IS WRITTEN, and is reproducible from grid/. DO NOT TRAIN ON IT as a
+  correction to the integral: on this evidence it removes ~11% of |mass| and ~6% of
+  the integral from every record, pushes half the corpus BELOW the asymptote, and
+  cuts more than half the negative lobe. It is a defensible ABLATION, not a fix.
+  712 of 1366 records now sit BELOW the asymptote (median shortfall 0.1428).
+  Undershoot is expected and is not wrap: a finite backward time and the
+  one-domain-length displacement cap can only LOSE influence.
+
+KNOWN LIMITS OF THIS MASK -- state these wherever target_masked is used
+------------------------------------------------------------------------------
+1. DOUBLE WRAP IS NOT CAUGHT. A particle displaced more than TWO domain lengths
+   (7320 m) lands back on the UPWIND side and is indistinguishable from real
+   near-field influence. It survives the mask. This is far-tail material only:
+   the LPDM caps displacement at one domain length, so it can only arise through
+   the fold itself, and its amplitude is at the level of the speckle.
+2. GENUINE DOWNWIND CONTRIBUTION IS REMOVED WITH THE WRAP. A convective boundary
+   layer does put a little influence downwind of the receptor. The mask cannot
+   tell it from wrap and removes both. The report quantifies the part of the
+   removed mass that lies within 200 m of the receptor, which is where a genuine
+   downwind contribution would sit.
+3. PURE CROSSWIND WRAP IS NOT CAUGHT. A particle that wraps across the domain in
+   the crosswind direction lands at s >= 0 and survives. That displacement is
+   ~10 sigma_y at this domain size, so the mass involved is negligible -- but it
+   is not zero and nothing here removes it.
+4. THE MASK IS A HALF-PLANE, NOT A TRAJECTORY TEST. It is a statement about where
+   mass ended up, not about how it got there.
+
+THE CLEAN FIX, if the corpus is ever rebuilt
+------------------------------------------------------------------------------
+Deposit the UNFOLDED displacement at generation time: bin each touchdown by its
+cumulative displacement from the receptor rather than by its folded LES column
+index, and let the raster window truncate what leaves it. That removes all four
+limits above at once, because a wrapped particle then lands where it actually
+went instead of where the periodic domain put it. It needs the touchdowns, which
+ML_TARGETS.md decided not to save, so it CANNOT be done post hoc -- it is a
+generation-time change and therefore a full corpus regeneration.

@@ -33,6 +33,7 @@ document is the record of what was believed at the time.
 | regimes | `STABLE_REGIME_RESULT.md` | why there are no stable cases (resolution, `L_O/Delta` = 3.57) |
 | box | `CONTAINMENT_RESULT.md` | domain size, water share, tail retention |
 | cases | `TARGET_CASE_RESULT.md` | the validation case the estimator was built against |
+| corpus | `WRAP_MASK_RESULT.md` | the downwind-half-plane ablation: why `target_masked` is not the training target |
 
 The most load-bearing of them, cited from `PROJECT_BRIEF.md`:
 
@@ -43,6 +44,9 @@ The most load-bearing of them, cited from `PROJECT_BRIEF.md`:
 * `SEED_LIBRARY_RESULT.md` — the 30 seeds, and the 0.189 GPU-h/sim-h at 16-way that must
   **not** be carried to a corpus estimate.
 * `STABLE_REGIME_RESULT.md` — limitation 5 in `PROJECT_BRIEF.md`, with the measurement behind it.
+* `WRAP_MASK_RESULT.md` — 2026-09-01, the only write-up here that is CURRENT rather than
+  superseded: it documents `target_masked` in the shipped `corpus.h5` and the measurement
+  that says not to train on it.
 
 ## Documents that live elsewhere, on purpose
 
