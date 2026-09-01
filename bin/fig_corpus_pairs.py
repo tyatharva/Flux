@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
-"""Figures of the (input, target) pairs in corpus/corpus.h5 -- the ML dataset itself.
+"""Figures of the (input, target) pairs in a corpus file -- the ML dataset itself.
 
 These are DATASET figures, not physics figures. Nothing here runs the LES or the LPDM;
-everything is read out of corpus.h5, which is what the emulator will be trained on. If a
-pair is wrong -- wrong orientation, wrong scale, the array in the wrong place, the zero pad
-not zero -- it is wrong here, in the file the loader opens.
+everything is read out of the .h5 the emulator will be trained on. If a pair is wrong --
+wrong orientation, wrong scale, the array in the wrong place, the zero pad not zero -- it is
+wrong here, in the file the loader opens.
+
+The corpus ships as two files with IDENTICAL layout: corpus_raw.h5, whose `target` is the
+LES field as produced, and corpus_cone.h5, whose `target` has the periodic wraparound
+cropped out. Point --h5 at either; the file's own `variant` attribute says which it is and
+this script labels itself accordingly.
 
 Every raster panel is in the SAME frame the corpus stores: north-up map, 30 m cells,
 receptor at the centre of cell (64, 64), 122 real cells zero-padded to 128. The frame is
@@ -15,7 +20,7 @@ check by eye.
 Panels are NOT renormalised (unlike bin/make_figures.py). The absolute scale is an input to
 the loss, so it is what is plotted; the integral is printed on every target panel instead.
 
-usage: fig_corpus_pairs.py [--h5 corpus/corpus.h5] [--outdir figures]
+usage: fig_corpus_pairs.py [--h5 corpus/corpus_raw.h5] [--outdir figures/raw]
                            [--surface data/grid30_raised] [--dpi 130]
 """
 import argparse
@@ -58,10 +63,10 @@ TGT_LABEL = ["TARGET  LES + backward LPDM",
              "TARGET: LES + backward LPDM (signed)"]
 
 MASK_CAPTION = (
-    "\nTARGET IS target_cone, THE TRAINING TARGET: everything outside a wind-aligned cone "
-    "x' >= 0 and |y'| <= max(8 sigma_y(x'), 90 m) is set to zero (bin/mask_cone.py).  That "
-    "is where periodic-wrap material lands and where a real footprint cannot reach.  "
-    "figures/raw/ is the same set on the raw LES target, which is retained in corpus.h5.")
+    "\nThis is corpus_cone.h5, THE TRAINING SET: everything outside a wind-aligned cone "
+    "x' >= 0 and |y'| <= max(8 sigma_y(x'), 90 m) has been cropped out (bin/mask_cone.py). "
+    " That is where periodic-wrap material lands and where a real footprint cannot reach.  "
+    "figures/raw/ is the same set on corpus_raw.h5, the uncropped LES output.")
 
 CAPTION = (
     "North-up map frame, 30 m cells, receptor (star) at the origin, 122 real cells inside "
@@ -87,11 +92,12 @@ def _s(a):
     return [x.decode() if isinstance(x, bytes) else str(x) for x in a]
 
 
-def load_corpus(path, target_key="target"):
+def load_corpus(path):
+    """Read one corpus file. Both variants have the SAME dataset names, so nothing here
+    depends on which was opened except the labels -- that is the point of two files."""
     with h5py.File(path, "r") as f:
-        if target_key not in f:
-            sys.exit(f"FATAL: {path} has no dataset '{target_key}'. Run "
-                     f"bin/mask_cone.py first if you want target_cone.")
+        variant = f.attrs.get("variant", "raw")
+        variant = variant.decode() if isinstance(variant, bytes) else str(variant)
         g = f["grid"].attrs
         # Rule 1: validate the artifact, not the constant you hoped it had.
         for name, want, got in (("n", NRAW, int(g["n"])),
@@ -100,8 +106,8 @@ def load_corpus(path, target_key="target"):
                                 ("dx_m", DX, float(g["dx_m"]))):
             if want != got:
                 sys.exit(f"FATAL: {path} grid/{name} is {got}, this script assumes {want}")
-        d = dict(kljun=f["kljun"][:], target=f[target_key][:], scalars=f["scalars"][:],
-                 target_key=target_key)
+        d = dict(kljun=f["kljun"][:], target=f["target"][:], scalars=f["scalars"][:],
+                 variant=variant)
         m = f["meta"]
         d["scalar_names"] = _s(m["scalar_names"][:])
         for k in ("run_id", "datetime", "split", "gate_state"):
@@ -113,10 +119,11 @@ def load_corpus(path, target_key="target"):
         d["norm_mean"] = f["norm/scalars_mean"][:]
         d["norm_std"] = f["norm/scalars_std"][:]
         d["n"] = int(f.attrs["n"])
-    # meta/integral and meta/peak_x_m describe the UNMASKED target. On a masked run they
-    # would be quietly wrong -- the same shape of bug as validating the config instead of
-    # the artifact -- so they are recomputed from the raster that is actually plotted.
-    if target_key != "target":
+    # meta/integral and meta/peak_x_m are carried over from the raw corpus, so on the cone
+    # file they describe a field that is no longer there. Quoting them would be the same
+    # shape of bug as validating the config instead of the artifact, so they are recomputed
+    # from the raster actually plotted.
+    if variant != "raw":
         d["integral"] = d["target"].sum(axis=(1, 2)) * DX * DX
         d["peak_x_m"] = np.array([crosswind_integrated(d["target"][i],
                                                        float(d["wdir_deg"][i]))[0][
@@ -190,7 +197,7 @@ def array_upwind_span(wdir_deg):
 def kljun_peak_distance(d):
     """Upwind distance of the INPUT's crosswind-integrated peak, per record.
 
-    corpus_monitor.py takes Kljun's peak_x from the stage-5 report; corpus.h5 does not
+    corpus_monitor.py takes Kljun's peak_x from the stage-5 report; the corpus does not
     carry it, so it is re-derived here on the same wind axis the LES peak was measured on.
     The two agree to the 30 m cell -- the count printed at the end is checked against
     corpus/FLAGGED.tsv, which is the record of what the gate actually said.
@@ -680,8 +687,8 @@ def sanity_figure(d, outpath, dpi):
     ax.tick_params(labelsize=7)
     ax.legend(fontsize=6.4, frameon=False, markerscale=1.6, loc="lower right")
 
-    fig.suptitle(f"pair sanity -- every panel computed from corpus.h5 alone "
-                 f"[{d['target_key']}]\n"
+    fig.suptitle(f"pair sanity -- every panel computed from the corpus file alone "
+                 f"[{d['variant']}]\n"
                  f"zero pad: max |value| over all {d['n']} records and both channels = "
                  f"{worst:.3e}"
                  f"{'  (exactly zero)' if worst == 0 else '  -- NOT ZERO, investigate'};  "
@@ -763,13 +770,10 @@ def pick_random(d, split, k, seed):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--h5", default="corpus/corpus.h5")
+    ap.add_argument("--h5", default="corpus/corpus_raw.h5",
+                    help="corpus_raw.h5 or corpus_cone.h5; both have the same layout and "
+                         "the file's own `variant` attribute says which it is")
     ap.add_argument("--outdir", default="figures/raw")
-    ap.add_argument("--target", default="target", choices=["target", "target_cone"],
-                    help="which target dataset to plot. target_cone is THE TRAINING "
-                         "TARGET, written by bin/mask_cone.py; its integral and peak are "
-                         "recomputed from the raster because meta/ describes the raw "
-                         "target")
     ap.add_argument("--surface", default="data/grid30_raised",
                     help="production surface dir, for the lake outline; optional")
     ap.add_argument("--dpi", type=int, default=130)
@@ -781,14 +785,16 @@ def main():
     if not os.path.exists(a.h5):
         sys.exit(f"FATAL: {a.h5} does not exist")
     os.makedirs(a.outdir, exist_ok=True)
-    print(f"reading {a.h5}  (target dataset: {a.target})")
+    print(f"reading {a.h5}")
+    d = load_corpus(a.h5)
     global CAPTION
-    CAPTION = CAPTION + (RAW_CAPTION if a.target == "target" else "")
-    if a.target != "target":
-        TGT_LABEL[0] = "TARGET  target_cone (training target)"
-        TGT_LABEL[1] = "TARGET: target_cone -- wind-aligned cone, the training target"
+    if d["variant"] == "raw":
+        CAPTION = CAPTION + RAW_CAPTION
+    else:
+        TGT_LABEL[0] = "TARGET  cropped (the training target)"
+        TGT_LABEL[1] = "TARGET: cropped to the wind-aligned cone -- the training target"
         CAPTION = CAPTION + MASK_CAPTION
-    d = load_corpus(a.h5, a.target)
+    print(f"  variant: {d['variant']}")
     print(f"  {d['n']} records, splits " +
           ", ".join(f"{s}={int((d['split'] == s).sum())}"
                     for s in ("train", "val", "test")))
@@ -828,8 +834,8 @@ def main():
     print(f"  zero pad max |value|      {st['pad_max']:.3e}  "
           f"({'exactly zero' if st['pad_max'] == 0 else 'NOT ZERO -- investigate'})")
     fl = (flagged_counts(os.path.join(os.path.dirname(a.h5) or ".", "FLAGGED.tsv"))
-          if a.target == "target" else None)
-    if a.target != "target":
+          if d["variant"] == "raw" else None)
+    if d["variant"] != "raw":
         print("  (FLAGGED.tsv records the gate on the UNMASKED target, so it is not "
               "compared here)")
     ref = (lambda k: f"   (FLAGGED.tsv: {fl[k]})") if fl else (lambda k: "")

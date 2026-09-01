@@ -242,17 +242,23 @@ window truncate what leaves it. Then no wrapped material is deposited at all and
 needed. It requires the touchdowns, which `docs/ML_TARGETS.md` decided not to save, so it is a
 generation-time change and a full corpus regeneration.
 
-## State of `corpus.h5`
+## How it ships: two files, one dataset name
 
-    scalars        unchanged, byte-identical to the pre-mask backup
-    kljun          unchanged, byte-identical
-    target         unchanged, byte-identical -- the raw LES output, retained
-    target_cone    NEW. THE TRAINING TARGET.
-    meta/u_mean_ms NEW. Carried so sigma_y, and therefore the cone, is reproducible
-                   from this file alone.
-    grid/cone_*    the rule, k, y_min, x_min, the sigma_y source, the commit and the
-                   timestamp
+    corpus_raw.h5   46.3 MB   variant="raw"    `target` = the LES field as produced
+    corpus_cone.h5  33.8 MB   variant="cone"   `target` = the same field, cone-cropped
 
-`target_masked`, the retired half-plane mask, has been **deleted**, and the file was rebuilt
-object by object rather than edited in place so the space was actually reclaimed
-(56.7 → 55.0 MB).
+Identical layout: the same `scalars`, `kljun`, `meta` and `norm` in both, and in both the
+target is called **`target`**. A loader points at one file or the other and nothing else
+changes — which is the reason they are separate files rather than two datasets in one.
+`corpus_cone.h5` additionally carries `grid/cone_*` (the rule, k, y_min, x_min, the σ_y
+source, the commit, the timestamp) and a root `source` attribute naming the file it came from.
+`meta/u_mean_ms` is in both, so σ_y — and therefore the cone — is reproducible from either.
+
+Verified against the pre-mask backup: `corpus_raw.h5`'s `scalars`, `kljun` and `target` are
+**byte-identical**; `corpus_cone.h5`'s `scalars` and `kljun` are identical to the raw file's,
+its `target` equals the raw target inside the cone and is exactly zero outside, and **0 of
+1366 records carry any nonzero value at `x' < 0`**.
+
+The pipeline is `consolidate_corpus.py --out corpus_raw.h5`, then `mask_cone.py`. The
+intermediate `corpus.h5` that briefly held both targets, and `target_masked` from the retired
+half-plane attempt, are both gone.

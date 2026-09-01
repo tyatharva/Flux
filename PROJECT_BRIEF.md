@@ -18,13 +18,21 @@ inference.
 
 ## STATUS — 2026-09-01: THE CORPUS EXISTS. THE NEXT STEP IS ML.
 
-**1366 training pairs in `corpus/corpus.h5`** (46 MB), generated on 8 machines x 8 RTX 5090.
+**1366 training pairs, generated on 8 machines x 8 RTX 5090.** They ship as TWO .h5 files
+with identical layout, differing only in `target` — which is what it is called in both, so a
+loader points at one or the other and nothing else changes:
+
+| file | | |
+|---|---|---|
+| **`corpus/corpus_cone.h5`** | 34 MB, `variant="cone"` | **TRAIN ON THIS.** `target` is cropped to the wind-aligned cone |
+| `corpus/corpus_raw.h5` | 46 MB, `variant="raw"` | `target` is the LES field as produced, wraparound and all |
+
 `corpus/README.md` is the dataset's own documentation; read it before training.
 
 | | |
 |---|---|
 | records | **1366** — train 837 / val 235 / test 294 |
-| arrays | `scalars` (N,6), `kljun` (N,128,128), `target` (N,128,128), **`target_cone` (N,128,128) — TRAIN ON THIS**, all float32 |
+| arrays | `scalars` (N,6), `kljun` (N,128,128), `target` (N,128,128), all float32 — in both files |
 | normalisation | in `norm/`, computed from the **train split alone** |
 | index / flags | `corpus/INDEX.json`, `corpus/FLAGGED.tsv` |
 | provenance | `corpus/provenance/` — 8 machine manifests, every one of 1945 days accounted for |
@@ -598,8 +606,8 @@ cases by ACHIEVED direction.
    RUN is short.** The neutral rungs are genuinely short at 2.0 sim-h.
 8. **The GPU LPDM is validated but is not the production integrator**, so host residency floors
    at the 12.0 GB field cache rather than at one or two snapshots.
-9. **The ML target is `target_cone`, and the wraparound it removes is a boundary artifact,
-   not signal.** `target` is retained raw. The cone is an operational cleanup and **not** an
+9. **The ML target is `corpus_cone.h5`, and the wraparound it crops is a boundary artifact,
+   not signal.** `corpus_raw.h5` is retained, byte-identical to what the pipeline produced. The cone is an operational cleanup and **not** an
    integral correction: median |error| against the asymptote goes 0.1443 → 0.1467 and 720 of
    1366 records end up below it. What inflates the integral is still open — the advection
    non-closure is the candidate that fits, and testing it needs `w_bar` per record, which the
@@ -649,10 +657,10 @@ cases by ACHIEVED direction.
 ## Repository layout
 
 ```
-corpus/                  <- THE DATASET: corpus.h5, INDEX.json, README.md, provenance/
+corpus/                  <- THE DATASET: corpus_{raw,cone}.h5, INDEX.json, provenance/
 bin/                     <- entry points, gates, tests      lpdm/  <- LPDM, estimator, Kljun
 docs/                    <- every document except this one. docs/README.md indexes them.
-figures/                 <- the corpus pair figures; figures/old/ is the LES-pass record
+figures/                 <- raw/ and cone/: the pair figures for the two corpus files
 jobs30/seed_*/return/    <- the 30-seed production library
 runs/g{16,24,30}_base/   <- the .in TEMPLATES every case is built from. LOAD-BEARING.
 data/                    <- raw geography (gitignored) and the built model grids
@@ -671,11 +679,11 @@ and corpus design. `docs/results/` holds the twenty per-pass and per-experiment 
 **superseded on absolute numbers by this file**, kept for methodology and for how each
 conclusion was reached.
 
-`bin/fig_corpus_pairs.py` regenerates the nine pair figures from `corpus/corpus.h5` alone and
-re-derives the G2b and G3b counts against `corpus/FLAGGED.tsv` as it goes:
-`--target target_cone --outdir figures/cone` for the training target, no flags for
-`figures/raw/`. `bin/fig_cone_mask.py` draws how the cone was derived.
-`figures/README.md` says how to read a pair panel.
+`bin/fig_corpus_pairs.py --h5 <file> --outdir <dir>` regenerates the nine pair figures from a
+corpus file alone and re-derives the G2b and G3b counts against `corpus/FLAGGED.tsv` as it
+goes; the file's own `variant` attribute tells it which corpus it opened.
+`bin/fig_cone_mask.py` draws how the cone was derived. `figures/README.md` says how to read a
+pair panel.
 
 **2026-09-01: 121 GB of LES scratch was removed** (`runs/*/{output,window}`, the `jobs*` dumps,
 and a verified byte-identical duplicate seed library). Inventory, what was kept and why, and

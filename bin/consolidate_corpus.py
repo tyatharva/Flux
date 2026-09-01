@@ -2,7 +2,7 @@
 """Eight machines' worth of records -> one training file. The last step before ML.
 
     bin/consolidate_corpus.py --npz-dir pairs_npz --manifests manifests \
-                              --out corpus.h5
+                              --out corpus_raw.h5
 
 WHAT THIS IS FOR. The corpus is generated on eight rented boxes that are destroyed
 afterwards, so what arrives is eight directories of ~40 kB `.npz` files and eight machine
@@ -158,7 +158,7 @@ def main():
                          "directories -- both are searched")
     ap.add_argument("--manifests", default="manifests",
                     help="directory of the eight machine manifests")
-    ap.add_argument("--out", default="corpus.h5")
+    ap.add_argument("--out", default="corpus_raw.h5")
     ap.add_argument("--allow-stub", action="store_true",
                     help="admit records marked meta.stub. FOR TESTING THIS SCRIPT ONLY; "
                          "the output is stamped so it can never pass for a corpus.")
@@ -173,7 +173,7 @@ def main():
     except ImportError:
         die("h5py is not installed. The analysis stack lives in the container:\n"
             "  docker run --rm -v $PWD:/w -w /w ghcr.io/tyatharva/flux-seeds:corpus \\\n"
-            "         python3 bin/consolidate_corpus.py --out /w/corpus.h5")
+            "         python3 bin/consolidate_corpus.py --out /w/corpus_raw.h5")
 
     # ---- find the records ------------------------------------------------------------
     files = sorted(glob.glob(os.path.join(a.npz_dir, "*.npz")))
@@ -317,6 +317,10 @@ def main():
         h.attrs["n"] = n
         h.attrs["created_utc"] = dt.datetime.utcnow().isoformat(timespec="seconds") + "Z"
         h.attrs["stub"] = bool(a.allow_stub)
+        # The corpus ships as TWO files with identical layout: this one, whose `target` is
+        # the LES field as produced, and corpus_cone.h5, whose `target` has the periodic
+        # wraparound cropped out (bin/mask_cone.py). A loader points at one or the other.
+        h.attrs["variant"] = "raw"
         if a.allow_stub:
             h.attrs["STUB_WARNING"] = ("built with --allow-stub: one or more records are "
                                        "NOT simulations. This file is not a corpus.")

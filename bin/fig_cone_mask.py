@@ -11,7 +11,8 @@ The panel that justifies k is the middle-left of row 2: the LES mass distributio
 q = |y'|/sigma_y(x') is bimodal with an EMPTY valley between the footprint and the wrap.
 k sits in that valley, which is why the answer barely moves when k does.
 
-usage: fig_cone_mask.py [--h5 corpus/corpus.h5] [--out figures/cone_mask_effect.png]
+usage: fig_cone_mask.py [--h5 corpus/corpus_raw.h5] [--cone-h5 corpus/corpus_cone.h5]
+                        [--out figures/cone_mask_effect.png]
 """
 import argparse
 import os
@@ -49,14 +50,15 @@ def cone_boundary(sin_w, cos_w, sy_of_x, k, y_min, x_min=0.0, smax=2400.0):
     return out
 
 
-def case_row(fig, gs, h5, d, run_id, surf, k, y_min, x_min):
+def case_row(fig, gs, h5, cone_h5, d, run_id, surf, k, y_min, x_min):
     """Raw target, target_cone, and what the cone deleted -- for one named record."""
     import h5py
     i = int(np.where(d["run_id"] == run_id)[0][0])
     with h5py.File(h5, "r") as f:
         t = f["target"][i].astype(np.float64)
-        tc = f["target_cone"][i].astype(np.float64)
         sc = f["scalars"][i]
+    with h5py.File(cone_h5, "r") as f:
+        tc = f["target"][i].astype(np.float64)
     X, Y = mc.axis_grids()
     sin_w, cos_w = float(sc[4]), float(sc[5])
     xw, yw = mc.wind_frame(X, Y, sin_w, cos_w)
@@ -72,8 +74,9 @@ def case_row(fig, gs, h5, d, run_id, surf, k, y_min, x_min):
 
     axs = []
     for c, (F, name, norm, cmap, floor, fg) in enumerate((
-            (t, "target (raw LES)", lognorm, "magma", lognorm.vmin, "w"),
-            (tc, "target_cone -- THE TRAINING TARGET", lognorm, "magma", lognorm.vmin, "w"),
+            (t, "corpus_raw.h5 : target", lognorm, "magma", lognorm.vmin, "w"),
+            (tc, "corpus_cone.h5 : target -- THE TRAINING SET", lognorm, "magma",
+             lognorm.vmin, "w"),
             (removed, "what the cone DELETED", symnorm, "RdBu_r", None, "k"))):
         ax = fig.add_subplot(gs[0, c])
         axs.append(ax)
@@ -108,7 +111,8 @@ def case_row(fig, gs, h5, d, run_id, surf, k, y_min, x_min):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--h5", default="corpus/corpus.h5")
+    ap.add_argument("--h5", default="corpus/corpus_raw.h5")
+    ap.add_argument("--cone-h5", default="corpus/corpus_cone.h5")
     ap.add_argument("--npz-dir", default="corpus/pairs_npz")
     ap.add_argument("--out", default="figures/cone_mask_effect.png")
     ap.add_argument("--surface", default="data/grid30_raised")
@@ -132,7 +136,7 @@ def main():
     fig = plt.figure(figsize=(14.4, 13.4))
     gs = fig.add_gridspec(3, 3, height_ratios=[1.30, 1.0, 1.0], hspace=0.36, wspace=0.27,
                           left=0.055, right=0.965, top=0.902, bottom=0.075)
-    case_row(fig, gs, a.h5, d, a.case, surf, a.k, a.y_min, a.x_min)
+    case_row(fig, gs, a.h5, a.cone_h5, d, a.case, surf, a.k, a.y_min, a.x_min)
 
     order = ["train", "val", "test"]
     sp = d["split"]

@@ -1,17 +1,17 @@
 # Figures
 
-    cone/                     the nine pair figures on target_cone. THE TRAINING TARGET.
-    raw/                      the same nine on the raw LES target, wraparound and all
+    cone/                     the nine pair figures on corpus_cone.h5. THE TRAINING SET.
+    raw/                      the same nine on corpus_raw.h5, wraparound and all
     cone_mask_effect.png      how the cone was derived and what it did
-    old/                      the 22 LES-development-pass figures
 
-Regenerate everything from `corpus/corpus.h5` alone:
+Regenerate everything from the two corpus files alone:
 
     D="docker run --rm -v $PWD:/w -w /w -u $(id -u):$(id -g) -e MPLCONFIGDIR=/tmp/mpl \
        ghcr.io/tyatharva/flux-seeds:7de9dee2a01d-fe0ce48d5dff06"
-    $D python3 bin/fig_corpus_pairs.py --target target_cone \
+    $D python3 bin/fig_corpus_pairs.py --h5 corpus/corpus_cone.h5 \
                                        --outdir figures/cone               # -> cone/
-    $D python3 bin/fig_corpus_pairs.py                                     # -> raw/
+    $D python3 bin/fig_corpus_pairs.py --h5 corpus/corpus_raw.h5  \
+                                       --outdir figures/raw                # -> raw/
     $D python3 bin/fig_cone_mask.py                                        # -> the PNG
 
 The host python has no h5py, scipy or matplotlib, so this runs in-image like every other
@@ -20,9 +20,10 @@ training loader will open, so a pair that is wrong here is wrong in the dataset.
 
 ## `cone/` and `raw/` — the (input, target) pairs
 
-`cone/` plots `target_cone`, the training target. `raw/` plots `target`, the raw
-LES output with the periodic wraparound still in it. Same nine figures, same
-layout, so the two directories diff by eye.
+`cone/` plots corpus_cone.h5, the training set. `raw/` plots corpus_raw.h5, the raw LES
+output with the periodic wraparound still in it. The two files have identical layout and
+both call the target `target`, so these are the same nine figures on the same axes and the
+two directories diff by eye.
 
 | file | what it shows |
 |---|---|
@@ -36,7 +37,7 @@ layout, so the two directories diff by eye.
 
 ### How to read a pair panel
 
-Every raster is in the frame `corpus.h5` stores: **north-up map**, 30 m cells, receptor at
+Every raster is in the frame the corpus stores: **north-up map**, 30 m cells, receptor at
 the centre of cell (64, 64), 122 real cells zero-padded to 128. The frame is *not*
 wind-aligned — that is deliberate, and it is the first thing to check by eye.
 
@@ -76,9 +77,9 @@ Neither gate is an exclusion rule; see `corpus/README.md`.
 
 ## `cone_mask_effect.png` — how the cone was derived
 
-`bin/mask_cone.py` writes `target_cone` into `corpus.h5`: everything outside a wind-aligned
-cone `x' ≥ 0` and `|y'| ≤ max(8·σ_y(x'), 90 m)` is set to zero, where σ_y is Kljun's own,
-from the corpus's own input channel.
+`bin/mask_cone.py` reads `corpus_raw.h5` and writes `corpus_cone.h5`: everything outside a
+wind-aligned cone `x' ≥ 0` and `|y'| ≤ max(8·σ_y(x'), 90 m)` is set to zero, where σ_y is
+Kljun's own, from the corpus's own input channel.
 
 The panel that justifies `k = 8` is the middle-left one. The LES mass distribution against
 `q = |y'|/σ_y(x')` is **bimodal with an empty valley**: 0.0110% of `|mass|` in `q ∈ [5, 11)`,
@@ -94,13 +95,12 @@ It is an **operational cleanup, not an integral correction** — the median |err
 `1 − z_m/z_i` asymptote goes 0.1443 → 0.1467, i.e. slightly worse, and that is stated rather
 than hidden. Full write-up: `docs/results/CONE_MASK_RESULT.md`.
 
-## `old/`
+## What is not here any more
 
-The 22 figures from the LES development passes — closure experiments, static-case
-comparisons, gate-6 panels, the 16 m and 24 m grid transects. They are the record of the
-passes written up in `docs/results/` and are **superseded on absolute numbers**: they were
-made on retired grids and, for several of them, on the retired `sigma_w` closure. Kept
-because the write-ups that cite them are kept. Their inputs under `runs/*/window/` were
-removed in the 2026-09-01 cleanup (`results/CLEANUP_INVENTORY.txt`), so regenerating them
-needs a regenerated window first; `bin/make_figures.py`, `bin/fig_static.py`,
-`bin/fig_gate6.py` and `bin/fig_closure.py` are the scripts that made them.
+The 22 figures from the LES development passes were removed on 2026-09-01. They were made on
+retired grids and, several of them, on the retired `sigma_w` closure, so they were superseded
+on every absolute number; their inputs under `runs/*/window/` had already gone in the storage
+cleanup, so they could not be regenerated in place either. The passes they illustrated are
+written up in `docs/results/`, and `bin/make_figures.py`, `bin/fig_static.py`,
+`bin/fig_gate6.py` and `bin/fig_closure.py` are still here if a regenerated window ever makes
+them worth redrawing.

@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Wind-aligned CONE mask on corpus.h5: writes target_cone, the training target.
+"""Wind-aligned CONE mask: reads corpus_raw.h5 and writes corpus_cone.h5, the training set.
+
+TWO FILES, ONE DATASET NAME. corpus_raw.h5 is the LES output as it came off the pipeline.
+corpus_cone.h5 is the same corpus with the periodic wraparound cropped out. In BOTH files
+the target is called `target`, so a loader points at one file or the other and nothing else
+changes -- which is the whole reason they are separate files rather than two datasets in
+one. Each carries a root attribute `variant` saying which it is.
 
 WHY A CONE AND NOT A HALF-PLANE. The backward LPDM bins touchdowns by LES column index,
 folded modulo the periodic domain, and the fold is PER AXIS AND INDEPENDENT. So for a
@@ -39,7 +45,8 @@ is displaced by exactly one domain length in x, in y, or in both, so it lands ei
 downwind or far off-axis -- and the cone catches all three cases. There is no double-wrapped
 material sitting on-axis for it to miss.
 
-usage: mask_cone.py [--h5 corpus/corpus.h5] [--k 8] [--y-min 90] [--dry-run] [--sweep]
+usage: mask_cone.py [--h5 corpus/corpus_raw.h5] [--out corpus/corpus_cone.h5]
+                    [--k 8] [--y-min 90] [--dry-run] [--sweep]
 """
 import argparse
 import datetime as _dt
@@ -333,25 +340,23 @@ def sweep(h5, npz_dir, zm, near_m, ks, ys):
 
 # ------------------------------------------------------------------------------ writing
 
-def rebuild(h5, k, y_min, npz_dir, x_min=XMIN_DEFAULT):
-    """Write a NEW corpus.h5 carrying target_cone and NOT target_masked.
+def write_cone(src_h5, out_h5, k, y_min, npz_dir, x_min=XMIN_DEFAULT):
+    """Read the raw corpus, write a NEW file whose `target` is the cone-cropped one.
 
-    Rebuilt object by object rather than edited in place, because HDF5 does not reclaim the
-    space of a deleted dataset -- deleting target_masked in place would leave the file
-    larger than it started. target, kljun and scalars are copied verbatim.
+    Written to a .tmp and moved into place only after it verifies, so an interrupted run
+    cannot leave a half-written training set behind a valid-looking name.
     """
-    tmp = h5 + ".tmp"
+    tmp = out_h5 + ".tmp"
     if os.path.exists(tmp):
         os.remove(tmp)
     X, Y = axis_grids()
-    rid, umean = load_umean(h5, npz_dir)
-    with h5py.File(h5, "r") as src, h5py.File(tmp, "w") as dst:
+    rid, umean = load_umean(src_h5, npz_dir)
+    with h5py.File(src_h5, "r") as src, h5py.File(tmp, "w") as dst:
         for kk, v in src.attrs.items():
             dst.attrs[kk] = v
         for name in src:
-            if name in ("target_masked", "target_cone"):
-                continue        # the retired half-plane mask, and any earlier cone -- both
-                                # are rewritten below, never carried forward
+            if name in ("target", "target_masked", "target_cone"):
+                continue                       # `target` is rewritten below, cropped
             src.copy(name, dst, name=name)
         if "u_mean_ms" not in dst["meta"]:
             u = dst["meta"].create_dataset("u_mean_ms", data=umean.astype(np.float32))
@@ -359,13 +364,14 @@ def rebuild(h5, k, y_min, npz_dir, x_min=XMIN_DEFAULT):
                                "Carried so sigma_y -- and therefore the cone -- is "
                                "reproducible from this file alone.")
         s0 = src["target"]
-        out = dst.create_dataset("target_cone", shape=s0.shape, dtype=s0.dtype,
+        out = dst.create_dataset("target", shape=s0.shape, dtype=s0.dtype,
                                  chunks=s0.chunks, compression=s0.compression,
                                  compression_opts=s0.compression_opts)
-        out.attrs["desc"] = ("THE TRAINING TARGET. target with periodic-wrap material "
-                             "removed by a wind-aligned cone on Kljun's own sigma_y. "
-                             "See grid/ for the rule and bin/mask_cone.py for the "
-                             "derivation of k and y_min.")
+        out.attrs["desc"] = ("THE TRAINING TARGET. The LES footprint with periodic-wrap "
+                             "material cropped out by a wind-aligned cone on Kljun's own "
+                             "sigma_y. See grid/ for the rule and bin/mask_cone.py for the "
+                             "derivation of k, y_min and x_min. The uncropped field is "
+                             "`target` in corpus_raw.h5.")
         sc = src["scalars"][:]
         n = s0.shape[0]
         for i0 in range(0, n, 32):
@@ -391,19 +397,19 @@ def rebuild(h5, k, y_min, npz_dir, x_min=XMIN_DEFAULT):
             _dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         g.attrs["cone_mask_script"] = "bin/mask_cone.py"
         g.attrs["cone_mask_git_commit"] = git_commit()
+        dst.attrs["variant"] = "cone"
+        dst.attrs["source"] = os.path.basename(src_h5)
 
-    with h5py.File(tmp, "r") as f, h5py.File(h5, "r") as o:
-        if "target_masked" in f:
-            sys.exit("FATAL: target_masked survived the rebuild")
-        if "target_cone" not in f:
-            sys.exit("FATAL: target_cone was not written")
-        for nm in ("scalars", "kljun", "target"):
+    with h5py.File(tmp, "r") as f, h5py.File(src_h5, "r") as o:
+        for nm in ("scalars", "kljun"):
             if not np.array_equal(f[nm][:], o[nm][:]):
-                sys.exit(f"FATAL: {nm} changed during the rebuild")
+                sys.exit(f"FATAL: {nm} changed while writing the cone file")
+        if "target_cone" in f or "target_masked" in f:
+            sys.exit("FATAL: a stale masked dataset survived")
         sc = f["scalars"][:]
         rng = np.random.default_rng(0)
         for i in rng.choice(f["target"].shape[0], 24, replace=False):
-            a, b = f["target"][i], f["target_cone"][i]
+            a, b = o["target"][i], f["target"][i]
             xw, yw = wind_frame(X, Y, float(sc[i, 4]), float(sc[i, 5]))
             keep = cone_keep(xw, yw, sigma_y_field(sc[i], f["meta/u_mean_ms"][i], xw),
                              k, y_min, x_min)
@@ -411,10 +417,10 @@ def rebuild(h5, k, y_min, npz_dir, x_min=XMIN_DEFAULT):
                 sys.exit(f"FATAL: record {i} was modified inside the cone")
             if np.any(b[~keep] != 0):
                 sys.exit(f"FATAL: record {i} is not zero outside the cone")
-        if not np.isfinite(f["target_cone"][:]).all():
-            sys.exit("FATAL: non-finite values in target_cone")
-    os.replace(tmp, h5)
-    return os.path.getsize(h5)
+        if not np.isfinite(f["target"][:]).all():
+            sys.exit("FATAL: non-finite values in the cone target")
+    os.replace(tmp, out_h5)
+    return os.path.getsize(out_h5)
 
 
 # ------------------------------------------------------------------------------- report
@@ -691,7 +697,10 @@ def report(d, zm, near_m, edges, Hl, Hk, nsamp, sw, xm, lines):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--h5", default="corpus/corpus.h5")
+    ap.add_argument("--h5", default="corpus/corpus_raw.h5",
+                    help="the RAW corpus; its `target` is the uncropped LES field")
+    ap.add_argument("--out", default="corpus/corpus_cone.h5",
+                    help="the file to write; its `target` is the cropped field")
     ap.add_argument("--npz-dir", default="corpus/pairs_npz")
     ap.add_argument("--k", type=float, default=K_DEFAULT)
     ap.add_argument("--y-min", type=float, default=YMIN_DEFAULT)
@@ -765,11 +774,11 @@ def main():
     print(f"wrote {txt}")
 
     if a.dry_run:
-        print("\n--dry-run: corpus.h5 NOT modified")
+        print(f"\n--dry-run: {a.out} NOT written")
         return
-    size = rebuild(a.h5, a.k, a.y_min, a.npz_dir, a.x_min)
-    print(f"\nrebuilt {a.h5} ({size / 1e6:.1f} MB): target_cone written, target_masked "
-          f"removed, target/kljun/scalars verified unchanged, cone verified on 24 records")
+    size = write_cone(a.h5, a.out, a.k, a.y_min, a.npz_dir, a.x_min)
+    print(f"\nwrote {a.out} ({size / 1e6:.1f} MB) from {a.h5}: `target` is the cropped "
+          f"field, scalars/kljun verified identical, cone verified on 24 records")
 
 
 if __name__ == "__main__":

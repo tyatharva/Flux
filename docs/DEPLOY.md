@@ -5,7 +5,7 @@
 | | what it makes | where | when |
 |---|---|---|---|
 | **Part 1 — §0-§7** | the **30-seed library**, 1 machine x 16 GPUs, ~1 h | `/out/seeds/` | **DONE** — see `docs/results/SEED_LIBRARY_RESULT.md`; the library is baked into the image |
-| **Part 2 — §C0-§C9** | the **corpus**, ~1500 training pairs, **8 machines x 8 GPUs** | `/out/pairs_npz/` -> `corpus.h5` | **this is the one you are about to run** |
+| **Part 2 — §C0-§C9** | the **corpus**, ~1500 training pairs, **8 machines x 8 GPUs** | `/out/pairs_npz/` -> `corpus_raw.h5` -> `corpus_cone.h5` | **this is the one you are about to run** |
 
 Part 1 is kept because the image, the driver, the Vast fields and the SSH workflow are
 shared, and because a seed ever needing to be regenerated is a thing that happens. **If you
@@ -743,7 +743,7 @@ any ML.
 # from the repo root, with corpus/pairs_npz/ and corpus/manifests/ as §C6 left them
 docker run --rm -v "$PWD":/w -w /w ghcr.io/tyatharva/flux-seeds:corpus \
     python3 bin/consolidate_corpus.py \
-        --npz-dir corpus/pairs_npz --manifests corpus/manifests --out corpus.h5
+        --npz-dir corpus/pairs_npz --manifests corpus/manifests --out corpus_raw.h5
 ```
 
 (The host python has no h5py; the analysis stack lives in the image, as it does for
@@ -752,7 +752,7 @@ everything else in this project.)
 ### What comes out
 
 ```
-corpus.h5
+corpus_raw.h5
   scalars          (N, 6)         float32   h, ustar, sigma_v, L, sin_wdir, cos_wdir
   kljun            (N, 128, 128)  float32   chunked (32,128,128), gzip-4 + shuffle
   target           (N, 128, 128)  float32   signed and unclipped
@@ -807,7 +807,7 @@ was told to.**
 ```bash
 docker run --rm -v "$PWD":/w -w /w ghcr.io/tyatharva/flux-seeds:corpus python3 -c "
 import h5py
-with h5py.File('/w/corpus.h5') as h:
+with h5py.File('/w/corpus_raw.h5') as h:
     print(h.attrs['format'], h.attrs['n'], 'records, stub =', h.attrs['stub'])
     print({k: int(v) for k, v in h['counts'].attrs.items() if k.startswith('cases_')})
     print('norm computed on:', h['norm'].attrs['computed_on'], h['norm'].attrs['n_train'])"
