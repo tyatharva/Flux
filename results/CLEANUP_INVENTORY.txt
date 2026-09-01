@@ -1,0 +1,65 @@
+# Artifact inventory immediately before the 2026-09-01 cleanup
+# Every path below is gitignored scratch. Recorded so the removal is auditable.
+
+PATH                                       MB
+runs                                    98144
+jobs                                    13769
+jobs24                                   5382
+jobs30                                   5598
+vast-seeds                               2103
+data                                     3383
+results                                    39
+figures                                    11
+
+# LES dumps (removed):
+runs/*/output                           26098
+runs/*/window                           71099
+jobs/*/output                           12928
+jobs24/*/output                          5172
+jobs30/*/output                          3425
+
+# runs/ subdirectories at the time (101):
+#   c2_check case_2023011515 case_2023011818 case_2023021416 case_2023031014 case_2023031800 
+#   case_2023032207 case_2023032421 case_2023041702 case_2023051321 case_2023052519 case_2023060115 
+#   case_2023060216 case_2023060317 case_2023060418 case_2023060519 case_2023060620 case_2023060715 
+#   case_2023060816 case_2023060917 case_2023061018 case_2023061119 case_2023061220 case_2023101222 
+#   case_2023111718 case_2023112120 case_2023121921 case_2025061018 case_2025061120 cbl_flat cbl_spin 
+#   cbl_wE cbl_wN cbl_wS cbl_wW ctrl_nbl ctrl_nostretch ctrl_sbl ctrl_tb ctrl_wide ctrl_z0 dbg 
+#   dryrun_w1 fv_base fv_t6e_adj g16_adq_deep g16_adq_shallow g16_base g16_cbl_deep g16_cbl_shallow 
+#   g16_cbl_wE g16_cbl_wN g16_cbl_wS g16_cbl_wW g16_dsbracket_wN g16_dsraised_wN g16_flat g16_flatcbl 
+#   g16_flatsbl g16_nbl_wE g16_nbl_wN g16_nbl_wS g16_nbl_wW g16_smoke g16_spin g16_terr g16r_cbl_wE 
+#   g16r_cbl_wN g16r_cbl_wS g16r_cbl_wW g16r_nbl_wE g16r_nbl_wN g16r_nbl_wS g16r_nbl_wW g24_base 
+#   g24_bringup g24_ctlcbl g24_flat g24_flatnbl g24_spin g24_wE g24_wN g24_wS g24_wW g30_accept 
+#   g30_base g30_bringup g30_flat rotchk s30_base s30_cfl160 s30_cfl170 s30_cfl180 s30_gap 
+#   stage0a_smoke_nbl stage0a_smoke_sbl stage1_dt stage1_fields stage1_grid stage2_restart 
+#   stage2_restart_check 
+# ============================================================================
+# WHAT WAS REMOVED, 2026-09-01, and what it costs
+# ============================================================================
+# Removed (121 GB; repo 128.5 GB -> 7.2 GB). All of it gitignored scratch:
+#   runs/*/{output,window,output_binary,initial,ICBC}   97 GB
+#   jobs,jobs24,jobs30 /*/{output,window} and FE_*       22 GB
+#   vast-seeds/seed_*/seed_restart.nc                   2.1 GB
+#     ^ VERIFIED byte-identical (md5) to jobs30/*/return/seed_restart.nc, 30 of 30,
+#       before removal. vast-seeds' own run record (run_seeds.log, machine_manifest.json,
+#       threadblock_sweep.json, direction_drift_library.txt and the per-seed .json/.txt)
+#       is NOT duplicated anywhere and was kept.
+#
+# KEPT, and verified present afterwards:
+#   runs/g{16,24,30}_base/base.in   the .in templates every case is built from. Losing
+#                                   runs/g30_base/base.in from an IMAGE is what produced
+#                                   81 cases and 0 records on 2026-08-31.
+#   jobs30/seed_*/return/           30 seed restarts, 73,271,565 B each -- the library the
+#                                   image bakes and every image assertion checks.
+#   data/grid30_raised/             the production surface.
+#   results/                        every scored artifact, plus results/_prof.npz (2.4 kB,
+#                                   new) which lets bin/test_bl_depth.py part B run without
+#                                   the 19 GB window it used to regenerate from.
+#
+# COST: nine tests need LES fields and can no longer run without regenerating a window.
+# They are validation-time tests, not corpus-time, and each is recorded in a results file:
+#   test_dumpsrc  test_estimator  test_gpu_lpdm  test_lpdmonline  test_parallel_lpdm
+#   test_ringsrc  test_streaming  test_toolkit_parity  test_unchained
+# Still self-contained and passing:
+#   test_bl_depth  test_displacement  test_floor_health  test_kljun_adapter
+#   test_negative_lobes  test_sgs_floor  test_sounding

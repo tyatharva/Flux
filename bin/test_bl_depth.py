@@ -134,7 +134,12 @@ def part_b(tk, z, source):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--profile", default=None,
+    # DEFAULTS TO THE CACHED PROFILE. Part B used to regenerate it from a 19 GB window
+    # directory, so the test silently SKIPPED once that scratch was cleaned up -- and a
+    # skip reads like a pass in a log. results/_prof.npz is 2.4 kB, is checked in, and
+    # reproduces part B exactly; --windir still regenerates it if the window is present.
+    ap.add_argument("--profile", default=("results/_prof.npz"
+                                          if os.path.exists("results/_prof.npz") else None),
                     help=".npz with `tke` and `z` for part B")
     ap.add_argument("--windir", default="runs/case_2023112120/window",
                     help="window directory to rebuild the part B profile from")

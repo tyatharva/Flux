@@ -1,2452 +1,637 @@
 # Flux Footprint Emulator — Kegonsa Solar Array
 
-## Goal
-
 Train an emulator that predicts 2-D flux footprints for the UW-Madison Kegonsa Solar Array
-eddy-covariance tower, using **only the scalar inputs the Kljun et al. (2015) model uses**,
-and beats Kljun at that site.
+eddy-covariance tower from **only the scalar inputs Kljun et al. (2015) uses**, and beats
+Kljun at that site.
 
-**THE ARCHITECTURE IS AN FNO, NOT A CNF — changed 2026-08-30. See `ML_TARGETS.md`.** The
-target is the 122² raster zero-padded to 128², the model predicts a residual on Kljun
-conditioned on the six scalars by FiLM, and touchdowns are not saved at all. Everything
-below that says "CNF is the primary architecture" and "FNO may be benchmarked against it"
-is the wrong way round now.
+**Scope is deliberately narrow: a site-calibrated emulator for ONE tower.** Zero transfer to
+other sites, and that is an accepted, stated limitation. Do not add scope.
 
-## THE CORPUS IS PARTITIONED OVER 8 MACHINES AND THE QUEUE IS PER-DAY — 2026-08-31
+**Architecture is an FNO, not a CNF** (changed 2026-08-30, see `ML_TARGETS.md`). The target is
+the 122² raster zero-padded to 128², the model predicts a residual on Kljun conditioned on the
+six scalars by FiLM, and touchdowns are not saved.
 
-**`DEPLOY.md` §C is the procedure; `lpdm/partition.py` is the rule; `PLAN.md` has the
-verdicts.** No GPU was spent: everything below is CPU, with the LES, the LPDM and HRRR
-stubbed, because none of it is a physics question.
-
-**THE MONTH -> MACHINE MAP IS A RULE, NOT A TABLE, AND IT IS ASSERTED TOTAL AND DISJOINT AT
-IMPORT.** 64 corpus months, 8 machines, 8 each; `--machine 0..7` is the only thing that
-differs between the boxes. The whole 8x8 table prints at startup with a coverage line
-**recomputed from the printed rows**, so "each month exactly once" is checkable from one
-machine's log without trusting the code.
-
-**AND THE OBVIOUS RULE WAS WRONG.** Chronological order with `index % 8` was written first:
-`gcd(8, 12) = 4`, so stepping 8 months walks an orbit of only THREE calendar months —
-machine 0 drew Jan/May/Sep and nothing else, and **seven of eight machines were missing an
-entire season**. Ordering by **(calendar month, year)** instead breaks the resonance. Every
-machine now holds **8 distinct calendar months, all four seasons, and at most 25% of any one
-split**, and both properties are asserted at import rather than claimed in a comment. The
-trade is explicit: this rule does NOT give every machine every split and the chronological
-one did — a missing split is months the training code re-derives from the calendar, a
-missing season is physics nothing downstream can reconstruct.
-
-**WITHIN A MACHINE IT IS A SHARED QUEUE OVER ~243 DAYS, NOT A MONTH PER GPU.** Wall time is
-set by the slowest worker and the months are not equal: a month's cost is its ACCEPTED days,
-and acceptance is meteorological. **MEASURED on the stubbed dry run's own yields: 16% of
-wall time, and the queue kept all eight workers within 1.4% of each other.** On calendar
-days alone the figure is 2%; the rest is yield, which is exactly what a pinned assignment
-cannot see.
-
-| | |
-|---|---|
-| per day | draw a round hour without replacement (seeded from the date), screen `z/L<0`, `z_i` 300-1250 m, `\|dz_i/dt\|<15 %/h`; sounding from the analysis valid at EXACTLY that hour; seed from the whole 30-seed library; 1.25 sim-h; footprint over the last 30 min; **one npz** |
-| a day always ends as | `case` / `missing` with a reason / `failed` (retryable). **Every calendar day is in the manifest.** |
-| resume | keyed off the artifacts on the volume, not a checkpoint. A resumed day keeps its RESOLVED status and the ORIGINAL pass's timing. |
-| the seed library | **BAKED INTO THE IMAGE** (2.1 GB). A case picks its seed per case, so the whole library must be present; baking it means the tag pins code and seeds together and there is nowhere else for a wrong library to come from. |
-| HRRR | fetched at runtime with **byte-range subsetting active** and every subset deleted as it is read, so disk cost is ~0.3 GB of `.idx`. The cost is TRANSFER: **168.6 MB per case**, 91% of it the 100 hybrid-level messages, because a GRIB message is a full CONUS field however little of it you want. **~47 GB per machine, 2-3% of wall time.** |
-| output | `pairs_npz/<case>.npz` (~40 kB) + `manifest.json`. **~60 MB for the whole corpus.** |
-
-**THE EARLY REPORT IS THE POINT, AND IT ANSWERS A QUESTION THIS FILE HAS OPEN.** After 5
-cases each machine prints measured GPU-h per case (OCCUPANCY — wall clock x 1 GPU, which is
-what the rental bills, not FastEddy kernel time) and **machine-wide peak host RSS**. One
-case peaks at **12.45 GB** host RSS — the LPDM's 12.0 GB fp16 field cache, which is the
-window itself rather than buildup — and **eight concurrent has never been measured**. The
-run warns loudly if MemAvailable falls below 12% or swap is touched, and prints a `!!!!`
-block if the projection exceeds `--max-hours` (12). **Rent 256 GB for the first machine and
-read that report before renting the other seven.**
-
-**DO NOT CARRY 0.189 GPU-h/sim-h FROM THE SEED RUN TO THE CORPUS.** A seed runs FastEddy and
-nothing else; a case also runs the LPDM and the ring. That is what the early report measures.
-
-**FOUR SILENT DEFECTS WERE FOUND BY THE DRY RUN, AND EACH PASSED A GREEN CHECK FIRST.**
-`t_start_s` and `t_end_s` were rounded to different precisions, so sub-100 ms days had
-NEGATIVE durations and the balance check passed on "−73% imbalance" and "108% of wall time
-saved"; a resumed day was recorded as status `skipped`, so a twice-resumed machine would end
-with a manifest that had forgotten which days are cases; `write_manifest` stamped "not
-reached" over every day the current pass had not revisited, which on a resume erased seven
-of eight months' timings and would have told an interrupted machine its finished corpus was
-never attempted; and **a 2.1 GB duplicate of the seed library (`vast-seeds/`) was baked into
-an image and passed every assertion, because every assertion named a path** — a
-per-directory size ceiling cannot see a directory nobody named, so the build now bounds the
-whole `/flux` tree. Also measured: **a `!` re-include in `.dockerignore` does not work under
-the classic builder when the parent directory is excluded.**
+LES (FastEddy) and the backward LPDM are **offline target generators**. They are never part of
+inference.
 
 ---
 
-## THE LIBRARY EXISTS: 30 SEEDS ON 16x RTX 5090, AND SELECTION USES ALL OF THEM — 2026-08-31
+## STATUS — 2026-09-01: THE CORPUS EXISTS. THE NEXT STEP IS ML.
 
-**Full evidence: `SEED_LIBRARY_RESULT.md`.** Thirty seeds in **0.936 h wall / 13.24 GPU-h**,
-all thirty returned complete and finite, all thirty passing every acceptance-battery item
-(`k0/k1` 0.124–0.144, `turb_alive` real OK, C2 bit-for-bit, rotation exact, no `CORRUPTED`
-in any run log), all thirty at **233,280 steps = 2.000 sim-h**. The work queue behaved as
-one under real load: 16 of 16 workers, **14 took a second job**, peak concurrency 16.
-
-**0.189 GPU-h PER SIM-HOUR UNDER FULL 16-WAY LOAD, AND IT IS A SEED NUMBER.** The LES leg is
-identical in both regimes (1365.8 s convective, 1361.9 s neutral); the neutral rungs' 0.268
-all-in is the Steinfeld accelerator (+567 s). Against **0.469 measured single-GPU on the
-4080 from inside this same image** — so **16-way contention costs nothing measurable, it is
-2.5x faster**. Peak VRAM **904 MiB of 32,607 (2.8%)**; host peak 58.9 GiB of 755.
-
-> **DO NOT CARRY 0.189 TO THE CORPUS ESTIMATE.** A seed runs FastEddy and nothing else. A
-> case also runs the LPDM and the ring hand-off, and **the ring's host-side field cache —
-> 12.0 GB per case, which IS the window rather than buildup, random-accessed by a CPU
-> integrator — has never been exercised at 16-way.** Sixteen concurrent cases ask ~200 GB of
-> host residency and the contention behaviour of that is unmeasured. The corpus stays at its
-> own ~0.49 GPU-h/sim-h until a real case runs this path on rented hardware.
-
-**THE THREAD-BLOCK SWEEP PICKED `1x8x16` ON THE LAST PRINTED DIGIT.** 0.00580 s/step against
-Ada's `1x2x64` at 0.00590 — but FastEddy prints five decimals, so **one quantum is 0.00010 s
-= 1.7% at this speed**, three shapes tie exactly at 0.00580 (`1x8x16`, `1x2x32`, `1x8x8`),
-and the top eight span two quanta. The reported "repeat noise 0.00%" is quantisation, not
-precision. The sweep's two-phase design exists to stop it choosing on noise and here it
-chose on the last digit instead. **Worst case if wrong: 1.7%.** Recorded, not fixed. (What
-did carry: `tBx > 1` is no longer the 17% penalty measured at 186² on Ada — `2x2x32` is
-1.017x the winner, inside the same quantum.)
-
-**SEED SELECTION USES THE WHOLE LIBRARY, AND `ALLOW_DRIFTING` DEFAULTS TO `any`.** This
-supersedes the 2026-08-30 `zi-neutral` narrow form. `bin/pick_seed.py` ranks all 30;
-`--strict-gate` restores the old refusal. **The reasoning generalises the one `zi-neutral`
-was already granted on**: a seed is an INITIAL CONDITION, not a corpus point — the case
-restarts from it, adjusts `ADJ_S` under its OWN sounding's forcing, and every ML input is
-measured by `window_stats` over EXACTLY the same window as the footprint. The pair is
-self-consistent whatever the seed's drift state, which is precisely the `z_i` argument, and
-it never depended on the limit being `z_i`. Refusing a seed removes a RESTART POINT without
-removing any error. `gate_state` is still stamped on every pair.
-
-| | strict gate | whole library |
-|---|---|---|
-| seeds available | 11 of 30 | **30** |
-| **cbl-shallow** | **0 of 6** — the weakly-convective rung had NO restart point | 6 |
-| neutral | 4 of 12, i.e. 4 base angles | **12** |
-| Ekman backing calibration | n = 5 / 2 / 3 / 1, one rung absent | **n = 6 every rung** |
-| convective pick | `cbl-mid_a030`, cost 0.346, `z_i` 766 vs 970 m | `cbl-deep_a030`, **0.268**, 1011 vs 970 |
-| neutral pick | `nbl-deep_a000`, cost 0.983, gap **14.5 deg**, half-spacing warning FIRED | `nbl-deep_a015`, **0.216**, gap **1.3 deg**, no warning |
-
-**AND "11 of 30 ACCEPTED" WAS NOT A QUALITY STATEMENT: THE SPLIT TRACKED THE STANDARD ERROR,
-NOT THE DRIFT.** The gate returns INDETERMINATE when the threshold sits within 3 SE, which is
-correct and deliberate — but at these magnitudes it admits the *worse-measured* seed:
-`cbl-shallow_a000` (+23.5 %/h, SE 7.37, n_eff 3.0) was **admitted** while `a030`
-(+22.0 %/h, SE 2.41, n_eff 8.6) was **refused**. Same in nbl-shallow. The eleven are the
-seeds whose drift could not be resolved, not the steady ones.
-
-### `TKE_BL/u*^2` WAS MEASURING ITS OWN REFERENCES — THE FOURTH INSTANCE
-
-**`bin/seed_tke_rescore.py`, `results/seed_tke_rescore.txt`, no GPU.** The rule three
-sections below — *a diagnostic is only as scale-free as its reference* — now has a fourth
-instance, and **`TKE_BL/u*^2` is itself the FIX that was applied to the second one** (the
-column mean, which rose with `z_i` because it divided by the whole box).
-
-The absolute `TKE_BL` series was not returned, but the numerator is recoverable from what
-was, by two routes with **disjoint inputs** — `A = trend(ratio) + 2·trend(u*)` and
-`B = trend(domain TKE) − trend(z_i)` — so **their agreement is the evidence**:
-
-| rung | GATED | u* | z_i | **ABSOLUTE** | \|A−B\| | reading |
-|---|---|---|---|---|---|---|
-| cbl-deep | +3.5 | −7.3 | +16.7 | **−13.5** | 4.9 | UNRESOLVED |
-| cbl-mid | +12.5 | −8.8 | +6.4 | **−5.0** | 0.2 | STEADY |
-| **cbl-shallow** | **+22.5** | −11.1 | −0.3 | **+0.5** | 0.5 | **STEADY** |
-| nbl-deep | +19.4 | −2.4 | +4.0 | **+12.7** | 3.8 | UNRESOLVED |
-| **nbl-shallow** | **+35.9** | −3.2 | +0.5 | **+29.4** | 0.1 | **RISING** |
-
-**Moving the average inside the boundary layer removed the column mean's `z_i` dependence —
-that fix was real — but it exchanged one reference for two**: `u*^2` in the denominator, and
-`z_i` again in the averaging depth `∫₀^zi TKE dz / zi`. Every OTHER gated limit is a ratio
-whose numerator rides the inertial oscillation WITH `u*` and cancels it (`U/u*`,
-`sigma_v/u*`, `sigma_w/u*`); `TKE_BL` is an energy, not a velocity carried by the mean flow,
-so nothing cancels — and `PROJECT_BRIEF.md` already records `u*` falling ~10 %/h through the first
-quarter of the 17.6 h inertial period.
-
-**So the two halves failed for opposite reasons and only one is real.** cbl-shallow's
-absolute BL TKE is **flat**; the entire +22.5 %/h is `u*` falling at −11.1. cbl-mid is
-**falling** where the gate reports rising — the wrong sign. cbl-deep is falling at −13.5 as
-its `z_i` grows +16.7 %/h and dilutes a roughly fixed integrated TKE, **and cbl-deep is the
-rung the refusal accepted best (5 of 6)**. But **nbl-shallow really is rising at +29.4 %/h**
-with both routes agreeing to 0.1, and `z_i`/`u*` are quiet there, so on the neutral rungs the
-ratio DOES track the turbulence: **a 2.0 sim-h ceiling is short for the neutral half.** That
-is a genuine limitation of this library, recorded rather than fixed (+1.0 sim-h on 12 neutral
-seeds is +2.3 GPU-h).
-
-**WHAT IS OWED: seed runs must return the SCORED SERIES, not only the verdicts and trends
-fitted to it.** This recovery is first-order arithmetic and can carry no standard error and
-no `n_eff`. A few kB per seed would have made it a measurement. The gated form is NOT changed
-here — changing a gate on the same pass that reinterprets its output is how a threshold gets
-tuned to a result.
-
-**AND `jobs/run_seed.sh` NOW EXITS ON WHETHER IT PRODUCED A SEED.** It was
-`[ "$VERDICT" = "PASS" ] || exit 1` and returned **1 for all thirty**. A status identical for
-every outcome discriminates nothing, in the dangerous direction: anything keying on it reads
-a complete battery-passing seed as a failed run. `bin/run_seeds.py` survived only because it
-judges on the artifact. Now exit 0 when the seed exists, 1 when it does not,
-`SEED_STRICT_EXIT=1` for the old signal. The verdict lives in the artifact, which is this
-file's own standing rule.
-
-## THE SEED LIBRARY SHIPS AS ONE IMAGE AND ONE COMMAND, ON CUDA 13.0 — 2026-08-31
-
-**THE `CUDA 11.8 (do not "upgrade")` PIN IS SUPERSEDED FOR DEPLOYMENT, AND ONLY THERE.**
-The library has to be generated on rented **16x RTX 5090** boxes. A 5090 is **sm_120** and
-nvcc 11.8's highest target is sm_90 — and this is a COMPILER limit, not a JIT one: 11.8's
-newest virtual architecture is compute_90, so an 11.8 binary cannot even JIT onto sm_120.
-It fails at `cuModuleLoad`. The pin was always a FLOOR (11.8 is the first release with
-sm_89, which is why it was chosen), and `Dockerfile` — the CUDA 11.8 toolchain-only image
-every published result came out of — is **unchanged**. What is new is `Dockerfile.blackwell`.
+**1366 training pairs in `corpus/corpus.h5`** (46 MB), generated on 8 machines x 8 RTX 5090.
+`corpus/README.md` is the dataset's own documentation; read it before training.
 
 | | |
 |---|---|
-| toolkit | **CUDA 13.0.1**, Ubuntu 22.04, gcc 11.4, OpenMPI 4.1.2, NetCDF 4.8.1 — the distro is held FIXED so the toolkit is the only variable |
-| architectures | **real SASS for sm_75, sm_80, sm_86, sm_89, sm_90, sm_100, sm_120** — Turing through Blackwell, no JIT anywhere |
-| code | **baked in**. The tag is the commit (`flux-seeds:<flux-sha>-fe<fasteddy-sha>`); a rented box clones nothing and builds nothing |
-| mounts | **the output directory, and nothing else.** A seed is a flat uniform spin-up with an empty `topoFile` and an empty `inFile` — it reads no sounding, no terrain, no land cover |
-| the command | `docker run --gpus all -v /out:/out <image> run_seeds --gpu-count 16` |
-| size / build | 13.8 GB; FastEddy compiles in 83 s for all seven architectures |
+| records | **1366** — train 837 / val 235 / test 294 |
+| arrays | `scalars` (N,6), `kljun` (N,128,128), `target` (N,128,128), all float32 |
+| normalisation | in `norm/`, computed from the **train split alone** |
+| index / flags | `corpus/INDEX.json`, `corpus/FLAGGED.tsv` |
+| provenance | `corpus/provenance/` — 8 machine manifests, every one of 1945 days accounted for |
+| image that made it | `ghcr.io/tyatharva/flux-seeds:7de9dee2a01d-fe0ce48d5dff06` (30-seed library baked in) |
 
-**AND `nvcc -dlink` SILENTLY DROPS PTX, SO THERE IS NO JIT FALLBACK TO HAVE.** The design
-was real SASS for sm_89 and sm_120 plus `compute_90`/`compute_80` PTX as a fallback.
-MEASURED: `-dc` puts the PTX in the objects and `-dlink` removes every PTX image from the
-fatbin **with no warning**. FastEddy uses separate compilation because it has `__device__`
-functions crossing translation units, so the executable's fatbin comes from the device
-link. The same flags on a whole-program build KEEP the PTX — `lib/liblpdm.so` is one
-translation unit and does carry it — which is what makes this easy to assume and hard to
-notice. So the fallback is real code for seven architectures instead, which is the better
-answer anyway for register-heavy hydro-core kernels. **`--list-elf` and `--list-ptx` are
-different questions; assert on both.** The contrast is checkable on the shipped image:
-`liblpdm.so` is one translation unit, is compiled whole-program, and DOES carry
-`compute_80` and `compute_120` PTX; `FastEddy` asks for nothing less and carries none.
-`FASTEDDY_TRAPS.md` §23.
+**READ THIS BEFORE TRAINING: only ~15% of the corpus carries the site-specific signal.** The
+array is in the footprint essentially only for northerly flow, and convective afternoons here
+favour SW/W, so the corpus rose is skewed away from the signal:
 
-**THE STANDING "a newer architecture JITs from PTX, slower but correct" REASSURANCE IN
-`jobs/run_seed.sh` WAS FALSE FOR EVERY BINARY THIS PROJECT HAS BUILT.**
-`docker/build_fasteddy.sh` emits `-arch=sm_89`, which is a cubin and no PTX at all. The
-preflight now reads `cuobjdump --list-elf` off the binary it is about to run, compares it
-against the capability of **the GPU this seed was assigned** (it used to read GPU 0's,
-whichever card the seed would use), and refuses.
+| dir | corpus | site rose | mean array share |
+|---|---|---|---|
+| **N** | 6.9% | 10.6% | **30.3%** |
+| NW | 14.6% | 14.5% | 6.9% |
+| NE | 6.4% | 10.2% | 2.7% |
+| W | 21.4% | 14.4% | 0.3% |
+| SW | 19.4% | 14.3% | 0.9% |
+| E | 4.5% | 10.4% | 0.2% |
 
-**THE TOOLKIT DID NOT MOVE THE PHYSICS, AND IT IS SCORED AGAINST THE MODEL'S OWN FLOOR.**
-`bin/test_toolkit_parity.py`, 200 steps, `jobs30/seed_nbl-deep_a015`, one physical GPU,
-**the shipped image's own baked binary against the 11.8 build**: old-vs-new over old-vs-old
-is **u 1.07x, v 1.06x, w 1.00x, theta 1.11x**. The toolkit change is worth no more than
-re-running the same case. **The initial condition is
-bit-identical across all three legs** because `hydro_core.c:1881` draws the theta
-perturbation with `rand()` under `srand(mpi_rank_world + 12345)` (`FastEddy.c:113`) — a
-FIXED seed at one rank — and the sequence glibc returns for a given seed is a property of
-glibc. That is why the distro is pinned: moving Ubuntu at the same time would have changed
-the libc, changed the perturbation field, and made this a measurement of `rand()`.
+202 of 1366 records (14.8%) have an array share above 5%; the median is **0.49%**. Per split
+that is train 14.7% / val 17.9% / test 12.6%, so every split sees it — but **an aggregate
+metric over all 1366 is dominated by cases with no array in view, where Kljun and the LES
+agree by construction.** Weight the loss, or report the northerly subset separately.
+(Measured N-wind array share 30.28% against the 30.7% Kljun predicts for N at `z_m = 30 m` —
+independent agreement to 1.4%.)
 
-**CUDA 13.0 COST TWO ONE-LINE FIXES, BOTH RECORDED.** CCCL now hard-requires **C++17**
-(`fecuda_PlugIns.cu:17` pulls `<cub/cub.cuh>` for the slab-mean `BlockReduce`, which the
-subsidence forcing uses), so the dialect is RAISED from the make command line rather than
-the diagnostic suppressed — `CCCL_IGNORE_DEPRECATED_CPP_DIALECT` exists and is deliberately
-not used. And four `cudaDeviceProp` members were **removed** in 13.0; FastEddy reads them
-in one diagnostic printf, now guarded on `CUDART_VERSION` so **one tree still builds under
-11.8**. **The warning set is IDENTICAL between the two toolkits — the same nine pre-existing
-upstream `-Wall` printf warnings — and the image build fails if a tenth appears.**
+**Corpus gaps.** 166 days failed; six months are empty — 2021-12, 2023-07, 2023-10,
+**2024-01 (val)**, **2024-04 (val)**, 2026-08; 2021-06 and 2022-04 are partial. Machine 3 lost
+all 8 GPUs to one fault 42% into its run (stage 7 timed out waiting for the LES to stage into
+`/dev/shm`; root cause unresolved, the LES logs are gone). **Verified NOT an input-space
+hole**: 84–93% of a missing month's cases fall inside the retained months' p5–p95 on every
+scalar. A top-up is possible any time — the failed days are named in the manifests and the
+hour draw is date-seeded, so a re-run reproduces exactly the cases that would have been there.
 
-**THE ORCHESTRATOR IS `bin/run_seeds.py`, AND 30 SEEDS OVER 16 GPUs IS A WORK QUEUE, NOT
-TWO PASSES.** A pass model idles 15 cards through the tail of pass 1, and the spread is
-real — the watcher stops a convective rung on `z_i/w* ~ 350 s` and a neutral one on
-`h/u* ~ 1500 s`. `--pass N/M` still exists and means something different and useful:
-splitting the library across SEVERAL machines. Per seed it runs `jobs/run_seed.sh` then the
-full `bin/seed_accept.sh` battery, copies `return/` to the mount, and **records a failure
-with its reason instead of aborting the machine**. It is resumable: a work directory
-holding a finished `seed_restart.nc` is skipped, a partial one is restarted from step 0.
+**Two records were rejected** (`case_2022010915`, `case_2022122416`): `h` = 2371.979 m is
+`bl_depth`'s `DAMP_FRAC` search ceiling, not a measured depth. Their days are `missing` with
+that reason; the `.npz` are in `corpus/provenance/rejected/`. Dropping them cut the train
+split's `h` std by 5%.
 
-**THE GPU IS PINNED WITH `CUDA_VISIBLE_DEVICES` AND NOTHING ELSE, AND NO FastEddy SOURCE
-CHANGE WAS NEEDED.** `fecuda_Device.cu:59` is `cudaSetDevice(mpi_rank_world % numDevs)` and
-every seed is `mpirun -np 1`, so the rank is always 0 — but MEASURED, with
-`CUDA_VISIBLE_DEVICES=0` `cudaGetDeviceCount()` returns **1**, so `0 % 1 = 0` is the card
-the variable names. **An out-of-range index fails LOUDLY, and this file said the opposite
-for one revision**: it claimed the `exit(0)` at `fecuda_Device.cu:75-79` made it a silent
-success. Measured on the shipped image, that branch is unreachable — `cudaGetDeviceCount`
-sets `cudaErrorNoDevice` and `gpuErrchk` at `fecuda_Device.cu:55` fires first, printing
-`GPUassert: no CUDA-capable device is detected` and exiting **100**. The orchestrator and
-the preflight still assert the device exists, because failing at the preflight beats
-failing after an `mpirun` on a box running fifteen other seeds — but not because anything
-is silent. **The per-GPU mutex compares NORMALISED device indices**, not raw
-`CUDA_VISIBLE_DEVICES` strings: unset, `"0,1"` and a `GPU-<uuid>` all name device 0 and
-none of them is the string `"0"`.
-
-**FOUR PIECES OF MACHINE-GLOBAL STATE WOULD HAVE MADE 16 GPUs BEHAVE AS ONE**, all of them
-correct on a one-GPU workstation and all now scoped under `FLUX_NATIVE=1`:
-
-| | on the host | inside the image |
-|---|---|---|
-| `run_case.sh` "one FastEddy" mutex | any container from the image | **per GPU**, scanning `/proc` for another FastEddy with the same `CUDA_VISIBLE_DEVICES` |
-| `seed_watch.sh` early stop | `docker stop` EVERY FastEddy container — the first seed to reach band would have killed the other fifteen mid-dump | `kill` the process group in `<job>/.fe.pid`, written by `run_case.sh` under `setsid` |
-| `c2_restart_check.sh` scratch | fixed `runs/c2_check`, whose first act is `rm -rf` | per-seed, so sixteen batteries cannot delete each other's 73 MB restart |
-| `rotation_check.py` scratch | fixed `runs/rotchk` | per-seed |
-
-**THE THREAD-BLOCK SHAPE IS RE-MEASURED ON THE MACHINE BEFORE ANY SEED RUNS**
-(`bin/threadblock_sweep.py`, **1 min 54 s measured**, 106 legal shapes at 122³ of which 14
-are measured and the other 92 are NAMED rather than silently dropped). It is a pure
-performance knob — the one reduction that accumulates is templated on
-`tBx_red/tBy_red/tBz_red`, compile-time constants 2/8/1 in `fecuda_PlugIns_cu.h`, which do
-NOT follow `tBx/tBy/tBz` — so it cannot move the physics. Re-measured on the 4080 it
-**reproduces the 2026-08-22 sweep**: winner **1x2x64 at 0.01450 s/step** (median of 3)
-against the recorded 0.01475, then 1x2x32 0.01450, 1x8x16/1x4x32/2x1x64 0.01470; the
-measured set spans **1.84x** and `1x128x1` is slowest at 0.02670.
-
-**AND THE SWEEP'S FIRST TWO VERSIONS MADE BOTH OF THIS PROJECT'S CLASSIC ERRORS, IN
-ORDER.** It read `m[-1]` of the TIMESTEP PERFORMANCE blocks — which is FastEddy's
-**zero-step shutdown block**, `0.1651 | 0 | 0.0008 | 0.0002` — so all fourteen shapes
-scored 0.0002 s/step and the reported spread was **1.00x**. Nothing failed; a number came
-out. Fixed to select the block whose Batch Steps is the count asked for, it then declared
-`2x2x32` the winner over `1x2x64` on **0.7%** from ONE 200-step run. It is now two-phase:
-screen once, repeat everything within 5% of the leader, rank on the MEDIAN, and keep the
-incumbent unless a challenger beats it by more than the measured repeat noise. **The
-measured noise is 0.68% and the "win" was 0.7%** — so the fix reversed the call: `1x2x64`
-holds, and `2x2x32` is 1.007x it, inside the noise.
-
-**AND `SEED_CEILING_H` WAS STILL LOSING A WHOLE DUMP AT EVERY CEILING** — the identical
-defect `PROJECT_BRIEF.md` and `PLAN.md` both record as FIXED on 2026-08-30. The `int()` became
-`round()`, and then a verify clause rejected any overshoot beyond **1e-6 seconds**. The
-`.in` carries `dt = 0.0308642`, rounded UP from 5/162, so a whole number of dumps always
-overshoots by 0.3–0.9 **milliseconds** — and the guard, whose only available action is to
-remove a **300 s** dump, fired every time:
-
-| ceiling | `round()` | overshoot | old guard | cost |
-|---|---|---|---|---|
-| 1.0 h | 12 | +0.288 ms | 11 dumps | **8.3%** |
-| **2.0 h** | **24** | **+0.576 ms** | **23 dumps** | **4.2%** |
-| 3.0 h | 36 | +0.864 ms | 35 dumps | 2.8% |
-
-The tolerance is now expressed in DUMPS — a thousandth of one, four orders above the float
-artifact and three below the thing it protects. **The production 2.0 h ceiling is 233,280
-steps = 2.000 sim-h**, verified on the real path, not 223,560 = 1.9167.
-
-**Three more concurrency defects found and fixed while porting**: `SCORE_H` was never
-exported, so the live watcher scored a different window width than the verdict it decided;
-`kill $WATCH_PID` reached only the watcher's bash and orphaned the `seed_stationarity.py`
-it was blocked inside; and `seed_accept.sh` reported every run against the manifest's
-349,920-step ceiling rather than the one `SEED_CEILING_H` actually imposed.
-
-**AND ONE FULL SEED RAN END TO END INSIDE THE IMAGE, ON THE 4080** —
-`run_seeds --only seed_cbl-mid_a015`, sweep and acceptance battery included:
-
-| | |
-|---|---|
-| length | **2.000 sim-h**, 24 dumps — the corrected ceiling, on the real path (the old guard gave 1.9167) |
-| cost | **0.939 GPU-h**, i.e. **0.469 GPU-h per simulated hour** against the 0.479 measured on Ada |
-| peak VRAM | **1038 MiB** attributed to the process, 2135 MiB on the whole device, of 16376 |
-| gate | **DRIFTING on `sigma_v/u*`** — a verdict about that realisation's boundary layer, recorded and NOT counted as accepted |
-| against the stored 11.8 seed | at a matched step (106920 = 0.917 sim-h), two independent realisations: `u*` −1.03%, `U` +1.21%, direction −0.36 deg, `sigma_w` −4.06%, `z_i` −0.01%, `x_peak` +3.7 m = **0.12 of one 30 m raster cell**; `U/u*` +2.27%, `sigma_v/u*` +0.37%, `sigma_w/u*` −3.06% |
-
-**That comparison is NOT a tolerance and must not be read as one** — two runs of one seed
-over an hour are two turbulence realisations, and `bin/seed_compare.py` refuses outright if
-they come out EXACTLY equal, because that can only mean it scored the same dumps twice. (It
-did, on its first run: both sides keyed their scratch directory on the job's basename,
-which is the same on both sides by construction, and it reported +0.00% on every field.)
-The tight physics claim is the 200-step parity above; this one is the pipeline.
-
-**WHAT IS NOT CLAIMED.** Bitwise reproducibility across architectures — it does not hold,
-it does not hold run-to-run on ONE GPU either, and seeds are turbulence realisations that
-are not meant to be diffed. And 13.0 is not REQUIRED: 12.8 also targets sm_120 and would
-have done. 13.0 was tried first because it matches the r580 driver generation on the target
-boxes, so nothing in the stack runs in a compatibility mode; it built, so it shipped.
+**`corpus/FLAGGED.tsv` lists 231 records (16.9%)** failing G2b (integral outside [0.6, 1.5])
+or G3b (peak/Kljun-peak outside [0.4, 2.5]). **Neither is an exclusion rule** — both are
+per-case pipeline sanity checks calibrated on a handful of validation cases, and an LES peak
+far from Kljun's may be the signal. Ablate; do not filter by default.
 
 ---
 
-## THE NEUTRAL BLOCKER IS GONE AND THE CORPUS HAS ONE ENTRY POINT — 2026-08-31
+## Configuration — 122³ @ 30 m, receptor at 30 m
 
-**`h` IS THE SURFACE-ATTACHED BOUNDARY LAYER, AND THE ESTIMATOR NOW DECIDES IT INSTEAD OF
-REFUSING.** The ninth pass found `bl_depth` measuring `h` in the free atmosphere on a
-neutral profile whose wave layer is thirteen times stronger than its boundary layer, and
-the stop-gap was a refusal — which blocked the neutral half of the corpus over a quantity
-the profile does in fact determine.
-
-`lpdm/les_stats.py:surface_layer_top` bounds the whole estimate at the minimum terminating
-the surface-attached layer, and `bl_depth` searches only inside it. On the failing case
-(`case_2023112120`): resolved TKE peaks at **1.01 m2/s2 at 39 m**, decays monotonically to
-**0.28 at 448 m**, then rises to **2.42 at 1887 m**. `h` is now **448 m**, against **2372 m**
-before — and against the 760 m that a naive "first minimum" reading would give, which is a
-point on the way back **up** through the wave layer's lower flank.
-
-**THE TEST IS "A SECOND LAYER THAT OUT-ENERGISES THE FIRST", NOT "THE FIRST LOCAL
-MINIMUM".** The first strict local minimum above the surface peak is usually noise, and
-using it as the ceiling **moved `h` on 15 of the 47 footprint profiles on disk, by up to
-331 m**, on profiles with no wave layer at all. What actually identifies a wave layer is the
-property that made this a bug: it carries more resolved TKE than the boundary layer under
-it, so the column's global maximum lands in it. The structure looked for is therefore
-surface peak → trough → a maximum exceeding the surface peak, and the bound is the trough.
-When the global maximum **is** the surface-attached peak, nothing is bounded away and every
-step is the arithmetic that was already there.
-
-**`bin/test_bl_depth.py` re-derives `h` for all 47 stored profiles — 16, 24 and 30 m grids,
-neutral and convective, floored and unfloored — and requires EXACT equality with the `h`
-each run stored. 47 of 47.** Not a tolerance: there is no physics between the two, only
-arithmetic. `window_stats` also records `h_info` and prints when a wave layer was excluded.
-
-**AND THE NEUTRAL CASE NOW PRODUCES A FOOTPRINT.** `case_2023112120`'s window fields were
-still on disk, so the refused case was recomputed through the real LPDM on the corrected `h`
-— CPU only (`results/pass10/`). Window 0 gives **`h` = 700 m** where the estimator returned
-2372 m, and the σ_w floor's factor falls from **1.2e+04 to 1.05**, inert at the receptor,
-no alarms. **Every gate `bin/corpus_monitor.py` can score now passes, G1 included** — G1 is
-the gate that caught the original defect:
+**The MODEL receptor is 30 m; the real instrument is at 10 m.** A deliberate methodological
+choice for resolution adequacy, not a correction — at 10 m the footprint peak did not respond
+to meteorology (48 m in all three targets, max/min 1.00x) because the near field was closure
+output, not LES output. Say so wherever the emulator is described.
 
 | | |
 |---|---|
-| G1 floor health | **ok** — `f_sgs` 0.379 at the floor's peak, factor 1.000–1.05, inert above 91 m |
-| G2a integral saturates | ok, +4.17e-05 |
-| G2b integral magnitude | ok, 1.213 in [0.6, 1.5]; Kljun on identical cells 0.895 |
-| G3a peak converged | ok, half-vs-half `|dpeak|` **0 m** |
-| G3b peak vs Kljun | ok, LES 210 m / Kljun 180 m = 1.17x |
+| grid | **122 x 122 x 122** at `dx = dy = 30 m`, domain **3660 m**. `(N+6) = 128 = 2^7` in all three. |
+| vertical | `d_zeta` 24.691358, `verticalDeformFactor` 0.346601, `zCeiling` 3000 m, `dz_sfc` 8.5583 m, **k = 3 at exactly 30.000000000 m** |
+| receptor | 30 m above bare ground; the array surface is raised 1.5 m (`--raise-topo`), so the aerodynamic height is **28.5 m** and that is what every record carries |
+| `dt` | **0.0308642 = 5/162 s**, `CFL_3d` 1.3502 — 10.0% below the measured accuracy boundary |
+| thread block | **1 x 2 x 64** |
+| cost | **0.479 GPU-h/sim-h** measured; a case is ~0.36 GPU-h at 8-way |
+| `Delta` / `z/Delta` | 19.78 m / 1.52 |
+| geometric-mean `z0` | 0.0615 m; water 13.61%, array 0.30% (44 cells) |
+| taper knee | pad 12 — real geography to 1470 m |
 
-The integral sits **1.265x** its `1 − z_m/z_i` ceiling, and that is the advection
-non-closure with the right sign rather than an error: `w_bar` at the receptor is
-**−0.140 m/s**, mean subsidence, which this file already records as driving the integral
-above the ceiling. Array share 1.63% ± 0.32 — a northerly-ish 314 deg centroid at a 30 m
-receptor, where the array's reach is 60 m east and west.
+`bin/vgrid.py --dx 30 --nx 122 --receptor 30 --k 3 --zceiling 3000` re-derives the grid.
+`runs/g30_base/base.in` is the template; `data/grid30_raised/` is the production surface.
 
-**THE SPLITS ARE HARD-CODED BY CALENDAR MONTH AND ASSIGNED AT GENERATION**
-(`lpdm/corpus.py:SPLITS`). Whole years to val and test, so a split boundary never falls
-inside a synoptic system and seasonal coverage is complete on each side:
-
-| split | months | |
-|---|---|---|
-| **train** | 2021, 2022, 2023 + 2026-02/04/06/08 | **40** |
-| **val** | 2024 | **12** |
-| **test** | 2025 | **12** |
-
-A month not named is **not in the corpus** and `split_of` refuses it rather than guessing.
-Disjointness is asserted at import. The split is written into `meta.split` and onto the
-manifest line; `bin/make_pair.py` takes the driver's `--split` (decided before any GPU time
-is spent) and **checks it against the case's own timestamp**, treating a disagreement as
-fatal — either alone would be a single point of failure. **2026-08-31 is capped at 12 UTC**
-(`HOUR_CAPS`), because the later analyses do not exist yet.
-
-**THE HOUR IS DRAWN WITHOUT REPLACEMENT FROM THE DAY'S 24 ROUND HOURS**
-(`bin/pick_hour.py`). Uniform, reproducible (seeded from the date alone, so a re-run after a
-failure re-draws the same sequence), and an hour is spent the moment it is drawn — missing
-HRRR, a failed screen and an accepted case consume it equally. The pool strictly shrinks, so
-a day terminates at an accepted hour or as a **MISSING DAY with a reason**. Screens: HRRR
-present, `z/L < 0`, `z_i` in 300–1250 m, `|dz_i/dt| < 15 %/h`. **No rose weighting and no
-direction stratification** — the weather supplies the rose, and stratifying on direction
-would be choosing the corpus's input distribution rather than observing it.
-
-**THE SOUNDING IS THE ANALYSIS VALID AT EXACTLY T, NOT T−1**, and the reason is that forcing
-is constant through the run: the LES is initialised from the sounding and then integrates
-1.25 h under a fixed geostrophic wind and a fixed surface flux, so the atmosphere never
-evolves from a T−1 state toward a T state. A T−1 sounding would produce a footprint labelled
-T that represents T−1 meteorology. `bin/hrrr_sounding.py` already fetches at `fxx = 0`;
-HPBL at T±1 is read only to form `dz_i/dt` and never initialises anything.
-
-**TWO ENTRY POINTS, AND THEY LEAVE EXACTLY ONE FILE PER CASE.**
-
-- **`bin/get_case.sh <YYYY-MM-DDTHH:00>`** — one datetime in, `pairs_npz/<case>.npz` out.
-  Everything else is scratch and is deleted **by a trap, on failure too**: the runs
-  directory, the case grid, the sounding, the forcing, the pick, the footprint JSON, and the
-  tmpfs staging directory outside the repo. It carries the full 30 m configuration itself
-  and refuses a non-round-hour timestamp.
-- **`bin/run_month.sh <YYYY-MM>`** — one GPU, one case per day. Each day runs in its own
-  subshell so **a failed case never aborts the month**, and the manifest accounts for
-  **every** calendar day as either a case or a missing day with its reason.
-
-**AND `run_corpus_case.sh` NOW DEFAULTS TO THE 30 m PRODUCTION GEOMETRY.** It defaulted to
-the retired 16 m one, so every entry point had to export the block around it and a caller
-that forgot got a complete, plausible case on the wrong grid. Every existing caller sets the
-block explicitly and is unaffected. **`results/tback_production.txt` was the same hazard and
-is now keyed by `dx`**: it holds 600, the 16 m measurement, and would have silently governed
-every 30 m case the moment a driver stopped exporting `TBACK`.
-
-**A STUBBED RECORD CAN NEVER MASQUERADE AS A CORPUS RECORD.** `STUB_LES=1` replaces stages 6
-and 7 only — stages 1–5 and 8 run for real, inside the same driver, so the check exercises
-the production path — and `meta.stub = true` is stamped into the artifact.
-`bin/check_npz.py` fails such a record unless asked for one, and `run_month` names them.
-
-**THE RETIRED-GRID RECORDS ARE OUT OF `pairs_npz/`.** Six validation records from the 16 m
-and 24 m grids were sitting in the corpus directory. Their arrays have identical shape and
-incompatible meaning, so a loader globbing `pairs_npz/*.npz` would have mixed three cell
-sizes silently. They are now `pairs_npz_retired/`, with a README saying why.
-
-**SEED LEAKAGE: NO FINGERPRINT DETECTABLE, ON THE ONE COMPARISON THE DISK SUPPORTS.**
-`bin/seed_leakage.py` compares the wind-aligned crosswind-integrated shape `f_y` — invariant
-to the 90-degree seed rotation, which is what makes different-direction cases comparable —
-against each case's own half-vs-half floor. At the 30/24 m receptor, where all four cases
-are convective so **regime is held fixed**, same-seed pairs differ by **2.47** floors and
-different-seed pairs by **1.55**: sharing a seed made two cases *less* alike, not more. The
-16 m group returns 0.76 against 0.77, i.e. indistinguishable, **but it is confounded and the
-script says so** — every same-seed pair there is also a same-regime pair, because a seed
-serves one rung. **n is 1 same-seed pair at the un-confounded receptor, so this is weak
-evidence and not a licence to drop seed-grouping from the split.**
-
-## THE CORPUS IS SETTLED: 2.0 h SEEDS, ONE WINDOW PER CASE, z_i ACCEPTED DRIFTING — 2026-08-30
-
-**Four decisions, taken after the ninth pass handed them back with numbers. Three of them
-change the corpus arithmetic below; the fourth closes an open question about truncation.**
-
-**1. EVERY SEED RUNS TO A 2.0 SIMULATED-HOUR HARD CEILING, ALL RUNGS, ALL REGIMES.** This
-replaces the ninth pass's 1.0 h convective / 3.0 h neutral split and the manifests' standing
-3.0 h. Convective rungs need 5–8 turnovers at `T* = z_i/w* ~ 350 s`, i.e. 30–45 min, and
-2.0 h is margin for the weakly convective end where `w*` is small and `T*` correspondingly
-longer; neutral rungs do not stabilise at **any** affordable length, so hours past the point
-the flow is turbulent buy nothing a gate can see. `jobs/seed_watch.sh` still stops a run the
-moment the oscillation-immune limits enter band; 2.0 h is the cap, not the target.
-**0.96 GPU-h per seed, 29 GPU-h for the 30-seed library.**
-
-**AND THE 1.0 h CEILING SILENTLY LOST A WHOLE DUMP TO FLOATING POINT.**
-`int(1.0*3600.0/0.0308642/9720)` — a quantity that is exactly 12 — evaluates to
-`11.999999040000077`, so `int()` returned 11 and the ceiling became **3300 s = 0.917 sim-h,
-8.3% short**, with nothing in the output to say so. The ninth pass's run 1 is that run. The
-rounding is now tolerant and then verified not to exceed the request.
-
-**AND A 2.0 h CEILING BREAKS THE GATE'S OWN DEFAULT WINDOW.** `--score-h` defaults to 2.0 h
-— swept inside a 3.0 h run — so at a 2.0 h ceiling the scoring window IS the whole run and
-reaches step 0, where a cold start has `u* = 0` exactly. That is what made run 1's verdict
-unscoreable. `seed_stationarity.py:score` now **REFUSES** a window that reaches the first
-dump rather than reporting a trend through the spin-up, and `jobs/run_seed.sh` derives
-`SCORE_H = min(2.0, sim_h − 0.5)` from the run it actually got: **1.5 h at a 2.0 h ceiling.**
-
-**2. `z_i` IS ACCEPTED AS DRIFTING ON THE NEUTRAL RUNGS, AND ONLY THERE.**
-**(SUPERSEDED IN SCOPE 2026-08-31 — the default is `any` and selection uses the WHOLE
-library. The argument below is what generalised: it was never specific to `z_i`. See the
-block at the top of this file.)**
-`ALLOW_DRIFTING` then defaulted to **`zi-neutral`** in `bin/run_corpus_case.sh`. `z_i` in a
-neutral boundary layer with no capping inversion grows without bound — measured on
-`seed_nbl-deep_a015` at **+5.76 %/h and still climbing at 3.0 sim-h** — so the limit is
-**unsatisfiable rather than failed**, and refusing it made the neutral half of the corpus
-unbuildable. **The old behaviour was worse than the refusal, and it is reproducible in one
-command:** with `ALLOW_DRIFTING=off` the neutral case `2023-11-21T20:00` is handed
-`seed_cbl-mid_a015` — a CONVECTIVE seed — under the driver's own warning that "30 min will
-NOT convert one regime into the other". With the new default it is handed
-`seed_nbl-deep_a015`, 4.8 deg away instead of 16.2.
-
-The scope is narrow and is asserted (`bin/pick_seed.py:_drift_admitted`, seven cases
-exercised): a neutral rung drifting in `z_i` **alone**. A neutral rung drifting in `u*`,
-`sigma_w` or a Kljun geometry term is still refused, and so is a **convective** rung
-drifting in `z_i` — there the capping inversion and subsidence are holding the depth, so
-drift is a defect. `ALLOW_DRIFTING=any` restores the wide manual opt-in; `off` the refusal.
-
-**NO CAPPING INVERSION WAS ADDED, deliberately.** Letting `z_i` grow to a FIXED 2.0 sim-h
-ceiling is deterministic and reproducible, and `z_i` is a weak input at a 30 m receptor —
-Kljun's only `z_i` channel, `1/(1 − z_m/h)`, spans ~5% over `h = 400–1250 m`. **The pair
-stays valid because its inputs come from `window_stats` over the same 30 minutes as the
-footprint, not from the seed.** What the acceptance shapes is the corpus's `z_i`
-DISTRIBUTION, so every record carries `meta.zi_accepted_drifting`, `meta.zi_achieved_m` and
-the seed's own frozen depth in both currencies, and the first two are on the **manifest
-line** so the distribution is one pass over `manifest.json`. `bin/run_corpus.sh` prints the
-command. If it turns out too narrow to train on, a per-case lid from the sounding is the
-fallback.
-
-**3. ONE WINDOW PER CASE. A CASE IS 1.25 SIMULATED HOURS AND THE FOOTPRINT IS ITS LAST 30
-MINUTES.** `N_WINDOWS = 1` is the corpus default and the timeline is **verified
-arithmetically, not asserted** — 145,800 steps = 4500.000 s at the production `dt`:
+**A case is 1.25 simulated hours and the footprint is its last 30 minutes.** 145,800 steps =
+4500.000 s, verified arithmetically:
 
 | clock | event | step |
 |---|---|---|
-| **T − 1.25 h** | restart from the seed; adjustment begins | 0 |
-| **T − 0.75 h** | adjustment complete (`ADJ_S` 1800 s); staging begins | 58,320 |
-| **T − 0.50 h** | first release (needs `t_back` = 900 s of history) | 87,480 |
-| **T** | last release; window closes | 145,800 |
+| T − 1.25 h | restart from the seed; adjustment begins | 0 |
+| T − 0.75 h | adjustment complete (`ADJ_S` 1800 s) | 58,320 |
+| T − 0.50 h | first release (needs `t_back` = 900 s) | 87,480 |
+| T | last release; window closes | 145,800 |
 
-The adjustment ends at **exactly** 1800.000 s (it lands on a dump boundary with no
-rounding), the window's fields span 1800–4500 s and its releases 2700–4500 s = **exactly
-1800 s**. So the earliest field a backward trajectory can reach is the adjustment end
-itself, and **that is enforced twice**: `bin/run_window.sh:219` deletes the adjustment's
-dumps and refuses unless the earliest survivor is step `A_NT`, and `stage5_footprint.py
---t-min` refuses anything earlier independently.
+The earliest field a backward trajectory can reach is the adjustment end, **enforced twice** —
+`run_window.sh` deletes the adjustment's dumps and refuses unless the earliest survivor is
+step `A_NT`, and `stage5_footprint.py --t-min` refuses independently.
 
-**WHY THE SECOND WINDOW WAS CUT, and it is a measurement rather than a budget cut.** The
-two windows ARE independent turbulence draws — the 20 release groups decorrelate in 180 s
-against an 1800 s separation — but on BOTH ninth-pass validation cases they came out
-**near-duplicates in SHAPE**: median `|w0 − w1|` / the within-footprint half-vs-half floor
-**0.19 and 0.33**, where two independent draws would give ~√2. Shape is what the FNO learns,
-so 1.25 sim-h buying one distinct condition beats 2.0 sim-h buying one condition plus a
-near-copy. **`N_WINDOWS = 2` stays supported and validated**, because a model estimating
-SPREAD at fixed conditions would want exactly those replicates.
+`N_WINDOWS = 1`. A second window was measured and cut: on both validation cases the two
+windows were near-duplicates in shape (median `|w0 − w1|` / the within-footprint floor 0.19
+and 0.33, where independent draws give ~√2). `N_WINDOWS = 2` stays supported for a
+spread-estimating model.
 
-**THE CORPUS ARITHMETIC, corrected.** `bin/run_corpus.sh` now carries the whole 30 m
-production configuration as one exported block — `run_corpus_case.sh` still DEFAULTS to the
-retired 16 m geometry, because the retired passes' drivers call it.
+### Splits — hard-coded by calendar month, assigned at generation
 
-| | |
-|---|---|
-| seeds | 30 x 2.0 sim-h x 0.479 = **29 GPU-h** (0.96 each) |
-| cases | 1469 x 1.25 sim-h x ~0.49 = **~903 GPU-h** (~0.61 each), **one pair each** |
-| **total** | **~930 GPU-h for ~1469 pairs** |
-| against the retired 2.0 sim-h/two-window plan | ~1445 GPU-h for 2938 pairs, half of them near-copies |
-| persisted | ~3.6 MB per case |
+`lpdm/corpus.py:SPLITS`. Whole years to val and test, so a split boundary never falls inside a
+synoptic system and seasonal coverage is complete on each side.
 
-The ~0.49 GPU-h/sim-h is the measured 0.479 bring-up cost plus the measured 0.013 of window
-pauses; it is **inferred rather than measured at selector 1**, because the only production
-measurement, 0.525, was taken at selector 2 where the double netCDF write costs +7%.
-
-**4. THE 24 m LES–KLJUN PARITY SURVIVES THE OFFICIAL FFP, SO THE 30 m ASYMMETRY IS THE 30 m
-GRID.** Re-scored CPU-only on footprints already on disk (`bin/kljun_parity.py`,
-`results/kljun_parity.json`), Kljun re-evaluated with the vendored official FFP at each
-target raster's own cell edges:
-
-| control | box | LES / asymptote | Kljun / asymptote, old | Kljun / asymptote, **official FFP** | gap |
-|---|---|---|---|---|---|
-| `g24_flatnbl` | 2928 m | 0.8735 | 0.8667 | **0.8667** | **+0.0069** |
-| `g30_flat` | 3660 m | 0.7564 | 0.9294 | **0.9294** | **−0.1730** |
-
-**The σ_y fix moves the 24 m Kljun RASTER by 22.5% of its peak — `L` is infinite there, so
-it is exactly the `|L| > 5000` regime the reimplementation was wide in — and moves its
-INTEGRAL by −0.0001.** σ_y only redistributes crosswind, and the box captures nearly all of
-the crosswind extent, so the integral cannot see it. **24 m stays at parity; the asymmetry
-is specific to the 30 m grid and is not a Kljun artifact.** It is the LES, in a nearly
-identical flow, with the sub-grid fraction at the receptor up from 85.1% to 90.4% and only
-44.9% of particles reaching the surface within `t_back`. State the truncation limitation
-that way: at 3660 m the LES loses tail that Kljun does not, so an LES-vs-Kljun comparison on
-this box is **no longer** the fair one the 2928 m parity licensed.
-
-Training targets come from FastEddy LES + a backward Lagrangian particle dispersion model
-(LPDM) written for this project. LES and LPDM are offline target generators — they are
-**never** part of inference.
-
-Scope is deliberately narrow: this is a **site-calibrated emulator for one tower**. It has
-zero transfer to other sites, and that is an accepted, stated limitation. Do not add scope.
-
-## THE KLJUN CHANNEL IS THE OFFICIAL FFP, AND THE HAND-OFF STREAMS — changed 2026-08-30
-
-**Three things change and one number in this file was wrong. Read this before believing any
-Kljun comparison below, and before assuming the in-process hand-off is free of host RAM.**
-Full evidence: `NINTH_PASS_RESULTS.md`.
-
-**1. KLJUN IS NATASCHA KLJUN'S OWN CODE NOW.** `third_party/FFP/calc_footprint_FFP.py` is
-the official v1.42, vendored unmodified with its ISC licence, hashes and URL
-(`third_party/FFP/PROVENANCE.md`). `lpdm/kljun_ffp.py` re-evaluates its two separable
-factors at our north-up cell centres and **reimplements no formula**; it agrees with the
-code it wraps to **9.4e-16** (`bin/test_kljun_adapter.py`, asserted).
-
-**AND OUR REIMPLEMENTATION WAS 1.25x WIDE IN `sigma_y` WHENEVER `|L| > 5000`.** The official
-resets `ol = -1e6` above its own `oln = 5000` and its `scale_const` then CLIPS to 1.0;
-`lpdm/kljun.py` short-circuits `|L| > 1e5` to 0.8 and never reaches the clip. `f_ci` and
-`x_peak` agree to 1e-14 everywhere, and at `|L| < 5000` `sigma_y` does too — so the ONLY
-regime it bites is the near-neutral one, **which is exactly the flat/neutral control, the
-one place in this project where Kljun is diagnostic rather than descriptive.**
-`lpdm/kljun.py` stays for the gates already validated against it; `stage5_footprint.py` and
-every training record now take the official.
-
-**2. THE IN-PROCESS HAND-OFF WAS NOT STREAMING — it removed ~20 GB of disk and moved it to
-RAM, and every check passed while it did.** `drain_until_pause` returned the whole window as
-a list (541 x 36.5 MB = **19.7 GB**) and `FieldSet` retained it on top of its own 12.0 GB
-cache, because `window_stats` opened every dump a SECOND time. Peak ~32 GB — on the machine
-class being chosen for rented boxes. **Deleting the tmpfs file releases the PRODUCER's
-backpressure and nothing else**; the consumer's own bound was a separate statement and
-nothing was making it.
-
-Fused into one pass: `lpdm/les_stats.py:WindowAccumulator` is the estimator as an
-accumulator and `window_stats()` is a thin loop over it, `FieldSet.load()` feeds it and
-releases each handle, `RingConsumer.iter_until_pause()` yields. **Identity is asserted at
-exactly zero** and gets it — the cache, the time axis and all 25 `window_stats` fields
-(`bin/test_streaming.py`, and against the pre-refactor code from git on two real windows).
-
-MEASURED on a live production case (`case_2023111718`, 2.0 sim-h, two windows, 1442
-snapshots, `lpdmOnlineSelector = 2`):
-
-| | |
-|---|---|
-| staged snapshots vs netCDF dumps written | **1442 vs 1442** |
-| peak staging directory | **58.3 MB = 1.6 snapshots**, against a whole window of 19.7 GB |
-| peak consumer host RSS | **12.45 GB** (the field cache) against ~31.7 GB before |
-| LES pause per window boundary | **45.4 s** |
-| persisted per case | **3.6 MB**, against **19 GB** of window dumps selector 2 also wrote |
-| cost | **0.525 GPU-h/sim-h** at selector 2 (0.512 net of pauses) against 0.479 at bring-up; the +7% is the double write |
-
-**WHAT STREAMING CANNOT REACH, and it is not a detail.** The 12.0 GB field cache is not
-buildup — it IS the window, and `compute_footprint` is a **CPU** integrator that
-random-accesses all of it. Host residency floors at the cache. One-or-two-snapshot residency
-needs the window in VRAM and the integration there (`lpdm/gpu.py`), which is an INTEGRATOR
-change and is still deferred. **So "the ring is in VRAM" is aspirational in this file: today
-the ring is a HOST fp16 cache and the GPU LPDM is not on the production path.**
-
-**3. CONSECUTIVE WINDOWS ARE ONE OUTPUT INTERVAL APART, and they have to be.** The consumer
-deletes each snapshot as it reads it, so two windows cannot share a boundary dump: window 0
-consumes it and window 1 starts one interval late, its release period comes out one interval
-short, and `--strict-rel` refuses it. **Measured: 195.0 s against the 200 s asked for** — at
-production geometry that is every second window of the corpus, failing after ~1 GPU-h per
-case. Windows are now spaced `W_NT + frqOutput` apart on BOTH paths, so each owns a full
-window and delivers `W_NT/frqOutput + 1` snapshots. `N_WINDOWS = 1` is unchanged.
-
-**AND THE TRAINING RECORD IS A SELF-CONTAINED `.npz`.** `bin/make_pair.py --npz-dir` writes
-`scalars` (6,), `kljun` (128,128), `target` (128,128) signed and unclipped, and a `meta`
-blob, plus a per-machine `manifest.json`; 26-47 kB each. The corpus is generated on machines
-that share no filesystem, so a record referencing `results/corpus/<tag>.npz` does not survive
-the trip. 122 -> 128 is a **zero-pad of 3 cells, not a resize**, and the Kljun channel is
-re-evaluated on the target raster's own cell edges so identity is structural.
-
-**The `z0_geometric_m` literal 0.1435 was wrong in every existing record** — 0.14488 for the
-four 16 m cases and **0.08323 for the two 24 m ones, an error of 72%**. All six regenerated.
-
-## THE GRID IS 122^3 @ 30 m (3660 m) AND THE LES HANDS FIELDS OVER IN RAM — changed 2026-08-30
-
-**The receptor stays at 30 m and everything the block below says about WHY is unchanged.
-What changes is the horizontal spacing, the box, and the fact that a case no longer writes
-its window to a filesystem. Read this before believing any absolute number below.**
-
-| | 122^3 @ 24 m (retired) | **122^3 @ 30 m** |
+| split | months | |
 |---|---|---|
-| domain | 2928 m | **3660 m** |
-| vertical grid | `d_zeta` 24.691358, factor 0.346601, `dz_sfc` 8.5583 m, k = 3 at exactly 30.000000000 m | **IDENTICAL** |
-| `Delta` / `z/Delta` | 17.02 m / 1.76 | **19.78 m / 1.52** |
-| `dx/dz_sfc` | 2.804 (boundary 1.55-1.60) | **3.505** |
-| **flat accuracy boundary, MEASURED** | 1.55-1.60 | **between 1.50 and 1.55** |
-| **production `dt`** | 0.0295858 (CFL 1.3442) | **0.0308642 = 5/162 s, CFL_3d 1.3502** |
-| cost, MEASURED | 0.481 GPU-h/sim-h | **0.479 GPU-h/sim-h** at the production `dt` (14.781 ms/step) |
-| geometric-mean `z0` | 0.0832 m | **0.0615 m** (more lake) |
-| water in the box | 8.78% | **13.61% (2026 cells)** |
-| array in the box | 0.50% | **0.30% (44 cells)** |
-| taper knee, MEASURED | pad 10 | **pad 12** — real geography to 1470 m |
-| per-case scratch | ~20 GB | **~3 MB** |
+| train | 2021, 2022, 2023 + 2026-02/04/06/08 | 40 |
+| val | 2024 | 12 |
+| test | 2025 | 12 |
 
-**AND THE ACCURACY BOUNDARY DOES NOT INTERPOLATE WITH GRID ANISOTROPY.** Measured
-2026-08-30 (`results/g30_bringup.txt`), a ladder from CFL_3d 1.30 to 1.70 branched off a
-developed state: `k0/k1` is **0.130 at 1.30, 1.40, 1.45 and 1.50**, and **8.857 at 1.55**,
-8.433 at 1.60, 8.078 at 1.65, 7.591 at 1.70. A factor of **68 across 0.05 of CFL**, and
-`turb_alive` reads OK at every rung, so `k0/k1` is the only check that sees it.
+A month not named is not in the corpus and `split_of` refuses it. Disjointness asserted at
+import. The split is checked against the case's own timestamp; disagreement is fatal.
 
-| grid | `dx/dz_sfc` | boundary |
+### How a case is chosen
+
+Per day, draw a round hour **without replacement** from the 24, seeded from the date alone
+(so a re-run reproduces the sequence). Screens: HRRR present, `z/L < 0`, `z_i` in 300–1250 m,
+`|dz_i/dt| < 15 %/h`. An hour is spent the moment it is drawn, so a day terminates at an
+accepted hour or as a **MISSING DAY with a reason**. **No rose weighting and no direction
+stratification** — the weather supplies the rose.
+
+**The sounding is the HRRR analysis valid at EXACTLY T, not T−1**, because forcing is constant
+through the run: the LES is initialised from the sounding and integrates 1.25 h under fixed
+geostrophic wind and surface flux, so it never evolves from a T−1 state toward a T state.
+
+**Day yield is meteorological: 78% overall but 38% in June and 57% in July** — a summer CBL is
+inside the 300–1250 m band only while growing at 17–45 %/h and is past it by the time growth
+falls under 15 %/h.
+
+---
+
+## Hardware and environment
+
+**Two environments differing in exactly one thing: the CUDA toolkit.** Distro, MPI, NetCDF and
+gcc (Ubuntu 22.04 / OpenMPI 4.1.2 / NetCDF 4.8.1 / gcc 11.4) are held **IDENTICAL** so the
+toolkit is the only variable.
+
+| | workstation | rented boxes |
 |---|---|---|
-| 122^3 @ 16 m | 4.007 | ~1.51 |
-| 122^3 @ 24 m | 2.804 | 1.55-1.60 |
-| **122^3 @ 30 m** | **3.505** | **1.50-1.55** |
+| GPU | RTX 4080, Ada, `sm_89` | 8–16x RTX 5090, Blackwell, `sm_120` |
+| image | `flux-fasteddy:cuda118` (`Dockerfile`) — toolchain only | `flux-seeds:<commit>` (`Dockerfile.blackwell`) — code baked in |
+| CUDA / arch | **11.8**, `sm_89` cubin only | **13.0.1**, real SASS `sm_75 … sm_120`, no PTX |
 
-**This grid's anisotropy sits BETWEEN the other two and its boundary sits at the BOTTOM of
-their range.** So anisotropy is not the control variable either, and the standing rule
-survives in its strongest form: the boundary is a property of the grid and must be
-re-measured on every one of them. Production takes 1.3502, exactly 10.0% below the last
-clean rung, and 5/162 s lands the 5 s cadence, the 300 s spin-up cadence, a 2.0 sim-h case
-and a 3.0 sim-h seed all on integer step counts.
-
-`bin/vgrid.py --dx 30 --nx 122 --receptor 30 --k 3 --zceiling 3000` re-derives it;
-`runs/g30_base/base.in` is the template; `data/grid30_raised` is the production surface and
-`bin/g30_bringup.sh` measures the cost and the `dt` boundary.
-
-**WHY 3660 m AND NOT 186^2 @ 24 m (4464 m).** The containment gate FAILED for neutral at
-2928 m: the flat control's integral needed 1.5 domain lengths to stop growing and the wrap
-cap removed 6.1%. 186^2 @ 24 m buys full containment at **+132%** (820 -> 2150 GPU-h), which
-a RELATIVE claim against Kljun does not need — and the parity number is what makes that
-defensible: **the LES retains 0.874 of its asymptote against Kljun's 0.867 on identical
-cells**, so both models lose the same tail and the comparison stays fair. 122^3 @ 30 m buys
-25% more box for **3% more cost**, and the acceptance is that the neutral integral
-SATURATES by 2.5 L rather than that it is complete.
-
-**GATE A1 FAILS, AND IT IS THE SITE RATHER THAN THE BOX — 2026-08-30.** Worst case over
-every direction and stability **25.93%**; over the regimes the corpus actually contains
-**11.58%** (neutral easterly), against a 10% threshold and against **7.38%** for the SAME
-direction and regime at 2928 m. **Kljun's `x90` is 1665 m against 1615 m — the physical
-footprint did not change.** What changed is that a 3660 m box holds it and a 2928 m box did
-not: the lake between 1464 and 1830 m east was being replaced by a periodic re-sample of
-the box's own land. **So the 2928 m PASS was truncation, and shrinking the box to recover
-it would be passing the gate by hiding what it asks about.** Recorded as a site limitation.
-Easterly and north-easterly cases are ~20% of the wind rose and carry 6-12% water; every
-other direction carries ~0%.
-
-**AND COARSENING TO 30 m COSTS LESS RESOLUTION THAN z/Delta SUGGESTS — measured with no
-GPU at all.** `bin/subgrid_apriori.py` splits the 2-D spectrum of `w` on the receptor level
-of the windows already on disk at each candidate grid's cutoff:
-
-| to `dx` | `Delta` | `z/Delta` | kept @2dx | kept @4dx | kept @6dx |
-|---|---|---|---|---|---|
-| 24 (reference) | 17.02 | 1.76 | 100.0% | 94.6% | 78.3% |
-| **30** | **19.75** | **1.52** | **99.7%** | **87.2%** | **64.7%** |
-| 36 | 22.30 | 1.35 | 98.8% | 78.3% | 53.4% |
-
-Neutral agrees to a point (86.2% at 4dx). So the sub-grid fraction moves **52.5% -> ~56%
-convective and 86.4% -> ~87% neutral** — a real cost, and nowhere near the ~90% that made a
-10 m receptor closure output. Read it as a LOWER bound on the degradation: a coarser run
-also makes different large scales.
-
-**THE LES HANDS ITS FIELDS TO THE LPDM IN RAM. There is no window on disk.**
-`SRC/IO/io_lpdmonline.c` on the fork, behind `lpdmOnlineSelector` (PARAM_OPTIONAL, default
-0, so every tutorial case and every existing `.in` is bit-identical):
-
-- **1 = stage only** (production), **2 = stage AND write netCDF** (acceptance, one run
-  producing both paths from the same bytes), 0 = off.
-- Snapshots are taken from `ioBuffField` at exactly the point the netCDF writer would
-  consume it — interior, halos trimmed, transposed to `kji`, rho-divided — and staged as
-  one raw file per output step in a tmpfs directory. `lpdm/ringsrc.py` reads them,
-  `lpdm/dumpsrc.py` presents them to the readers as `MemDump`s, and
-  `lpdmDevicePushSnapshotHost` fills the VRAM ring.
-- **A full `ioLPDMfullFrq` dump still writes everything.** It is the only artifact a staged
-  run leaves, and the `htFlux`/`z0m` read-back assertions, `k0/k1` and `turb_alive` all
-  score it.
-- **A pause is not a restart** — no exit, no re-read, no IO-registered field overwritten —
-  so `FASTEDDY_TRAPS.md` §17 does not reach it. It exists because the `sigma_w` floor is
-  built from WHOLE-WINDOW statistics, so the ensemble cannot be released until the last
-  snapshot of the window is in the ring. **That is also why the ring holds a full window
-  (541 slots, 6 fields, 12.0 GB) and not `t_back` (180 slots, 4.0 GB): a 900 s ring forces
-  integration at each release time, which forces the floor onto partial-window statistics
-  — an estimator change wearing a plumbing change's clothes.**
-- **Why tmpfs files and not CUDA IPC**: `lpdmDevicePushSnapshotHost` takes HOST pointers by
-  design — the wrap-pad, the fp16 cast and the eps/dsig2dz derivation are the device
-  kernels already validated against the CPU path. A host hop is inherent to that API and
-  costs ~4 ms of PCIe per 5 s of model time against ~2.5 s of compute. **The ring is still
-  in VRAM; only the route into it is host memory.**
-- **Docker gives a container 64 MB of `/dev/shm`.** The host tmpfs is mounted explicitly in
-  all three container wrappers at an IDENTICAL path inside and out, because `lpdmOnlineDir`
-  is written into one container's `.in` and polled from another.
-
-**MEASURED: the ring path and the file path agree to 0.00e+00** on an identical
-60-snapshot window — integral, asymptote, wrapped fraction, and every `window_stats` field.
-`bin/test_dumpsrc.py` and `bin/test_ringsrc.py` assert BIT-IDENTITY rather than a tolerance,
-because there is no physics between the two paths and the correct tolerance is exactly zero.
-**Producer/consumer agreement still needs a real LES at `lpdmOnlineSelector = 2` and is the
-GPU acceptance; the CPU tests say so rather than letting a green tick imply it.**
-
-**AND `window_stats` WAS MIXING TWO FLUX ESTIMATORS INSIDE ONE WINDOW.** It took the
-`htFlux` branch when a dump carried `htFlux` and derived it per cell otherwise, on the
-premise that `ioLPDMmode` never writes `htFlux`. That premise is stale: `ioLPDMfullFrq`
-writes a FULL dump at every multiple, and a full dump carries it — so on
-`case_2023052519`, 2 of 12 sampled dumps took one branch and 10 took the other, and the
-window mean was a mean of neither. The two agree to **1.3e-7**, so nothing published is
-visibly wrong; what was wrong is that the estimator depended on the OUTPUT MODE. Now
-derived per cell for every dump under every mode. Found by the ring, which carries no
-`htFlux` and so could not reproduce the mixture.
-
-**A CASE IS 2.0 SIMULATED HOURS AND YIELDS TWO FOOTPRINTS.** Re-running an identical case
-gave integral 1.463 -> 1.019 and array share 5.65% -> 1.07%: that is turbulence REALISATION
-variance, and every floor this project quotes is within-realisation and therefore too
-small. Rather than repeat runs, a case now runs 1800 s adjustment + two 2700 s windows and
-takes a second footprint over the later one. Efficiency goes from 1.25 h per footprint to
-1.0 h with no extra spin-up. **Both footprints are separate training pairs, tagged by
-parent, always on the same side of the split**; averaging is for REPORTED numbers only,
-quoted with the across-realisation spread. The peak separation was 144 m in both
-realisations, so the deciding test's verdict is realisation-independent.
+- **The 11.8 pin is a FLOOR, superseded for deployment only.** Its highest target is `sm_90`,
+  so it cannot reach a 5090 with SASS *or* PTX. Every published result came out of the 11.8
+  image and that image is unchanged. The upgrade's effect on physics is measured at
+  **0.97–1.12x the model's own run-to-run floor** (`bin/test_toolkit_parity.py`).
+- **`nvcc -dlink` silently drops PTX**, so there is no JIT fallback to have — hence real SASS
+  for seven architectures. `--list-elf` and `--list-ptx` are different questions; assert both.
+- FastEddy **v5.0.1**, fork branch `kegonsa`, **fp32** (confirmed in source; never
+  re-litigate). **Not bitwise reproducible** — two runs differ ~1e-4 relative in velocity after
+  200 steps, and any "did my change matter?" test compares against that floor, not zero.
+- **Restart is a true bit-for-bit state resume.** Requires netCDF; `ioOutputMode = 1` is not.
+- **Docker only.** The host python has no scipy or h5py; every analysis script runs in-image.
 
 ---
 
-## THE RECEPTOR IS AT 30 m AND THE GRID IS 122^3 @ 24 m — changed 2026-08-29
+## THE STANDING RULES
 
-**This reverses the two things most of this file is written around: the 10 m receptor and
-the 1952 m box. Read it before believing any absolute number below.** The real tower is
-still at 10 m. The MODEL receptor is now 30 m, and that is a **deliberate methodological
-choice for resolution adequacy**, not a correction — the emulator now predicts the
-footprint of a 30 m receptor at this site, which the physical instrument does not measure.
-Say so wherever the emulator is described.
+These are the expensive lessons. Each has cost real GPU time at least once.
 
-**WHY, and it is two measurements rather than an argument.**
+### 1. Validate the state the model actually LOADED, never the config handed to it
 
-1. **The peak does not respond to meteorology.** Three 10 m target cases — three
-   soundings, three rotations, three achieved directions — put the peak at **48 m in all
-   three**, max/min **1.00x**, while A80 spanned **2.54x**. A peak that cannot move cannot
-   beat Kljun, whose peak does.
-2. **LES `sigma_w` at the receptor ran 2.33-2.99x the tower median with the floor
-   INACTIVE** (receptor factor 1.000, ~90% sub-grid). The near field was closure output,
-   not LES output.
+**Five instances, each of which produced a plausible wrong number rather than an error**, and
+each found by looking at an artifact rather than a setting:
 
-The cause is in this file already: the energy-containing eddy scale goes as `z` while
-`Delta` does not, so at `z/Delta ~ 1` the isotropic `(2/3)e_sgs` partition sets `sigma_w`.
-It was recorded as a risk ("the near field is closure-dominated at `z/Delta ~ 1`
-regardless — recorded, not gated") and it has now materialised as a measured failure. That
-is what supersedes "the grid decision is not to be reopened": **raise `z`, because refining
-`Delta` to `<= 2.9 m` costs ~22x and was ruled out long ago.**
-
-| | 10 m on 122^3 @ 16 m | **30 m on 122^3 @ 24 m** |
+| configured | what the model actually had | found by |
 |---|---|---|
-| domain | 1952 m | **2928 m** |
-| `dz_sfc` / receptor level | 3.9933 m, k = 2 | **8.5583 m, k = 3 at exactly 30.000000000 m** |
-| `d_zeta` / `verticalDeformFactor` | 20.576132 / 0.194059 | **24.691358 / 0.346601** (`zCeiling` **3000 m**) |
-| `Delta` / `z/Delta` | 10.09 m / 0.99 | **17.05 m / 1.76** |
-| `dt` (production) | 0.0146417 s | **0.0295858 s** = 5/169 s, `CFL_3d` 1.3442 |
-| **flat accuracy boundary, MEASURED** | ~1.51 | **between 1.55 and 1.60** — 17% margin |
-| cost, MEASURED | 0.94-0.99 GPU-h/sim-h | **0.481 GPU-h/sim-h** |
-| seed (3.0 sim-h) | ~2.9 h wall | **~87 min wall, 1.44 GPU-h** |
-| geometric-mean `z0` of the box | 0.1435 m | **0.0832 m** |
-| `z_i` band | 100-976 m | **300-1250 m**, coverage **75.0% -> 80.4%** of days (1370 -> **1469** cases) |
+| a per-cell convective `htFlux` map | **all zeros** — the case would have run neutral silently | reading the field out of the file |
+| receptor at 10 m | every footprint landed on the level nearest the **30 m** default | reading the call, not the flag |
+| `dt` inside the stability limit | inside the **accuracy-vs-stability window**: exits 0, prints nothing, near-surface `w` is acoustic noise | `k0/k1` on the dump |
+| `surflayer_wth = −0.012` in the `.in` | **`+0.000000`** in every dump | reading `htFlux` out of the dump |
+| a `.in` template in the image | **absent** — `.dockerignore` took it; 81 cases, 0 records, on all 8 machines | reproducing the build locally |
 
-`bin/vgrid.py --dx 24 --nx 122 --receptor 30 --k 3 --zceiling 3000` re-derives the grid;
-`runs/g24_base/base.in` is the template; `data/grid24_raised` is the production surface
-(`--pad 10`, the re-measured taper knee at this spacing) and `jobs24/` the seed library.
+**Every parameter that is ALSO an IO-registered field is a property of the restart FILE, not
+of the `.in`** — `htFlux`, `z0m`, `z0t`, `tskin`, `topoPos`, `zPos`, `xPos`, `yPos`. For those
+the `.in` is a request and the restart is the answer. The rule is wider than that list: a
+default silently taken, a parameter silently reverted for being out of range, and a `dt`
+inside the accuracy window are all the same shape.
 
-**AND THE BOUNDARY IS NOT THE RETIRED 24 m GRID'S, EVEN AT THE SAME ANISOTROPY.** That grid
-had `dx/dz_sfc = 2.804` too, and its accuracy boundary was ~1.64; this one is ~1.575, and
-the transition is sharp (`k0/k1` 0.132 at 1.55, **8.511** at 1.60). Re-measure at every
-grid; never carry the number.
+**So every step asserts on the artifact it produced, and on the QUANTITY, not the presence of
+a file.**
 
-**Five things reverse, and they are not all in our favour.**
+### 2. A check that stubs the thing it is checking is a statement about the harness
 
-1. **THE ROUGHNESS-SUBLAYER PROBLEM LARGELY UN-HAPPENS.** An RSL over 2-3 m panels reaches
-   5-15 m; a 30 m receptor clears it by 2-6x. So **Kljun over the array is a legitimate
-   reference again**, the MOST-anchored `sigma_w` floor regains its justification, the
-   first model level (**4.28 m**) is above panel top rather than inside it, and tree cells
-   improve to `ln(z/z0) = 1.45` from 0.69. The section below headed "The roughness
-   sublayer, and what it invalidates" is about the retired configuration.
-2. **THE LAKE IS BACK, AND GATE A1 FAILS IN ONE REGIME.** The 2928 m box is **8.78% water
-   (1307 cells)** against 0.05% at 1952 m, and the worst-case footprint water share over
-   every direction and stability is **17.45%** against a 10% threshold — **FAIL**. But that
-   worst case is **very stable easterly**, and the corpus contains no stable cases at all
-   (`STABLE_REGIME_RESULT.md`). Over the regimes it does contain the worst case is
-   **7.38%** (neutral easterly), which passes. Both numbers are recorded; quoting only the
-   second would be the mistake this file exists to prevent. What is genuinely new is that
-   **easterly footprints now carry real water**, where at 10 m they carried 0.01%.
-3. **THE ARRAY IS NO LONGER IN THE FOOTPRINT FROM EVERY DIRECTION.** Kljun on the real map
-   at `z_m = 30 m`: array share **N 30.7% / E 0.04%** neutral, against **80.6% / 29.9%** at
-   10 m. `x_peak` runs 126-206 m over the corpus regimes while the array reaches only 60 m
-   east and west of the tower, so for E/W winds the peak is well past it. The N-vs-E ratio
-   is now **50-760x** rather than 2.69x. **"This tower measures the solar array in every
-   wind direction" is a 10 m statement and is false at 30 m** — the directional signal is
-   now presence-versus-absence, and Gate F must lean on absolute share by direction harder
-   than ever.
-4. **Containment improves and is no longer the worry it was at 30 m in a 4380 m box.**
-   Kljun `x90` at `z_m = 30`: very unstable 1373 m, unstable 1510 m, **neutral 1615 m**,
-   i.e. 47-55% of `L = 2928 m`. The fourth pass's LES 80% source area at 30 m measured
-   3810 m — but on the RETIRED closure, which inflated the convective footprint, and in a
-   box whose `z0` and land cover differ. **The flat/neutral containment gate is still owed
-   and is listed under Known limitations.**
-5. **`z_i` is no longer a nearly inert Kljun input.** Its `1/(1 - z_m/h)` channel is ~3x
-   stronger at 30 m than at 10 m.
+The 8-machine dry run was green while the image had no `.in` template, because `--stub`
+replaces the screener and the case and **opens no file the case path reads**. Every seed-side
+artifact was asserted at build; no case-side one was. Fixes: the build asserts the case path's
+inputs *and* that the template is `Nz = 122`; `run_corpus` refuses at startup by name; and
+`DEPLOY.md` §C2 runs **one real case with only the LES stubbed** in ~4 min with no GPU. That
+last one is what actually closes the gap.
 
-**THE INTEGRAL DOES NOT ASYMPTOTE TO 1. It asymptotes to `1 - z_m/z_i`** (Steinfeld et al.
-2008, after Horst & Weil 1992): the fraction `z_m/z_i` of the column lies below the
-receptor and its flux never crosses it. At 10 m in an 800 m CBL that is 1.25% and
-invisible; at 30 m it is **3.75%**, the size of effects this project routinely gates on.
-`bin/corpus_monitor.py` G2b now quotes it beside Kljun-on-identical-cells, which stays the
-primary reference because it also carries the domain truncation.
+### 3. A diagnostic is only as scale-free as its reference
 
-**NEGATIVE FOOTPRINT VALUES ARE PHYSICAL AND NOTHING CLIPS THEM.** Audited and now
-asserted (`bin/test_negative_lobes.py`): the estimator is signed by construction
-(`lpdm/footprint.py:88`, and its docstring forbids `|w_release|`), CIC deposition takes
-signed weights, and the persisted array is unclipped. Measured across twelve production
-convective footprints the negative lobe carries **5.8-11.1% of |flux|**, and its centroid
-sits 2.5-5x further out than the positive lobe's — the wind-turning mechanism rather than
-the CBL elevated-maximum one. The `np.maximum(f, 0)` calls that exist are metric-side
-(overlap masks, positive-part moments) and deliberate.
+> A diagnostic whose DENOMINATOR or REFERENCE varies with anything but the quantity being
+> measured will report that variation as signal.
 
-**THE TOWER `sigma_w` CHECK IS TRANSLATED TO 30 m AND IS NOW A GATE.**
-`bin/sigma_w_tower.py` inverts `sigma_w(10) = 1.25 u* phi_w(10/L)` for `u*` (fixed point,
-because `L` depends on `u*^3`), then predicts `sigma_w(30) = 1.25 u* phi_w(30/L)`; `u*` is
-constant through the surface layer and `H` is a surface flux, so only `phi_w` moves. `phi_w`
-is IMPORTED from `lpdm/sgs_floor.py` — a gate never reimplements the production function.
-The lift is **1.006-1.238x** and is above 1 in BOTH regimes, because the ratio is exactly
-`phi_w(30/L)/phi_w(10/L)` and `zeta` triples with height. At the convective end
-(`H` 143-429 W/m2) the tower says `sigma_w(30) = 0.848 m/s`, IQR **[0.772, 0.942]**, and
-`bin/run_corpus_case.sh` stage 7c REFUSES a case outside that IQR rather than reporting it.
-Two caveats, both stated rather than buried: the file carries no wind speed so the IQR spans
-~2x and nothing finer can be claimed; and on the STABLE side surface-layer MOST makes
-`sigma_w` rise with height at fixed `u*` where a real SBL has it fall, so those bins are an
-upper bound — costless here only because the corpus has no stable cases.
+It fails quietly every time — the number stays finite, the check runs, the verdict prints.
+**Four instances, and the fourth is the FIX that was applied to the second:**
 
-**THE LPDM CAN RUN ON THE GPU, AND IT MATCHES THE CPU ONE.** `SRC/LPDM/CUDA/` on the
-`kegonsa` fork, built as `lib/liblpdm.so` and driven from `lpdm/gpu.py`; a VRAM ring buffer
-holds `t_back` of history at fp16 (4.2 MB per field per snapshot, six fields) and the
-backward ensemble integrates in-kernel with **fp64 particle state**. Acceptance
-(`bin/test_gpu_lpdm.py`, `results/gpu_lpdm_acceptance.txt`): backward well-mixed lowest-three
-**0.999 GPU against 0.995 CPU**, agreeing to 0.004 where three combined SE is 0.060; peak,
-centroid, A80 and integral all inside the CPU path's own half-vs-half floor; negative lobes
-preserved; **153x faster**. Forward D1 fails on that bring-up window in BOTH paths, which is
-what the control establishes — it is the window, not the port. **What is NOT yet wired is
-the in-FastEddy hook**: until the ring buffer is filled from the live device fields inside
-the time loop, a case still writes ~16.6 GB of scratch and reads it back, and eliminating
-that is the whole point of the port.
-
-**THE DECIDING TEST PASSED: THE PEAK MOVES.** `results/pass7_deciding_test.txt`,
-`SEVENTH_PASS_RESULTS.md`. Two targets, pre-registered before either ran: a convective case
-(`case_2023052519`, H 333 W/m2, achieved L -25.5 m) peaks at **144 m**; a near-neutral one
-(`case_2023121921`, H 22 W/m2, L -732 m) peaks at **288 m**. `|dpeak| = 144 m` against the
-larger of the two cases' OWN half-vs-half floors (**24 m**, one raster cell) -- six times
-it -- and the LES ordering matches Kljun's (144 vs 168). At 10 m the peak was 48 m in all
-three targets, max/min **1.00x**; here max/min is **2.00x**.
-
-**AND IT IS NOT THE CLOSURE.** Each footprint was recomputed on the identical window with
-the `sigma_w` floor OFF: the peak is **identical, 144 and 288 m**, and for the neutral case
-the floor is inert at the receptor to begin with (factor 1.000). At 10 m the same floor was
-worth +8.40 points of array share and shortened `x80` from 400 to 227 m. The no-op control
-is what turns "the peak moved" into "the LES moved it".
-
-**t_back AT 30 m IS 600 s, MEASURED.** The capture curve on both targets: 99.6% and 100.0%
-of the 900 s integral is in by 600 s, and the **peak is at its final value at every mark
-from 150 s**. Production ran 900 s (the fourth pass's number); 600 would save 6.7% of the
-case class. Recorded, not changed.
-
-**THE INTEGRAL'S DEPARTURE FROM THE ASYMPTOTE TRACKS `w_bar` AT THE RECEPTOR, WITH THE
-RIGHT SIGN.** The convective case sits in mean subsidence (`W = -0.099 m/s`) and integrates
-to **1.497x** the `1 - z_m/z_i` ceiling; the neutral one sits in a mean updraft
-(`W = +0.342 m/s`) and integrates to **0.916x**. That is the advection non-closure this file
-already describes, now measured on two cases with opposite signs instead of asserted.
-
-**AND `L` WAS WRONG BY UP TO 148x UNTIL 2026-08-29.** `lpdm/les_stats.py` recovered the
-surface flux from the MEAN of FastEddy's `invOblen`, which is `1/L` and therefore a ratio
-whose denominator is `u*^3`; over a heterogeneous surface the average is set by the
-lowest-`u*` cells. On the convective target it returned `hfx = 43.09 K m/s` and `L = -0.17 m`
-against a true `-25.45 m`, and that went into Kljun's `x_peak`, the floor's `zeta` and the
-pair's own `L`. Fixed by forming the flux PER CELL and averaging that -- which reproduces
-the case grid's own domain-mean `htFlux` to four decimals. The three 10 m pairs hid it
-because their fluxes were near zero. `FASTEDDY_TRAPS.md` 19e.
-
-**THE SUB-GRID FRACTION SPLITS BY REGIME AND ONLY HALF THE CORPUS IS FIXED.** At the same
-`z/Delta = 1.76`: **52.5% sub-grid convective, 86.4% neutral** -- reproducing the fourth
-pass's 52.3% / 85.5% at a 30 m receptor on a different domain. Against 10 m: neutral
-96.4% -> 86.4%, convective ~90% -> 52.5%. **A 30 m receptor takes the convective half of
-the corpus out of the closure-dominated regime and leaves the neutral half in it.**
-
-**THE SEED BUDGET IS MEASURED, NOT ASSUMED.** The fixed 3.0 simulated hours was derived
-once, at 16 m, on `nbl-shallow`. Seeds now run open-ended with a **HARD 3.0 sim-h ceiling**
-and `jobs/seed_watch.sh` stops them as soon as the **oscillation-immune** limits are in
-band (`U/u*`, `sigma_v/u*`, `sigma_w/u*`, Kljun `x_peak` and `x90`); `TKE_BL/u*^2` and `z_i`
-are excluded from the criterion because they cannot be resolved at any window width in a
-3 h run and requiring them would mean never stopping. A DRIFTING verdict on any limit
-blocks the stop. A seed that has not entered band by the ceiling stops there and that IS
-the result — no extension, no respec. Neutral rungs get Steinfeld's spin-up accelerator:
-3000 s at `surflayer_wth = +0.05 K m/s`, then a restart with `htFlux` **zeroed in the file**
-(`bin/zero_htflux.py`), because `htFlux` is IO-registered and the .in cannot override it.
-
----
-
-## THE CORPUS IS FORCED BY HRRR, NOT BY CONUS404 — changed 2026-08-25
-
-**This reverses a rule stated throughout this file, so read it before believing anything
-below about forcing.** CONUS404 keeps its role: it sets sweep ranges and sampling density,
-and it is the 45-year climatology this site is characterised by. What it cannot do is force
-a run, and the corpus now needs exactly that.
-
-The corpus is **~1825 LES cases, one per day over five years**, each forced by a real
-**HRRR pseudo-sounding** at the tower, each yielding one (input, target) pair. Inputs are
-Kljun's scalars read off the LES window itself; the target is the LPDM footprint on that
-same window. See `LIBRARY_PLAN.md` for the whole design.
-
-| | CONUS404 | **HRRR** |
+| diagnostic | the reference that moved | what it reported instead |
 |---|---|---|
-| horizontal | 4 km | **3 km** |
-| atmospheric profiles | **none** — `conus404_hourly`'s only 4-D variables are soil and snow | **~50 hybrid levels** |
-| surface fluxes | — | `SHTFL`/`LHTFL`, giving a **per-case Bowen ratio** |
-| per-timestamp subsetting | — | Herbie |
-| record homogeneity | one configuration across WY1980-2024 | **v4 from 2020-12-02**, minor upgrades within the window |
-
-**The trade-off, stated: the corpus trades configuration homogeneity for resolution and
-per-case realism.** Pick a five-year span inside HRRR v4 to keep that trade small.
-
-Four things that follow, each of which contradicts something written further down:
-
-1. **"CONUS404 is a climatology, never a forcing" still holds — of CONUS404.** Per-case
-   HRRR soundings **do** force runs. What survives unchanged is that forcing is constant
-   *within* a run, so "one quasi-stationary state per averaging period" is intact.
-2. **"Fitting `stabilityScheme = 2` to a CONUS404 sounding" is still ruled out, but the
-   ruling was about a MEAN climatological profile** — and it was ruled out because
-   CONUS404 has no profiles at all and because a fitted mean `z_i` (~860 m) is a state the
-   box cannot hold. A **per-case** fit to a real HRRR profile is now the mechanism
-   (`bin/sounding_to_forcing.py`), and it reproduces the sounding to **0.04-0.27 K rms**
-   over the LES column on four cases spanning all three regimes.
-3. **The corpus structure below — "one spun-up state per (stability, wind speed) bin" — is
-   superseded by the seed library.** 18 seeds, 6 coupled rungs x 3 base angles, exist only
-   to delete each case's spin-up. They are never trained on.
-4. **`data/raw/H_and_sigma_w.csv` timestamps are UTC, and the convention is
-   period-ENDING.** The file runs `2025-05-01 00:30` -> `2026-05-01 00:00`, exactly
-   365 x 48 = 17,520 rows, so a record stamped `00:30` covers `00:00-00:30`. **A footprint
-   stamped 01:00 UTC is the average over 00:30-01:00 UTC**, and the forcing comes from the
-   **HRRR analysis whose valid time equals the footprint timestamp**. Corrected to local
-   midday the median H is **110 W/m2** with 85% of hours above 25 — not 0 W/m2 and 26.5%,
-   which is what reading the clock as local gives. That file is a sanity check, not
-   training data, but the constant is written down so it is not mis-read again.
-
-## Hardware / environment
-
-**TWO ENVIRONMENTS, AND THEY DIFFER IN EXACTLY ONE THING: THE CUDA TOOLKIT.**
-
-| | development workstation | rented boxes |
-|---|---|---|
-| GPU | single **RTX 4080** (16 GB), Ada, `sm_89` | **16x RTX 5090** (32 GB), Blackwell, `sm_120` |
-| image | `flux-fasteddy:cuda118` (`Dockerfile`) — toolchain only, FastEddy compiled in the bind mount | `flux-seeds:<commit>` (`Dockerfile.blackwell`) — code baked in, FastEddy compiled at image build |
-| CUDA | **11.8** | **13.0.1** |
-| architectures | `-arch=sm_89`, cubin only, no PTX | real SASS `sm_75 … sm_120`, no PTX (see below) |
-| distro / MPI / NetCDF / gcc | Ubuntu 22.04, OpenMPI 4.1.2, NetCDF 4.8.1, gcc 11.4 | **IDENTICAL** — held fixed so the toolkit is the only variable |
-
-- **The 11.8 pin is a FLOOR, not a ceiling**, and it is superseded for deployment only.
-  11.8 is the FIRST release with `sm_89`, which is why it was pinned; its highest target is
-  `sm_90`, so it cannot target a 5090 at all — not with SASS and not with PTX. **Every
-  published result in this project came out of the 11.8 image and that image is
-  unchanged.** The upgrade's effect on the physics is measured, not assumed:
-  `bin/test_toolkit_parity.py` puts it at 0.97–1.12x the model's own run-to-run floor.
-  `FASTEDDY_TRAPS.md` §23.
-- FastEddy **v5.0.1**, on our fork, branch `kegonsa`
-- FastEddy runs in **fp32**. **Confirmed (Stage 0b, 2026-08-17)** — see Conventions.
-- **A 122³ seed takes 0.65 GB of VRAM, MEASURED** (`nvidia-smi --query-compute-apps`), not
-  the 1.6 GB the manifests carry — that figure is an unverified literal in
-  `bin/make_seed_jobs.py` and nothing in the pipeline reads it. Nothing here assumes a
-  16 GB budget.
-
-## Repository layout
-
-```
-Flux/                          <- working dir, main project repo root
-├── PROJECT_BRIEF.md
-├── PLAN.md
-├── FASTEDDY_TRAPS.md          <- every trap that has cost GPU time. Read before running.
-├── SIXTH_PASS_RESULTS.md      <- the sigma_w closure: fixed, validated, and what it cost
-├── Dockerfile                 <- CUDA 11.8, TOOLCHAIN ONLY. Every published result. Frozen.
-├── Dockerfile.blackwell       <- CUDA 13.0, code BAKED IN, sm_75..sm_120. The deployable one.
-├── .dockerignore              <- ONE file, read by both. Excludes the ~120 GB of artifacts.
-├── docker/build_image.sh      <- builds flux-seeds:<flux-sha>-fe<fasteddy-sha>
-├── docker/entrypoint.sh       <- run_seeds | seed | accept | verify | provenance
-├── docker/verify_image.sh     <- SASS vs the cards in this box, then a 200-step run
-├── bin/run_seeds.py           <- THE orchestrator: 30 seeds, N GPUs, one command
-├── bin/threadblock_sweep.py   <- re-measures the block shape on the machine, first
-├── bin/test_toolkit_parity.py <- did the toolkit move the physics? vs the model's own floor
-├── inst.txt                   <- crude dependency/build notes, written for v4.0.1
-├── data/raw/                  <- NOT in git. USGS 3DEP + ESA WorldCover.
-└── FastEddy-model-5.0.1/      <- separate repo (the fork). Gitignored by the main repo.
-```
-
-## Build and run: Docker only
-
-Local dependency installation is not used. FastEddy runs containerized (`flux-fasteddy:cuda118`),
-and so does the analysis stack — **the host python has no scipy**, so every analysis script runs
-inside the same image.
-
-- Base `nvidia/cuda:11.8.0-devel-ubuntu22.04`, MPI + NetCDF-C + HDF5, compiled `sm_89`
-- Host requires `nvidia-container-toolkit`. Run with `--gpus all`.
-- Bind-mount `Flux/` so output lands on the host, not in the image.
-
----
-
-# THE RECEPTOR IS AT 10 m
-
-**Corrected 2026-08-21.** The instrument height is **~10 m AGL**, not 30 m. Everything
-downstream of that number changes, and four of the changes are large enough to restate the
-project:
-
-**1. The footprint shrinks by roughly a factor of three, so the domain shrinks with it.**
-Kljun evaluated on the REAL WorldCover/3DEP map at `z_m = 10 m` (`bin/phaseA_geometry.py`,
-`results/phaseA_geometry.txt`), not on idealised distances:
-
-| stability | `x_peak` | `x90` | cells to the peak at `dx = 16 m` |
-|---|---|---|---|
-| very unstable | 27 m | 397 m | 1.7 |
-| unstable | 33 m | 478 m | 2.1 |
-| neutral | 38 m | 538 m | 2.4 |
-| stable | 48 m | 662 m | 3.0 |
-| very stable | 91 m | 1089 m | 5.7 |
-
-At 30 m the same classes ran 1936-3751 m. **Every class fits inside a 1952 m box**, so the
-wrap-cap truncation that capped the flat integral ~18% low is structurally resolved. Note
-the last column: the peak sits 1.7-5.7 cells from the tower, which bounds how sharply the
-CNF target can represent it. Recorded, not gated -- the grid is set by corpus economics and
-the near field is closure-dominated at `z/Delta ~ 1` regardless.
-
-**2. This tower measures the solar array, in every wind direction -- and by MORE than the
-idealised table said.** Footprint-weighted array share on the real map, `z_m = 10 m`:
-
-| stability | E/W | S | **N** | N/E ratio | *(idealised estimate)* |
-|---|---|---|---|---|---|
-| very unstable | **43.6%** | 58.1% | **70.4%** | 1.61x | *24.1 / 44.4 / 73.6%* |
-| unstable | **35.4%** | 58.5% | **78.1%** | 2.21x | |
-| neutral | **29.9%** | 55.5% | **80.6%** | **2.69x** | *19.1 / 39.3 / 70.4%* |
-| stable | **20.3%** | 45.9% | **72.9%** | 3.59x | *14.8 / 34.4 / 67.2%* |
-| very stable | 3.0% | 21.2% | 59.3% | 19.5x | |
-
-The idealised numbers were crosswind-INTEGRATED fractions inside the array's upwind reach
-along a line from the tower. **The tower is inside a 2-D rectangle**, so flux arriving from
-crosswind angles still lands on the array and the real share is 1.4-1.6x larger --
-which makes the **N-vs-E/W RATIO smaller**, 3.7x -> **2.69x** neutral. Gate F must lean on
-**absolute share by direction**, not on the ratio.
-
-**3. The lake has left the science entirely.** Measured, not estimated: the 1952 m box
-contains **8 water cells of 14,884 (0.05%)**, and the worst-case footprint water share over
-every direction and stability is **0.01%**. At 30 m the LES measured 35.2% of a neutral
-easterly footprint as water. Land cover in the new box is crop 50.8%, tree 23.5%, grass
-20.5%, built 4.9%, array 1.03%.
-
-**4. The receptor may be inside the roughness sublayer.** See the next section. This is the
-serious one.
-
----
-
-## The roughness sublayer, and what it invalidates
-
-Solar panels are **2-3 m** tall. A roughness sublayer extends to roughly **2-5 canopy heights**,
-i.e. **5-15 m**. A 10 m sensor standing inside the array therefore sits **at or inside the RSL**,
-where Monin-Obukhov similarity does not hold. Three things depend on MOST and are weakened:
-
-- **Kljun over the array is no longer a reference.** It is a MOST-based model evaluated where
-  MOST fails. Over the array, report it as context and never as a target or an error score.
-- **The MOST-anchored `sigma_w` floor loses its justification over the array.** The floor is
-  the adopted sub-grid closure correction (`--sgs-most`), anchored to `sigma_w/u* = 1.25 phi_w`.
-  Anchoring to surface-layer similarity inside the RSL is an extrapolation.
-- **Displacement height enters everything.** With `d ~ 1-1.5 m`, similarity functions want
-  `z - d = 8.5-9 m`, a 10-15% correction to every argument. FastEddy's surface layer has no
-  `d`, so this is an LPDM-side correction only.
-
-**The flat/neutral control is unaffected** — uniform `z0 = 0.03 m`, RSL top ~0.3-0.5 m, receptor
-at 10 m, well clear. It stays the only place Kljun is diagnostic, and it is now the *only* place,
-where at 30 m the whole domain qualified.
-
-**A harder version of the same problem is numerical.** With `dz_sfc = 4.0 m` the first model
-level sits at **z = 2.0 m** — at or below panel top, and inside the displacement layer. The
-bulk-patch representation of the array (`z0 ~ 0.1-0.3 m`, `d ~ 1-1.5 m`) was chosen when the
-first level was at 4.3 m. At 2.0 m with `z0 = 0.3 m` the surface-layer scheme is solving a log
-law across `ln(z/z0) = 1.9`, which is not enough room for it to mean anything.
-
-**Decision: set the array `z0 = 0.10 m`, the low end of the range**, so the first level keeps
-`z/z0 = 20` (`ln(z/z0) = 2.99` at the 1.997 m first level). Record that the array's surface
-exchange is parameterised rather than resolved, and treat it as the dominant known modelling
-uncertainty at this receptor height.
-
-**AND RECORD WHAT IT COSTS, because it is not free and it is easy to miss.** WorldCover
-labels the array as cropland, whose `z0` is ALSO 0.10 m. At `z0_array = 0.10` the override
-therefore changes nothing at all: **the array is aerodynamically identical to the surface it
-replaced, and its entire NEUTRAL signal is zero**, leaving only the convective heat-flux
-contrast. `bin/prep_surface.py` now prints a warning when the two coincide rather than
-letting it pass silently.
-
-The way out is `--raise-topo`: put the displacement height into `topoPos` over the array, so
-the first model level sits 2.0 m above the RAISED surface (3.5 m above bare ground, clear of
-panel top) and a larger `z0` has room. **Which of the two is right is a measured
-sensitivity, not a decision** -- see the displacement-height treatments in the plan.
-
-**Displacement height is first-order here, and it was absent.** Kljun at `z_m = 10.0 -> 8.5 m`
-moves the array's E/W share **29.9% -> 38.2% (1.28x)** and `x90` 701 -> 596 m. `d` now enters
-the LPDM sub-layer log law, the MOST-anchored `sigma_w` floor (at the RECEPTOR column, not
-the domain mean -- 23.5% of the box is tree cover whose `d ~ 0.7 h_c` is metres the LES never
-resolves), and Kljun's `z_m`.
-
-**The receptor datum is 10 m above BARE GROUND (AGL).** So over the array the effective
-aerodynamic height is `z - d ~ 8.5 m`, and if `topoPos` is raised by `d` the receptor must be
-released at a FRACTIONAL level (`stage5_footprint.py --exact-agl`) to stay 10 m above true
-ground. Snapping to the nearest level there would put it 10 m above the PANELS -- an 11.5 m
-receptor, a 15% error in exactly the quantity this pass exists to get right.
-
----
-
-## Site
-
-- UW-Madison Kegonsa Solar Array, southern Wisconsin
-- **Tower coordinate, SURVEYED: `42.957160, -89.292362`** (EPSG:3071 577719.1, 276299.5).
-  Single source of truth; lives in `TOWER_LON/TOWER_LAT` in `bin/prep_stage6.py`.
-- **EC tower measurement height: ~10 m AGL** (corrected 2026-08-21; every result produced
-  before that date used 30 m and its absolute distances do not carry over).
-- **Solar array — THE TOWER IS INSIDE IT.** It extends **60 m east and west, 250 m north,
-  100 m south** of the tower: 120 x 350 m, 4.20 ha. A rectangle in EPSG:3071; nothing about it
-  depends on the wind.
-- ~30 m of elevation change across the area.
-- **Land cover comes from ESA WorldCover v200 (2021), 10 m.** Terrain from **USGS 3DEP
-  1/3-arcsecond**. Both in `data/raw/`, gitignored; `bin/prep_surface.py` builds the model grid.
-  Roughness per class (water 1e-4, grass 0.03, cropland 0.10, built 0.5, tree 1.0), then the
-  array rectangle overrides it — WorldCover labels the array as cropland, because it does not
-  see photovoltaics.
-- **Land cover of the 1952 m box, measured**: cropland 50.8%, tree 23.5%, grass 20.5%,
-  built 4.9%, bare 0.3%, **water 0.05% (8 cells)**, array override 1.03% (154 cells, 3.94 ha).
-  Terrain relief 34.6 m raw; after mean removal and the taper, -18.2 to +13.9 m.
-- **At `dx = 16 m` the 3DEP raster (native 10 m) is only mildly coarsened**, so warping does
-  smooth a little. Measured slopes after 2 x (1-2-1): p50 0.041, p90 0.096, p99 0.146,
-  max 0.188. With `dx/dz_sfc = 4.007` that is a CFL amplification of 1.072 at p90 and
-  **1.252 at the steepest cell** — the projection that brackets the terrain `dt` search.
-- **Tree cells are the grid's worst case, and it is inherent.** `z0 = 1.0 m` with a first
-  model level at 1.997 m leaves `ln(z/z0) = 0.69` — the surface-layer scheme has almost no
-  room there. 23.5% of the box is tree. Recorded as a limitation of `dx = 16 m` with a 10 m
-  receptor, not fixable at this grid.
-- The domain's **geometric-mean `z0` is 0.1435 m** (used for `surflayer_z0` in the flat
-  spin-up); the drag-weighted effective value at 10 m is 0.2902 m, twice that. The spin-up
-  uses the geometric mean, consistent with prior passes, and the ~20 min adjustment on the
-  real surface absorbs the difference.
-- **Terrain is tapered at the wrap seams; land cover is NOT.** Terrain height enters the
-  coordinate transform and its metric tensor, so a seam step is a numerical cliff. Roughness
-  and surface heat flux are local boundary conditions, where a seam is just a coastline.
-
----
-
-## Domain configuration (10 m receptor, 122^3 @ 16 m)
-
-**Grid decision, made 2026-08-22 and not to be reopened.** Chosen for corpus economics:
-targets are needed in quantity and per-target precision is secondary.
-
-| | value | note |
-|---|---|---|
-| `Nx x Ny x Nz` | **122 x 122 x 122** | `(N+6) = 128 = 2^7` in ALL THREE |
-| `dx = dy` | **16.0 m** | domain **1952 x 1952 m** |
-| `d_zeta` | **20.576132** | `zCeiling = d_zeta*(Nz-0.5) = 2500.0 m` |
-| `verticalDeformFactor` | **0.194059** | `verticalDeformQuadCoeff = 0` |
-| `dz_sfc` | **3.9933 m** | **`k = 2` centre at exactly 10.000000000 m** |
-| first four centres | 1.9966, 5.9933, **10.000000**, 14.0236 m | 2 cells below the receptor |
-| `dz` at 400 m / at top | 14.4 m / 53.3 m | **55 levels below 400 m**, 84 below 1000 m |
-| `dampingLayerDepth` | **500.0** | clean domain to 2000 m; supports `z_i` to ~1000 m |
-| thread block | **1 x 2 x 64** | **measured fastest**, see below |
-| cells | **1.816 M** | |
-| **`dt`, flat** | **0.0146417 s** | `CFL_3d = 1.35`, **measured**, see below |
-| **`dt`, terrain** | *to be bisected* | `dx/dz = 4.007`, worse than any previous grid |
-| cost | **0.0149 s/step measured** -> **0.94-0.99 GPU-h per simulated hour** | |
-| `Delta` / `z/Delta` | **10.09 m / 0.99** | at 24 m it was 17.02 / 1.76 |
-| storage (`ioLPDMmode`) | **18.4 MB/dump measured** (14.5 was an estimate) | a 2400 s window at 5 s = **8.7 GB**; a 4200 s target case peaks at **15.3 GB** before the adjustment's 6.5 GB is deleted |
-| wall cap | **retired 2026-08-26** | chaining is gone; a seed is ~2.9 h wall, a target case ~74 min |
-
-**`bin/vgrid.py` solves this grid from FastEddy's own `zDeform`** (`grid.c:1114-1127`), so it
-is never hand arithmetic in a comment again. With `verticalDeformQuadCoeff = 0`,
-
-    z(zeta) = ((1 - c1)/zC^2) zeta^3 + c1 zeta,  zeta_k = (k+1/2) d_zeta,  zC = (Nz-1/2) d_zeta
-
-which is LINEAR in `c1`, so pinning a cell centre to an exact height is a division, not a
-root-find. It reproduces the retired 24 m grid exactly (`d_zeta` 24.691358, factor 0.346601,
-k=3 at 30.000000 m).
-
-**`dt` is set by `CFL_3d = c dt sqrt(2/dx^2 + 1/dz_sfc^2)`, c = 347.2 m/s.** That form
-reproduces the 24 m grid's stated 1.4946 at its `dt` to four digits. Here `1/CFL` = 92.202,
-so `dt = CFL/92.202`. A 5 s output cadence needs an integer step count; 0.0146417 gives
-341.5 steps, so **spin-up runs use a 300 s cadence and sampling windows re-derive `dt` to
-land the cadence on an integer** (`bin/run_window.sh` asserts it).
-
-**Convective boundary layers are the binding constraint on `z_i`.** `L >= 4 z_i` caps `z_i`
-at **488 m**; `L >= 2 z_i` at **976 m**. Measured coverage of this site's convective-midday
-hours (`bin/zi_coverage.py`, `results/zi_coverage.txt`):
-
-| rule | `z_i` cap | all QC | unstable | **convective midday** |
-|---|---|---|---|---|
-| `L >= 4 z_i` | 488 m | 49.5% | 45.7% | **19.3%** |
-| `L >= 3 z_i` | 651 m | 63.4% | 57.7% | **33.6%** |
-| `L >= 2 z_i` | 976 m | 81.3% | 76.1% | **60.9%** |
-
-**MEASURED 2026-08-22: THE CAP IS NOT BINDING FOR A 10 m FOOTPRINT, so the corpus uses
-`L >= 2 z_i` and covers 60.9% of convective midday.** Two windows at `L/z_i` = 4.56 and 2.28,
-identical in everything including surface heat flux. The deep case IS locked in -- **50.2%**
-of its mid-depth `w` variance sits in mode 1 (`lambda = L` exactly) against **4.8%** in the
-compliant one -- and its footprint is statistically indistinguishable: peak identical,
-centroid -2.2 m of a 39 m floor, array share **-1.88 points, SE 3.03, t = -0.62, p ~ 0.54**,
-which is 0.25x one window's own sampling sd. The 4 `z_i` rule governs mixed-layer
-similarity, and lock-in is exactly its failure; it does not reach a 10 m receptor, where
-surface-layer scaling governs. See `bin/domain_adequacy.py` and `FIFTH_PASS_RESULTS.md`.
-
-**And the cap would have been BIASED, not merely restrictive, had it bound.** `z_i` and surface heat flux are
-positively correlated (rank correlation **+0.43** over convective midday), so the excluded
-deep-CBL hours carry **1.51x the heat flux** and **1.58x the `w*`** of the representable
-ones. A `z_i`-capped corpus is thinnest exactly where the array's flux enhancement is
-largest. **Whether the 4 `z_i` rule is binding for a 10 m FOOTPRINT is a separate and
-measurable question** -- it was written for `w*` scaling and entrainment -- and
-`bin/domain_adequacy.py` answers it. The fallback if it is binding is `218^2 @ 16 m`
-(`L = 3488 m`, 3.2x cost, 53.0% convective-midday coverage at `L >= 4 z_i`).
-
-This matters less than it looks for Kljun: its only `z_i` channel is `1/(1 - z_m/h)`, which
-at `z_m = 10 m` moves the array share by **1.0 percentage point** over `h = 200-1200 m` and
-`x90` by 3.5%. **`z_i` is a nearly inert input to Kljun at 10 m.** It still must be swept --
-the LES's real `z_i` dependence runs through `w*` and thermal structure, which is the
-residual the CNF is being asked to learn -- but not in order to match Kljun.
-
-## Boundary and initial conditions
-
-- **Fully doubly periodic** in x and y. No Dirichlet inflow, no cell perturbation.
-- Soundings from **CONUS404** (4 km, WY1980-2024) set initial theta/u/v profiles, geostrophic
-  forcing, and surface heat flux ranges. **CONUS404 is a climatology, never a forcing.**
-- Terrain tapered to a constant over the outer ring in both x and y; land cover is not.
-- Each run is one quasi-stationary state, matching one 30-min EC averaging period.
-
-### FastEddy capabilities confirmed in source 2026-08-21 — use these
-
-Read out of `SRC/HYDRO_CORE/hydro_core.c` and the CUDA device files, not from documentation.
-
-- **Geostrophic forcing supports a linear vertical gradient.** `z_Ug`, `z_Vg`, `Ug_grad`,
-  `Vg_grad` (`hydro_core.c:655-662`, applied at `:1837-1845` and in
-  `cuda_BCsDevice.cu:307-314`): below `z_Ug` the forcing is `U_g`; above it,
-  `U_g + Ug_grad*(z - z_Ug)`. All four are **`PARAM_MANDATORY`** — they must appear in the
-  `.in` file even when zero. Defaults `z_Ug = z_Vg = 10000 m`, gradients 0, which reproduces
-  height-constant forcing exactly.
-- **`stabilityScheme = 2` gives a 4-segment piecewise-linear base-state theta profile** via
-  `zStableBottom{,2,3}` and `stableGradient{,2,3}` (`hydro_core.c:1776-1810`), hydrostatically
-  integrated. All six are `PARAM_MANDATORY`. **Fit the CONUS404 sounding to these six numbers**
-  — least squares on the mean profile, weighted toward the lowest 1.5 km. Fall back to injecting
-  a 3-D theta field through the restart file only if the fit is demonstrably inadequate, and
-  demonstrate it with a number before doing so.
-- **`lsfSelector = 1` gives large-scale forcing**, and subsidence needs **both**
-  `lsfSelector = 1` and **`lsf_horMnSubTerms = 1`** (`hydro_core.c:509`;
-  `cuda_largeScaleForcingsDevice.cu`). Theta, qv and w forcings are each a two-level
-  piecewise-linear profile (`lsf_*_surf`, `lsf_*_lev1`, `lsf_*_lev2` at `lsf_*_zlev1/2`).
-  **Input values are per hour** — the kernel divides by 3600. Subsidence is applied against the
-  **slab-mean** profile gradient, which is the correct formulation, and FastEddy warns that the
-  slab mean is computed **per GPU**; single-rank, so it is exact for us.
-  This is the physical fix for the Stage 2 stationarity failure: an idealised neutral BL with no
-  capping inversion has no equilibrium depth and deepens forever. Note that arresting a CBL
-  outright would need `w_sub(z_i) ~ -0.04 m/s`, well above realistic fair-weather subsidence
-  (0.005-0.01 m/s), so expect subsidence to **slow** entrainment growth, not stop it. `z_i` is
-  still measured and reported per window.
-- **`surflayer_idealsine` gives a diurnal heat-flux cycle — and it is INCOMPATIBLE with the
-  per-cell `htFlux` map.** `cuda_surfaceLayerDevice.cu:185-192`: when `surflayer_idealsine = 1`,
-  **both branches assign a scalar** to `*htFlux`, overwriting the per-cell land-cover map. Only
-  `surflayer_idealsine = 0` reaches the `// reuse *htFlux array values` branch. The per-cell map
-  is load-bearing — it is what gives the array its 1.6x heat enhancement — so
-  **`surflayer_idealsine` is rejected.** Diurnal variation is sampled instead as separate
-  quasi-stationary states drawn from the CONUS404 distribution, which is what the one-state-per-
-  averaging-period design already implies.
-- **`moistureSelector = 1` requires `surflayer_wq`** (`hydro_core.c:534-545`) and adds a
-  prognostic `qv`. **Decision: run DRY.** The footprint estimator transports a passive scalar and
-  does not need moisture; the CNF's inputs are Kljun's dry scalars; and the cost is a second
-  prognostic field in every dump. The one thing moisture would change is buoyancy, through
-  `w'theta_v' = w'theta' + 0.61 T w'q'`. **That is absorbed for free by prescribing `htFlux` as
-  the VIRTUAL heat flux rather than the sensible one** — do this, and record it, or `z_i` and
-  `w*` come out ~5-10% low at this site's summer Bowen ratio.
-
----
-
-## Rotation
-
-Wind direction is set by **rotating the geostrophic vector**, `(U_g, V_g) = G(sin th, cos th)`,
-not by rotating the map. The surface is built once and is bit-identical for every direction, so
-any directional difference in the footprint is flow and cannot be a resampling artifact.
-
-A square periodic domain with `dx = dy` over a flat uniform surface is exactly equivariant under
-90-degree rotation, so one spun-up flat state re-indexes into four directions.
-
-**Achieved direction is not forcing direction.** Ekman turning is 22-25 deg in the neutral cases
-and 7-13 deg in the CBL. Either compensate the forcing angle or label cases by achieved
-direction — do not silently mix the two.
-
-## Solar panels
-
-Represented as a **bulk surface patch**: elevated `z0`, displacement height `d ~1-1.5 m`, and a
-raised surface heat flux. Do NOT use explicit geometry (URBAN/IBFM or GAD) — panel row spacing
-is ~5-7 m and the grid cannot resolve it.
-
-**`z0` for the array is 0.10 m at this receptor height**, not 0.1-0.3 — see the RSL section: the
-first model level is at 2.0 m and a larger `z0` leaves the surface-layer scheme no room.
-
-**A STABLE CASE IS A ROUGHNESS-ONLY ARRAY CASE: the thermal contrast is absent and the
-aerodynamic one is all that is left.** Recorded 2026-08-25 while building the per-case
-surface for the HRRR-forced corpus. **Corrected the same day** — the first version of this
-entry said stable cases carried *no* array signal at all, which is true of the retired
-BASELINE surface and false of the one production actually uses.
-
-- *Thermally, there is no contrast.* The per-class flux table (array 1.60, water 0.12,
-  built 1.50 …) is a **DAYTIME sensible-flux enhancement** table from field studies. There
-  is no nocturnal equivalent in this project, and at night the physics inverts — water
-  holds heat, built surfaces release what they stored, vegetation cools fastest. Applying
-  daytime ratios to a negative flux would invent a contrast nothing measured, **so a stable
-  case gets a UNIFORM negative `htFlux`** (`bin/case_surface.py`).
-- *Aerodynamically, it depends on the surface treatment, and only one of the two is
-  production.* Measured on the grids themselves:
-
-  | grid | `z0` array / cropland | array signal in a stable case |
-  |---|---|---|
-  | `data/grid16` (baseline, flat) | 0.10 / 0.10 = **1.00x** | **none** — WorldCover calls the array cropland and `z0_array = 0.10` IS cropland's value |
-  | **`data/grid16_raised`** (production) | **0.25 / 0.10 = 2.50x** | **a real roughness contrast** |
-
-  The corpus runs on the raised surface (`SIXTH_PASS_RESULTS.md`), so **stable corpus cases
-  do carry an array signal — a purely aerodynamic one.**
-
-That makes stable cases *more* interesting than a nuisance, not less: they are the only
-part of the corpus where the array's roughness effect is **isolated from its heat-flux
-effect**, which convective cases confound. What must not be claimed is a thermal array
-response at night. Convective cases carry both channels; stable cases carry one.
-
-**Albedo has no pathway, and that is not an omission.** FastEddy in this configuration has no
-radiation scheme — `surflayerSelector = 1` prescribes the kinematic surface heat flux directly —
-so what albedo would have controlled is subsumed by `htFlux`, which IS per-cell
-(`cuda_surfaceLayerDevice.cu:191` reuses the array when `surflayer_idealsine = 0`). `htFlux`,
-`z0m`, `z0t` and `tskin` are all IO-registered, so they survive the restart read and
-`bin/prep_stage6.py` writes them there. The built-in `surflayer_offshore` wave-roughness
-parameterisations are a **global** switch and cannot be applied to water cells only.
-
-Known omissions, accepted: directional roughness anisotropy from row alignment, diurnal tilt,
-~20% shortwave leaving as electricity, and — new at this receptor height — **the entire
-roughness sublayer**, which is now inside the measurement height rather than safely below it.
-
----
-
-## Footprint computation
-
-Backward LPDM, run offline on saved FastEddy output.
-
-- **THE FOOTPRINT RASTER IS THE LES GRID.** Touchdowns are binned by their LES column index,
-  folded modulo the periodic domain, so a footprint cell IS an LES column — the same indexing the
-  land-cover masks use, and the array the CNF will consume. Cloud-in-cell deposition, which is
-  exactly conservative and cuts per-cell noise to 0.67x nearest-grid-point.
-- **The CNF raster is `Nx x Ny = 186 x 186`. Confirmed by `ncdump` 2026-08-21: FastEddy output
-  contains NO halos** — `xIndex = 186, yIndex = 186, zIndex = 122` on a `186 x 186 x 122` run.
-  The `2*Nh` padding is internal to the solver and never reaches the file.
-- Kljun is evaluated at the static cells' own coordinates rather than rotated onto them
-  (`lpdm.kljun.footprint_on_static`, 8x8 sub-sampling per cell). **Note the return signature:
-  `crosswind_integrated` returns `(fy, xs)`, a tuple, not an array.**
-- **THE TARGET CLASS IS ONE CONTINUOUS RUN OF 4200 s, AND ITS SCHEDULE IS LOAD-BEARING.**
-  `t_back = 600 s` is MEASURED (`results/g16_tback.txt`: the integral reaches 98.9% of its
-  full value by 500 s and `x80` comes within 9 m of final against a 203 m tolerance; x1.25
-  margin, rounded to 50 s). So a case is **1800 s adjustment + 600 s `t_back` + 1800 s of
-  releases = 4200 s = 1.1667 sim-h**, 287,280 steps, 840 dumps at a 5 s cadence that lands
-  on an integer step count. For a footprint stamped 01:00 UTC covering 00:30-01:00:
-
-  | clock | event | step |
-  |---|---|---|
-  | 23:50 | restart from the seed; adjustment begins | 0 |
-  | 00:20 | adjustment complete | 123,120 |
-  | 00:30 | first release (needs history back to 00:20) | 123,120 + `t_back` |
-  | 01:00 | last release; window closes | 287,280 |
-
-  **The earliest field a backward trajectory can reach is EXACTLY the adjustment end, and
-  that is enforced twice.** FastEddy has one `frqOutput` and writes from step 0, so the
-  adjustment's 360 dumps land in the same directory as the window's -- and
-  `lpdm/fields.py:dump_series` globs the directory while `compute_footprint` releases from
-  `t[0] + t_back`. Left alone that would put the whole averaging period inside the
-  adjustment, on fields still settling, silently. `run_window.sh SKIP_S` deletes those
-  dumps and asserts on the earliest survivor; `stage5_footprint.py --t-min` refuses them
-  independently. **The earlier `1.07 sim-h` per case was an estimate against a `t_back`
-  smaller than anything measured, and it understated the corpus by 9.0%.**
-- **A WINDOW IS (30 min + `t_back`), NOT 30 min.** The first `t_back` seconds of any window
-  produce no releases, because a backward trajectory needs that much history behind it. The
-  averaging period stays 30 minutes — that is how eddy covariance is defined. `--rel-seconds 1800`
-  holds the release period to exactly 30 min however long the window is.
-- **`t_back` must be re-measured at 10 m.** At 30 m the shape converged by 450-600 s and
-  production used 900 s. Descent time scales roughly with `z/sigma_w`, so expect the median
-  transit to fall from ~180-290 s to **~60-95 s** and the convergence point to ~150-250 s, giving
-  **35-minute windows**. That is an estimate: measure it the same way, by masking one release
-  ensemble on touchdown age. No new LES is needed once the first window exists.
-- Save 3 velocity components + SGS TKE at ~5 s cadence.
-- The analysis cache is **float16**. `scipy.ndimage.map_coordinates` refuses float16, so the 4-D
-  linear interpolation in `lpdm/fields.py` is written out by hand — verified against
-  `map_coordinates` to float32 roundoff, and marginally faster.
-- Pipeline per run: LES -> scratch -> LPDM -> 2-D footprint (~1 MB) -> **delete fields**.
-  Peak storage is one run. Never accumulate.
-- SGS component is a Langevin model driven by FastEddy's output SGS TKE (Weil et al. 2004).
-- **Well-mixed condition is the critical correctness test, and it MUST be run in the
-  configuration footprints are actually computed in** (`stage4_wellmixed.py --sgs-most`).
-  **AND THE CONVECTIVE CONFIGURATION IS A DIFFERENT ONE.** The floor's factor at the
-  receptor is **1.000 (inactive) neutrally** and **1.59 convectively**. A neutral PASS is
-  therefore a test of the UNMODIFIED model and says nothing about the convective closure --
-  the neutral gate passes the RETIRED closure, which carries nine turnovers and a factor of
-  2.45.
-
-  **THE CLOSURE IS FIXED AND VALIDATED, 2026-08-24** (`SIXTH_PASS_RESULTS.md`). The floor
-  is **weighted by the sub-grid fraction**, `sc_eff = 1 + (sc - 1) f_sgs` with
-  `f_sgs = (2/3)e/(ww + (2/3)e)`, and **`eps` is scaled with `sigma^2`** so
-  `T_L = 2 sigma^2/(C0 eps)` is preserved. Gate D1, both regimes, both directions, three
-  closures on identical fields (counting noise 5.48%):
-
-  | regime | closure | backward lo3 | forward lo3 | max fac | turnovers |
-  |---|---|---|---|---|---|
-  | neutral | no floor | 1.001 | 1.041 | -- | -- |
-  | neutral | **production** | 0.989 | 1.023 | 1.23 | **0** |
-  | convective | no floor | 1.027 | 1.091 | -- | -- |
-  | convective | **production** | 1.037 | 1.097 | 3.49 | **0** |
-  | convective | retired taper | **0.961 FAIL** | **1.226 FAIL** | 12.17 | 11 |
-
-  **The cause was the MAGNITUDE of the inflation, not its shape.** A constant x10 -- no
-  taper, no turnover, `dsc/dz` exactly zero -- failed forward at 1.370 while a constant
-  x1.673 passed at 1.130. Two earlier diagnoses (the spurious maximum; the drift's product
-  rule) were both wrong and both are recorded, because each cost a rebuild. The old floor
-  was largest where the LES resolved MOST: factor 10.1 at 52 m where 92% of `ww` is
-  resolved. It now peaks at 18-35 m where 44-84% is sub-grid.
-
-  **What the retired closure was worth, measured on identical fields:** the convective
-  array share was inflated by **+8.71 points on average and +18.46 at worst** (cbl_wE,
-  64.18% -> 82.64%), against a neutral effect of +0.35. `x80` on that case was 52 m
-  against 118. **The fifth pass's "2-4%" systematic band was wrong by an order of
-  magnitude** -- it was estimated from the integral overshoot, and the integrals barely
-  move while the share moves 18 points.
-
-  **THE NEUTRAL-VS-CONVECTIVE COMPACTION IS CLOSURE-DEPENDENT AND ITS SIGN DOES NOT
-  SURVIVE.** Flat controls, 80% source area: floor OFF gives **0.57x (convective BROADER)**
-  and floor ON gives **1.33x (convective more compact)**. The flip is one-sided -- the
-  floor changes convective A80 by -56.4% and neutral A80 by +1.4% -- and the paired null
-  (the neutral row, where the floor is inert) is 0.051 ha against a convective effect of
-  3.712 ha, **72x**. Both closures PASS Gate D1, because well-mixedness tests
-  SELF-CONSISTENCY, not whether `sigma_w` has the right magnitude. **Quote the compaction
-  ratio with its closure and state the 0.57-1.33x band**; never quote "convection compacts
-  the footprint" as a bare physical result. `x80` does NOT flip (1.08 -> 1.94), because it
-  is 1-D and the no-floor convective footprint is broader crosswind too (A50 0.819 vs
-  0.461) -- **settle regime comparisons on AREA, not on x80.**
-
-  **The floor itself is worth +8.40 points of convective array share** (floor on vs off,
-  flat control) and shortens `x80` from 400 to 227 m. The near field is closure-dominated
-  and that is now a number, not an assertion.
-
-## ML model
-
-- **Conditional normalizing flow.** Inputs are Kljun's scalars only.
-- **Residual formulation**: predict Kljun + learned correction, not the raw footprint.
-- Wind direction is still the dominant skill axis, but **it is a weaker axis at 10 m** — the
-  array's N-vs-E/W footprint share ratio is ~3.7x rather than ~370x. Near-field structure is
-  where the site-specific signal now lives.
-- Pretrain on cheaply-generated analytical (Kljun/Kormann-Meixner) footprints, then fine-tune
-  **all weights** on the LES corpus.
-- Loss: not raw MSE. Log-space or per-sample normalization, plus physical terms (centroid
-  displacement, 80% source-area overlap, integral = 1). Consider Sinkhorn/W2.
-- **Split by LES run, never by sample.** Effective sample size for generalization is the number
-  of *runs*, not samples.
-
----
-
-## Conventions
-
-- **Particle state in fp64** even though velocity fields are fp32.
-- **Precision — Stage 0b PASSED, 2026-08-17.** FastEddy is hardwired fp32 with no build switch:
-  bare `float` on every prognostic field, `MPI_FLOAT` in the halo exchange, `NC_FLOAT` in the
-  writer. Nothing to change; recorded so it is never re-litigated.
-- **FastEddy is NOT bitwise reproducible.** Two runs of the same case differ by ~1e-4 relative in
-  velocity and ~7e-4 K in theta after 200 steps. Never diff two runs expecting equality; any
-  "did my change matter?" test compares against this floor, not against zero.
-- **Restart is a true bit-for-bit state resume** (verified twice, at two grids). Restarting from a
-  dump and re-dumping reproduces that dump byte-for-byte. Requires netCDF; `ioOutputMode = 1`
-  binary output is **not** restartable.
-- **VALIDATE THE STATE THE MODEL ACTUALLY LOADED, NEVER THE CONFIG HANDED TO IT.** This is
-  the single most expensive standing failure in this project -- **four separate instances,
-  each of which produced a plausible wrong number rather than an error**, and each of which
-  was found by looking at an artifact rather than at a setting:
-
-  | what was configured | what the model actually had | how it was found |
-  |---|---|---|
-  | a per-cell convective `htFlux` map | **all zeros** in `data/grid16` -- the case would have run NEUTRAL and said nothing | reading the field out of the file |
-  | the receptor at 10 m | `stage5_footprint.py` never passed `z_target`, so every footprint landed on the level nearest the **30 m** default | reading the call, not the flag |
-  | `dt` inside the stability limit | inside the ACCURACY-vs-stability window: exits 0, prints nothing, near-surface `w` is acoustic noise | `k0/k1` measured on the dump |
-  | `surflayer_wth = -0.012` in the `.in` | **`+0.000000` in every dump** -- `htFlux` is IO-registered, so the restart read overwrites it (`FASTEDDY_TRAPS.md` §17) | reading `htFlux` out of the dump |
-
-  The generalisation, and the reason it is a rule rather than four traps: **every parameter
-  that is ALSO an IO-registered field is a property of the restart FILE, not of the `.in`** --
-  `htFlux`, `z0m`, `z0t`, `tskin`, `topoPos`, `zPos`, `xPos`, `yPos`. For those, the `.in`
-  is a request and the restart is the answer. But the rule is wider than that list: a
-  default silently taken, a parameter silently reverted for being out of range
-  (`FASTEDDY_TRAPS.md` §13), and a `dt` inside the accuracy window are all the same shape.
-
-  **So every step asserts on the artifact it produced, and asserts on the QUANTITY, not on
-  the presence of the file.** `jobs/run_seed.sh` reads `htFlux` back out of each segment's
-  own dump and refuses if it is not the flux that segment asked for; `bin/smoke_check.py`
-  scores FastEddy's built base state against the `.in` that requested it. Both are cheap.
-  Neither would have existed if the settings had been trusted.
-
-- **VALIDATION MUST EXERCISE THE PRODUCTION CODE PATH AND THE PRODUCTION REGIME.** A gate
-  that tests a different closure than the footprints use is not a gate. Two instances, both
-  of which shipped a wrong result:
-  - **The wrong regime.** The neutral well-mixed gate passed a closure carrying **nine**
-    turnovers in `sigma_w^2` and a factor of **2.46**, because the floor is nearly inert
-    neutrally -- the receptor factor is 1.000 there and 1.59-1.67 convectively. The fifth
-    pass then recorded the convective closure as "inherited" from that PASS. Run the gate
-    in every regime the corpus contains, and treat a regime where a component is inert as
-    *no evidence at all* about that component.
-  - **The wrong code path.** `stage4_wellmixed.py` carried its own COPY of the `sigma_w`
-    floor, which had drifted from `lpdm/driver.py`'s and never received the displacement
-    correction. The gate validating the footprints was scoring a closure the footprints do
-    not compute. Gates import the production function; they never reimplement it.
-
-  Corollary for reporting: **quote the no-op control alongside the result.** The
-  convective failure was localised in one run by scoring the SAME window with no floor at
-  all -- the base model passed both directions, which is what proved the fault was the
-  floor and not the model. A gate result without its control says only "a number came out".
-- **ASSERT ON THE ARTIFACT, NOT ON THE EXIT STATUS.** Analyses are piped into `grep`, so
-  bash reports GREP's status and a python traceback lands quietly in a redirected `.txt`
-  while the driver carries on -- a `SyntaxError` in `stage5_footprint.py` was launched six
-  times that way. Every step now checks the JSON it was supposed to write, and
-  **`bin/preflight.sh` parses every python entry point and shell driver before a campaign
-  starts** (about ten seconds; the drivers refuse without it). `FASTEDDY_TRAPS.md` §12.
-- **SCORE A SECOND MOMENT AGAINST ITS OWN SAMPLING SPREAD, NOT AGAINST A NUMBER YOU
-  PICKED.** The convective B6 gate first used a fixed 3e-2 on `sigma_w^2` and reported
-  DIFFERS at 3.587e-2. Loosening the constant would have been the error below in its
-  purest form. Re-scored against the **block standard error of the same field** — 4x4
-  sub-blocks of 30 cells, near-independent because the domain is 1952 m and the convective
-  integral scale is `~z_i ~ 430 m` — the difference is **0.38x** one realisation's own
-  spread, and the only level that ever exceeded 3e-2 was `z = 2 m`, where `ww = 0.0013`
-  and the field's own block SE is **8.1%**. Everywhere else the two rotations agree to
-  **0.001-0.015%**. The reframing is not a loosening: it is what located the problem.
-- **A TOLERANCE MUST BE THE SIZE OF THE FAILURE IT IS LOOKING FOR, NOT THE SMALLEST
-  NUMBER YOU CAN WRITE DOWN.** `--strict-rel` exists to catch losing a DUMP off the head of
-  a window -- 5 s at the production cadence -- and it scored against `1e-6` s. `dt` is
-  carried in the `.in` to 8 decimals, so `frqOutput*dt` is 5 s only to `1.04e-6`, and over
-  840 dumps that makes the production release period **1799.99950 s** instead of 1800. The
-  guard therefore failed the production configuration on **half a millisecond**, at stage
-  7, after 74 minutes of GPU, with the fields already on disk. One lost dump exceeds that
-  deficit by a factor of **10,016**; the tolerance is now one tenth of the measured output
-  interval. This is the bullet below with the sign flipped -- there the constant was too
-  LOOSE and hid a real effect; here it was too TIGHT and rejected a correct run -- and both
-  come from picking a number instead of deriving one. `FASTEDDY_TRAPS.md` §18b.
-  **Corollary: print the margin on SUCCESS too.** A configuration designed to sit at zero
-  margin leaves no evidence of how close it came unless the passing path says so.
-- **ONE RUN PER DIRECTORY, OR IT IS NOT A SERIES.** FastEddy names a dump
-  `<outFileBase>.<step>`, so a directory that has held two runs holds two families with
-  OVERLAPPING step numbers -- and sorting the union on the step alone interleaves them into
-  a "history" that has two different states at the same time. Four seed job output
-  directories still held an August smoke test's `FE_SMOKE.0` and `.20520` alongside the
-  real run's `FE_SEED.0` and `.20520`. Every glob of a dump directory, and every expansion
-  of "the siblings of this dump", now filters on one base name. `FASTEDDY_TRAPS.md` §18c.
-- **A TOLERANCE MEASURED FROM ONE DIFFERENCE IS NOT A TOLERANCE.** A gate that scores a
-  result against a single half-vs-half difference is comparing against a statistic with
-  ONE degree of freedom, whose own sampling error is of the same size as the thing it is
-  bounding. Gates compare against a DISTRIBUTION with enough degrees of freedom to have a
-  standard error: Phase E's first verdict said DIFFERS on a 2-group floor and PASSED at
-  p ~ 0.54 on a 10-group one, a factor of **5 in the estimated floor** from nothing but
-  the number of groups. Use `--cover-groups N` (N >= 8) wherever a share or a shape is
-  being tested, quote the standard error, and never quote a tolerance without saying how
-  many independent realisations went into it.
-- Any grid change re-checks the `(N + 6) % tB == 0` rule before running.
-- Commit at every verification gate in PLAN.md. Do not proceed past a failed gate.
-- **The LPDM is forked across cores.** The ensemble is always cut into
-  `LPDM.N_CHUNKS_DEFAULT = 16` chunks with per-CHUNK seeds derived from the ensemble seed
-  and the chunk index, so **worker count is a pure performance knob and cannot change a
-  result** -- `bin/test_parallel_lpdm.py` asserts bit-identity of every touchdown array
-  between 1 worker and 12. Set `LPDM_WORKERS` (forwarded into the container by
-  `docker/pyrun.sh`). **6.8x on 12 workers, measured.** Workers are FORKED, so the ~10.6 GB
-  field cache is shared copy-on-write and N workers cost no extra RAM for it; do not switch
-  the start method to spawn without re-checking that. At 62 GB the machine holds ~4
-  concurrent analyses, so the retired one-analysis-at-a-time rule (written for the 186^2
-  grid at 28 GB per cache) no longer binds.
-- **Sampling windows are resumable.** `bin/run_window.sh` stamps the exact configuration
-  (steps, dt, length, terrain file, forcing, restart file and size) into
-  `window/.window_complete` on success and reuses the window only on an exact match with
-  the right dump count. A kill during analysis no longer costs 42 minutes of GPU, and a
-  window can be computed ahead of the campaign that will consume it -- which is how the
-  GPU is kept busy through a CPU-only stage.
-- **Run the GPU and the CPU at once.** The LPDM is an offline analysis of saved output, so
-  validation needs no GPU at all. Campaign drivers start the LES chain in the background
-  and run analysis against it (`bin/run_pass6b.sh`), rather than after it.
-- **The analysis stack lives in the container.** The host python has no scipy; run analysis as
-  `docker run --rm -v /home/atyagi/Flux:/w -w /w flux-fasteddy:cuda118 python3 ...`.
-
-## Ruled out — do not propose these
-
-Evaluated and rejected. Re-proposing them wastes time.
-
-- **STILT** — replaced by the project's own backward LPDM.
-- **Mesoscale coupling** (`hydroBCs=1`, GenICBCs, cell perturbation) — the CP fetch requirement
-  would consume most of the domain. Periodic instead.
-- **LES-to-LES nesting**, **NSCBC**, **512^3 domains** — schedule / unnecessary / infeasible.
-- **Running FastEddy backwards in time** — mathematically impossible, not a code limitation.
-  Reversing t and u flips the sign of the SGS stress term, giving negative eddy viscosity and the
-  backward heat equation. Backward LPDM steps *particles* backward through *forward-stored* fields.
-- **Multiple virtual tower locations** — would inject unexplained variance. One fixed tower.
-- **Surface fields as ML inputs** ("Experiment 2") — out of scope.
-- **`surflayer_idealsine` / diurnal cycle within a run** — overwrites the per-cell `htFlux` map.
-- **Moisture (`moistureSelector = 1`)** — run dry, prescribe the virtual heat flux instead.
-- **Sub-grid-fraction < 40% as a gate** — retired. See below.
-- **A neutral well-mixed PASS as evidence about the convective closure** — the floor
-  is nearly inert neutrally, so the neutral gate tests a different model. It passed a
-  closure carrying NINE turnovers. Run the gate convectively or do not claim it.
-- **AND IN STABLE CONDITIONS THE GATE CANNOT BE RUN AT THIS GRID AT ALL — measured
-  2026-08-25, and it is a grid result, not a closure result.** A stable seed at
-  `G = 8 m/s`, `w'th' = -0.012 K m/s` (GABLS1's own regime) was healthy for 1.75 simulated
-  hours — `u*` 0.20-0.24, `z/L` 0.12-0.21, `Ri_g` 0.03-0.05, a proper Ekman profile — and
-  then **collapsed**: `u*` 0.236 -> 0.098, `z/L` -> 2.67, all seven stationarity limits
-  drifting, `x_peak` at **6989%** of its limit. There is therefore no stationary stable
-  state to run Gate D1 on.
-
-  **The cause is resolution, and it is measured at the HEALTHY dump** — an hour before
-  anything looked wrong, which is what makes it diagnosable before the GPU time is spent.
-  `bin/ozmidov.py`, `results/ozmidov_regimes.txt`, with FastEddy's own `eps` and mixing
-  length imported from `lpdm/fields.py`:
-
-  | regime | `L_O/Delta` at the 10 m receptor | surface layer (min-median) | resolved `sigma_w^2` at the receptor |
-  |---|---|---|---|
-  | **stable** (GABLS1 regime) | **3.57** | 2.41 - 5.21 | **0.2%** |
-  | neutral | 318.07 | 43.2 - 92.7 | 2.7% |
-  | convective | *unstratified — no constraint at all* | — | 12.1% |
-
-  A factor of **89** between stable and neutral at the same receptor on the same grid.
-  GABLS1 runs that regime at `dx = 6.25 m` — **2.6x finer, 17x the cells for this domain.**
-
-  **Two numbers here were wrong until 2026-08-25 and are corrected above**: this bullet
-  said "1.0-3.2 x `Delta` through the layer" and "0.6-4%" at the receptor, both remembered
-  from an ad-hoc calculation rather than a script. **And the COLUMN MEDIAN would have
-  hidden the result**: `L_O/Delta` rises steeply with height as `N` falls, so the median
-  over the whole stratified column reads **8.97** against the 2.4-4.0 the surface layer
-  actually has. Score at the receptor, where the footprint is made.
-
-  **`k0/k1` was 0.442 throughout**, so the standing accuracy check passes on a run whose
-  boundary layer has died. It is a `dt` check, not a physics check —
-  `docker/turb_alive.py` is the physics check and now runs everywhere `k0/k1` runs.
-
-  **WEAKENING THE STRATIFICATION WAS TRIED AND FAILED, so stable is EXCLUDED.** A second
-  seed was built at the site's MEDIAN stable hour -- `z/L = 0.044`, `G = 10 m/s`,
-  `z_i/Delta` 27.7 against GABLS1's 28.8 -- and collapsed on the same timeline: `u*` to
-  40% of its own peak, resolved TKE to 5%, all seven limits failing.
-
-  **And it was not the cold-start failure the warm-up fixes.** Every decoupling signature
-  was absent -- `Ri_g` peaked at **0.043** against a critical 0.25, Ekman backing was
-  normal and increasing, the inversion was an ordinary 12 K/km rather than 2551, and the
-  flow aloft DEPARTED from geostrophic instead of pinning to it. The surface layer stayed
-  healthy while the height holding 95% of the column TKE ran **92 m -> 1825 m**: the
-  turbulence was not destroyed at the surface, it failed to be RESOLVED there.
-  `bin/sbl_diagnose.py` separates the two, and its control on the retired seed reports
-  *starved AND decoupled*, so it discriminates.
-
-  **What follows for the corpus: THERE ARE NO STABLE CASES**, `bin/select_times.py
-  --max-zol` defaults to **0.0**, and the `sbl` rung is deleted -- the library is 5 rungs
-  x 3 angles = **15 seeds, 43 GPU-h**. The cost is small in cases and large in reach:
-  day coverage falls only **80.4% -> 75.0%** (1370 cases from 1826 days), because
-  enumeration finds a usable hour on almost every day, but **stable is ~44% of QC'd hours
-  and the emulator is undefined there**. 26% of retained cases still fall outside
-  06-18 LST -- those are near-neutral or weakly unstable nights, NOT stable ones, and must
-  not be quoted as stable coverage. Full evidence: **`STABLE_REGIME_RESULT.md`**.
-- **AND THE SAME APPLIES TO ANY REGIME THE GATE HAS NOT RUN IN.**
-  Checked 2026-08-25: `bin/run_pass6.sh` ran the well-mixed battery on `g16_flat`
-  (neutral) and `g16_flatcbl` (convective) and on nothing else. The HRRR-forced corpus
-  walks the whole diurnal cycle and this site is stable ~29% of QC'd hours, so **the
-  corpus contains a regime the closure has no evidence in** — which is exactly the
-  situation this file already forbids claiming past. Stable is the hardest case of the
-  three: the eddies are smallest, so `z/Delta` is worst; `phi_w` differs, so the MOST
-  anchor differs; and the SBL is where an LES most easily laminarises. **Gate D1 must be
-  run on an `sbl` window before stable corpus cases are trusted**, and its verdict is
-  currently unknown rather than assumed good.
-- **24 m vs 12 m convergence test** — dropped; the grid is changing anyway.
-- **Online footprint calculation inside FastEddy** — rejected 2026-08-21. Two reasons, both
-  measured. **(i) It solves a problem we do not have**: IO is ~3% of compute and a window is
-  14-22 GB against a 30 GB budget, so there is nothing to buy. **(ii) It would be a worse
-  estimator.** FastEddy's auxiliary scalars advance forward in time and resolve source *tiles*,
-  so an online footprint means one forward tracer per source region — the footprint's resolution
-  becomes the number of tracers you can afford, and the near field, which is where the whole
-  signal is at a 10 m receptor, would be the coarsest part. The backward LPDM gets the full raster
-  from one release ensemble. It would also lock the footprint definition into the LES run, so any
-  change to `t_back`, the weighting, or the closure would require re-running the LES rather than
-  re-running 10 minutes of LPDM.
-- **Fitting `stabilityScheme = 2` to a CONUS404 mean sounding** — impossible, and it was
-  the wrong idea anyway. **Note the word MEAN, and the word CONUS404: a PER-CASE fit to a
-  real HRRR profile is now the corpus mechanism** (`bin/sounding_to_forcing.py`, 2026-08-25).
-  What was ruled out was fitting a climatological mean, for the two reasons below. Checked in the store's own `.zmetadata` 2026-08-22: `conus404_hourly`
-  carries **no time-varying atmospheric profiles**. Its only 4-D variables are soil and snow
-  (`SH2O`, `SMOIS`, `TSLB`, `SNICE`, `SNLIQ`, `TSNO`, `ZSNSO`); `PB` and `PHB` are static
-  base-state fields with no time axis. And the fit would have been self-defeating: the fitted
-  mean `z_i` (~860 m) is a state a 1952 m box cannot hold. **The capping inversion is a
-  CONTROL on `z_i` here, not a target to match**, and it is set to hold the case's `z_i`.
-- FNO / U-Net may be *benchmarked* against the CNF, but CNF is the primary architecture.
+| `z_i` at 5% of the *running* TKE peak | the peak falls with `u*²` on the inertial oscillation | **+11.67 %/h** of deepening while three independent depths said +1.71 to +2.33 |
+| `TKE/u*²` over the *whole column* | the column is mostly free atmosphere, so it scales with `z_i/H` | two rungs **44%** apart in a quantity that is **5.7%** apart when scale-free — and it FAILED a seed |
+| `k0/k1`, first-to-second level `w` variance | both levels collapse together when the layer dies | **0.442, a clean pass**, through a stable seed whose boundary layer had died |
+| `TKE_BL/u*²` — *the fix applied to row 2* | `u*²` falls ~10 %/h on the oscillation, and the averaging depth `z_i` entrains upward | **+22.5 %/h "drifting"** on a rung whose absolute BL TKE is **flat**, and the WRONG SIGN on another |
+
+**The fix is one of two things, never a looser threshold:** make the reference scale-free
+(`z_i` moved to a fixed 0.01 m²/s² threshold), or pair the check with one that fails
+differently (`docker/turb_alive.py` runs everywhere `k0/k1` runs and answers *is there any
+turbulence at all?* — a SKIP from it is not a PASS).
+
+**And the diagnostic for the diagnostic is its own sampling error.** `bin/seed_stationarity.py`
+reports each trend's AR(1)-corrected SE and `n_eff` and returns **INDETERMINATE** rather than
+PASS or FAIL when the threshold sits inside that spread.
+
+### 4. A tolerance must be the size of the failure it is looking for
+
+Not the smallest number you can write down. `--strict-rel` exists to catch losing a **5 s**
+dump and scored against `1e-6` s, so it failed a correct production run on half a
+millisecond, at stage 7, after 74 minutes of GPU. One lost dump exceeds that deficit by a
+factor of **10,016**. Tolerances are now expressed in the unit of the thing they protect
+(dumps, output intervals), and **the margin is printed on SUCCESS too** — a configuration
+designed to sit at zero margin leaves no evidence of how close it came unless the passing
+path says so.
+
+The same rule with the sign flipped: a tolerance must also **reject nonsense**, not just
+excess. `t_start_s` and `t_end_s` rounded to different precisions gave sub-100 ms days a
+NEGATIVE duration, and the load-balance check passed on "−73% imbalance" and "108% of wall
+time saved".
+
+### 5. A tolerance measured from ONE difference is not a tolerance
+
+It has one degree of freedom and its own sampling error is the size of the thing it bounds.
+Phase E said DIFFERS on a 2-group floor and PASSED at p ≈ 0.54 on a 10-group one — a factor
+of **5** in the estimated floor from nothing but the number of groups. Use `--cover-groups N`
+(N ≥ 8), quote the standard error, and never quote a tolerance without saying how many
+independent realisations went into it.
+
+**And score a second moment against its own sampling spread, not a number you picked.** The
+convective B6 gate first used a fixed 3e-2 on `sigma_w²` and reported DIFFERS at 3.587e-2.
+Re-scored against the block standard error of the same field it is **0.38x** one
+realisation's own spread. The reframing is not a loosening; it is what located the problem.
+
+### 6. Validation must exercise the production code path AND the production regime
+
+- **Wrong regime.** The neutral well-mixed gate passed a closure carrying **nine** turnovers
+  in `sigma_w²`, because the floor is nearly inert neutrally (receptor factor 1.000 there,
+  1.59 convectively). Treat a regime where a component is inert as *no evidence at all* about
+  that component.
+- **Wrong code path.** `stage4_wellmixed.py` carried its own COPY of the `sigma_w` floor,
+  which had drifted from the production one. Gates import the production function; they never
+  reimplement it.
+- **Quote the no-op control alongside the result.** The convective failure was localised by
+  scoring the same window with no floor at all. A gate result without its control says only
+  "a number came out".
+
+### 7. Assert on the artifact, not on the exit status
+
+Analyses get piped into `grep`, so bash reports GREP's status and a python traceback lands
+quietly in a redirected `.txt` — a `SyntaxError` in `stage5_footprint.py` was launched six
+times that way. Every step checks the JSON it was supposed to write, and `bin/preflight.sh`
+parses every python entry point and shell driver before a campaign starts (~10 s; the drivers
+refuse without it).
+
+Same rule for exit codes: `jobs/run_seed.sh` was `[ "$VERDICT" = "PASS" ] || exit 1` and
+returned **1 for all thirty** seeds. A status identical for every outcome discriminates
+nothing, in the dangerous direction. **The verdict lives in the artifact.**
+
+### 8. One run per directory, or it is not a series
+
+FastEddy names a dump `<outFileBase>.<step>`, so a directory that has held two runs holds two
+families with OVERLAPPING step numbers — sorting the union on the step interleaves them into
+a "history" with two different states at the same time. Every glob of a dump directory filters
+on one base name.
+
+### 9. Every script greps for `CORRUPTED` and tests `np.isfinite(...).all()` FIRST
+
+`inf` is not NaN, and a NaN passes every `>` comparison.
 
 ---
 
 ## Settled by measurement — do not re-derive
 
-### `dt` is set by the acoustic CFL, and the accuracy limit is below the stability limit
+### `dt` is set by the acoustic CFL, and the ACCURACY limit is below the stability limit
 
-FastEddy is fully compressible with RK3 and **no acoustic sub-stepping and no CFL machinery at
+FastEddy is fully compressible with RK3, **no acoustic sub-stepping and no CFL machinery at
 all** — `dt` is a mandatory user constant, never computed or checked. Tutorial values are
 hand-picked and mutually inconsistent; never copy them.
 
+`CFL_3d = c·dt·sqrt(2/dx² + 1/dz_sfc²)`, `c = 347.2 m/s`.
+
 | | CFL_3d | behaviour |
 |---|---|---|
-| stability limit | ~1.79 | above this: NaN, `CORRUPTED` |
-| accuracy limit, 24-30 m grids | ~1.64 | above this: **silent** grid-scale acoustic noise |
-| **accuracy limit, 122^3 @ 16 m** | **~1.51** | measured 2026-08-22: 1.50 clean, 1.53 gives k0/k1 = 8.7 |
-| **production, this grid** | **1.35** | `dt = 0.0146417 s`, ~10% margin |
+| stability limit | ~1.79 | NaN, `CORRUPTED` |
+| **accuracy limit** | **grid-dependent** | above it: **silent** grid-scale acoustic noise |
+| production, 122³ @ 30 m | **1.3502** | 10% margin |
 
-**The accuracy boundary is NOT the same number at every grid.** PROJECT_BRIEF.md previously said it
-was "a property of `CFL_3d`, not of the spacing (confirmed at 10 m and again at 30 m)". On
-this grid it is **~1.51, not ~1.64**, and the transition is sharp: `CFL_3d = 1.50` gives
-`k0/k1 = 0.610` and `1.53` gives `8.681`. What changed is the grid ANISOTROPY --
-`dx/dz_sfc = 4.007` here against 2.80 at 24 m -- so treat the boundary as something to
-**re-measure at every grid**, never to carry over. The 10% margin rule survives; the number
-it is applied to does not.
+**The accuracy boundary is a property of the grid, must be RE-MEASURED on every one, and does
+NOT interpolate with anisotropy:** 122³ @ 16 m (`dx/dz` 4.007) → ~1.51; @ 24 m (2.804) →
+1.55–1.60; **@ 30 m (3.505) → 1.50–1.55**. This grid's anisotropy sits *between* the other two
+and its boundary at the *bottom* of their range. The transition is sharp — `k0/k1` is **0.130
+at CFL 1.50** and **8.857 at 1.55**, a factor of **68 across 0.05 of CFL** — and `turb_alive`
+reads OK at every rung, so `k0/k1` is the only check that sees it.
 
-Between the two the model runs to completion, exits 0, prints no warning, and produces resolved
-`w` at the lowest few levels that is grid-scale acoustic noise rather than turbulence. Everything
-else looks perfectly fine, which is what makes it dangerous. **The accuracy boundary is a property
-of `CFL_3d`, not of the spacing** (confirmed at 10 m and again at 30 m).
+**Verify every run with `docker/diag_near_surface.py`: first-level `w` variance ratio `k0/k1`
+must be `< 1`** (~0.27 when correct). Near 9 means `dt` is too large. **`k0k1_check.py` is a
+DOMAIN MEAN and is structurally blind to terrain-driven local noise** — `bin/k0k1_by_slope.py`
+conditions on slope and is the terrain-aware form.
 
-**Verify every run with `docker/diag_near_surface.py`: the first-level `w` variance ratio `k0/k1`
-must be `< 1`** (~0.27 when correct, matching NCAR's NBL at 0.25). A value near 9 means `dt` is
-too large.
+**Terrain amplifies the effective CFL** as `CFL_3d·sqrt(1 + (slope·dx/dz)²)`, but measured at
+122³ @ 16 m it did **not** lower the boundary. Re-measure; never carry the number. Vertical
+stretching is not a speed lever — with `dx` fixed, even an infinitely coarse vertical relaxes
+the 3-D CFL by at most `sqrt(3/2)`.
 
-**But at 122^3 @ 16 m, TERRAIN DID NOT LOWER THE BOUNDARY, and the standing check could
-not have told you either way.** Measured 2026-08-22: a ladder from CFL_3d 1.00 to 1.40 over
-the real surface, branched off a state already adjusted to the terrain, stayed clean at
-every rung -- domain-mean `k0/k1` = 0.60-0.62 throughout, against a flat boundary of 1.51
-and a projected terrain boundary of 1.51/1.252 = 1.21.
+### Restart overwrites grid and surface fields — the trap and the lever
 
-Two things follow, and the second is the important one.
-
-1. **The production flat `dt` (CFL_3d 1.35) carries over to terrain at this grid.** The
-   amplification projection was conservative here.
-2. **`docker/k0k1_check.py` is a DOMAIN MEAN and is structurally blind to terrain-driven
-   acoustic noise.** The amplification is local -- only 1.7% of this domain exceeds slope
-   0.14 -- and a handful of ringing columns cannot move a 14,884-cell average. So the
-   ladder passing is not by itself evidence. **`bin/k0k1_by_slope.py` conditions the same
-   ratio on the local slope**, which is the terrain-aware form of the test, and it is what
-   actually establishes the result:
-
-   | slope bin | cells | `k0/k1` median | p95 |
-   |---|---|---|---|
-   | 0.00-0.02 | 3524 | 0.42 | 0.81 |
-   | 0.05-0.08 | 3489 | 0.59 | 0.95 |
-   | 0.11-0.14 | 682 | 0.68 | 1.07 |
-   | 0.14-0.20 | 249 | 0.65 | 1.00 |
-
-   A monotone rise from 0.42 to 0.68 is resolved vertical motion over topography, which is
-   real. Grid-scale acoustic noise is a ratio near **9**, and it is nowhere.
-
-**TERRAIN AMPLIFIES THE EFFECTIVE CFL, and the amplification scales with GRID ANISOTROPY:**
-
-    CFL_eff  ~  CFL_3d * sqrt(1 + (slope * dx/dz)^2)
-
-At the new grid `dx/dz = 2.504`, milder than the 24 m grid's 2.80 and the 30 m grid's 3.50. But
-the 3DEP raster is at native resolution at `dx = 10 m`, so the **slope distribution itself will be
-steeper** and must be re-measured rather than carried over. **Never set `dt` from the stability
-boundary. Use the accuracy boundary with margin, re-derive it whenever the grid changes, and
-multiply the margin by the terrain amplification before any run with topography.**
-
-**Vertical stretching is not a speed lever.** With `dx` fixed, even an infinitely coarse vertical
-relaxes the 3-D CFL by at most `sqrt(3/2)`. Stretch for domain depth, never for speed.
-
-### Cost and thread blocks
-
-- **8.51 ns/cell/step** with the `1 x 2 x 64` block. Two cases 12x apart in size agreed to 1.7%.
-- **`tBx` MUST BE 1.** `i <- threadIdx.x` while `kStride = 1` and `iStride = (Ny+6)(Nz+6)`, so any
-  `tBx > 1` makes adjacent threads in a warp read addresses `iStride` floats apart — one 128-byte
-  transaction becomes four 32-byte ones. Every shipped tutorial uses `tBx = 1`. The old `4x4x16`
-  default was costing **17%**.
-- Best measured shapes at 186x186x122: `1x2x64` (0.0359 s/step), `1x6x32`, `1x3x64`.
-  **`tBz = 128` is rejected by the device** — CUDA caps `blockDim.z` at 64.
-- **At 122^3 the legal set is different**: `(N+6) = 128 = 2^7` in all three, so `tBy`/`tBz`
-  must be POWERS OF TWO and the 24 m grid's runners-up `1x6x32` and `1x3x64` are illegal.
-  Swept 2026-08-22, 300 steps each: **`1x2x64` fastest at 0.01475 s/step compute**, then
-  `1x2x32` (0.01485) and `1x8x16` (0.01490); `1x16x16` 12% slower, `1x32x8` **46% slower**.
-- **Measured 0.0149 s/step at 122^3 with a spin-up IO cadence**, 0.0155 with a 5 s window
-  cadence. The 8.51 ns/cell/step model predicts 0.01545 — 3.5% pessimistic here.
-- The divisibility rule is enforced on **per-rank, halo-inclusive** extents (`grid.c:222-240`);
-  Nz is never decomposed.
-- Below ~1 M cells the ns/cell/step model is 7% optimistic — launch overhead. Use measured values.
-
-### Output configuration
-
-- **`ioLPDMmode` (fork)** writes only the fields the LPDM reads and CF-packs the 3-D prognostics
-  to 16 bit: **8 B/cell**. Verified harmless on real fields — fp16 vs fp32 footprints differ by
-  0 m in peak and 19 m in centroid, against a 59.2% source-area error floor.
-- **`ioLPDMfullFrq` (fork) made a sampling window chainable — and chaining is now retired,
-  so all it still buys is that a run ENDS on a restartable dump.** `bin/run_window.sh` sets
-  it to the total step count for exactly that reason. Lean output is deliberately not
-  restartable (`rho` and `pressure` are absent), so a whole window had to be one invocation.
-  `ioLPDMfullFrq = N` writes any output whose ABSOLUTE step is a multiple of `N` in full upstream
-  form while every other dump stays lean. `bin/run_window.sh` is the driver.
-- **`hydroSubGridWrite = 0`** drops the 9 SGS stress fields when running in upstream mode.
-
-### Neutral stationarity is a statement about `u(z_m)/u*`, not about `u*`
-
-**Measured 2026-08-22, after the gate failed twice for the wrong reason.** A doubly-periodic
-neutral Ekman layer forced by a constant geostrophic wind does not settle to a fixed `u*` on
-any affordable timescale. `f = 9.94e-5` here, so the **inertial period is 17.6 h**: `u*` fell
-for the first ~4.4 h (one quarter period), then turned and rose. At 6.26 simulated hours it
-was climbing at **+6.3%/h**. Damping the oscillation needs several periods — 35-50 simulated
-hours for ONE base state — and a real boundary layer does not do it either. The tower
-measures during the oscillation.
-
-**Gate on the ratio.** Kljun's `Pi_4 = u(z_m)/u*` is the only channel through which the wind
-enters the streamwise footprint shape, and both of its terms ride the oscillation together:
-
-| window (h) | `u*` | `U(10 m)` | **`U/u*`** | `sigma_w/u*` | `TKE/u*^2` | `z_i` | dir |
-|---|---|---|---|---|---|---|---|
-| 1-2 | 0.4032 | 4.293 | **10.648** | 1.213 | 0.895 | 413 | 264.0 |
-| 2-3 | 0.3517 | 3.753 | **10.673** | 1.217 | 0.893 | 422 | 256.8 |
-| 3-4 | 0.3333 | 3.567 | **10.700** | 1.222 | 0.882 | 426 | 248.4 |
-| 4-5 | 0.3285 | 3.521 | **10.717** | 1.229 | 0.873 | 419 | 240.9 |
-| 5-6 | 0.3450 | 3.692 | **10.704** | 1.224 | 0.883 | 415 | 236.0 |
-
-`u*` moves 18%; `U/u*` moves 0.6%. Trends over the last 1.5 h: `U/u*` **+0.03%/h**,
-`sigma_w/u*` +0.15%/h, `z_i` -0.83%/h, and Kljun's derived `x_peak` **+0.06%/h**, spanning
-**38.0-38.3 m against a 16 m raster cell**. The turbulence is in equilibrium with the
-instantaneous shear; only the mean flow is turning.
-
-### A diagnostic is only as scale-free as its reference — the general rule
-
-**Added 2026-08-27, after the third instance.** The ratio rule below is a special case of
-something wider, and stating only the special case is what let the same failure recur:
-
-> **A diagnostic whose DENOMINATOR or REFERENCE varies with anything other than the
-> quantity being measured will report that variation as signal.**
-
-It is a quiet failure every time. The number stays finite, the check still runs, the
-verdict still prints — and it is about the reference rather than the thing. **FOUR**
-instances in this project, each of which cost real GPU time or produced a wrong number —
-and the fourth is the FIX that was applied to the second, which is the strongest form of
-the warning this rule can carry:
-
-| diagnostic | the reference that moved | what it reported instead |
-|---|---|---|
-| **`z_i`**, gated as 5% of the *running* TKE peak | the peak falls with `u*^2` on the inertial oscillation | **+11.67 %/h** of "deepening" while three independent depths said +1.71 to +2.33 |
-| **`TKE/u*^2`**, as a mean over the *whole 2500 m column* | the column is mostly free atmosphere, so the mean scales with `z_i/H_domain` | a rung **44%** apart from another in a quantity that is **5.7%** apart when scale-free — and it FAILED a seed on it |
-| **`k0/k1`**, a ratio of first-to-second level `w` variance | both levels collapse together when the layer dies | **0.442, a clean pass**, through a stable seed whose boundary layer had died |
-| **`TKE_BL/u*^2`** — and this one IS the fix applied to the row above it | `u*^2` falls ~10 %/h on the inertial oscillation, and the averaging depth `z_i` entrains upward | **+22.5 %/h "drifting"** on a cbl-shallow rung whose absolute BL TKE is **flat (+0.5)**, and the WRONG SIGN on cbl-mid — 19 of 30 seeds refused (2026-08-31, `bin/seed_tke_rescore.py`) |
-
-**The fix is one of two things, and never a looser threshold:**
-
-1. **Make the reference scale-free.** `z_i` moved to a FIXED 0.01 m2/s2 threshold; `TKE`
-   moved to the BOUNDARY-LAYER average, which has nearly the same value across rungs where
-   the column mean differs by 44%.
-2. **Or pair the check with one that fails differently.** `k0/k1` cannot be made
-   scale-free — it is a ratio of two things that die together — so `docker/turb_alive.py`
-   runs everywhere it runs and answers a question it structurally cannot: *is there any
-   turbulence at all?* A SKIP from it is not a PASS.
-
-**And the diagnostic for the diagnostic is its own sampling error.** Where a reference
-cannot be fixed, score the number against the spread of the estimator that produced it --
-`bin/seed_stationarity.py` reports each trend's AR(1)-corrected SE and `n_eff`, and returns
-INDETERMINATE rather than PASS or FAIL when the threshold sits inside that spread.
-
-**THE RATIO RULE HAS EXACTLY ONE EXCEPTION, AND IT IS `z_i`. Corrected 2026-08-26.**
-Every other gated quantity is a ratio whose numerator and denominator ride the oscillation
-together -- `U/u*`, `sigma_v/u*`, `sigma_w/u*`, `TKE/u*^2` -- and Kljun's `x_peak` and
-`x90` inherit that immunity because their inputs do. `z_i` is a length. It has no `u*` in
-it to cancel, so it can only be made immune by the way it is MEASURED, and it was not:
-diagnosed as *the height where resolved TKE falls below 5% of its own peak*, its threshold
-moved with the peak, the peak moved with `u*^2`, and the oscillation came back in through
-the threshold instead of through the value. **It failed the first full-length seed at
-+11.67 %/h while three independent depths put the layer at +1.71 to +2.33.**
-
-The gated definition is now a **FIXED threshold, 0.01 m2/s2 of resolved TKE**
-(`bin/seed_stationarity.py:ZI_ABS`), which is 0.7-3.0% of the peak across the five rungs
-and reaches the domain top in none of them. The peak-fraction depth is still computed and
-still reported, because `lpdm/les_stats.py:window_stats` produces the corpus input `h` that
-way and `bin/pick_seed.py` matches seeds against cases in that same currency -- **the gate
-measures a TREND and needs a threshold that does not move; the matcher compares a VALUE and
-needs the definition the corpus inputs use.** The two differ by 7-21%, widening with regime
-intensity, so they are not interchangeable and both are recorded.
-
-**AND A LINEAR TREND THROUGH A STAIRCASE REPORTS THE STAIRCASE.** `z_i` can only land on a
-model level, so over a 1.5 h window it takes a handful of discrete values and a
-least-squares slope through them is as much an artifact of which levels were visited as of
-any drift. The gate now prints the **distinct-level count and the span** beside the `z_i`
-trend and says so when the count is <= 4. On the re-scored seed the passing +1.87 %/h sits
-on **2 levels spanning 14 m** -- the span, 3.6% of a 389 m depth over 1.5 h, is the real
-evidence that the layer is steady, and the trend on its own is nearly uninformative in
-either direction. `FASTEDDY_TRAPS.md` §16.
-
-**So the mean-flow drift is carried as a per-case LABEL, not treated as an error.**
-`window_stats` reads the achieved `u*`, `U`, direction and `L` off the LES itself, so a
-slowly backing wind is a different point in the corpus's input space — which is the same
-reason PROJECT_BRIEF.md already says to label cases by ACHIEVED rather than forcing direction.
-
-Two ways this gate was written wrong before it was written right, both worth keeping:
-scoring "the last half" of a cold-start series penalises a run for the transient it must
-spend; and requiring a trend within 2 sigma of zero is unreachable at any length, because
-sigma shrinks with the scatter and a smooth transient stays many sigma from flat forever.
-
-### The terrain taper width, measured
-
-The terrain is tapered to a constant over an outer ring so the periodic seam is not a
-numerical cliff. The ring costs real geography, and at a 1952 m box that is no longer
-cheap. Swept 2026-08-22:
-
-| `pad` | ring | real terrain reaches | slope p90 | slope max | CFL amplification |
-|---|---|---|---|---|---|
-| 20 | 320 m | 656 m | 0.0789 | 0.1838 | 1.242 |
-| **12** | **192 m** | **784 m** | 0.0964 | **0.1880** | **1.252** |
-| 10 | 160 m | 816 m | 0.1011 | 0.2102 | 1.307 |
-| 8 | 128 m | 848 m | 0.1059 | 0.2217 | 1.338 |
-
-**`pad = 12` is the knee.** Going 20 -> 12 buys 128 m of real terrain — which is what covers
-Kljun's `x90` here — for **+0.8%** CFL amplification. At 10 and 8 the TAPER becomes the
-steepest cell in the domain and starts setting the terrain `dt` itself, which is the wrong
-thing to be paying for.
-
-### Sub-grid fraction — the gate is retired, not merely failing
-
-The resolved fraction of `sigma_w^2` collapses onto `z / Delta`, `Delta = (dx dy dz)^(1/3)`,
-crossing 40% at `z/Delta ~ 3.5` (neutral) and `~2.1` (convective — thermals draw on `z_i`-scale
-motions, so convection nearly halves the requirement).
-
-**Lowering the receptor to 10 m makes this strictly harder, because the energy-containing eddy
-scale shrinks with height while `Delta` does not.** At the new grid `z/Delta = 1.36`, against 1.76
-on the 24 m grid at a 30 m receptor. Reaching `z/Delta = 3.5` at `z = 10 m` needs `Delta <= 2.9 m`,
-i.e. `dx ~ 3-4 m` — roughly **55 GPU-h per simulated hour** (`465 x 465 x 170` at `dx = 4 m`), **22x** this configuration and out of reach.
-
-**So the 40% gate is retired.** It is not a bar this project can clear at any affordable grid, and
-carrying it forward as a permanent FAIL communicates nothing. What replaces it:
-
-1. **Measure and report** the sub-grid fraction every pass. It is a real number and it belongs in
-   the results; it is just not a gate.
-2. **The well-mixed test, run in the production closure configuration**, is the correctness gate
-   for the closure. It has already caught one real violation that the 40% number never would have.
-3. **Bound the closure's influence** with the anchor-sensitivity band already measured: the choice
-   of `sigma_w` anchor is worth **46-66% shape L1**, against a 38% sampling floor. Quote that band
-   wherever a near-field number is quoted.
-4. **State it as the dominant known uncertainty**, alongside the RSL caveat, which now compounds it.
-
-### Backward-LPDM traps, settled by measurement
-
-- **RESCALING THE SUB-GRID VARIANCE BREAKS THE WELL-MIXED CONDITION UNLESS THE DRIFT IS RESCALED
-  WITH IT.** Thomson's reverse-time drift contains `d(sigma^2)/dz`. `--sgs-most` multiplies the
-  variance by a height-dependent `sc(z)`, so the gradient the drift needs is
-  `sc*dsig2dz + (2/3)*e*dsc/dz`, and `dsc/dz` is the larger of the two. Using the unscaled
-  gradient made the flux-footprint integral climb past 1 and keep going. Fixed by the product rule,
-  which reduces to the unscaled field exactly when `sc = 1`.
-  Two lessons beyond the arithmetic. **An integral that crosses 1 and keeps climbing cannot be
-  truncation** — a finite backward time can only lose influence — so it is always a model
-  inconsistency. And **the well-mixed gate must be run in the configuration the footprints are
-  actually computed in.**
-- **The footprint integral is a statement about the DOMAIN, not about `t_back`.** At `t_back = 900 s`
-  the flat/neutral integral was 0.888 — and Kljun, evaluated on the IDENTICAL box, integrates to
-  **0.875**. Never report the shortfall as an estimator error without quoting Kljun on the same
-  cells. **At a 10 m receptor this should improve sharply**: only 7-9% of the footprint lies beyond
-  930 m, against 23-36% at 30 m.
-- **Periodic wrap-around double-counts the footprint. Always cap trajectory displacement at one
-  streamwise domain length.** Uncapped, the integral climbs past 1 exactly as wrapping sets in.
-  Capped, it converges from below.
-- **The cap makes domain length a correctness constraint, not just a fetch one.** At 30 m the
-  capped flat integral saturated ~18% short because the 80% source area (3810 m) approached the
-  domain length (4380 m). At 10 m, `x90 <= 1033 m` in a 1860 m box, so this is structurally fixed.
-- **The flux weight is frame-dependent, but the frame is a ~2% effect.** The double rotation
-  (Wilczak et al. 2001) is used because it is the frame the instrument reports in.
-- **Over a slope the footprint integral is not 1, and that is physical.** The residual is `w_bar`
-  times the concentration integral. At a receptor in mean subsidence the turbulent flux genuinely
-  is not the surface flux — the advection non-closure that makes EC hard in complex terrain.
-- **A CLIP ON ONE SIDE OF A RATIO IS A BUG ON THE OTHER.** The floor scales `eps` with
-  `sigma^2` to hold `T_L`. `sigma^2` is clipped at 1e-6 for numerics; the denominator of
-  that ratio was not, and above the boundary layer where the sub-grid TKE goes to zero
-  (**51.3% of cells in a neutral window**) the ratio evaluated to **1e6**. `eps` was
-  inflated a millionfold in the free atmosphere, `T_L` collapsed and every particle above
-  `z_i` pinned at `dt_min`. **The only symptom was a 4x slowdown** -- no error, no wrong
-  number anyone could see. Floor both sides identically. `FASTEDDY_TRAPS.md` §11.
-- **Two runs of the same size that differ 4x in wall clock are telling you about the
-  numerics.** Watch the clock as a diagnostic; some bugs emit no other signal.
-- **The touchdown weight uses the surface-normal approach rate**, `|d(z-z_ground)/dt|`, not `|w|`.
-  Over sloping ground a particle loses height-above-surface because the ground rises under it, and
-  the `2/|w|` weight explodes. Flat ground hides this completely.
-
-### Ensemble convergence — the corpus design parameter
-
-From 18 independent 150 s sub-windows within one integration (lag-1 autocorrelation +0.19 peak,
--0.10 centroid, both below `2/sqrt(18) = 0.47`). Ensembles are bought with sampling *time inside
-one run*, not with extra runs. Randomised held-out reference, 400 draws:
-
-| n sub-windows | sampling time | peak p90 | centroid p90 |
-|---|---|---|---|
-| 3 | 7.5 min | 120 m | 615 m |
-| **5** | **12.5 min** | **60 m (1 cell)** | 446 m |
-| 9 | 22.5 min | 60 m | **336 m** |
-
-**The peak converges at 12.5 min. The centroid never reaches 100 m in the measurable range.**
-
-**RE-MEASURED AT THE 10 m RECEPTOR, 2026-08-22 (122^3 @ 16 m)**, from 12 independent 150 s
-sub-windows (lag |r| <= 0.28 against a 0.58 independence threshold):
-
-| n sub-windows | sampling time | peak p90 | centroid p90 |
-|---|---|---|---|
-| 1 | 2.5 min | **0 m** | 525 m |
-| 3 | 7.5 min | 0 m | 154 m |
-| **5** | **12.5 min** | **0 m** | **80 m** |
-| 6 | 15.0 min | 0 m | 43 m |
-
-**The peak is converged in a SINGLE 2.5-minute sub-window**, and the centroid reaches 100 m
-by 12.5 min where at 30 m it never reached it at all. The footprint is ~3x smaller and
-transit is 3-5x faster, so each sub-window holds far more independent realisations. **The
-30-minute EC averaging period is already well past what convergence needs** -- windows are
-sized by `t_back` and by the definition of eddy covariance, never by sampling noise.
-
----
-
-## Restart overwrites grid and surface fields — the Stage 6 trap and the Stage 6 lever
-
-`hydro_coreInit()` runs at `FEMAIN/FastEddy.c:157`; the restart read runs at line 221, i.e.
-**after**, and walks the entire registered variable list — which includes **`xPos`, `yPos`,
-`zPos`, `topoPos` and `z0m`**.
+`hydro_coreInit()` runs before the restart read, which walks the entire registered variable
+list — including `xPos`, `yPos`, `zPos`, `topoPos`, `z0m`.
 
 - **Trap.** Restarting a FLAT spin-up with a `topoFile` set leaves correct terrain-following
-  metrics but silently overwrites the *diagnostic* `zPos`/`topoPos` in every later dump with flat
-  values. The LES is right and the output coordinates are wrong — so the LPDM places every particle
-  at the wrong height with nothing to indicate it.
-- **Lever.** The same mechanism is the ONLY way to give FastEddy v5.0.1 a spatially varying
-  roughness or heat flux. `z0m` is a 2-D field initialised uniformly from the scalar
-  `surflayer_z0` with no input path. Writing it into the restart file works, **no source change
-  needed**.
+  metrics but silently overwrites the *diagnostic* `zPos`/`topoPos` with flat values. The LES
+  is right and the output coordinates are wrong, so the LPDM places every particle at the
+  wrong height with nothing to indicate it.
+- **Lever.** The same mechanism is the ONLY way to give FastEddy v5.0.1 spatially varying
+  roughness or heat flux. `z0m` is a 2-D field with no input path; writing it into the restart
+  file works with no source change. `bin/prep_stage6.py` does this.
 
-`bin/prep_stage6.py` writes terrain, terrain-following `zPos`, and the surface maps into the
-restart file so the read becomes a no-op and grid, output and LPDM stay consistent.
+### The footprint estimator
 
-Every other trap that has cost GPU time lives in **`FASTEDDY_TRAPS.md`**. Read it before running.
+- **The raster IS the LES grid.** Touchdowns are binned by LES column index, folded modulo the
+  periodic domain. Cloud-in-cell deposition — exactly conservative, 0.67x the per-cell noise of
+  nearest-grid-point.
+- **Negative values are physical and nothing clips them.** Signed by construction; the negative
+  lobe carries **5.8–11.1%** of `|flux|`. The `np.maximum(f, 0)` calls are metric-side.
+- **The integral asymptotes to `1 − z_m/z_i`, not to 1** (Steinfeld 2008): the fraction
+  `z_m/z_i` of the column lies below the receptor and its flux never crosses it. At 30 m that
+  is **3.75%** — the size of effects this project gates on. **Departure from the asymptote
+  tracks `w_bar` at the receptor with the right sign** (subsidence → 1.497x, updraft → 0.916x):
+  the advection non-closure, measured on two cases with opposite signs.
+- **Periodic wrap double-counts. Cap trajectory displacement at one streamwise domain length.**
+  And **an integral that crosses 1 and keeps climbing cannot be truncation** — a finite backward
+  time can only lose influence — so it is always a model inconsistency.
+- **Rescaling sub-grid variance breaks well-mixedness unless the drift is rescaled with it.**
+  Thomson's reverse-time drift contains `d(sigma²)/dz`; with a height-dependent `sc(z)` it is
+  `sc·dsig2dz + (2/3)·e·dsc/dz`, and the second term is the larger.
+- **A clip on one side of a ratio is a bug on the other.** `sigma²` was clipped at 1e-6 and the
+  denominator of `eps ∝ sigma²` was not, so above the boundary layer `eps` was inflated a
+  millionfold and every particle pinned at `dt_min`. **The only symptom was a 4x slowdown.**
+- **The touchdown weight uses the surface-normal approach rate** `|d(z−z_ground)/dt|`, not
+  `|w|`; over sloping ground the `2/|w|` weight explodes. Flat ground hides this completely.
+- **The LPDM is forked into 16 fixed chunks with per-chunk seeds**, so worker count is a pure
+  performance knob and cannot change a result (asserted bit-identical, 1 worker vs 12). Workers
+  are FORKED so the field cache is shared copy-on-write — do not switch to spawn.
+
+### The `sigma_w` closure
+
+The floor is **weighted by the sub-grid fraction**, `sc_eff = 1 + (sc − 1)·f_sgs` with
+`f_sgs = (2/3)e / (ww + (2/3)e)`, and **`eps` is scaled with `sigma²`** so
+`T_L = 2σ²/(C0·eps)` is preserved. Gate D1 passes in both regimes with **0 turnovers**.
+
+**The cause of the old failure was the MAGNITUDE of the inflation, not its shape** — a
+constant x10 with no taper failed forward at 1.370 while a constant x1.673 passed at 1.130.
+Two earlier diagnoses were both wrong and each cost a rebuild. (`SIXTH_PASS_RESULTS.md`.)
+
+**The near field is closure-dominated and that is a number:** the floor is worth **+8.40
+points** of convective array share and shortens `x80` from 400 to 227 m; the retired closure
+inflated that share by up to **+18.46 points**.
+
+**Quote the compaction ratio with its closure.** Floor OFF gives 0.57x (convective BROADER),
+floor ON 1.33x (convective more compact) — and **both PASS Gate D1**, because well-mixedness
+tests SELF-CONSISTENCY, not whether `sigma_w` has the right magnitude. **Settle regime
+comparisons on AREA, not `x80`.**
+
+**The sub-grid fraction is reported, never gated** — 52.5% convective, 86.4% neutral here;
+reaching 40% at `z = 10 m` would need `dx ~ 3–4 m`, ~22x this configuration.
+
+### `bl_depth` measures the SURFACE-ATTACHED layer
+
+`lpdm/les_stats.py:surface_layer_top` bounds the estimate at the minimum terminating the
+surface-attached layer. **The test is "a second layer that out-energises the first", not "the
+first local minimum"** — the first strict local minimum above the surface peak is usually
+noise, and using it moved `h` on 15 of 47 stored profiles by up to 331 m on profiles with no
+wave layer at all. What identifies a wave layer is that it carries more resolved TKE than the
+boundary layer under it, so the column's global maximum lands in it.
+
+`bin/test_bl_depth.py` re-derives `h` for all 47 stored profiles and requires **EXACT**
+equality — no physics between the two, only arithmetic. **47 of 47.**
+
+### Kljun is Natascha Kljun's own code
+
+`third_party/FFP/calc_footprint_FFP.py` is the official v1.42, vendored unmodified.
+`lpdm/kljun_ffp.py` re-evaluates its two separable factors at our north-up cell centres and
+**reimplements no formula**; it agrees with the code it wraps to **9.4e-16**.
+
+**Our own reimplementation was 1.25x wide in `sigma_y` whenever `|L| > 5000`** — the official
+resets `ol = -1e6` above `oln = 5000` and clips `scale_const` to 1.0, while `lpdm/kljun.py`
+short-circuits at `|L| > 1e5` and never reaches the clip. That is exactly the near-neutral
+regime, which is the one place Kljun is diagnostic rather than descriptive.
+
+### Neutral stationarity is about `u(z_m)/u*`, not about `u*`
+
+A doubly-periodic neutral Ekman layer forced by a constant geostrophic wind does not settle to
+a fixed `u*` on any affordable timescale — `f = 9.94e-5`, so the **inertial period is 17.6 h**.
+Over five windows `u*` moves **18%** while `U/u*` moves **0.6%**. Gate on the ratio: both terms
+ride the oscillation together, and Kljun's `x_peak`/`x90` inherit the immunity.
+
+**`z_i` is the one exception** — a length, with no `u*` to cancel, so it can only be made immune
+by how it is MEASURED. The gated definition is a **FIXED 0.01 m²/s²** threshold; `window_stats`
+still produces the corpus input `h` as a peak fraction, and the two differ by 7–21%. **The gate
+measures a TREND and needs a threshold that does not move; the matcher compares a VALUE and
+needs the definition the corpus inputs use.** And **a linear trend through a staircase reports
+the staircase** — `z_i` only lands on model levels, so the gate prints the distinct-level count
+and span beside the trend.
+
+### The LES hands fields to the LPDM in RAM
+
+`SRC/IO/io_lpdmonline.c` on the fork, behind `lpdmOnlineSelector` (default 0, so every
+existing `.in` is bit-identical). **1 = stage only** (production); **2 = stage AND write
+netCDF** (acceptance — one run producing both paths from the same bytes). Per case this is
+**3.6 MB persisted against 19 GB**, and the two paths agree to **0.00e+00** — bit-identity is
+asserted, not a tolerance, because there is no physics between them. `NINTH_PASS_RESULTS.md`.
+
+**What streaming cannot reach.** The 12.0 GB field cache is not buildup — it IS the window,
+and `compute_footprint` is a CPU integrator that random-accesses all of it, so host residency
+floors at the cache. **"The ring is in VRAM" is aspirational: today it is a HOST fp16 cache
+and the GPU LPDM is not on the production path.** The ring holds a full window rather than
+`t_back` because the `sigma_w` floor is built from whole-window statistics — a shorter ring
+would force it onto partial ones, an estimator change wearing a plumbing change's clothes.
+
+### The seed library
+
+**30 seeds, 2.0 sim-h each**, in `jobs30/seed_*/return/`, baked into the deployment image.
+Spun in 0.936 h wall / 13.24 GPU-h on 16x RTX 5090, all 30 complete, finite and passing the
+full acceptance battery. **0.189 GPU-h/sim-h at 16-way against 0.469 single-GPU in the same
+image — contention costs nothing, it is 2.5x faster.** Full evidence
+`SEED_LIBRARY_RESULT.md`.
+
+**Do NOT carry 0.189 to a corpus estimate.** A seed runs FastEddy and nothing else; a case
+also runs the LPDM and the ring.
+
+**Seed selection uses the WHOLE library; `ALLOW_DRIFTING` defaults to `any`.** A seed is an
+INITIAL CONDITION, not a corpus point — the case restarts from it, adjusts under its OWN
+sounding's forcing, and every ML input comes from `window_stats` over the footprint's own
+window, so the pair is self-consistent whatever the seed's drift state. Refusing a seed
+removes a RESTART POINT without removing any error. `gate_state` is stamped on every pair.
+**"11 of 30 accepted" was never a quality statement** — the strict gate returns INDETERMINATE
+when the threshold sits within 3 SE, which at these magnitudes admits the *worse-measured*
+seed.
+
+**Owed:** seed runs should return the SCORED SERIES, not only the verdicts fitted to it.
+
 
 ---
 
-## Site climatology — CONUS404, and what it is for
+## Site
 
-`bin/conus404_site.py` streams a stratified 45-year hourly sample at the tower cell off the USGS
-Open Storage Network pod over plain HTTPS. `bin/conus404_dist.py` summarises it.
+- UW-Madison Kegonsa Solar Array, southern Wisconsin.
+- **Tower coordinate, SURVEYED: `42.957160, -89.292362`** (EPSG:3071 577719.1, 276299.5).
+  Single source of truth: `TOWER_LON/TOWER_LAT` in `bin/prep_stage6.py`.
+- **EC tower measurement height ~10 m AGL.** The model receptor is 30 m — see above.
+- **Solar array — THE TOWER IS INSIDE IT.** 60 m east and west, 250 m north, 100 m south:
+  120 x 350 m, 4.20 ha. A rectangle in EPSG:3071; nothing about it depends on the wind.
+- Land cover from **ESA WorldCover v200 (2021)**, 10 m; terrain from **USGS 3DEP** 1/3-arcsec,
+  both in `data/raw/` (gitignored). Roughness per class (water 1e-4, grass 0.03, cropland 0.10,
+  built 0.5, tree 1.0), then the array rectangle overrides it — **WorldCover labels the array
+  as cropland**, because it does not see photovoltaics.
+- **Terrain is tapered at the wrap seams; land cover is NOT.** Terrain height enters the
+  coordinate transform and its metric tensor, so a seam step is a numerical cliff. Roughness
+  and heat flux are local boundary conditions, where a seam is just a coastline.
 
-**It sets sweep ranges and sampling density. CONUS404 itself never forces a run** — it has
-no atmospheric profiles to force one with. **Per-case HRRR pseudo-soundings DO**, as of
-2026-08-25; see the forcing-source section at the top of this file and `LIBRARY_PLAN.md`.
-What is unchanged either way: no time-varying boundary conditions, and forcing constant
-within a run. A 1.9 km doubly-periodic box cannot sustain mesoscale forcing anyway.
+### Panels, and the surface heat flux
 
-Measured at the tower (39,456 hourly records, 1979-2024), QC'd at `u* >= 0.15 m/s` (65.2%):
+Panels are a **bulk surface patch** — elevated `z0`, displacement height `d ≈ 1.5 m`, raised
+heat flux — never explicit geometry, because row spacing is 5–7 m. Production uses
+`--raise-topo`: `z0_array = 0.25` against cropland's 0.10 (2.50x). **At `z0_array = 0.10` the
+array is aerodynamically IDENTICAL to the cropland it replaced and its entire neutral signal
+is zero**; `prep_surface.py` warns when the two coincide.
 
-| | p5 | p25 | p50 | p75 | p95 |
-|---|---|---|---|---|---|
-| `z_i` | 80 m | 267 m | 493 m | 835 m | 1475 m |
-| `w'theta'` | -0.027 | -0.006 | +0.015 | +0.076 | +0.164 K m/s |
-| `u*` | 0.17 | 0.24 | 0.32 | 0.44 | 0.65 m/s |
-| `U(30 m)` | 2.4 | 3.9 | 5.2 | 6.8 | 10.0 m/s |
+**A stable case is a roughness-only array case.** The per-class flux table is a **daytime**
+enhancement table with no nocturnal equivalent, and at night the physics inverts, so a stable
+case gets a **uniform negative `htFlux`**. That makes stable the only place the array's
+roughness effect is isolated from its heat-flux effect. Never claim a thermal array response
+at night.
 
-**The site is unstable more than half the time**: 27.2% very unstable (`z/L < -0.5`), 30.3%
-unstable, 13.3% near-neutral, 20.4% stable, 8.8% very stable. A neutral-only corpus misses the
-modal daytime state.
-
-**`z_i` must still be swept**, but see the domain section: the box supports `z_i <~ 465 m`, and
-Kljun's `z_i` channel is nearly inert at a 10 m receptor anyway. Sweep it for the LES residual,
-and state the deep-CBL exclusion.
-
-**The wind rose and the array signal point in different directions.** Rose: S 16.0%, W 14.4%,
-NW 14.5%, SW 14.3% against N 10.6%, NE 10.2%, E 10.4%, SE 9.8%. Direction sampling needs a
-**floor**, not pure rose weighting — though the case for it is weaker at 10 m, where the array is
-in the footprint from every direction.
-
-Convective midday reference (local 10-16 h, `w'theta' > 0.05`, n = 7,461): `z_i` p50 **859 m**,
-`w'theta'` p50 **0.109 K m/s**, `u*` p50 0.40, `U(30)` p50 5.4 m/s, `z_i/L` p50 **-19.8**.
-
-## Convective configuration
-
-Dry CBL, `surflayer_wth` prescribed as the **virtual** kinematic heat flux, mixed layer under a
-capping inversion via `stabilityScheme = 2`, and **`lsfSelector = 1` with `lsf_horMnSubTerms = 1`
-for subsidence** to hold `z_i` inside what the domain supports.
-
-**`z_i` grows by entrainment and that is not drift** — a convective boundary layer has no
-stationary depth. Subsidence slows it; it does not stop it. The achieved `z_i` is measured and
-reported per window.
-
-**Surface heat flux is per-cell, from the land cover, and it is the VIRTUAL flux**
-(`prep_surface.py --wth-sensible`). The per-class numbers in the literature are SENSIBLE-flux
-ratios — water 0.12, built 1.5, bare 1.4, tree/grass 1.1, cropland 1.0, **array 1.6** (PV
-modules are darker than the crop they replaced and do not transpire; field studies of
-utility-scale arrays report a daytime sensible enhancement of order 1.5-2). But the field
-FastEddy is given must be the VIRTUAL flux, because the run is dry and buoyancy is what
-`htFlux` is for. **The conversion is Bowen-ratio dependent and therefore class-dependent:**
-
-    w'th_v' = w'th' + 0.61 th w'q' = w'th' (1 + 0.61 th c_p / (B L_v)) = w'th' (1 + 0.0735/B)
-
-| class | B | s->v factor | sensible ratio | **virtual ratio** |
-|---|---|---|---|---|
-| cropland (reference) | 0.4 | 1.184 | 1.00 | **1.000** |
-| **solar array** | 4 | 1.018 | 1.60 | **1.376** |
-| built | 2 | 1.037 | 1.50 | 1.314 |
-| bare | 2 | 1.037 | 1.40 | 1.226 |
-| tree | 0.4 | 1.184 | 1.10 | 1.100 |
-| grassland | 0.5 | 1.147 | 1.10 | 1.066 |
-| wetland | 0.2 | 1.368 | 0.60 | 0.693 |
-| water | 0.15 | 1.490 | 0.12 | **0.151** |
-
-**Working in virtual flux COMPRESSES the wet-dry buoyancy contrast**, because the wetter
-surface's larger latent flux buys buoyancy back. That is physically correct and it is exactly
-what the decision to run dry is trading for. The fourth pass prescribed CONUS404's SENSIBLE
-flux directly and applied sensible ratios to it; PROJECT_BRIEF.md predicted that would cost 5-10% in
-`z_i` and `w*`.
-
-At the convective-midday reference (sensible p50 **0.109 K m/s**): cropland virtual
-**0.1290 K m/s (149 W/m2)**, **array 0.1776 (205 W/m2)**, water 0.0195. The array's own value
-barely moves from the fourth pass (0.176 -> 0.178, the two corrections nearly cancel) but the
-**array-to-water contrast falls ~32%** — and that contrast is what the directional signal is
-made of. The array multiplier is insensitive to its OWN Bowen ratio (1.37-1.40 over B = 2-6)
-and sensitive to cropland's (1.31-1.45 over B = 0.3-0.6); sweep it with `--bowen-crop`.
+**`htFlux` is per-cell and is the VIRTUAL flux**, because the run is dry and buoyancy is what
+it is for. Literature ratios are sensible-flux; the conversion is Bowen- and therefore
+class-dependent, `w'θ_v' = w'θ'·(1 + 0.0735/B)`. Cropland (the reference, B = 0.4) 1.000;
+**array (B = 4) 1.376** from a 1.60 sensible ratio; built 1.314; tree 1.100; grassland 1.066;
+**water (B = 0.15) 0.151** from 0.12. **Working in virtual flux COMPRESSES the wet–dry
+contrast** — array-to-water falls ~32% — because the wetter surface's latent flux buys
+buoyancy back. That is correct, and is what running dry trades for.
 
 **The `.in` scalar `surflayer_wth` must be the DOMAIN MEAN of that map, not the cropland
-reference.** A flat spin-up has no restart injection, so the scalar IS its flux; using the
-reference instead spins up a boundary layer at the wrong `z_i` for the run it feeds. On this
-domain the mean is **0.1363 K m/s** against a 0.1290 reference — and note the sign flipped
-from the 24 m domain (0.1006 vs 0.11), where 16% water pulled the mean DOWN. The water is
-gone; tree and built now pull it up. `prep_surface.py` prints it.
+reference** — a flat spin-up has no restart injection, so the scalar IS its flux.
 
-## Corpus structure
+**Albedo has no pathway, and that is not an omission.** There is no radiation scheme;
+`surflayerSelector = 1` prescribes the kinematic heat flux directly, so what albedo would
+control is subsumed by `htFlux`.
 
-> **SUPERSEDED 2026-08-25 by the seed library — `LIBRARY_PLAN.md`.** The corpus is ~1825
-> HRRR-forced cases, not a sweep over bins. The 18 seed states are pre-spun turbulence
-> whose only purpose is to delete each case's 3 h spin-up (43 GPU-h that buys back ~3700);
-> they are not corpus points and are never trained on. A case restarts from the nearest
-> seed, adjusts 30 min under its own sounding's forcing, then samples 30 min. Costed at
-> the MEASURED `t_back = 600 s` and the measured s/step: **1695 GPU-h for 1370 cases plus
-> 43 for 15 seeds**, against ~5420 cold-started. Chaining is retired -- each case and each
-> seed is ONE invocation.
-> **Seed axes are sized by what 30 minutes CANNOT adjust** — direction (-5.4 deg/h),
-> `z_i` (+79 m/h) and regime (~1.2 h to turn over) get axes; `u*` and fine `z/L` do not,
-> because the surface layer re-equilibrates in ~2 min at a 10 m receptor. **`z_i` outside
-> 100-976 m is not a usable case**: below, the receptor leaves the surface layer; above,
-> the 1952 m box cannot hold it at `L >= 2 z_i`.
->
-> The section below describes the retired per-bin design and is kept for the cost model,
-> which still applies per case.
+### Rotation
 
-One spun-up **flat-terrain** state per `(stability, wind speed)` bin, **shared across all wind
-directions in that bin** by 90-degree re-indexing.
+Direction is set by **rotating the geostrophic vector**, not the map, so the surface is
+bit-identical for every direction and any directional difference is flow rather than a
+resampling artifact. A square periodic domain with `dx = dy` over a flat uniform surface is
+exactly equivariant under 90° rotation. **Achieved direction is not forcing direction** —
+Ekman turning measured off the library is 5.2° convective (n=18), 16.9° neutral (n=12). Label
+cases by ACHIEVED direction.
 
-```
-  once per bin:        flat-terrain spinup to stationarity     ~5 h simulated, ~4.9 GPU-h, 5 segments
-  once per direction:  restart -> real static surface
-                       -> ~20 min adjustment + (30 min + t_back) sampling   ~0.9 GPU-h, 1 segment
-```
+### FastEddy capabilities confirmed in source
 
-**SUPERSEDED — the wall cap and segment chaining are both retired (2026-08-26).** At
-~0.95 GPU-h per simulated hour a seed runs 3.0 simulated hours in **one invocation, ~2.9 h
-wall**, and a target case runs 4200 s in **one invocation, ~74 min wall**. The paragraph
-below described the retired chained design.
-
-At ~0.97 GPU-h per simulated hour and a 1-hour wall cap, one segment was 1.02 simulated
-hours — so a spin-up was 5-6 chained segments and a whole sampling window fit in ONE.
-
-An 8-case campaign (2 stability x 4 directions from 2 base states) costs about **12 GPU-h**,
-against 42 at the 186^2 @ 10 m grid and 20 at 24 m. That is the corpus economics the grid was
-chosen for.
+- **Geostrophic forcing takes a linear vertical gradient** (`z_Ug`, `z_Vg`, `Ug_grad`,
+  `Vg_grad`), all `PARAM_MANDATORY` even when zero.
+- **`stabilityScheme = 2` gives a 4-segment piecewise-linear base-state theta profile**
+  (`zStableBottom{,2,3}`, `stableGradient{,2,3}`). `bin/sounding_to_forcing.py` fits a per-case
+  HRRR profile to those six numbers — **0.04–0.27 K rms** over the LES column.
+- **Subsidence needs `lsfSelector = 1` AND `lsf_horMnSubTerms = 1`.** Inputs are **per hour**.
+  It is an ADVECTION tendency on U/V/THETA against the slab-mean gradient — there is no `W`
+  term, so `w` never acquires it. **Fixed a real FastEddy bug on our fork:** with
+  `moistureSelector = 0` it died with an illegal memory access, because the qv slab-mean and
+  `Frhs_qv` are unconditional while the arrays are allocated only when moisture is on.
 
 ---
 
-## Status
+## Known limitations — state these wherever the corpus is described
 
-**FIRST ACCEPTED SEED AND FIRST CORPUS PAIR — 2026-08-26.** `SEED_NBL_SHALLOW_RESULT.md`,
-`TARGET_CASE_RESULT.md`. `seed_nbl-shallow_a000` passed all seven limits once the gated
-`z_i` was moved to a fixed threshold (below), and **2023-03-10 14:00 UTC** ran end to end
-off it at rot 3: 4200 s in one invocation, ~69 min against a 74.2 min class, `k0/k1` 0.502,
-`turb_alive` OK, the window's own `z0m`/`htFlux` asserted against the case grid to 1.5e-09 /
-3.3e-08. Footprint **peak 48 m, A80 1.0 ha, centroid 134 m at 320.1 deg, integral 1.040**
-(saturating, over a receptor sitting 5.43 m below the mean terrain), **array share 68.4%**
-against 1.03% of the box by area — a **66x enrichment**, se 3.66 over 10 release groups.
-Kljun on identical cells: peak 64 m, A80 1.6 ha, integral 0.952.
+1. **The model receptor is 30 m; the instrument is 10 m.** The emulator predicts a footprint
+   the physical tower does not measure. Tower comparisons go through a MOST translation whose
+   stable branch is an upper bound.
+2. **Only ~15% of the corpus carries the array signal**, and the rose is skewed away from the
+   directions that do. See STATUS.
+3. **Gate A1 (water share) FAILS** — 11.58% worst case over corpus regimes against a 10%
+   threshold. **It is the site, not the box:** Kljun's `x90` barely moved (1665 vs 1615 m), so
+   the physical footprint is the same; what changed is that a 3660 m box HOLDS it where a
+   2928 m box was replacing the lake with a periodic re-sample of its own land. **The old PASS
+   was truncation.** E and NE are ~20% of the rose and carry 6–12% water; the rest ~0%.
+4. **The LES loses tail that Kljun does not at 3660 m** — LES retains 0.756 of its asymptote
+   against Kljun's 0.929, where at 2928 m the two were at parity (0.874 vs 0.867). **An
+   LES-vs-Kljun comparison on this box is no longer the fair one that parity licensed.**
+5. **There are NO stable cases and the emulator is undefined there** (~44% of QC'd hours). A
+   stable seed was healthy 1.75 sim-h then collapsed, and the cause is resolution, measured at
+   the healthy dump an hour before anything looked wrong: `L_O/Delta` = **3.57** at the receptor
+   against 318 neutral, a factor of **89**. GABLS1 runs that regime at `dx = 6.25 m`, 17x the
+   cells. Weakening the stratification was tried and failed the same way.
+6. **The near field is closure-dominated** — 52.5% sub-grid convective, 86.4% neutral. Quote
+   the anchor-sensitivity band (**46–66% shape L1** against a 38% sampling floor) with any
+   near-field number.
+7. **Every seed is DRIFTING or INDETERMINATE on at least one limit, and that is the normal
+   state.** `TKE_BL/u*²` and `z_i` decorrelate on the eddy turnover, not the dump interval, so
+   `n_eff` saturates at 3–5 whatever the scoring window — **dumping more often cannot help; the
+   RUN is short.** The neutral rungs are genuinely short at 2.0 sim-h.
+8. **The GPU LPDM is validated but is not the production integrator**, so host residency floors
+   at the 12.0 GB field cache rather than at one or two snapshots.
+9. **Seed grouping in the split is not settled.** `bin/seed_leakage.py` found no fingerprint at
+   the un-confounded receptor — sharing a seed made two cases *less* alike (2.47 vs 1.55 floors)
+   — but n = 1 same-seed pair there, so it is weak evidence, not a licence to drop grouping.
 
-**AND `h` FELL THROUGH TO THE DOMAIN TOP ON THE FIRST ATTEMPT, WHICH POISONED THE CLOSURE.**
-The depth estimator searched upward from the TKE peak for a first crossing — monotone decay
-assumed. This window decays to 0.058 at 560 m and **rises again to 0.33 at 1700 m**, almost
-all resolved `w`: internal waves, not turbulence. `h` came out **2500 m**, and `h` sets the
-`sigma_w` floor's mixed-layer blend, so the floor ran at **3-20x between 35 and 200 m** where
-it should be 1.0, peaking at 9e4. **The receptor factor was 1.000 either way and nothing
-complained.** Re-run corrected: peak 64 -> **48 m**, A80 1.2 -> **1.0 ha**, array share
-67.7 -> 68.4% (0.8 points against a 3.66-point SE) — the near field is closure-dominated and
-the shares are comparatively robust, exactly as this file already says.
-`lpdm/les_stats.py:bl_depth` now bounds every depth search by the **decay minimum**; `h` is
-refused if it reaches the column top; the driver warns above a 100x floor factor.
+## Ruled out — do not propose these
 
-**THE 30-MINUTE ADJUSTMENT, MEASURED FOR THE FIRST TIME ON A REAL CASE.** Direction did
-**not** close — it **widened from 11.3 to 21.8 deg**, because the seed was still backing at
-~-8 deg/h when frozen and 30 min is 2.8% of an inertial period. `z_i` **over**-closed: a
-146 m gap shut and overshot by +49 m, **292 m/h** against the +79 m/h `pick_seed` budgets,
-because the case's own lid (2.61 K/km) is far weaker than the seed's (+8 K/100 m). Neither
-makes a pair wrong — inputs come from the LES window — but the library buys less convergence
-in direction and more in depth than the design assumed.
-
-**THE `cbl-deep` RUNG IS LOCKED IN AND IS NOT USABLE IN A 1952 m BOX — 2026-08-27.**
-`SEED_CBL_DEEP_RESULT.md`. The seed ran clean and in class (0.966 GPU-h/sim-h, `k0/k1`
-0.113, `turb_alive` OK, no Ozmidov constraint because the surface layer is unstratified)
-and failed on the mode it was chosen to test. **The peak wavelength of `w` at mid-depth is
-pinned at EXACTLY `L` = 1952 m in every one of the last five dumps, with mode 1 carrying
-53.9-72.0% of the variance** — Phase E accepted a deep case at **50.2%** and `L/z_i` 2.28;
-this is above that share at a tighter ratio. `r(L/2)` is positive rather than negative
-because a sheared CBL at `G = 11 m/s` organises into along-wind rolls, which does not
-weaken the spectral evidence.
-
-**And the depth overshot the domain**: target 950 m, achieved **1276 m** (fixed TKE),
-**1055 m** (peak fraction, the corpus currency) and **987 m** (theta gradient) — every one
-at or above the 976 m the box supports, every `L/z_i` (1.53, 1.85, 1.98) below the 2.0
-corpus floor. **The gate is not what rejects it**: four limits INDETERMINATE, none
-drifting. Lock-in is a property no stationarity limit looks for — a flow can be perfectly
-steady and still be organised by the box.
-
-Cost, stated and left as a design decision: **6 of 30 seeds**, and the corpus's deepest
-convective coverage — which is exactly where `z_i` correlates with heat flux (+0.43
-CONUS404, +0.49 HRRR) and the array's flux enhancement is largest.
-
-**THE STATIONARITY GATE WAS SCORING THE WRONG QUANTITY ON THE WRONG WINDOW, AND COULD
-NOT RESOLVE ITS OWN LIMITS — CORRECTED 2026-08-27.** `SEED_NBL_DEEP_RESULT.md`. Three
-changes, none of which moves a threshold:
-
-1. **The gated TKE is the BOUNDARY-LAYER AVERAGE, not the column mean.** The column mean
-   divides by the whole 2500 m box, so it rises mechanically with `z_i` even in an
-   equilibrated layer. The BL-average is nearly the same across rungs (**1.5024 vs
-   1.4218**, 5.7%) where the column mean differs by **44%**. Wrong even when it PASSED.
-2. **The scoring window is 2.0 h, swept rather than inherited.** 1.5 h came from the first
-   run that passed. 2.0 h improves the four oscillation-immune limits ~50% and stops short
-   of the cold-start transient that 2.25-2.5 h reaches into.
-3. **A limit whose threshold sits within 3 SE of its measurement returns INDETERMINATE**,
-   not PASS and not FAIL. It still fails the run -- unestablished stationarity is not
-   stationarity -- but for the honest reason.
-
-**AND THE GATE STILL CANNOT RESOLVE `TKE_BL/u*^2` OR `z_i` AT ANY WINDOW WIDTH.** `n_eff`
-saturates at **3.0-5.5** and **3.0-9.6** from 1.0 h to 2.5 h, because both decorrelate on
-the **eddy turnover** (`h/u*` = 1258-1345 s), not on the 300 s dump interval. **Dumping
-more often cannot help; the RUN is what is short.** Both neutral seeds -- the rejected one
-AND the accepted one carrying the first corpus pair -- are INDETERMINATE, neither
-DRIFTING. `bin/pick_seed.py` separates the two and admits INDETERMINATE only under
-`--allow-indeterminate`, stamping `seed.gate_state` onto every pair.
-
-**`nbl-deep`'s failure did not survive the correction**: `TKE_BL/u*^2` reads **-0.15 %/h**
-against the `+8.13` the retired form gave. And **the rung selection rationale was wrong** --
-it was chosen for ~5 turnovers against ~9, and the achieved numbers are **8.4 against
-10.2**, an 18% margin, because `u*` scales with `G`. The library's spread is 8.4-23.0
-(convective rungs turn over on `z_i/w*` and are 2-3x better), so **the genuinely
-spin-up-marginal rung has not been identified and may not exist.**
-
-**THE FIRST FULL-LENGTH SEED RAN, AND FAILED ITS GATE ON ONE LIMIT — 2026-08-26.**
-`SEED_NBL_SHALLOW_RESULT.md`. `nbl-shallow` base angle 0, 738,720 steps in ONE invocation:
-**2.869 h wall, 0.956 GPU-h per simulated hour, +0.4% against the sanctioned seed class**;
-artifact 73.27 MB against a 73.3 MB estimate; **Gate C2 bit-for-bit (0 of 23 differ)**;
-the new static **rotation check PASS** (four turns the identity bit-for-bit, the FROM
-bearing exactly -90 per turn, which is the convention `pick_seed.py` picks every case on);
-`k0/k1` 0.119; **`turb_alive` a real OK, not a SKIP**; Ozmidov at the receptor
-`L_O/Delta = 485` against a 10 requirement; resolved `sigma_w^2` fraction 0.036, i.e.
-**96.4% sub-grid**; 0 `CORRUPTED`; `htFlux` read back as the flux the run was asked for.
-
-**Six of seven stationarity limits passed with enormous margin and the seventh — `z_i` at
-+11.67 %/h against 3.0 — is the ESTIMATOR, not the boundary layer.** `z_i` is diagnosed as
-5% of the *instantaneous* TKE peak; `u*` falls 9.6 %/h through the first quarter of the
-17.6 h inertial period, the peak falls 15.7 %/h with it, and a falling threshold pushes the
-crossing height up. An absolute threshold gives **+1.71 %/h** and the theta gradient
-**+2.33 %/h**, both inside the limit; and the two gated quantities that CONSUME `z_i`,
-Kljun's `x_peak` and `x90`, are flat at -0.21 and -0.17 %/h against a limit ten times
-tighter. **This corrects `FASTEDDY_TRAPS.md` §16, which claimed the estimator "is fine in a
-converged state".** The gate was NOT changed, the run was NOT extended, and the target case
-was NOT built on the seed — whether the `z_i` limit should score an absolute threshold is a
-design decision and the numbers for it are in the result file.
-
-**SEED LIBRARY AND SOUNDING-FORCED CORPUS — PIPELINE BUILT AND VALIDATED, 2026-08-25.**
-Branch `library-states`; `LIBRARY_PLAN.md`. The target pipeline (passes 1-6) is done; this
-is what turns it into a corpus.
-
-The corpus is **one HRRR-forced LES case per day over five years**, walking the whole
-diurnal cycle. **18 seed states** (6 coupled rungs x 3 base angles) exist only to delete
-each case's 3 h spin-up: **43 GPU-h that buys back ~3700.**
-
-**MEASURED: the domain accepts 70.6% of days**, so 1826 days give **~1289 usable cases**
-(~1459 GPU-h + 52). `z_i` outside **100-976 m** is refused rather than run and
-mis-labelled — too deep in summer afternoons (June 25%, August 20% acceptance), too
-shallow at dawn. `bin/corpus_coverage.py`, `results/corpus_coverage.txt`.
-
-**The deep exclusion is biased, and it is now measured on HRRR rather than inherited:**
-the rejected-as-too-deep days carry **3.56x** the virtual heat flux of the accepted set,
-and the rank correlation of `z_i` with flux is **+0.492** — independently reproducing the
-**+0.43** measured from CONUS404, on a different dataset and a different diagnostic. **The
-corpus is thinnest exactly where the array's flux enhancement is largest.**
-
-| stage / gate | result |
-|---|---|
-| 1-2 across four regimes, offline | **PASS 70/70** (`bin/test_sounding.py`): summer convective midday, summer nocturnal stable, winter midday, autumn transition |
-| base-state fit | **0.04-0.27 K rms** over the LES column; and FastEddy's own built base state matches the `.in` to **0.0001 K** over 50-60 levels |
-| smoke, one cold start per regime config | **PASS x4**: `k0/k1` 0.124-0.150, `z_i` 154/150 m and 299/300 m against target |
-| non-zero base angle | **PASS** — 270.00 vs 240.00 deg aloft, exactly 30 deg apart |
-| **B6 convective** | **PASS** — every second moment 0.03-0.38x its own block sampling spread |
-| job round trip from an unrelated checkout | **PASS** — six artifacts returned, 70 MB |
-| **C2** on the returned artifact | **PASS** — bit-for-bit, 0 of 23 variables differ |
-
-Three traps found while building it, each of which produced a plausible wrong number
-rather than an error: HRRR winds are **grid-relative** (5.11 deg here, invisible in the
-speed); an **out-of-range parameter does not stop FastEddy** (`FASTEDDY_TRAPS.md` §13);
-and `data/grid16`'s `htFlux` is **all zeros**, so a convective case pointed at it would
-have run neutral and said nothing (`bin/case_surface.py`).
+- **STILT** — replaced by this project's own backward LPDM.
+- **Mesoscale coupling** (`hydroBCs=1`, GenICBCs, cell perturbation) — the fetch requirement
+  would consume most of the domain. Periodic instead.
+- **LES-to-LES nesting**, **NSCBC**, **512³ domains** — schedule / unnecessary / infeasible.
+- **Running FastEddy backwards in time** — mathematically impossible, not a code limitation.
+  Reversing t and u flips the sign of the SGS stress term, giving negative eddy viscosity and
+  the backward heat equation. Backward LPDM steps *particles* backward through *forward-stored*
+  fields.
+- **Multiple virtual tower locations** — would inject unexplained variance. One fixed tower.
+- **Surface fields as ML inputs** — out of scope.
+- **`surflayer_idealsine` / a diurnal cycle within a run** — both branches assign a SCALAR to
+  `htFlux`, overwriting the per-cell map that gives the array its enhancement.
+- **Moisture (`moistureSelector = 1`)** — run dry, prescribe the virtual heat flux instead.
+- **Sub-grid-fraction < 40% as a gate** — retired; unreachable at any affordable grid.
+- **A neutral well-mixed PASS as evidence about the convective closure** — the floor is nearly
+  inert neutrally. It passed a closure carrying NINE turnovers.
+- **Stable corpus cases at this grid** — see limitation 5.
+- **Online footprint calculation inside FastEddy** — IO is ~3% of compute so it solves a
+  problem we do not have, and it would be a worse estimator: forward tracers resolve source
+  *tiles*, so the footprint's resolution becomes the number of tracers you can afford and the
+  near field would be the coarsest part.
+- **Fitting `stabilityScheme = 2` to a CONUS404 MEAN sounding** — `conus404_hourly` has no
+  time-varying atmospheric profiles at all. (A **per-case fit to a real HRRR profile** is the
+  corpus mechanism and is different.)
+- **CONUS404 as a forcing.** It sets sweep ranges and is the 45-year climatology the site is
+  characterised by. **HRRR forces the runs.**
 
 ---
 
-**FIFTH PASS IN PROGRESS, 2026-08-22.** Rebuilt around a **10 m receptor on a
-`122 x 122 x 122` @ 16 m grid** (1952 m domain), chosen for corpus economics. Phase A
-complete and committed; Phase B smoke batch mostly complete.
+## Repository layout
 
-| gate | result |
-|---|---|
-| **A1 water share** | **PASS** — worst case **0.01%** over every direction and stability, against a 10% threshold. The lake is outside the box and it costs nothing. |
-| **A** geometry + `z_i` coverage | **PASS**, committed. Array share on the real map is 1.4-1.6x the idealised estimate; the N-vs-E/W ratio falls to 2.69x neutral. |
-| **B1** grid launch | **PASS** — 122^3 launches clean, 0.0149 s/step |
-| **B2** thread blocks | **PASS** — `1x2x64` fastest of 9 legal shapes at 0.01475 s/step |
-| **B3** flat `dt` | **PASS** — accuracy boundary **~1.51**, production `CFL_3d = 1.35` (`dt = 0.0146417`) |
-| **B4** terrain `dt` | pending — needs a developed terrain state |
-| **B5** restart injection | **PASS** — `topoPos` 9.5e-7, `z0m` 1.5e-9, `htFlux` exact, `zPos` 1.2e-4 against the terrain-following formula |
-| **B6** 90-deg equivariance | **PASS** — rotation exact to 1.2e-14; after 200 steps mean wind agrees to 1.7e-5, column TKE to 1.2e-3. **Re-run CONVECTIVELY 2026-08-25** (`bin/b6_convective.sh`) because the seed library leans on the same rotation for convective rungs and this file forbids inferring a regime from a gate that ran in another: **PASS**, `z_i` identical at 428 m, mean wind 2.35e-5, mean theta 1.05e-7, and every second moment 0.03-0.38x its own block sampling spread. |
-| **B7** subsidence | **PASS**, after a FastEddy source fix — theta warms at 1.10x the prescribed `-w_sub dtheta/dz` |
-| **B8** halo check | **PASS** — `xIndex = yIndex = zIndex = 122`, interior only. **The CNF raster is 122 x 122.** |
+```
+corpus/                  <- THE DATASET: corpus.h5, INDEX.json, README.md, provenance/
+bin/                     <- entry points, gates, tests      lpdm/  <- LPDM, estimator, Kljun
+jobs30/seed_*/return/    <- the 30-seed production library
+runs/g{16,24,30}_base/   <- the .in TEMPLATES every case is built from. LOAD-BEARING.
+data/                    <- raw geography (gitignored) and the built model grids
+results/                 <- every scored artifact
+validation_pairs_30m/    <- 2 ninth-pass validation records. NOT the corpus.
+Dockerfile               <- CUDA 11.8, toolchain only. Every published result. Frozen.
+Dockerfile.blackwell     <- CUDA 13.0, code baked in, sm_75..sm_120. The deployable one.
+FastEddy-model-5.0.1/    <- the fork. Gitignored by the main repo.
+```
 
-**A real FastEddy bug, found and fixed on the fork.** `lsf_horMnSubTerms = 1` with
-`moistureSelector = 0` dies instantly with an illegal memory access: `cuda_lsfSlabMeans()`
-launches the qv slab-mean over `moistScalars_d`, and `cudaDevice_lsfRHS` writes `Frhs_qv`,
-both unconditionally — while `cuda_moistureDeviceSetup()` allocates them only when
-`moistureSelector > 0`. **Upstream v5.0.1 subsidence is only usable with moisture on.** Both
-are now guarded on `kegonsa`; see `FASTEDDY_TRAPS.md` §10. Same class as the `NORHO` bug,
-differing only in whether the bad pointer trapped or produced `inf`.
+`PLAN.md` the staged path and per-pass verdicts · `DEPLOY.md` running on rented boxes ·
+`FASTEDDY_TRAPS.md` every trap that has cost GPU time, read before running ·
+`ML_TARGETS.md` the FNO target design · `LIBRARY_PLAN.md` seed library and corpus design ·
+`*_PASS_RESULTS.md`, `SEED_*_RESULT.md`, `STAGE*_RESULTS.md`, `STABLE_REGIME_RESULT.md`,
+`CONTAINMENT_RESULT.md`, `TARGET_CASE_RESULT.md` — superseded on absolute numbers, kept for
+methodology and for how each conclusion was reached.
 
-**And a plan error it exposed:** PLAN.md asked the smoke test to confirm that `w` acquires
-the prescribed subsidence. It never will. The scheme adds the tendency to `U`, `V`, `THETA`
-and `qv` — there is no `W_INDX` term — so subsidence is a large-scale ADVECTION tendency
-against the slab-mean gradient, not a resolved vertical motion. The check would have failed a
-correct implementation. The real test is differential on theta, and it passes.
+**2026-09-01: 121 GB of LES scratch was removed** (`runs/*/{output,window}`, the `jobs*` dumps,
+and a verified byte-identical duplicate seed library). Inventory, what was kept and why, and
+the nine tests that now need a regenerated window: **`results/CLEANUP_INVENTORY.txt`**.
 
-**A live bug in our own analysis path**, found before it cost anything:
-`stage5_footprint.py` never passed `z_target` to `compute_footprint`, so it fell through to
-the 30.0 default and every footprint would have been computed on the level nearest 30 m with
-nothing in the output to say so. Fixed, along with four other hard-coded 30 m receptors.
+## Working agreement
 
-**FOURTH PASS COMPLETE, 2026-08-21** — `FOURTH_PASS_RESULTS.md`. Eight production cases on a
-static `186 x 186 x 122` @ 24 m domain, **at a 30 m receptor**. Its absolute distances do not
-carry over; the methodology, the traps and the closure findings do.
-
-| stage | gate | neutral | convective |
-|---|---|---|---|
-| 2 | stationarity | PASS | PASS — `w*/u*` 2.86, entrainment ratio 0.149 |
-| 3 | window < 30 GB | PASS 22 GB, chainable | PASS |
-| 4 | well-mixed | PASS backward rms **3.61%** vs a 5.48% counting floor | inherited |
-| 5 | sub-grid < 40% | FAIL 85.5% | FAIL 52.3% — **gate now retired** |
-| 5 | error floor | 37-54% overlap, centroid 152-436 m | 43-51%, centroid 15-90 m |
-| 6 | explicable difference | PASS array swing **368x** | PASS **528x** |
-
-**Two real bugs were found by the standing flat/neutral control on its first run:** the
-`sigma_w` floor was breaking the well-mixed condition, and `run_case.sh` was scoring the
-wrong dump for every window run since the third pass. Both are in `FOURTH_PASS_RESULTS.md` §5
-and `FASTEDDY_TRAPS.md`.
-
-Earlier passes: `STAGE0A_RESULTS.md`, `STAGE1_RESULTS.md`, `STAGE2-6_RESULTS.md`,
-`STAGE2-6_RESULTS_V2.md`, `THIRD_PASS_RESULTS.md`. All superseded on absolute numbers.
-
-See @PLAN.md for the staged path.
+- Report the gate result explicitly before moving on. Commit at every passed gate.
+- Prefer reading FastEddy's own source over inferring behaviour from documentation. Every
+  capability claim here carries a file and line number; keep it that way.
+- Run the GPU and the CPU at once — the LPDM is an offline analysis and needs no GPU.
+- Stop early only if a gate fails twice, a fix needs FastEddy source changes beyond the
+  existing fork, a run projects far past its budget, or a result would change the grid
+  decision.
