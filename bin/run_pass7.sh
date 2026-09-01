@@ -3,7 +3,7 @@
 #
 # Runs unattended and keeps the GPU busy end to end. Every step asserts on the ARTIFACT it
 # was supposed to produce, never on an exit status -- analyses are piped into grep and tee,
-# so $? belongs to the last stage of the pipe (FASTEDDY_TRAPS.md 12).
+# so $? belongs to the last stage of the pipe (docs/FASTEDDY_TRAPS.md 12).
 #
 # ORDER, and why it is this order:
 #   B1  seed nbl-deep + accelerator, open-ended, 3.0 sim-h CEILING. Neutral spins up

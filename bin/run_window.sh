@@ -3,7 +3,7 @@
 #
 # CHAINING IS RETIRED (2026-08-26). A window used to be an automatically chained series of
 # sub-wall-cap segments, each restarting from the last. That is gone, and with it the
-# entire class of failure FASTEDDY_TRAPS.md 17 describes: a restart READ overwrites every
+# entire class of failure docs/FASTEDDY_TRAPS.md 17 describes: a restart READ overwrites every
 # IO-registered field -- htFlux, z0m, z0t, tskin, topoPos, zPos -- with whatever the
 # restart file holds, so a chained run silently inherits state its own .in does not
 # describe. It cost a whole segment of a stable seed running at zero surface flux while

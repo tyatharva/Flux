@@ -7,7 +7,7 @@ Kljun at that site.
 **Scope is deliberately narrow: a site-calibrated emulator for ONE tower.** Zero transfer to
 other sites, and that is an accepted, stated limitation. Do not add scope.
 
-**Architecture is an FNO, not a CNF** (changed 2026-08-30, see `ML_TARGETS.md`). The target is
+**Architecture is an FNO, not a CNF** (changed 2026-08-30, see `docs/ML_TARGETS.md`). The target is
 the 122² raster zero-padded to 128², the model predicts a residual on Kljun conditioned on the
 six scalars by FiLM, and touchdowns are not saved.
 
@@ -201,7 +201,7 @@ The 8-machine dry run was green while the image had no `.in` template, because `
 replaces the screener and the case and **opens no file the case path reads**. Every seed-side
 artifact was asserted at build; no case-side one was. Fixes: the build asserts the case path's
 inputs *and* that the template is `Nz = 122`; `run_corpus` refuses at startup by name; and
-`DEPLOY.md` §C2 runs **one real case with only the LES stubbed** in ~4 min with no GPU. That
+`docs/DEPLOY.md` §C2 runs **one real case with only the LES stubbed** in ~4 min with no GPU. That
 last one is what actually closes the gap.
 
 ### 3. A diagnostic is only as scale-free as its reference
@@ -375,7 +375,7 @@ The floor is **weighted by the sub-grid fraction**, `sc_eff = 1 + (sc − 1)·f_
 
 **The cause of the old failure was the MAGNITUDE of the inflation, not its shape** — a
 constant x10 with no taper failed forward at 1.370 while a constant x1.673 passed at 1.130.
-Two earlier diagnoses were both wrong and each cost a rebuild. (`SIXTH_PASS_RESULTS.md`.)
+Two earlier diagnoses were both wrong and each cost a rebuild. (`docs/results/SIXTH_PASS_RESULTS.md`.)
 
 **The near field is closure-dominated and that is a number:** the floor is worth **+8.40
 points** of convective array share and shortens `x80` from 400 to 227 m; the retired closure
@@ -433,7 +433,7 @@ and span beside the trend.
 existing `.in` is bit-identical). **1 = stage only** (production); **2 = stage AND write
 netCDF** (acceptance — one run producing both paths from the same bytes). Per case this is
 **3.6 MB persisted against 19 GB**, and the two paths agree to **0.00e+00** — bit-identity is
-asserted, not a tolerance, because there is no physics between them. `NINTH_PASS_RESULTS.md`.
+asserted, not a tolerance, because there is no physics between them. `docs/results/NINTH_PASS_RESULTS.md`.
 
 **What streaming cannot reach.** The 12.0 GB field cache is not buildup — it IS the window,
 and `compute_footprint` is a CPU integrator that random-accesses all of it, so host residency
@@ -448,7 +448,7 @@ would force it onto partial ones, an estimator change wearing a plumbing change'
 Spun in 0.936 h wall / 13.24 GPU-h on 16x RTX 5090, all 30 complete, finite and passing the
 full acceptance battery. **0.189 GPU-h/sim-h at 16-way against 0.469 single-GPU in the same
 image — contention costs nothing, it is 2.5x faster.** Full evidence
-`SEED_LIBRARY_RESULT.md`.
+`docs/results/SEED_LIBRARY_RESULT.md`.
 
 **Do NOT carry 0.189 to a corpus estimate.** A seed runs FastEddy and nothing else; a case
 also runs the LPDM and the ring.
@@ -605,6 +605,8 @@ cases by ACHIEVED direction.
 ```
 corpus/                  <- THE DATASET: corpus.h5, INDEX.json, README.md, provenance/
 bin/                     <- entry points, gates, tests      lpdm/  <- LPDM, estimator, Kljun
+docs/                    <- every document except this one. docs/README.md indexes them.
+figures/                 <- the corpus pair figures; figures/old/ is the LES-pass record
 jobs30/seed_*/return/    <- the 30-seed production library
 runs/g{16,24,30}_base/   <- the .in TEMPLATES every case is built from. LOAD-BEARING.
 data/                    <- raw geography (gitignored) and the built model grids
@@ -615,12 +617,17 @@ Dockerfile.blackwell     <- CUDA 13.0, code baked in, sm_75..sm_120. The deploya
 FastEddy-model-5.0.1/    <- the fork. Gitignored by the main repo.
 ```
 
-`PLAN.md` the staged path and per-pass verdicts · `DEPLOY.md` running on rented boxes ·
-`FASTEDDY_TRAPS.md` every trap that has cost GPU time, read before running ·
-`ML_TARGETS.md` the FNO target design · `LIBRARY_PLAN.md` seed library and corpus design ·
-`*_PASS_RESULTS.md`, `SEED_*_RESULT.md`, `STAGE*_RESULTS.md`, `STABLE_REGIME_RESULT.md`,
-`CONTAINMENT_RESULT.md`, `TARGET_CASE_RESULT.md` — superseded on absolute numbers, kept for
-methodology and for how each conclusion was reached.
+**`docs/README.md` is the index of every document and says which are current.** The live
+ones: `docs/FASTEDDY_TRAPS.md` every trap that has cost GPU time, read before running ·
+`docs/DEPLOY.md` running on rented boxes · `docs/PLAN.md` the staged path and per-pass
+verdicts · `docs/ML_TARGETS.md` the FNO target design · `docs/LIBRARY_PLAN.md` seed library
+and corpus design. `docs/results/` holds the twenty per-pass and per-experiment write-ups —
+**superseded on absolute numbers by this file**, kept for methodology and for how each
+conclusion was reached.
+
+`bin/fig_corpus_pairs.py` regenerates every figure in `figures/` from `corpus/corpus.h5`
+alone, and re-derives the G2b and G3b counts against `corpus/FLAGGED.tsv` as it goes.
+`figures/README.md` says how to read a pair panel.
 
 **2026-09-01: 121 GB of LES scratch was removed** (`runs/*/{output,window}`, the `jobs*` dumps,
 and a verified byte-identical duplicate seed library). Inventory, what was kept and why, and

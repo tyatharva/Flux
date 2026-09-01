@@ -113,7 +113,7 @@ def build_curve(H, S, n_bins=10, min_n=30, ustar_qc=USTAR_QC):
     the quantity this file can actually produce. It removes the calm-night tail where the
     inversion is least trustworthy (u* ~ 0.08, z/L ~ 1) and where MOST is furthest from
     the regime it was written for. Those hours are outside the corpus anyway -- stable is
-    excluded (STABLE_REGIME_RESULT.md) -- so screening them costs the gate nothing.
+    excluded (docs/results/STABLE_REGIME_RESULT.md) -- so screening them costs the gate nothing.
     """
     ust, zeta10 = ustar_from_sigma_w(S, H, Z_TOWER)
     wth = H / RHO_CP
@@ -194,7 +194,7 @@ def main():
     print("  it is good for: surface-layer MOST makes sigma_w RISE with height at fixed u*,")
     print("  while a real SBL has u* falling with height and sigma_w falling with it. The")
     print("  translated stable bins are therefore an upper bound. It costs nothing here --")
-    print("  the corpus contains no stable cases (STABLE_REGIME_RESULT.md) -- but a stable")
+    print("  the corpus contains no stable cases (docs/results/STABLE_REGIME_RESULT.md) -- but a stable")
     print("  case scored against these bins would be scored against the wrong curve.")
     print("\n  READ THIS AS AN ORDER-OF-MAGNITUDE CHECK PLUS A GATE, NOT A VALIDATION. The")
     print("  file carries no wind speed, so conditioning on H alone leaves an IQR spanning")

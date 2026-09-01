@@ -555,7 +555,7 @@ def main():
     with open(out, "w") as f:
         json.dump(rec, f, indent=1)
 
-    # ASSERT ON THE ARTIFACT, not on the exit status (FASTEDDY_TRAPS.md 12).
+    # ASSERT ON THE ARTIFACT, not on the exit status (docs/FASTEDDY_TRAPS.md 12).
     assert os.path.getsize(out) > 512, f"{out} is suspiciously small"
     g, s = rec["geostrophic"], rec["surface"]
     print(f"{out}")

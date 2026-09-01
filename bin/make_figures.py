@@ -4,7 +4,7 @@
 Everything plotted is RENORMALISED: each field is divided by its own integral over the
 plotted grid, so the comparison is of SHAPE. The integral that was divided out -- the
 "captured fraction" -- is printed on every panel, because it is a result in its own right
-(the LES flat case captures 0.80, the westerly 1.45; see STAGE2-6_RESULTS_V2.md).
+(the LES flat case captures 0.80, the westerly 1.45; see docs/results/STAGE2-6_RESULTS_V2.md).
 
 usage: make_figures.py [--outdir figures]
 """

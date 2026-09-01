@@ -3,7 +3,7 @@
 #
 # Runs unattended and asserts on the ARTIFACT at every step, never on an exit status --
 # analyses are piped into grep and tee, so $? belongs to the last stage of the pipe
-# (FASTEDDY_TRAPS.md 12).
+# (docs/FASTEDDY_TRAPS.md 12).
 #
 # ORDER, and why it is this order:
 #   A  the flat dt boundary (bin/g30_bringup.sh, run separately -- it is the input to

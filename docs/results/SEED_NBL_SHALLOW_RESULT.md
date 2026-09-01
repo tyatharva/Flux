@@ -117,7 +117,7 @@ the -15.7 measured. A falling peak lowers the 5%-of-peak threshold, which pushes
 crossing height **up**. Both physical depths sit inside the 3 %/h limit; the gated one does
 not.
 
-### This is `FASTEDDY_TRAPS.md` §16 with the sign reversed — and it corrects §16
+### This is `docs/FASTEDDY_TRAPS.md` §16 with the sign reversed — and it corrects §16
 
 §16 recorded this estimator falling 154 -> 81 m while nothing shrank, because the peak was
 **growing** during spin-up. It then concluded:

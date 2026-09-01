@@ -4,7 +4,7 @@
 z_i is diagnosed as the height where the resolved TKE profile falls below 5% of its own
 peak (bin/seed_stationarity.py:81). That threshold is NORMALISED BY THE PEAK, so when the
 peak changes the threshold changes with it and the reported depth moves even if the layer
-does not. FASTEDDY_TRAPS.md 16 recorded one direction of this -- the peak GREW 25x during
+does not. docs/FASTEDDY_TRAPS.md 16 recorded one direction of this -- the peak GREW 25x during
 a spin-up and z_i appeared to FALL 154 -> 76 m, and a healthy run was killed over it.
 
 THE MIRROR IMAGE IS WORSE, because it fails a run instead of killing it, and it is what

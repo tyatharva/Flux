@@ -24,7 +24,7 @@
 
 This is a methods-section finding, not a maintenance note. It belongs wherever the corpus
 is described, alongside the roughness-sublayer caveat and the retired sub-grid gate. The
-short form lives in `PROJECT_BRIEF.md`; the operational fix lives in `FASTEDDY_TRAPS.md` §15 and
+short form lives in `PROJECT_BRIEF.md`; the operational fix lives in `docs/FASTEDDY_TRAPS.md` §15 and
 §16; this is the evidence.
 
 ---
@@ -34,7 +34,7 @@ short form lives in `PROJECT_BRIEF.md`; the operational fix lives in `FASTEDDY_T
 **Two collapses, from two different causes.** They are easy to conflate and they are not
 the same thing — the first was fixed, and the second happened anyway.
 
-### 1a. The cold start (fixed — `FASTEDDY_TRAPS.md` §15)
+### 1a. The cold start (fixed — `docs/FASTEDDY_TRAPS.md` §15)
 
 `sbl` at `G = 6 m/s`, `w'th' = -0.020 K m/s`, cold-started, 1.25 simulated hours:
 
@@ -139,8 +139,8 @@ sharpest form.
 | `CORRUPTED` grep | clean | fields stayed finite; nothing was numerically wrong |
 | `np.isfinite(...).all()` | true | same |
 | **`k0/k1`** | **0.442 — a comfortable pass** | **it is a RATIO BETWEEN TWO LEVELS and both went quiet together** |
-| column-integrated TKE | *rising* | that integral is gravity-wave variance aloft, which grows as turbulence dies (`FASTEDDY_TRAPS.md` §15) |
-| `z_i` as 5% of peak TKE | falling | a diagnostic artifact in its own right (`FASTEDDY_TRAPS.md` §16) |
+| column-integrated TKE | *rising* | that integral is gravity-wave variance aloft, which grows as turbulence dies (`docs/FASTEDDY_TRAPS.md` §15) |
+| `z_i` as 5% of peak TKE | falling | a diagnostic artifact in its own right (`docs/FASTEDDY_TRAPS.md` §16) |
 
 **`k0/k1` is a `dt` check, not a physics check**, and nothing in this project asked whether
 a boundary layer still existed. `docker/turb_alive.py` now does, and it runs wherever

@@ -77,7 +77,7 @@ say "$TAG (b): Gate D1 well-mixed, production closure, both directions"
 # --dmap, NOT --receptor-from: stage4_wellmixed.py takes the displacement MAP directly.
 # Passing the wrong flag made argparse refuse and the gate never ran -- and because the
 # whole thing is piped into tail|tee, the refusal scrolled past as usage text rather than
-# stopping anything. FASTEDDY_TRAPS.md 12, one more time.
+# stopping anything. docs/FASTEDDY_TRAPS.md 12, one more time.
 ./docker/pyrun.sh bin/stage4_wellmixed.py "$D/window" --dt "$DT" --sgs-most \
     --z-target 28.5 ${DMAP:+--dmap "$DMAP"} 2>&1 | tail -40 | tee -a "$O/${TAG}_accept.txt"
 

@@ -4,7 +4,7 @@
 Two different things kill a stable LES and they need different responses, so telling them
 apart is worth a script rather than a glance at u*.
 
-  RUNAWAY SURFACE DECOUPLING (FASTEDDY_TRAPS.md 15). A cold start has no turbulence, so a
+  RUNAWAY SURFACE DECOUPLING (docs/FASTEDDY_TRAPS.md 15). A cold start has no turbulence, so a
   prescribed cooling builds a near-discontinuous inversion before any can develop and the
   stratification then prevents it developing. FIXABLE -- warm up neutrally first.
   Signature: Ri_g explodes (~1e8 measured), the mean wind aloft sits at EXACTLY the
@@ -19,7 +19,7 @@ apart is worth a script rather than a glance at u*.
   column TKE marches upward into the free atmosphere while u* decays.
 
 The second signature is the useful one, and it is why this reports zTKE95 rather than the
-TKE integral: the integral RISES during a collapse (FASTEDDY_TRAPS.md 15) because wave
+TKE integral: the integral RISES during a collapse (docs/FASTEDDY_TRAPS.md 15) because wave
 energy aloft replaces turbulence below. Asking WHERE the energy is separates them.
 
 usage: sbl_diagnose.py <job_or_run_dir> --dt 0.01461988 [--wth -0.012] [--G 10.0]
@@ -118,7 +118,7 @@ def main():
     print(f"  SURFACE DECOUPLING    : {'YES' if decoupled else 'not yet'}  -- Ri_g at or past")
     print(f"      critical and the flow aloft pinned to exactly geostrophic. This is the END")
     print(f"      stage. Reached from a COLD START it is a separate, FIXABLE fault (warm up")
-    print(f"      neutrally first, FASTEDDY_TRAPS.md 15); reached after starvation it is not.")
+    print(f"      neutrally first, docs/FASTEDDY_TRAPS.md 15); reached after starvation it is not.")
     if starved and not decoupled:
         print("  -> starving, not yet decoupled: the earlier and more diagnosable stage.")
     elif starved and decoupled:

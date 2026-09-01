@@ -29,7 +29,7 @@ itself starts setting the terrain `dt`, which is the wrong thing to pay for.
 
 ### Why 3660 m and not 186² @ 24 m
 
-The containment gate failed for neutral at 2928 m (`CONTAINMENT_RESULT.md`): the flat
+The containment gate failed for neutral at 2928 m (`docs/results/CONTAINMENT_RESULT.md`): the flat
 control's integral needed 1.5 domain lengths to stop growing and the cap removed 6.1%.
 186² @ 24 m buys full containment at **+132%** (820 → 2150 GPU-h). 122³ @ 30 m buys 25%
 more box for **3%**. A relative claim against Kljun does not need full containment, and the
@@ -177,7 +177,7 @@ window mean was a mean of neither. The two agree to **1.3e-7**, so nothing publi
 visibly wrong; what was wrong is that the estimator depended on the OUTPUT MODE. Found by
 the ring, which carries no `htFlux` and so could not reproduce the mixture.
 
-Three more came out of running it against a real LES, and are in `FASTEDDY_TRAPS.md`
+Three more came out of running it against a real LES, and are in `docs/FASTEDDY_TRAPS.md`
 §20f–h: a 504-character comment in the `.in` template segfaults FastEddy's parser before it
 starts (now refused by `docker/run_case.sh`, which says which line); `0` was the "disabled"
 sentinel for a pause step and `0` is a real step; and the ring consumer used

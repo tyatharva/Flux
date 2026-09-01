@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Structural + physical sanity check on a FastEddy NetCDF output dump.
 
-Used as part of the PLAN.md Stage 0a gate. This deliberately checks only what a
+Used as part of the docs/PLAN.md Stage 0a gate. This deliberately checks only what a
 short truncated run CAN establish -- that the grid decomposed correctly, the
 writer works, and the fields are finite and physically plausible. It makes no
 claim about converged turbulence, which needs hours of simulated time.

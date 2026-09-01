@@ -180,7 +180,7 @@ def main():
         # u* IS THE TEST, NOT COLUMN TKE. The first version keyed on the TKE integral and
         # said "no" on a run whose u* had fallen 58% and whose z/L had reached 2.67 --
         # because that integral is dominated by gravity-wave variance aloft, which GROWS
-        # as the turbulence dies (FASTEDDY_TRAPS.md 15). It is kept as a REPORTED line for
+        # as the turbulence dies (docs/FASTEDDY_TRAPS.md 15). It is kept as a REPORTED line for
         # exactly that reason: seeing it rise while u* falls is the diagnosis.
         #
         # THE VERDICT ITSELF IS docker/turb_alive.py's, imported rather than reimplemented.

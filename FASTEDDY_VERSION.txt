@@ -51,7 +51,7 @@ upstream_sha    = e0cd2f3efcdff8ea543668228a983a95953478ca
 #   SRC/HYDRO_CORE/    the moisture-off subsidence guard, which is an upstream BUG FIX
 #   SRC/FECUDA/        fecuda_Device.cu: a CUDART_VERSION guard around four cudaDeviceProp
 #                      members CUDA 13.0 removed. Diagnostic printf only, no physics --
-#                      see FASTEDDY_TRAPS.md 23.
+#                      see docs/FASTEDDY_TRAPS.md 23.
 #
 # No time-integration, grid or advection file is modified, so NCAR bugfixes in the solver
 # still merge cleanly. All build customization for this project (the architecture list,

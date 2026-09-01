@@ -1,6 +1,6 @@
 # THE CORPUS HAS A DEPLOYMENT: 8 MACHINES x 8 GPUs, ONE COMMAND EACH — 2026-08-31
 
-> **No GPU was spent. Full procedure: `DEPLOY.md` §C.** The seed library is done and baked
+> **No GPU was spent. Full procedure: `docs/DEPLOY.md` §C.** The seed library is done and baked
 > into the image; this is what turns it into ~1500 training pairs. Every check below is CPU,
 > with the LES, the LPDM and HRRR stubbed — the science path is validated elsewhere and none
 > of it is a scheduling question.
@@ -67,7 +67,7 @@ assertion, which is that assertion earning its place. `return/` is a file-level 
 # THE LIBRARY IS SPUN. 30 SEEDS, 16x RTX 5090, 0.936 h WALL — 2026-08-31
 
 > **The deployment path below was exercised for real and it worked.** Full evidence:
-> `SEED_LIBRARY_RESULT.md`. Every number here is measured on the rented machine; the only
+> `docs/results/SEED_LIBRARY_RESULT.md`. Every number here is measured on the rented machine; the only
 > things NOT exercised are the LPDM and the ring, which a seed never touches.
 
 | # | item | verdict |
@@ -134,7 +134,7 @@ its output is how a threshold gets tuned to a result.
 > **16x RTX 5090** boxes; a 5090 is `sm_120` and nvcc 11.8 cannot emit code for it in any
 > form. Everything below is verified ON AN RTX 4080 (sm_89) from inside the shipped image —
 > **no Blackwell hardware was used, and what that can and cannot establish is stated.**
-> Full rationale: `PROJECT_BRIEF.md`, the dated block at the top; `FASTEDDY_TRAPS.md` §23.
+> Full rationale: `PROJECT_BRIEF.md`, the dated block at the top; `docs/FASTEDDY_TRAPS.md` §23.
 
 | # | item | verdict |
 |---|---|---|
@@ -293,7 +293,7 @@ produces a footprint that passes every scoreable gate. See the block at the top.
 
 # Staged Plan — NINTH PASS: the official FFP, the streamed hand-off, the .npz corpus record
 
-> **COMPLETE, 2026-08-30. Full evidence: `NINTH_PASS_RESULTS.md`.** Five runs, ~5.1 GPU-h.
+> **COMPLETE, 2026-08-30. Full evidence: `docs/results/NINTH_PASS_RESULTS.md`.** Five runs, ~5.1 GPU-h.
 > The pipeline is validated end to end for CONVECTIVE cases and BLOCKED for neutral ones by
 > a defect in the `h` estimator that this pass found.
 
@@ -306,7 +306,7 @@ produces a footprint that passes every scoreable gate. See the block at the top.
 | 3 | two-window ring orchestration, `RING=1`, selector 2 | **PASS**; 1442 staged = 1442 written |
 | **A** | run 1 convective seed, 1.0 sim-h ceiling | **ran; gate UNSCOREABLE** — the 2.0 h scoring window includes step 0 where `u* = 0` |
 | **B** | run 2 convective target, two windows | **PASS**; acceptance (a) 0.27x floor, D1 both directions PASS, array share **25.47%** = 85x enrichment |
-| **C** | run 3 neutral seed, 3.0 sim-h ceiling | **z_i DRIFTING +5.76 %/h** — PLAN.md 0aa predicted exactly this |
+| **C** | run 3 neutral seed, 3.0 sim-h ceiling | **z_i DRIFTING +5.76 %/h** — docs/PLAN.md 0aa predicted exactly this |
 | **D** | run 4 flat/neutral control | **containment PASSES at 2.5 L (0.0%)**; D1 neutral PASS; the Kljun-parity argument does NOT survive to 3660 m |
 | **E** | run 5 neutral target | **REFUSED** — `h` = 2372 m, measured in the wave layer |
 
@@ -319,7 +319,7 @@ runs in the wrong fluid: `h` = 2372 m, the `sigma_w` floor at 1.2e+04, the integ
 (structurally, not by a height threshold, and leaving `h` bit-identical on all five existing
 records). **The neutral half of the corpus is blocked until `h` is decided for these
 profiles** — the surface-attached minimum says 433-492 m and the true pre-wave minimum says
-760 m, and choosing between them needs its own measurement. `FASTEDDY_TRAPS.md` 22.
+760 m, and choosing between them needs its own measurement. `docs/FASTEDDY_TRAPS.md` 22.
 
 ## The three decisions handed back, with their numbers
 
@@ -375,7 +375,7 @@ profiles** — the surface-attached minimum says 433-492 m and the true pre-wave
 
 ## Why 3660 m, and what it costs
 
-The containment gate FAILED for neutral at 2928 m (`CONTAINMENT_RESULT.md`). 186^2 @ 24 m
+The containment gate FAILED for neutral at 2928 m (`docs/results/CONTAINMENT_RESULT.md`). 186^2 @ 24 m
 buys full containment at **+132%** (820 -> 2150 GPU-h); 122^3 @ 30 m buys 25% more box for
 **3%**. A relative claim against Kljun does not need full containment, and the parity number
 is what makes that defensible: **LES 0.874 of its asymptote against Kljun's 0.867 on
@@ -468,7 +468,7 @@ which on this project differ by 44% in the integral.
 | A | Gate A1' water | **FAIL 17.45%** very stable easterly; **PASS 7.38%** over corpus regimes |
 | A | five analysis fixes + touchdown persistence | **done** |
 | A | **GPU LPDM acceptance** | **PASS** (a)(b)(c)(d); 153x; forward D1 fails in BOTH paths on the bring-up window |
-| A | `ML_TARGETS.md` | **done** (design only, plus the persistence that had to ship) |
+| A | `docs/ML_TARGETS.md` | **done** (design only, plus the persistence that had to ship) |
 | **B** | `nbl-deep` + accelerator, 3.0 h ceiling | **ran clean, gate FAIL** — 5 INDETERMINATE, none drifting; budget not in band up to the ceiling |
 | **C** | `cbl-deep` — the lock-in re-test | **mode-1 share 53.9–72.0% → 19.3–23.1%**, below what Phase E accepted; depth still overshoots to 1308 m |
 | C | pre-target go/no-go: sub-grid fraction at the receptor | **GO** — 52.5% convective against ~52% expected |
@@ -492,7 +492,7 @@ number rather than two more GPU-hours.
 ## Deferred, and REQUIRED BEFORE ANY CORPUS
 
 1. ~~The flat/neutral containment gate.~~ **RUN 2026-08-30: FAIL for neutral, PASS for
-   convective** (`CONTAINMENT_RESULT.md`). The flat/neutral control's integral needs
+   convective** (`docs/results/CONTAINMENT_RESULT.md`). The flat/neutral control's integral needs
    **1.5 domain lengths** to stop growing and the cap removes 6.1%; the convective target
    saturates by 1 L with the cap removing 0.8%. `x80` PASSES in both, because it is
    crosswind-integrated and the missing influence is a long thin tail — the wording above
@@ -523,7 +523,7 @@ number rather than two more GPU-hours.
 
 # Staged Plan — Fifth Pass, 10 m receptor, 122^3 @ 16 m
 
-> **THE CORPUS PHASE IS NOW `LIBRARY_PLAN.md`, 2026-08-25.** "After Phase F: corpus design,
+> **THE CORPUS PHASE IS NOW `docs/LIBRARY_PLAN.md`, 2026-08-25.** "After Phase F: corpus design,
 > wind-rose stratification with a directional floor" is answered there and answered
 > differently: the corpus is **~1825 HRRR-forced cases**, one per day over five years, not
 > a stratified sweep — so the wind rose enters through the weather itself rather than
@@ -531,14 +531,14 @@ number rather than two more GPU-hours.
 > to delete each case's 3 h spin-up. **The forcing source changed from CONUS404 to HRRR**;
 > see the section at the top of `PROJECT_BRIEF.md`.
 
-> **SIXTH PASS COMPLETE, 2026-08-24 — the sigma_w closure.** `SIXTH_PASS_RESULTS.md`.
+> **SIXTH PASS COMPLETE, 2026-08-24 — the sigma_w closure.** `docs/results/SIXTH_PASS_RESULTS.md`.
 > The convective well-mixed gate passes in both directions for the first time; production
 > is regenerated on the corrected closure and on `--raise-topo`. The retired closure was
 > inflating the convective array share by up to 18.46 points. **The target pipeline is
 > done; the ML phase below is next.**
 
 > **STATUS: COMPLETE, 2026-08-22.** Every phase ran and every gate passed. Results in
-> `FIFTH_PASS_RESULTS.md`. Absolute distances from earlier passes do not carry over;
+> `docs/results/FIFTH_PASS_RESULTS.md`. Absolute distances from earlier passes do not carry over;
 > methodology, traps and closure findings do.
 >
 > | phase | verdict |
@@ -558,7 +558,7 @@ the domain-adequacy answer, and then the production directions.**
 
 > **RETIRED 2026-08-26 — CHAINING IS GONE AND SO IS THE CAP.** A seed and a target case
 > are each ONE continuous FastEddy invocation; the only restart left in the project is
-> seed -> target. That removes `FASTEDDY_TRAPS.md` §17's failure mode structurally: every
+> seed -> target. That removes `docs/FASTEDDY_TRAPS.md` §17's failure mode structurally: every
 > segment boundary was a restart READ, which overwrites every IO-registered field with
 > whatever the restart file holds. **The price is stated rather than hidden** — a seed is
 > ~2.9 h wall and a target case ~74 min, both past the old cap, and neither can be split.
@@ -736,7 +736,7 @@ Only then: corpus design, wind-rose stratification with a directional floor, CNF
 implementation. **The CNF raster is `122 x 122`** — the LES interior, no halos, confirmed by
 `ncdump`.
 
-**Corpus design is done and is `LIBRARY_PLAN.md`.** It replaces wind-rose stratification
+**Corpus design is done and is `docs/LIBRARY_PLAN.md`.** It replaces wind-rose stratification
 with per-day HRRR forcing, which samples the rose by construction; the directional floor
 survives only as the seed library's uniform 30-degree spacing, which is a spacing of
 RESTART POINTS and not of corpus cases.
@@ -821,7 +821,7 @@ exactly like a trained model on a correct one.
    `sigma_w/u*` — and the two Kljun geometry terms that inherit their immunity.
 
 0b. **THE `cbl-deep` RUNG IS LOCKED IN AND UNUSABLE AT THIS BOX SIZE.** Measured
-   2026-08-27 (`SEED_CBL_DEEP_RESULT.md`): the mid-depth `w` spectrum pins to `lambda = L`
+   2026-08-27 (`docs/results/SEED_CBL_DEEP_RESULT.md`): the mid-depth `w` spectrum pins to `lambda = L`
    with **53.9-72.0%** of the variance in mode 1, and the depth overshoots to 987-1276 m
    against a 976 m limit. The corpus therefore has **no deep convective rung**, and the
    exclusion is biased in the same direction as every other depth exclusion here — deep

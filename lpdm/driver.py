@@ -320,7 +320,7 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
         # footprints use -- worse: lowest-three-bins 1.014 -> 1.152. So multiplicative
         # stays the default on measurement, additive is kept as a recorded negative
         # result, and neither is trusted convectively until the gate passes. See
-        # SIXTH_PASS_RESULTS.md.
+        # docs/results/SIXTH_PASS_RESULTS.md.
         if sgs_most_legacy or sgs_most_form == "multiplicative":
             sgs_scale = (zl, fac)
         else:
@@ -410,7 +410,7 @@ def compute_footprint(fs, paths, z_target=10.0, n_per_release=700, dt_release=4.
     # The 122^2 raster is not the training target: binning is what makes the per-cell L1
     # ~92% between two realisations of the SAME conditions, so a loss computed on it is
     # mostly fitting Monte-Carlo noise. The target is a continuous density fitted to the
-    # touchdowns themselves (ML_TARGETS.md), and the fields are DELETED at the end of every
+    # touchdowns themselves (docs/ML_TARGETS.md), and the fields are DELETED at the end of every
     # case -- so a touchdown not captured here is gone for good.
     #
     # UNFOLDED coordinates. The raster folds modulo the domain because the LES world is

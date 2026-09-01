@@ -75,7 +75,7 @@ cuobjdump --list-ptx "${BIN}" 2>&1 | head -5
 #   2. MEASURED: nvcc -dlink DROPS every PTX image from the fatbin, silently. FastEddy is
 #      built with separate compilation (-dc then -dlink), so even asking for
 #      -gencode arch=compute_90,code=compute_90 puts PTX in the .o files and none of it in
-#      the executable. FASTEDDY_TRAPS.md 23.
+#      the executable. docs/FASTEDDY_TRAPS.md 23.
 #
 # So this binary runs on ${SM} and on nothing else. That is fine for the workstation, which
 # has one card. The DEPLOYABLE image (Dockerfile.blackwell) carries real SASS for seven

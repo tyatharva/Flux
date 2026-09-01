@@ -448,7 +448,7 @@ illegal memory access. `cuda_lsfSlabMeans()` launches the qv slab-mean over
 `cuda_moistureDeviceSetup()` allocates them only inside `if (moistureSelector > 0)`.
 **Upstream v5.0.1 subsidence works only with moisture on.** Both guarded on `kegonsa`.
 Same class as the `NORHO` bug, differing only in whether the bad pointer trapped or
-produced `inf`. `FASTEDDY_TRAPS.md` section 10.
+produced `inf`. `docs/FASTEDDY_TRAPS.md` section 10.
 
 ### 4.2 In our analysis: every footprint would have been computed at 30 m
 
@@ -561,7 +561,7 @@ is what the check exists to establish rather than assume.
 ## 5b. THE PRINCIPAL OPEN FINDING: the sigma_w floor is not well-mixed convectively
 
 > **SUPERSEDED, 2026-08-24 — AND THE DIAGNOSIS BELOW IS WRONG.** See
-> `SIXTH_PASS_RESULTS.md`. The observation is right: the floor is not well mixed
+> `docs/results/SIXTH_PASS_RESULTS.md`. The observation is right: the floor is not well mixed
 > convectively. The *cause* named below -- a spurious `sigma_w^2` maximum at the taper's
 > inner edge -- is not it. The floor was rebuilt so that maximum is structurally
 > impossible, and the forward failure was unchanged (lowest three bins 1.236 against

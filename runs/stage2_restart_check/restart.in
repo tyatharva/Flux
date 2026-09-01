@@ -29,7 +29,7 @@ verticalDeformQuadCoeff = 0.0 # pure cubic
 #--TIME_INTEGRATION
 timeMethod = 0 # Selector for time integration method. [0=RK3-WS2002 (default)]
 Nt = 271000 # ABSOLUTE: resumes at 270000, advances 1000
-dt = 0.0275 # 5% margin under the measured 0.029 s stability boundary (STAGE1_RESULTS.md)
+dt = 0.0275 # 5% margin under the measured 0.029 s stability boundary (docs/results/STAGE1_RESULTS.md)
 NtBatch = 1000
 #--HYDRO_CORE
 ##------------: HYDRO_CORE Submodule Selectors ---

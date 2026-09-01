@@ -70,7 +70,7 @@ walks from healthy to dead inside ONE run and therefore separates the two by its
                        start failing healthy spin-ups, and this is not the stationarity gate.
 
 AND THERE ARE TWO COLLAPSED RUNS, NOT ONE. The other is the cold-started rung of
-FASTEDDY_TRAPS.md 15 (G = 6, w'th' = -0.020): u* 0.219 -> 0.043, z_i 209 -> 61 m,
+docs/FASTEDDY_TRAPS.md 15 (G = 6, w'th' = -0.020): u* 0.219 -> 0.043, z_i 209 -> 61 m,
 z/L +34.8 -- and it scored **k0/k1 = 0.72**, also a pass. So the accuracy check has now
 waved through a dead boundary layer twice, at two different values, which is what makes
 the point structural rather than a coincidence of one number.
@@ -223,7 +223,7 @@ def verdict(rows):
     if last["n_bad"] or not np.isfinite(last["ustar"]) or not np.isfinite(last["e_max"]):
         return "FAIL", (f"  FAIL: NON-FINITE velocity in {last['path']}\n"
                         f"        {last['n_bad']:,} bad cells. inf is not NaN and FastEddy "
-                        f"prints no CORRUPTED banner for it (FASTEDDY_TRAPS.md #1).")
+                        f"prints no CORRUPTED banner for it (docs/FASTEDDY_TRAPS.md #1).")
     tag = (f"max e_res/U_ref^2={last['e_over_uref2']:.2e} at k={last['k_max']}  "
            f"u*={last['ustar']:.4f}  U_ref={last['u_ref']:.2f}  "
            f"(e_res/u*^2={last['e_over_ust2']:.2f}, reported only)")

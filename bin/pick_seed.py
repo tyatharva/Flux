@@ -225,7 +225,7 @@ def load_library(index_path, library_dir, available_only=False,
                     # A NARROW, LOUD, DEFAULT-OFF OPT-IN, AND IT IS NOT THE SAME
                     # CONCESSION AS --allow-indeterminate.
                     #
-                    # Why it exists at all: PLAN.md item 0aa predicted, from a
+                    # Why it exists at all: docs/PLAN.md item 0aa predicted, from a
                     # scoring-window sweep, that z_i in the NEUTRAL rungs is "TRENDING AWAY
                     # from band ... a longer run resolves these into a FAIL, not a pass".
                     # seed_nbl-deep_a015 at 2.917 sim-h duly resolved it -- +5.76 %/h
@@ -494,7 +494,7 @@ def main():
                          "`zi-neutral` (THE CORPUS DEFAULT since 2026-08-30) admits only a "
                          "NEUTRAL rung whose ONLY drifting limit is z_i -- the one limit "
                          "that is unsatisfiable rather than failed, because a neutral Ekman "
-                         "layer's depth grows for several inertial periods and PLAN.md 0aa "
+                         "layer's depth grows for several inertial periods and docs/PLAN.md 0aa "
                          "measured it trending AWAY from band as the run lengthens. "
                          "`any` (the bare flag) admits any drifting limit on any rung and "
                          "stays a wide, loud, manual opt-in. `off` refuses both. "
@@ -516,7 +516,7 @@ def main():
                          "So the pair is self-consistent whatever the seed's drift state, "
                          "and refusing a seed removes a RESTART POINT without removing any "
                          "error. What it removed, measured on the 30-seed library "
-                         "(SEED_LIBRARY_RESULT.md): all six cbl-shallow seeds, leaving the "
+                         "(docs/results/SEED_LIBRARY_RESULT.md): all six cbl-shallow seeds, leaving the "
                          "weakly-convective rung with no restart point at all; eight of "
                          "twelve neutral seeds, dropping the neutral half to four base "
                          "angles and firing this script's own half-spacing warning; and "

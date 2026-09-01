@@ -205,7 +205,7 @@ echo "--- terrain adjustment at CFL_3d 1.05, 40000 steps"
 ./docker/run_case.sh runs/g16_terr adj.in $L/g16_terr_adj.log || die "B4 terrain adjustment"
 TADJ=$(newest runs/g16_terr/output)
 TSTEP=${TADJ##*.}
-# Nt is an ABSOLUTE target step, not a step count (FASTEDDY_TRAPS.md 6): restarting from
+# Nt is an ABSOLUTE target step, not a step count (docs/FASTEDDY_TRAPS.md 6): restarting from
 # step 40000 with Nt = 4000 performs ZERO timesteps, writes one dump and exits 0. Every
 # rung would then have scored the adjustment dump instead of its own.
 TNT=$((TSTEP + 4000))

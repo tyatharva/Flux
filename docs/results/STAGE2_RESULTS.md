@@ -10,5 +10,5 @@ The finding itself is preserved in PROJECT_BRIEF.md ("STABILITY AND ACCURACY ARE
 LIMITS") and was reported upstream as
 [NCAR/FastEddy-model#134](https://github.com/NCAR/FastEddy-model/issues/134).
 
-**Current results: `STAGE2-6_RESULTS.md`** — Stages 2 through 6 at the 30 m
+**Current results: `docs/results/STAGE2-6_RESULTS.md`** — Stages 2 through 6 at the 30 m
 pipeline-development grid, `dt = 0.0625 s`, `CFL_3d = 1.491`.

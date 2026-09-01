@@ -4,7 +4,7 @@
 # library or the corpus. PRODUCTION IS UNCHAINED -- a seed (jobs/run_seed.sh) and a target
 # case (bin/run_corpus_case.sh -> bin/run_window.sh) are each ONE continuous FastEddy
 # invocation, so that the only restart left in the project is seed -> target and
-# FASTEDDY_TRAPS.md 17's failure mode is absent by construction rather than by assertion.
+# docs/FASTEDDY_TRAPS.md 17's failure mode is absent by construction rather than by assertion.
 # Do not copy this file's chaining into anything new.
 # Convective spin-up: flat, uniform, dry CBL, cold start, chained sub-45-minute segments.
 #

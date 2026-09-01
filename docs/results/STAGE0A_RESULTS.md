@@ -63,7 +63,7 @@ cells — **3x smaller**. Memory is not a constraint for Stage 1.
 
 ---
 
-## Flag: projected production run time exceeds PLAN.md's threshold
+## Flag: projected production run time exceeds docs/PLAN.md's threshold
 
 At 9.37 ns/cell/step, the production grid `434x146x122` (7,730,408 cells) costs
 **0.0725 s/step**. Taking `dt = 0.0267 s` (scaling NBL's dt/dx to 10 m):
@@ -74,7 +74,7 @@ At 9.37 ns/cell/step, the production grid `434x146x122` (7,730,408 cells) costs
 | 2 h | 270,000 | **5.44 h** |
 | 3 h | 405,000 | **8.15 h** |
 
-PLAN.md Stage 1: *"If a single run exceeds ~4 hours, stop and flag it — the corpus
+docs/PLAN.md Stage 1: *"If a single run exceeds ~4 hours, stop and flag it — the corpus
 arithmetic needs revisiting."* A 3 h run is **8.15 h**. Flagged. Stage 1 measures
 this directly rather than by extrapolation; treat these as the prior.
 

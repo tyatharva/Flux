@@ -97,7 +97,7 @@ def main():
                          "and 0.044, and both collapsed on the same timeline -- the "
                          "Ozmidov scale is 6.9 Delta at the receptor even at 0.044, "
                          "against 318 neutrally, so weakening the stratification does not "
-                         "reach the problem (STABLE_REGIME_RESULT.md). Unstable hours are "
+                         "reach the problem (docs/results/STABLE_REGIME_RESULT.md). Unstable hours are "
                          "never screened by this. Raise it only to re-measure the bound.")
     ap.add_argument("--out", default="results/selected_times.tsv")
     ap.add_argument("--report", default="results/time_selection.txt")

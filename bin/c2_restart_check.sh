@@ -25,7 +25,7 @@ RST="${1:?usage: c2_restart_check.sh <restart.nc> <step> [template.in]}"
 STEP="${2:?the ABSOLUTE step the restart holds -- see trap 4}"
 # NO DEFAULT TEMPLATE. It used to be `runs/g16_base/base.in` -- the RETIRED 16 m grid --
 # on the only GPU step of the acceptance battery. Every caller passes the seed's own
-# seed.in, so nothing was broken; but this is the identical hazard PLAN.md records for
+# seed.in, so nothing was broken; but this is the identical hazard docs/PLAN.md records for
 # run_corpus_case.sh's 16 m default and for results/tback_production.txt: a plausible,
 # complete, wrong-grid result the moment a caller stops passing the argument. And that
 # directory is not even in the deployable image, so the failure would be a confusing

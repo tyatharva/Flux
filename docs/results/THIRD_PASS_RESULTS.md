@@ -1,6 +1,6 @@
 # Third pass — static 24 m domain, USGS + WorldCover, and the sigma_w deficit
 
-Supersedes `STAGE2-6_RESULTS_V2.md` for everything grid- and site-specific. Plan:
+Supersedes `docs/results/STAGE2-6_RESULTS_V2.md` for everything grid- and site-specific. Plan:
 `~/plans/fluttering-baking-stonebraker.md`.
 
 The headline is not the new grid. It is that the near-field footprint error, which the

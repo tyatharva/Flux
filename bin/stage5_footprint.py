@@ -146,7 +146,7 @@ def main():
                          "to <outdir>/<tag>_touchdowns.npz. THE ML TARGET IS A CONTINUOUS "
                          "DENSITY FITTED TO THESE, not the 122^2 raster -- binning is what "
                          "makes the per-cell L1 ~92% between two realisations of the same "
-                         "conditions (ML_TARGETS.md). The window fields are deleted at the "
+                         "conditions (docs/ML_TARGETS.md). The window fields are deleted at the "
                          "end of every case, so a touchdown not written here is gone. "
                          "1e5 costs ~1.6 MB; 0 (default) keeps the old behaviour. Only the "
                          "FIRST realisation is captured -- the second exists to measure a "
@@ -365,7 +365,7 @@ def main():
               f"(cadence {fs.dt_dump:.1f} s), loaded in {t_load:.0f} s")
         if a.strict_rel and ring is not None:
             # THE STREAM'S OWN CADENCE, ASSERTED. run_window.sh derives dt so frqOutput*dt
-            # lands the output cadence on an integer step count, and FASTEDDY_TRAPS.md 18b
+            # lands the output cadence on an integer step count, and docs/FASTEDDY_TRAPS.md 18b
             # is a whole entry about scoring that against a constant instead of against a
             # tenth of the measured interval. Same rule here.
             want = ring.meta.frq_output * a.dt

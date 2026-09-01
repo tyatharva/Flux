@@ -2,7 +2,7 @@
 """Compare two runs of the SAME seed, scored identically at the SAME simulated time.
 
 WHAT THIS IS FOR, AND WHAT IT CANNOT BE. The seed library moved to a new CUDA toolkit and a
-new image (`FASTEDDY_TRAPS.md` §23), and a seed produced by the new one has to be shown to
+new image (`docs/FASTEDDY_TRAPS.md` §23), and a seed produced by the new one has to be shown to
 be the same KIND of boundary layer as the one produced by the old. It cannot be shown to be
 the SAME boundary layer: FastEddy is not bitwise reproducible run to run on one GPU with one
 binary, and over two simulated hours two runs of one seed are two independent turbulence
@@ -78,7 +78,7 @@ def score(job, step, tmp, py, side):
         raise SystemExit(f"FATAL: {job}'s newest dump at or below {step} is {max(sel)}. "
                          f"A matched-step comparison needs the same step on both sides.")
     # SYMLINKS, NOT COPIES -- a dump is 73 MB and there are up to 24 of them. ONE RUN PER
-    # DIRECTORY (FASTEDDY_TRAPS.md 18c): only this base name is linked, so an accelerator
+    # DIRECTORY (docs/FASTEDDY_TRAPS.md 18c): only this base name is linked, so an accelerator
     # burn-in's FE_SEED_ACC.* cannot interleave into the series.
     d = os.path.join(tmp, f"{side}_{os.path.basename(job.rstrip('/'))}")
     os.makedirs(d, exist_ok=True)

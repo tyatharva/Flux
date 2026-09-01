@@ -4,7 +4,7 @@
 
 | | what it makes | where | when |
 |---|---|---|---|
-| **Part 1 — §0-§7** | the **30-seed library**, 1 machine x 16 GPUs, ~1 h | `/out/seeds/` | **DONE** — see `SEED_LIBRARY_RESULT.md`; the library is baked into the image |
+| **Part 1 — §0-§7** | the **30-seed library**, 1 machine x 16 GPUs, ~1 h | `/out/seeds/` | **DONE** — see `docs/results/SEED_LIBRARY_RESULT.md`; the library is baked into the image |
 | **Part 2 — §C0-§C9** | the **corpus**, ~1500 training pairs, **8 machines x 8 GPUs** | `/out/pairs_npz/` -> `corpus.h5` | **this is the one you are about to run** |
 
 Part 1 is kept because the image, the driver, the Vast fields and the SSH workflow are
@@ -17,7 +17,7 @@ are generating the corpus, start at §C0.**
 
 **Pick the image in Vast, SSH in, run one command.** The code is baked in and the tag names
 the commit, so a rented machine clones nothing, builds nothing, and cannot pull the wrong
-revision. Rationale: `PROJECT_BRIEF.md` (dated block at the top) and `FASTEDDY_TRAPS.md` §23.
+revision. Rationale: `PROJECT_BRIEF.md` (dated block at the top) and `docs/FASTEDDY_TRAPS.md` §23.
 
 ---
 
@@ -277,7 +277,7 @@ Printed at the end and written to `/out/machine_manifest.json`:
 
 ### `accepted` does not mean every gated limit resolved, and it must not
 
-`PLAN.md` records that `TKE_BL/u*^2` and `z_i` cannot be resolved against their thresholds
+`docs/PLAN.md` records that `TKE_BL/u*^2` and `z_i` cannot be resolved against their thresholds
 at **any** scoring-window width in an affordable spin-up — they decorrelate on the eddy
 turnover, not on the dump interval. **INDETERMINATE is the library's normal state** and
 `bin/pick_seed.py` admits it under a flag. What it refuses outright is **DRIFTING**, and
@@ -725,7 +725,7 @@ tested.
   seed's `manifest.json` and `stationarity.json` — a partial library would otherwise be an
   unexplained failure hours into a rental.
 - **Seed selection uses the whole library** (`ALLOW_DRIFTING=any`, 2026-08-31). Every pair
-  still carries `seed.gate_state`. See `SEED_LIBRARY_RESULT.md`.
+  still carries `seed.gate_state`. See `docs/results/SEED_LIBRARY_RESULT.md`.
 - **`--only-month` refuses a month this machine does not own**, by name, rather than running
   it — otherwise two boxes would generate the same days.
 - **The manifest describes the corpus, not the pass.** A resumed day is recorded as

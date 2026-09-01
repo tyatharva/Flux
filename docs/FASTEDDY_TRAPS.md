@@ -175,7 +175,7 @@ unchanged and a moist run is untouched.
 
 ### And a plan error it exposed
 
-PLAN.md asked the smoke test to "confirm that `w` acquires the prescribed slab-mean
+docs/PLAN.md asked the smoke test to "confirm that `w` acquires the prescribed slab-mean
 subsidence". **It never will, and it should not.** `cudaDevice_lsfRHS` adds the subsidence
 tendency to `Frhs_HC[U_INDX]`, `[V_INDX]`, `[THETA_INDX]` and `Frhs_qv` -- there is no
 `W_INDX` term. Subsidence here is a large-scale vertical ADVECTION tendency applied against
@@ -749,7 +749,7 @@ and `bin/pick_seed.py` tested only `achieved.pass is False`, so such a job read 
 *unjudged* rather than as *failed* and was ranked normally.
 
 Live: `seed_sbl-weak_a030` — the weakly-stable seed whose collapse is the entire subject of
-`STABLE_REGIME_RESULT.md`, whose `return/stationarity.json` says `pass: false`, whose
+`docs/results/STABLE_REGIME_RESULT.md`, whose `return/stationarity.json` says `pass: false`, whose
 manifest says nothing, and which `pick_seed.py` returned as the best available seed in the
 library.
 
@@ -1045,7 +1045,7 @@ Measured on the first two-window ring run: window 1's release period came out **
 against the 200 s asked for**, and `--strict-rel` refused it. At production geometry that is
 **every second window of the corpus**, failing after ~1 GPU-h per case is spent.
 
-Note which check caught it. `FASTEDDY_TRAPS.md` §18b is about `--strict-rel` failing a
+Note which check caught it. `docs/FASTEDDY_TRAPS.md` §18b is about `--strict-rel` failing a
 correct run on half a millisecond, and the fix there was to score against a tenth of the
 measured output interval instead of against `1e-6`. That tolerance is what made this one a
 clean refusal rather than either a silent 2.7% short averaging period or another false

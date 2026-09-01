@@ -53,7 +53,7 @@ jobs24
 # AND EXCLUDING THEM BY ARTIFACT PATTERN DID NOT WORK, MEASURED: `jobs/*/FE_*` is a
 # ONE-LEVEL pattern -- `*` does not cross `/` -- and four of those directories keep their
 # dumps one level deeper, in `jobs/<seed>/smoke_aside/FE_SMOKE.{0,20520}`. Eight files at
-# 73,271,565 bytes: **560 MB inside the image**, on a layer DEPLOY.md tells the operator to
+# 73,271,565 bytes: **560 MB inside the image**, on a layer docs/DEPLOY.md tells the operator to
 # push to a registry, against an intended payload of ~59 MB. The Dockerfile assertion meant
 # to catch exactly this globbed only /flux/jobs30/*/ and passed.
 jobs/seed_*
@@ -87,7 +87,7 @@ jobs30/*/*.log
 #
 # The rest of return/ -- run.log, seed.log, acceptance.txt, budget.json, rotation_check,
 # turb_alive, direction_drift -- is evidence about how the seed was made and no case reads
-# any of it. Those stay out; SEED_LIBRARY_RESULT.md is where that evidence lives.
+# any of it. Those stay out; docs/results/SEED_LIBRARY_RESULT.md is where that evidence lives.
 # AND THE EXCLUSION IS AT FILE LEVEL, NOT DIRECTORY LEVEL. `jobs30/*/return` followed by
 # `!jobs30/*/return/seed_restart.nc` is the obvious way to write this and it DOES NOT WORK:
 # MEASURED on this docker (classic builder, DOCKER_BUILDKIT=0), a `!` cannot re-include a

@@ -3,7 +3,7 @@
 
 WHY THIS EXISTS, and why it is not optional. htFlux is an IO-REGISTERED FIELD, so the
 restart read at FEMAIN/FastEddy.c:221 -- which runs AFTER hydro_coreInit() at :157 --
-overwrites whatever the .in asked for with whatever the file holds (FASTEDDY_TRAPS.md 17).
+overwrites whatever the .in asked for with whatever the file holds (docs/FASTEDDY_TRAPS.md 17).
 The Steinfeld spin-up accelerator runs a burn-in at +0.05 K m/s and then continues at zero;
 restarting from the burn-in dump without this would silently continue the burn-in flux for
 the whole neutral spin-up, and every diagnostic would still print a number. It cost a whole

@@ -57,7 +57,7 @@ VONK = 0.4
 # That threshold MOVES WITH THE PEAK, and in a neutral Ekman layer the peak is not steady:
 # u* falls through the first quarter of the 17.6 h inertial period, TKE ~ u*^2 goes with
 # it, and a falling threshold pushes the crossing height up while the layer holds still.
-# Measured on seed_nbl-shallow_a000 over its scored window (SEED_NBL_SHALLOW_RESULT.md):
+# Measured on seed_nbl-shallow_a000 over its scored window (docs/results/SEED_NBL_SHALLOW_RESULT.md):
 #
 #   z_i, 5% of the running peak   364.4 m   +11.67 %/h   <- FAILED a 3 %/h limit
 #   z_i, fixed 0.01 m2/s2         389.3 m    +1.87 %/h
@@ -130,7 +130,7 @@ def zi_peak_fraction(tk, z, frac=0.05):
     """Depth from a fraction of the profile's OWN peak. Reported, never gated.
 
     This is what lpdm/les_stats.py:window_stats produces as the corpus input `h`, so the
-    library's depth axis stays commensurable with it. FASTEDDY_TRAPS.md 16 is the whole
+    library's depth axis stays commensurable with it. docs/FASTEDDY_TRAPS.md 16 is the whole
     story of why it must not be trended.
     """
     return bl_depth(tk, z, frac=frac)
@@ -168,7 +168,7 @@ def series(paths, dt, k):
             e = np.maximum(g("TKE_0"), 0.0)
             out["ustar"].append(float(g("fricVel").mean()))
             out["th0"].append(float(g("theta")[0].mean()))
-        # inf is not NaN and NaN passes every > comparison (PLAN.md working agreement),
+        # inf is not NaN and NaN passes every > comparison (docs/PLAN.md working agreement),
         # so the finiteness test comes FIRST and is on every field that feeds a moment.
         for nm, a in (("u", u), ("v", v), ("w", w), ("TKE_0", e)):
             if not np.isfinite(a).all():
@@ -476,7 +476,7 @@ def main():
     # A REFUSED SCORING WINDOW IS A NAMED FATAL, NOT A TRACEBACK. The gate's stdout is
     # tee'd by jobs/run_seed.sh and its verdict is read back out of the JSON, so a traceback
     # here surfaces to the driver only as "the gate wrote no JSON" -- true, and silent about
-    # why. Say why, and exit non-zero (FASTEDDY_TRAPS.md 12).
+    # why. Say why, and exit non-zero (docs/FASTEDDY_TRAPS.md 12).
     try:
         ok, rows, reported, sel, dwdir, n_indet = score(s, xp, x90, a.score_h)
     except ValueError as e:
@@ -532,7 +532,7 @@ def main():
           f"forward to the window's own midpoint rather than assuming the adjustment "
           f"closes a gap; measured, the adjustment WIDENS one.")
     # THE CELL SIZE IS THE GRID'S, NOT A CONSTANT. It read "a 16 m raster cell" on a 24 m
-    # grid -- the same defect as FASTEDDY_TRAPS.md 19, in a print rather than in a
+    # grid -- the same defect as docs/FASTEDDY_TRAPS.md 19, in a print rather than in a
     # calculation, which makes it worse rather than better: a wrong number in prose is
     # copied into a result file and never recomputed.
     print(f"  x_peak spans {xp[sel].min():.1f}-{xp[sel].max():.1f} m across the scored "

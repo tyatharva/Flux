@@ -10,7 +10,7 @@
 # has to be a symmetric plume with a known peak distance and a unit integral.
 #
 # The tolerances are NOT chosen. They come from the run's own half-versus-half difference,
-# which is the irreducible sampling floor of a 30-minute window (PLAN.md Stage 5 Gate 2).
+# which is the irreducible sampling floor of a 30-minute window (docs/PLAN.md Stage 5 Gate 2).
 # Anything inside that floor is a different turbulence realisation; anything outside it is
 # a change in the pipeline.
 #

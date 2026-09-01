@@ -147,7 +147,7 @@ def main():
     work = os.path.abspath(a.work)
     shutil.rmtree(work, ignore_errors=True)
 
-    # ONE RUN PER DIRECTORY, OR IT IS NOT A SERIES (FASTEDDY_TRAPS.md 18c). Three runs
+    # ONE RUN PER DIRECTORY, OR IT IS NOT A SERIES (docs/FASTEDDY_TRAPS.md 18c). Three runs
     # writing one output/ would produce three families with overlapping step numbers.
     runs = [("A", a.old_image, a.old_tree), ("C", a.old_image, a.old_tree),
             ("B", a.new_image, a.new_tree)]
@@ -157,14 +157,14 @@ def main():
         d = os.path.join(work, tag)
         os.makedirs(os.path.join(d, "output"), exist_ok=True)
         # A COLD START: inPath/inFile empty, so no IO-registered field can be inherited
-        # from a restart (FASTEDDY_TRAPS.md 17) and the .in is the whole configuration.
+        # from a restart (docs/FASTEDDY_TRAPS.md 17) and the .in is the whole configuration.
         write_in(seed_in, os.path.join(d, "run.in"),
                  Nt=a.n, NtBatch=a.n, frqOutput=a.n,
                  inPath="", inFile="", outFileBase=base, outPath="./output/")
         print(f"  --- run {tag}: {image}"
               f"{' (tree ' + tree + ')' if tree else ' (baked binary)'}, {a.n} steps")
         rc, txt = run_fe(image, tree, d, "run.in", os.path.join(d, "run.log"), a.gpu)
-        # ASSERT ON THE ARTIFACT, NOT THE EXIT STATUS (FASTEDDY_TRAPS.md 12): FastEddy
+        # ASSERT ON THE ARTIFACT, NOT THE EXIT STATUS (docs/FASTEDDY_TRAPS.md 12): FastEddy
         # exits 0 on fully-NaN fields, and a missing restart makes it run to completion
         # writing only NaN.
         for pat in ("CORRUPTED", "#NaN", "#Inf"):

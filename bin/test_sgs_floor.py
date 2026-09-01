@@ -33,7 +33,7 @@ def levels(nz=122, dz=3.9933, zc=2500.0, c1=0.194059):
 
 
 def convective(zl, h=540.0, ust=0.42, L=-25.0, wth=0.18, th0=304.0):
-    """A CBL column shaped like the measured one in FIFTH_PASS_RESULTS.md 5b."""
+    """A CBL column shaped like the measured one in docs/results/FIFTH_PASS_RESULTS.md 5b."""
     zz = np.clip(zl / h, 1e-4, 2.0)
     wstar = (9.81 / th0 * wth * h) ** (1.0 / 3.0)
     ww = 1.8 * wstar ** 2 * zz ** (2.0 / 3.0) * np.maximum(1.0 - 0.8 * zz, 0.0) ** 2

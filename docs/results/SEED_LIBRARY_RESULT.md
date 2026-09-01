@@ -8,7 +8,7 @@ class this project already has a standing rule about.
 
 Artifacts: `vast-seeds/` as returned, mirrored byte-identical into `jobs30/<job>/return/`.
 `results/seed_tke_rescore.{txt,json}` is the rescore. The image and the deployment
-procedure are `DEPLOY.md`; the build is `PLAN.md`'s 2026-08-31 block.
+procedure are `docs/DEPLOY.md`; the build is `docs/PLAN.md`'s 2026-08-31 block.
 
 ---
 
@@ -50,7 +50,7 @@ stubbed, now observed under 30 real seeds.
 |---|---|
 | peak VRAM | **904 MiB** attributed to the process, 913 MiB whole-device, of **32,607** — **2.8%** |
 | host | peak container RSS **58.9 GiB**, summed FastEddy RSS **8.98 GiB** over 32 processes, machine 755 GiB, low-water `MemAvailable` 718 GiB |
-| `k0/k1` | **0.124–0.144**, OK on all 30 — the Blackwell numerics check `PLAN.md` listed as owed |
+| `k0/k1` | **0.124–0.144**, OK on all 30 — the Blackwell numerics check `docs/PLAN.md` listed as owed |
 | `turb_alive` | real OK on all 30, not a SKIP |
 | Gate C2 restart | **bit-for-bit on all 30** |
 | static rotation check | **PASS on all 30** |

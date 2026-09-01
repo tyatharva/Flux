@@ -80,7 +80,7 @@ The boundary bisected above is the **stability** boundary (NaN / `CORRUPTED`). T
 **lower accuracy boundary at CFL_3d ~ 1.64, i.e. dt ~ 0.0273 s**, above which the run
 completes normally and exits 0 while resolved `w` in the lowest ~3 levels degenerates into
 grid-scale acoustic noise. `dt = 0.0275` sat inside that window, which is what produced the
-Stage 2 near-surface artifact. See `STAGE2_RESULTS.md` and PROJECT_BRIEF.md.
+Stage 2 near-surface artifact. See `docs/results/STAGE2_RESULTS.md` and PROJECT_BRIEF.md.
 
 ---
 
@@ -94,7 +94,7 @@ At dt = 0.029 s: **2.53 s of wall clock per simulated second**.
 | Spinup, 2 h | 7,200 s | 5.06 h |
 | **Per-direction run** (20 min adjust + 30 min sample) | 3,000 s | **2.11 h** |
 
-A monolithic 3 h run is **7.58 h**, still far above PLAN.md Stage 1's ~4 h flag threshold.
+A monolithic 3 h run is **7.58 h**, still far above docs/PLAN.md Stage 1's ~4 h flag threshold.
 But under the Stage 2 restructuring — spin up over flat uniform terrain, then reuse that
 state across all wind directions in a `(stability, speed)` bin — the *per-direction* cost is
 **2.11 h, comfortably under the threshold**, with one 5.06 h spinup amortised across every

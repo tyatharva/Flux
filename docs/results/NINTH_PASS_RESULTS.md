@@ -41,7 +41,7 @@ is roughly half neutral.
 
 ### The three decisions this pass hands back, with the numbers
 
-1. **`z_i` in neutral seeds trends AWAY from band as the run lengthens** — PLAN.md 0aa
+1. **`z_i` in neutral seeds trends AWAY from band as the run lengthens** — docs/PLAN.md 0aa
    predicted it, run 3 confirmed it at +5.76 %/h — so `pick_seed`'s DRIFTING refusal makes
    the neutral half of the corpus unbuildable at any affordable spin-up, and its FALLBACK
    (a convective seed for a neutral case) is worse than the thing it avoids.
@@ -285,7 +285,7 @@ i.e. fp32 roundoff.
 
 **Acceptance (b): Gate D1 well-mixed, production closure, BOTH directions — PASS.**
 max \|ratio − 1\| **19.39%**, rms 7.58%, lowest three bins **1.047**, against a 5.48%
-counting-noise floor and a max(10%, 4σ = 21.9%) bar. **This is the deferred item PLAN.md
+counting-noise floor and a max(10%, 4σ = 21.9%) bar. **This is the deferred item docs/PLAN.md
 records as having no evidence at this grid; the convective half now has it.**
 The script's composite verdict prints FAIL, and it is worth saying why: it is
 `ok and frac > 0.5`, where `frac = 37.7%` is the fraction of 20 000 particles reaching the
@@ -395,7 +395,7 @@ they are the three the footprint's geometry actually rides on**:
 | Kljun `x90` | 1493.5 m | −0.14 %/h | ok |
 | `z_i` | 678.5 m | **+5.76 %/h** | **DRIFTING** |
 
-**THIS CONFIRMS A PREDICTION THE PROJECT MADE IN ADVANCE.** PLAN.md item 0aa, from a
+**THIS CONFIRMS A PREDICTION THE PROJECT MADE IN ADVANCE.** docs/PLAN.md item 0aa, from a
 scoring-window sweep run before any of this: *"**TRENDING AWAY from band** — `z_i` in BOTH
 seeds, monotonically (+2.31 → +4.08 and +0.53 → +7.57 %/h) with a falling SE. **A longer run
 resolves these into a FAIL, not a pass.**"* It did, at +5.76 %/h.
@@ -442,7 +442,7 @@ cap raised to 3 L = 10 980 m:
 | 3.00 L | **0.730** | 1.025 |
 
 `|I(2.5L) − I(2.0L)| / I(2.5L)` = **0.0%** against the 2% `SATURATE_TOL`. **The neutral
-integral saturates by 2.5 L**, which is the acceptance PLAN.md sets, and it is flat to three
+integral saturates by 2.5 L**, which is the acceptance docs/PLAN.md sets, and it is flat to three
 decimals from 2.0 L. The production cap at 1 L captures **97.5%** of the saturated integral,
 against **93.5%** at 2928 m — the bigger box bought four points.
 
@@ -497,7 +497,7 @@ candidates, and this pass does not separate them: the sub-grid fraction at the r
 the 900 s `t_back`** (median transit **307 s**, against 118 s convectively).
 
 **Which of the three this is:** a **measurement**, and the one that most changes what can be
-claimed. The acceptance PLAN.md set (saturation by 2.5 L) passes; the *justification* it
+claimed. The acceptance docs/PLAN.md set (saturation by 2.5 L) passes; the *justification* it
 rests on (LES–Kljun parity under truncation) holds at 2928 m and does **not** hold at
 3660 m. Any relative claim against Kljun on the neutral flat control now has to carry the
 15.8-point gap explicitly.

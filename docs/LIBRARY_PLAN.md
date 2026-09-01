@@ -4,7 +4,7 @@
 > `docker run --gpus all -v /out:/out flux-seeds:<tag> run_seeds --gpu-count 16`.
 > The code is baked in and the tag names the commit; **a seed needs no data mount at all**,
 > because it is a flat uniform spin-up with an empty `topoFile` and an empty `inFile`.
-> Operator reference: `DEPLOY.md`. Toolkit and architecture: `FASTEDDY_TRAPS.md` §23.
+> Operator reference: `docs/DEPLOY.md`. Toolkit and architecture: `docs/FASTEDDY_TRAPS.md` §23.
 >
 > **Two numbers below are corrected by it.** `SEED_CEILING_H = 2.0` was producing
 > **1.9167** simulated hours, not 2.0, because a 1e-6 s tolerance on a whole-dump decision
@@ -15,7 +15,7 @@
 > **THE CORPUS IS ONE WINDOW PER CASE AND EVERY SEED RUNS 2.0 SIM-H — 2026-08-30.**
 > **This supersedes every cost table below it** — the two-window arithmetic, the 3.0 h seed
 > ceiling, and the earlier 16 m-era per-case figures alike. Full rationale:
-> `PROJECT_BRIEF.md`, the dated block at the top; the decision table is in `PLAN.md`.
+> `PROJECT_BRIEF.md`, the dated block at the top; the decision table is in `docs/PLAN.md`.
 >
 > | | two windows (retired) | **one window (production)** |
 > |---|---|---|
@@ -169,7 +169,7 @@
 > `htFlux` **zeroed in the FILE** (`bin/zero_htflux.py`, which re-reads to confirm). That
 > restart is the only one in a seed and it is the dangerous kind: `htFlux` is IO-registered,
 > so the main invocation would otherwise inherit +0.05 whatever its `.in` says
-> (`FASTEDDY_TRAPS.md` 17). The existing per-run read-back assertion is the second lock.
+> (`docs/FASTEDDY_TRAPS.md` 17). The existing per-run read-back assertion is the second lock.
 > Neutral is the regime the accelerator is for: `h/u*` is ~1500 s there against `T* ~ 350 s`
 > convectively, so it is the slowest to organise a perturbation field into turbulence.
 > **The no-accelerator control was cut** — if the accelerated seed passes, it is not needed.
@@ -288,7 +288,7 @@ A case's window is 42 min of wall clock and its adjustment 31, so **both fit ins
 > **The `sbl` rung is DELETED.** A cold-started stable boundary layer does not survive
 > `Delta = 16 m` at this site -- two seeds were built and both collapsed, and the cause is
 > resolution, measured (`L_O/Delta = 3.57` at the receptor against a decade requirement;
-> GABLS1 runs the regime at `dx = 6.25 m`). Full evidence: `STABLE_REGIME_RESULT.md`. The
+> GABLS1 runs the regime at `dx = 6.25 m`). Full evidence: `docs/results/STABLE_REGIME_RESULT.md`. The
 > table below keeps the row so the reasoning is legible; it is not built and not selectable.
 
 ### Why these axes, and no others
@@ -566,7 +566,7 @@ z  > b3        theta = ...       + g3 (z - b3)
    the return code of `hydro_coreGetParams()`. So an out-of-range `stableGradient` silently
    runs the case with **0.1 K/m**: a 10 K capping inversion where the sounding wanted 0.4.
    The only trace is one line in a log otherwise grepped for `CORRUPTED`. **New trap;
-   recorded in `FASTEDDY_TRAPS.md` §13.** This stage guarantees the ranges rather than
+   recorded in `docs/FASTEDDY_TRAPS.md` §13.** This stage guarantees the ranges rather than
    hoping, and `bin/test_sounding.py` re-checks every one against the source's own limits.
 
 The pressure integral carries `(1/g) log(1 + g dz/theta)`, which looks like it would lose
@@ -693,7 +693,7 @@ a large one, so `pick_seed.py` prints the ratio and **warns past a factor of two
 that died after the gate and before the stamp leaves a manifest with no verdict at all.
 `pick_seed.py` reads `return/stationarity.json` directly; a return directory with neither a
 verdict nor a restart is reported as an **unfinished job**, not as an unbuilt one. See
-`FASTEDDY_TRAPS.md` §18d for the live instance.
+`docs/FASTEDDY_TRAPS.md` §18d for the live instance.
 
 ### 8. `bin/make_pair.py`
 
@@ -745,8 +745,8 @@ instead of assumed.
 | `Dockerfile` | `eccodes`, `cfgrib`, `herbie-data`, `pyproj`, `s3fs`, `scikit-learn` |
 | `.gitignore` | `data/hrrr/`, `results/soundings/`, `results/forcing/`, `pairs/`, `data/case_grids/`, `data/smokelib/` |
 | `PROJECT_BRIEF.md` | the forcing-source reversal and the four rules it contradicts; the stable-case array limitation; the sampling-spread tolerance rule; the convective B6 result |
-| `PLAN.md` | points the corpus phase here |
-| `FASTEDDY_TRAPS.md` | §13, an out-of-range parameter does not stop FastEddy |
+| `docs/PLAN.md` | points the corpus phase here |
+| `docs/FASTEDDY_TRAPS.md` | §13, an out-of-range parameter does not stop FastEddy |
 
 **Deviation from the original plan:** it listed `runs/seed_base/*.in`. Each job's `.in` is
 generated into `jobs/seed_*/seed.in` instead, so a job directory is self-contained and can
@@ -909,7 +909,7 @@ file's own precision**. A tolerance tighter than that fails a correct grid.
    not close it**, which is why there are 12 of them.
 
 Acceptance throughout: **assert on the artifact, never the exit status**
-(`FASTEDDY_TRAPS.md` §12 -- analyses are piped into `grep`, so bash reports grep's status),
+(`docs/FASTEDDY_TRAPS.md` §12 -- analyses are piped into `grep`, so bash reports grep's status),
 and `np.isfinite(...).all()` never `isnan().any()` (§1 -- `inf` is not `CORRUPTED`, and NaN
 passes every `>` comparison).
 
@@ -1115,7 +1115,7 @@ case is drawn from any acceptable hour of the day, and 26% of retained cases are
 outside 06–18 LST — but those are near-neutral or weakly unstable nights and **must not be
 quoted as stable coverage**.
 
-Full evidence: **`STABLE_REGIME_RESULT.md`**.
+Full evidence: **`docs/results/STABLE_REGIME_RESULT.md`**.
 
 ---
 
@@ -1126,7 +1126,7 @@ Full evidence: **`STABLE_REGIME_RESULT.md`**.
 > deleted, so **the corpus contains no stable cases** and there is no stable closure left
 > to validate. The gate below is therefore moot *for this corpus*. What survives is the
 > reasoning: a regime the gate has not run in is no evidence at all, and if stable is ever
-> re-admitted -- at a finer grid, which is what `STABLE_REGIME_RESULT.md` says it would
+> re-admitted -- at a finer grid, which is what `docs/results/STABLE_REGIME_RESULT.md` says it would
 > take -- this gate is the price of admission and must be run before any stable case is
 > trusted.
 

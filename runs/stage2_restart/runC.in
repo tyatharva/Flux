@@ -29,7 +29,7 @@ verticalDeformQuadCoeff = 0.0 # pure cubic
 #--TIME_INTEGRATION
 timeMethod = 0 # Selector for time integration method. [0=RK3-WS2002 (default)]
 Nt = 1000 # ABSOLUTE target step, not steps-to-run: resumes at 500, runs 500 more # Number of timesteps to perform
-dt = 0.0275 # 5% margin under the measured 0.029 s stability boundary (STAGE1_RESULTS.md)
+dt = 0.0275 # 5% margin under the measured 0.029 s stability boundary (docs/results/STAGE1_RESULTS.md)
 NtBatch = 500 # Number of timesteps to compute in batch launch, must have NtBatch <= Nt
 #--HYDRO_CORE
 ##------------: HYDRO_CORE Submodule Selectors ---

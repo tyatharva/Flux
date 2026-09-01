@@ -21,7 +21,7 @@ before committing 3.1 h of GPU per job to it:
                   nowhere near the rung's target the control is not working.
   the log         grepped for `outside limits` as well as CORRUPTED -- an out-of-range
                   parameter does not stop FastEddy, it silently uses the compiled-in
-                  default (FASTEDDY_TRAPS.md 13).
+                  default (docs/FASTEDDY_TRAPS.md 13).
 
 usage: smoke_check.py <dump> [--manifest jobs/<job>/manifest.json] [--log FILE]
 """

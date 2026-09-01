@@ -319,7 +319,7 @@ def newest_step(d, base):
 def gate_state(js):
     """DRIFTING / INDETERMINATE / PASS, from the gate's own arrays.
 
-    `pass` alone is not the label to carry: PLAN.md records that TKE_BL/u*^2 and z_i cannot
+    `pass` alone is not the label to carry: docs/PLAN.md records that TKE_BL/u*^2 and z_i cannot
     be resolved against their thresholds at ANY window width in an affordable spin-up, so
     almost every seed in this library is legitimately INDETERMINATE and `pass` is False.
     INDETERMINATE and DRIFTING are different verdicts and pick_seed.py treats them
@@ -447,7 +447,7 @@ def run_one(job, gpu, a, workroot, outroot, tb):
             # writes FE_SEED_ACC.* and stages FE_ACC.0, and `rm -f "$OUTBASE".*` does not
             # match either -- while bin/seed_report.py globs `output/*.[0-9]*` with no
             # family filter and would fold the burn-in's dumps into the run's series.
-            # ONE RUN PER DIRECTORY, OR IT IS NOT A SERIES (FASTEDDY_TRAPS.md 18c).
+            # ONE RUN PER DIRECTORY, OR IT IS NOT A SERIES (docs/FASTEDDY_TRAPS.md 18c).
             shutil.rmtree(os.path.join(wd, "output"), ignore_errors=True)
             shutil.rmtree(os.path.join(wd, "return"), ignore_errors=True)
             for stale in ("FE_ACC.0", "accel.in", "run.in"):

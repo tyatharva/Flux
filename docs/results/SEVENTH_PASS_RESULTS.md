@@ -50,7 +50,7 @@ grid.
 | worst-case footprint water share | 0.01% | **17.45%** |
 
 **Gate A1 FAILS at 17.45% against a 10% threshold — and that worst case is very stable
-easterly, a regime the corpus does not contain** (`STABLE_REGIME_RESULT.md`). Over the
+easterly, a regime the corpus does not contain** (`docs/results/STABLE_REGIME_RESULT.md`). Over the
 regimes it does contain the worst case is **7.38%** (neutral easterly), which passes. Both
 numbers are recorded; quoting only the second would be the mistake this project keeps
 making. What is genuinely new is that easterly footprints now carry real water, with a
@@ -112,7 +112,7 @@ excluded population sits at a median `z_i` of 1716 m, far above either ceiling.
 
 Plus the one thing that had to ship rather than be designed: **touchdown persistence**. The
 window fields are deleted at the end of every case, so a touchdown not captured at stage 5
-is gone. `ML_TARGETS.md` has the design; the persistence is built, uniform (bottom-k on an
+is gone. `docs/ML_TARGETS.md` has the design; the persistence is built, uniform (bottom-k on an
 independent key), signed, unfolded, and asserted to reproduce the full ensemble's integral.
 
 ---
@@ -224,7 +224,7 @@ would be reporting the ceiling. That is why `seed_budget.py` exists.
 
 ## Phase C — `cbl-deep`: the lock-in is largely gone
 
-Full write-up in `SEED_CBL_DEEP_24M_RESULT.md`.
+Full write-up in `docs/results/SEED_CBL_DEEP_24M_RESULT.md`.
 
 | | 1952 m box | **2928 m box** |
 |---|---|---|
@@ -337,7 +337,7 @@ signs rather than asserted.
 
 ---
 
-## New traps, all in `FASTEDDY_TRAPS.md` §19
+## New traps, all in `docs/FASTEDDY_TRAPS.md` §19
 
 - **19** — a grid constant that is really a grid property, five instances in one day
   (`surflayer_z0`, the gate's receptor, the representability screen's `z_m` and `z0`,

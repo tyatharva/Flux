@@ -220,7 +220,7 @@ def write_training_npz(a, rec, st, fp, npz_path, target, kljun_raster, xc, yc, z
     # L IS UNBOUNDED AND IS +/-inf AT EXACTLY NEUTRAL, which is a legitimate state and not
     # corruption -- but it cannot go into a network. The vector is written with L because
     # that is the named format; 1/L is written beside it in the meta, is finite everywhere,
-    # and is the form the similarity functions actually use. ML_TARGETS.md says the loader
+    # and is the form the similarity functions actually use. docs/ML_TARGETS.md says the loader
     # substitutes it. Loud here so it can never be a surprise there.
     inv_L = (1.0 / L) if np.isfinite(L) else 0.0
     if not np.isfinite(scalars).all():
@@ -490,7 +490,7 @@ def main():
                  # READ OFF THE GRID THIS CASE RAN ON, never a literal. It was 0.1435 --
                  # the 122^2 @ 16 m value -- and it is 0.0615 at 30 m, because the box
                  # takes in more lake. A constant that is really a grid property is
-                 # FASTEDDY_TRAPS.md 19, and it has bitten five times in one day.
+                 # docs/FASTEDDY_TRAPS.md 19, and it has bitten five times in one day.
                  "z0_geometric_m": z0_geom,
                  "note": "constant across the corpus: a single-tower emulator"},
         "closure": {"sgs_most": fp.get("sgs_most"), "mode": fp.get("sgs_most_mode"),

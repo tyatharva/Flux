@@ -22,7 +22,7 @@ cases. See `../LIBRARY_PLAN.md`.
 
 | | |
 |---|---|
-| GPU | **an architecture the binary actually carries SASS for**, ~0.65 GB VRAM (MEASURED at 122^3; the manifests' 1.6 GB is an unverified literal and nothing reads it). The old wording here said a newer architecture "JITs from PTX and works but is slower" — **that was false for every binary this project has ever built**, and would have been a `no kernel image` failure on a 5090. `-arch=sm_89` embeds no PTX, and `nvcc -dlink` drops PTX from a separately-compiled binary anyway (`FASTEDDY_TRAPS.md` §23). The entrypoint now compares the GPU's capability against `cuobjdump --list-elf` on the binary itself and refuses rather than warns. |
+| GPU | **an architecture the binary actually carries SASS for**, ~0.65 GB VRAM (MEASURED at 122^3; the manifests' 1.6 GB is an unverified literal and nothing reads it). The old wording here said a newer architecture "JITs from PTX and works but is slower" — **that was false for every binary this project has ever built**, and would have been a `no kernel image` failure on a 5090. `-arch=sm_89` embeds no PTX, and `nvcc -dlink` drops PTX from a separately-compiled binary anyway (`docs/FASTEDDY_TRAPS.md` §23). The entrypoint now compares the GPU's capability against `cuobjdump --list-elf` on the binary itself and refuses rather than warns. |
 | runtime | Docker with `nvidia-container-toolkit`, and `--gpus all` available |
 | image | `flux-seeds:<commit>` (`docker/build_image.sh`, CUDA 13.0, real SASS sm_75-sm_120, code baked in) — or `flux-fasteddy:cuda118` (`docker/build_fasteddy.sh`) for the toolchain-only workstation path |
 | repo | a checkout of this repository, **anywhere** — the entrypoint discovers its own root |
@@ -93,6 +93,6 @@ diff two seeds expecting equality.
 
 **An out-of-range parameter does not stop FastEddy.** It prints one line, leaves the
 variable at its compiled-in default, and runs a different case than the `.in` describes —
-`FASTEDDY_TRAPS.md` §13. The `.in` files here are generated with every value guaranteed in
+`docs/FASTEDDY_TRAPS.md` §13. The `.in` files here are generated with every value guaranteed in
 range, but if you edit one by hand, grep the log for `outside limits` as well as
 `CORRUPTED`.

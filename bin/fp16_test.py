@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Does storing the LPDM's input fields as fp16 change the footprint?
 
-PLAN.md Stage 3 makes fp16-on-write the storage fix (81.7 GB -> 16.2 GB per window at the
+docs/PLAN.md Stage 3 makes fp16-on-write the storage fix (81.7 GB -> 16.2 GB per window at the
 24 m grid) but requires the quantisation be shown small against the LPDM's own noise
 BEFORE it is accepted. This settles it on real fields and without any LES: load a window,
 round u, v, w and TKE_0 through float16 and back, and recompute the footprint with an

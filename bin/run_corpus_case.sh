@@ -36,7 +36,7 @@
 # simulated hours here; restarting from a seed of the right regime, depth and heading
 # needs 30 minutes. Across ~1825 cases that is the difference between ~2000 and ~7600 GPU-h.
 #
-# ASSERT ON THE ARTIFACT, NOT THE EXIT STATUS at every stage (FASTEDDY_TRAPS.md 12): the
+# ASSERT ON THE ARTIFACT, NOT THE EXIT STATUS at every stage (docs/FASTEDDY_TRAPS.md 12): the
 # analyses are piped into grep, so bash reports GREP's status and a python traceback lands
 # quietly in a redirected .txt. Each step below checks the file it was supposed to write.
 set -uo pipefail
@@ -49,13 +49,13 @@ TS="${1:-}"
 # Pure bash, because `tr -d '-:'` parses `-:` as an OPTION BUNDLE and fails -- and the
 # failure went to stderr, which stage 1's grep filter swallowed, so the tag silently came
 # out as the empty string and every artifact landed on top of the last case's. Same class
-# as FASTEDDY_TRAPS.md 12: a filtered stream is a hidden error.
+# as docs/FASTEDDY_TRAPS.md 12: a filtered stream is a hidden error.
 _t="${TS//[-:]/}"; _t="${_t/T/}"
 TAG="${2:-case_${_t:0:10}}"
 [[ "$TAG" =~ ^[A-Za-z0-9_]+$ ]] || { echo "FATAL: bad tag '$TAG' from '$TS'" >&2; exit 65; }
 [ "${#TAG}" -ge 8 ] || { echo "FATAL: tag '$TAG' too short; is '$TS' a valid timestamp?" >&2
                          exit 65; }
-# THE RAISED SURFACE IS PRODUCTION, settled by the sixth pass (SIXTH_PASS_RESULTS.md):
+# THE RAISED SURFACE IS PRODUCTION, settled by the sixth pass (docs/results/SIXTH_PASS_RESULTS.md):
 # topoPos is raised by the displacement height over the array so the first model level
 # clears panel top, z0_array goes 0.10 -> 0.25 (which is the only thing that gives the
 # array ANY neutral signal -- at 0.10 it is aerodynamically identical to the cropland
@@ -198,7 +198,7 @@ PICK=results/pick/$TAG.json
 # z_i concession below was granted on, and it never depended on the limit being z_i.
 # Refusing a seed therefore removes a RESTART POINT without removing any error.
 #
-# MEASURED COST OF THE NARROW FORM on the 30-seed library (SEED_LIBRARY_RESULT.md): it
+# MEASURED COST OF THE NARROW FORM on the 30-seed library (docs/results/SEED_LIBRARY_RESULT.md): it
 # admitted 11 of 30. It took out ALL SIX cbl-shallow seeds, leaving the weakly-convective
 # rung with no restart point; eight of twelve neutral seeds, dropping the neutral half to
 # four base angles and firing pick_seed's own half-spacing warning at 14.5 deg against a
@@ -251,7 +251,7 @@ cp -f "$GRID/topo.bin" "$D/topo.bin" || die "topo.bin"
 # These were two FastEddy runs -- an adjustment, then a restart from its final dump into
 # the window. That restart is gone. CHAINING IS RETIRED (2026-08-26) and the only restart
 # left in the project is seed -> target, which happens at stage 5 above. What it buys is
-# FASTEDDY_TRAPS.md 17 removed structurally rather than by assertion: a restart READ
+# docs/FASTEDDY_TRAPS.md 17 removed structurally rather than by assertion: a restart READ
 # overwrites every IO-registered field, so each restart is an opportunity to silently
 # inherit state the .in does not describe.
 #

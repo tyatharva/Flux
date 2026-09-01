@@ -1,6 +1,6 @@
 # Fourth pass — true 30-minute footprints, a static raster, and the convective regime
 
-Supersedes `THIRD_PASS_RESULTS.md` for everything about the estimator, the window length
+Supersedes `docs/results/THIRD_PASS_RESULTS.md` for everything about the estimator, the window length
 and the corpus design. The grid, the surface and the sub-grid closure are unchanged from
 the third pass and are not re-litigated here.
 
@@ -288,9 +288,9 @@ four consecutive high bins, not scatter. Backward is clean. Footprints use backw
 this does not invalidate them, but a genuinely well-mixed model should be well mixed in
 both directions and this is not yet fully explained.
 
-The transit-time check also prints FAIL, on a sub-criterion that is not in PLAN.md: the
+The transit-time check also prints FAIL, on a sub-criterion that is not in docs/PLAN.md: the
 script requires that more than half of the backward particles reach the surface within
-`t_limit`, and 46.2% do. PLAN.md asks for a *plausible transit time* — 1-5 min unstable,
+`t_limit`, and 46.2% do. docs/PLAN.md asks for a *plausible transit time* — 1-5 min unstable,
 10-15 min stable, neutral between — and the median is **179 s = 3.0 min**, inside that
 range. The median halving while the >900 s fraction fell is a coherent consequence of the
 floor being surface-layer-only: below 121 m particles get extra mixing both downward (fast
@@ -314,7 +314,7 @@ each, `t_back = 900 s`, accumulated on the LES columns.
 
 Array area share 0.22%, water 16.09%. Shares exclude periodically folded touchdowns.
 
-**Array swing wN/wE = 215x, wN/wW = 368x.** PLAN.md predicted **~300x** from the geometry
+**Array swing wN/wE = 215x, wN/wW = 368x.** docs/PLAN.md predicted **~300x** from the geometry
 alone, before any of these runs existed. The ordering is exact and follows the upwind reach:
 north 250 m, south 100 m, east and west 60 m.
 
@@ -601,7 +601,7 @@ lies below the surface-layer one everywhere, so the minimum simply *is* the mixe
 as a rule rather than a number, and validated against Kljun on the one configuration where
 Kljun is diagnostic. It is not a first-principles closure. The honest summary is that the
 near-field convective footprint is *anchored* to surface-layer similarity and the tail is
-free — the same split section 3 of `THIRD_PASS_RESULTS.md` established for the neutral case,
+free — the same split section 3 of `docs/results/THIRD_PASS_RESULTS.md` established for the neutral case,
 now measured rather than asserted.
 
 Note the numbers above come from a **fresh realisation** of the convective flat window
@@ -613,7 +613,7 @@ useful reminder of the run-to-run floor.
 
 ## 10. Where this leaves the project
 
-**Every gate in PLAN.md now passes except Stage 5 Gate 1**, and that one has moved from
+**Every gate in docs/PLAN.md now passes except Stage 5 Gate 1**, and that one has moved from
 "unreachable" to "1.2x of spacing away" in the regime that matters most.
 
 | stage | gate | neutral | convective |

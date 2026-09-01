@@ -36,7 +36,7 @@ Three runs, all uncapped to 3 L = 8784 m.
 | C3 what the cap hides | **FAIL** +6.1% | ok +0.8% | **FAIL** +15.8% |
 
 **The convective footprint fits in 2928 m. The neutral one does not.** The flat/neutral
-control — the binding case, and the one PLAN.md nominates — needs **1.5 domain lengths**
+control — the binding case, and the one docs/PLAN.md nominates — needs **1.5 domain lengths**
 before its integral stops growing, and the cap removes 6.1% of it.
 
 ## The mitigating fact, and it is a real one
@@ -59,7 +59,7 @@ emulator trained on them reproduces the truncated footprint self-consistently.
 `x80` is a **crosswind-integrated 1-D** measure and it fits comfortably (1557 m against a
 2342 m bar). The integral does not, because the missing influence lives in a long thin tail
 that a 1-D 80%-containment distance does not see. **Scoring containment on `x80` alone
-would have called this contained.** PLAN.md's own wording — "the 80% source area must
+would have called this contained.** docs/PLAN.md's own wording — "the 80% source area must
 resolve before the wrap cap" — is the version that would have been read that way; the
 integral's approach slope is what actually answers it.
 

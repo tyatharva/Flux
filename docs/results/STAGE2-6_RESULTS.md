@@ -1,6 +1,6 @@
 # Stages 2-6 at 30 m — pipeline validation (FIRST PASS)
 
-> **Superseded 2026-08-19 by `STAGE2-6_RESULTS_V2.md`.** Everything site-specific in this
+> **Superseded 2026-08-19 by `docs/results/STAGE2-6_RESULTS_V2.md`.** Everything site-specific in this
 > document was produced at a *surrogate* tower coordinate and is **void**. The estimator
 > results (well-mixed, Kljun comparison, error floor) were produced at the coarser
 > `dz_sfc = 20 m` grid and are superseded. Kept for the diagnostic trail — in particular the
@@ -9,7 +9,7 @@
 > estimator rather than about resolution.
 
 
-**One FastEddy run producing one backward-LPDM flux footprint.** That was PLAN.md's goal;
+**One FastEddy run producing one backward-LPDM flux footprint.** That was docs/PLAN.md's goal;
 this document records whether it happened and what each gate returned.
 
 Everything here is at the **30 m pipeline-development grid**, not the 10 m production grid.
@@ -17,7 +17,7 @@ That is deliberate: this configuration validates the pipeline, not the science, 
 corpus is regenerated at finer resolution later. Where a number is resolution-dependent it
 is flagged as such.
 
-Supersedes the earlier `STAGE2_RESULTS.md`, which documented a 10 m spin-up at
+Supersedes the earlier `docs/results/STAGE2_RESULTS.md`, which documented a 10 m spin-up at
 `dt = 0.0275` — a timestep since shown to be above the accuracy-CFL limit.
 
 ## Gate summary
@@ -322,7 +322,7 @@ without Kljun, and against a target that moves when the geometry moves.
 
 ## Stage 3 — Output configuration ✅ PASS, by configuration alone
 
-PLAN.md's gate: *"field selection + fp16 on write puts a 30-min window under ~30 GB."*
+docs/PLAN.md's gate: *"field selection + fp16 on write puts a 30-min window under ~30 GB."*
 At 30 m the gate is met **without either**, and therefore without touching FastEddy source.
 
 A dump carries 10 3-D fields (`xPos yPos zPos rho u v w theta pressure TKE_0`) at fp32 with
@@ -333,7 +333,7 @@ A dump carries 10 3-D fields (`xPos yPos zPos rho u v w theta pressure TKE_0`) a
   30-min window at 5 s cadence, 360    =   9.6 GB per window
 ```
 
-against the ~30 GB gate — a factor of 3 of headroom. The 213 GB figure in PLAN.md was the
+against the ~30 GB gate — a factor of 3 of headroom. The 213 GB figure in docs/PLAN.md was the
 10 m grid with all 19 fields; the grid is 11.8x smaller in cell count and the field list is
 halved.
 
@@ -427,7 +427,7 @@ interior.
   transit time (s): p5=43  p25=93  p50=191  p75=385  p95=743
 ```
 
-Median **3.2 min** from the 30 m receptor to the surface. PLAN.md expects 1-5 min unstable
+Median **3.2 min** from the 30 m receptor to the surface. docs/PLAN.md expects 1-5 min unstable
 and 10-15 min stable; neutral sits between, and it does.
 
 ---
@@ -548,7 +548,7 @@ realisation-to-realisation scatter against 120 and 265 m of difference from Klju
    window is already long enough that lengthening it is not the fix — the fix is averaging
    over realisations, or accepting a smoothed footprint.
 
-PLAN.md asked for this measurement **before** committing to a corpus size. It changes the
+docs/PLAN.md asked for this measurement **before** committing to a corpus size. It changes the
 answer: the corpus must be sized by the number of *runs* needed to average the footprint
 down, not by the number of samples.
 
@@ -688,7 +688,7 @@ directions with a physically plausible transit time.
 **Stage 5 Gate 1 does not pass at 30 m, and the reason is the grid.** 96.4% of the vertical
 velocity variance at the receptor is sub-grid, so the near-field footprint is manufactured
 by the Langevin closure rather than resolved by the LES — and a 4x sweep in `C0` moves the
-peak by one grid cell, which is what rules out tuning as a fix. PLAN.md is right that this
+peak by one grid cell, which is what rules out tuning as a fix. docs/PLAN.md is right that this
 gate must pass before Stage 6 means anything; it needs `dz_sfc = 10 m`, where the receptor
 sits at the third level instead of the second.
 

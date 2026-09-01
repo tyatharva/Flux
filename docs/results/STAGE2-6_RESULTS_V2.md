@@ -1,6 +1,6 @@
 # Second pass — surveyed coordinate, water land cover, finer vertical grid
 
-Supersedes `STAGE2-6_RESULTS.md` for everything site-specific. That document's Stage 6
+Supersedes `docs/results/STAGE2-6_RESULTS.md` for everything site-specific. That document's Stage 6
 results were produced at a surrogate tower coordinate and are void.
 
 ---
@@ -235,7 +235,7 @@ in *both* time directions. Particles are now released through a deep column and 
 interior is scored.
 
 **Second gate:** backward transit from the 30 m receptor — p5 = 73 s, median **287 s**
-(4.8 min), p95 = 765 s, with 62% reaching the surface inside 900 s. PLAN.md expects 1-5 min
+(4.8 min), p95 = 765 s, with 62% reaching the surface inside 900 s. docs/PLAN.md expects 1-5 min
 unstable and 10-15 min stable; neutral sitting at the fast end of that range is correct.
 
 ### Stage 5 Gate 1 (revised) — sub-grid fraction ❌ FAIL, and unreachable at `dx = 30 m`

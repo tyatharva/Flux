@@ -4,7 +4,7 @@
 
 ## Why this seed was run
 
-At 1952 m this rung **locked in** (`SEED_CBL_DEEP_RESULT.md`): the peak wavelength of `w`
+At 1952 m this rung **locked in** (`docs/results/SEED_CBL_DEEP_RESULT.md`): the peak wavelength of `w`
 at mid-depth pinned at exactly `L` in every one of the last five dumps, with mode 1 carrying
 **53.9–72.0%** of the variance, against the **50.2%** Phase E had accepted at `L/z_i` 2.28
 and the **4.8%** of its compliant reference at 4.56. The rung was deleted from the library

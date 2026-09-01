@@ -284,7 +284,7 @@ def _grid_z0(grid_dir):
         return float(np.exp(np.log(np.load(p)).mean()))
     # REFUSE RATHER THAN GUESS. 0.1435 was the 122^2 @ 16 m value and it is 0.0615 at
     # 30 m -- the box takes in more lake. A grid constant used on the wrong grid is
-    # FASTEDDY_TRAPS.md 19, and a WARNING is not enough: the run continues, the Obukhov
+    # docs/FASTEDDY_TRAPS.md 19, and a WARNING is not enough: the run continues, the Obukhov
     # label comes out wrong by a plausible amount, and it reaches the pair. The caller
     # always has a grid; if the grid has no z0m.npy then the surface was never built and
     # nothing downstream should proceed on a literal.

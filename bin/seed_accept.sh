@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # THE FULL ACCEPTANCE BATTERY FOR ONE SEED, in one place so every seed gets the same one.
 #
-# The first seed's battery was assembled by hand from PROJECT_BRIEF.md and PLAN.md, which is
+# The first seed's battery was assembled by hand from PROJECT_BRIEF.md and docs/PLAN.md, which is
 # fine once and unrepeatable fifteen times: the risk is not that a check fails, it is that
 # a check is quietly SKIPPED for one rung and the library ends up with seeds that were
 # held to different standards. Every item below is run for every seed, and an item that
@@ -9,7 +9,7 @@
 #
 #   usage: bin/seed_accept.sh jobs/seed_nbl-deep_a000 [--wall-seconds N]
 #
-# ASSERT ON THE ARTIFACT, NOT THE EXIT STATUS (FASTEDDY_TRAPS.md 12). Every step here is
+# ASSERT ON THE ARTIFACT, NOT THE EXIT STATUS (docs/FASTEDDY_TRAPS.md 12). Every step here is
 # piped into tee or grep, so $? belongs to the last element of the pipe. Verdicts are
 # re-read from the JSON each tool writes, and a missing JSON is a failure.
 set -uo pipefail

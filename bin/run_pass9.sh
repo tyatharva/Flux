@@ -12,7 +12,7 @@
 #     one-FastEddy-at-a-time refusal and killed the case before a single step ran, so the
 #     battery runs in the FOREGROUND and wait_for_gpu guards every launch besides.
 #   ASSERT ON THE ARTIFACT. Every step checks the file it was supposed to write, never an
-#     exit status -- the analyses are piped into grep and tee (FASTEDDY_TRAPS.md 12).
+#     exit status -- the analyses are piped into grep and tee (docs/FASTEDDY_TRAPS.md 12).
 #
 # THE TWO DATETIMES, and why these:
 #   CONVECTIVE 2023-11-17T18:00Z -- z_i 681 m (mid-band, and 19 m from the cbl-mid rung's
@@ -94,7 +94,7 @@ bg bash bin/pass9_accept.sh "$CONV_TAG" "$DT30" convective
 # ---- 3. the neutral seed, 3.0 sim-h ceiling, with the accelerator ----------------------
 # Steinfeld's spin-up accelerator: 3000 s at surflayer_wth = +0.05 to trip the transition
 # to resolved turbulence, then a restart with htFlux ZEROED IN THE FILE, because htFlux is
-# IO-registered and the .in cannot override it (FASTEDDY_TRAPS.md 17).
+# IO-registered and the .in cannot override it (docs/FASTEDDY_TRAPS.md 17).
 if ! have_seed "$NEUT_SEED"; then
   say "RUN 3: neutral seed $NEUT_SEED, 3.0 sim-h ceiling, accelerator on"
   SEED_CEILING_H=3.0 SEED_ACCEL_S=3000 SEED_EARLY_STOP=1 \
@@ -134,7 +134,7 @@ bg bash bin/pass9_flat.sh "$DT30"
 # ---- 5. the neutral target, two windows, through the ring ------------------------------
 # THE NEUTRAL SEED IS DRIFTING IN z_i AND pick_seed REFUSES IT BY DEFAULT.
 # Measured on seed_nbl-deep_a015 at 2.917 sim-h: +5.76 %/h against a 3 %/h limit. That is
-# not a surprise -- PLAN.md item 0aa predicted it from a scoring-window sweep ("z_i ...
+# not a surprise -- docs/PLAN.md item 0aa predicted it from a scoring-window sweep ("z_i ...
 # TRENDING AWAY from band ... a longer run resolves these into a FAIL, not a pass") -- and
 # it means no affordable neutral spin-up will ever satisfy the limit, because a neutral
 # Ekman layer's depth keeps growing for several inertial periods.
@@ -143,7 +143,7 @@ bg bash bin/pass9_flat.sh "$DT30"
 # and not a failure, so the neutral target is built and the state is recorded rather than
 # the data being dropped: gate_state = DRIFTING is stamped on both pairs and a warning goes
 # into the training record. THE CORPUS DRIVER DOES NOT SET THIS. Whether the corpus should
-# is a design decision for the user, and NINTH_PASS_RESULTS.md puts the numbers next to it.
+# is a design decision for the user, and docs/results/NINTH_PASS_RESULTS.md puts the numbers next to it.
 export ALLOW_DRIFTING=1
 say "RUN 5: neutral target $NEUT_TAG at $NEUT_TS (seed is DRIFTING in z_i; see above)"
 wait_for_gpu

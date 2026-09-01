@@ -158,7 +158,7 @@ def main():
     if verdict:
         print("\n  PASS: the chain is worth no more than re-running the same case.")
         print("        Unchaining does not change the answer; it removes a restart READ,")
-        print("        which is what FASTEDDY_TRAPS.md 17 was about.")
+        print("        which is what docs/FASTEDDY_TRAPS.md 17 was about.")
     else:
         print("\n  FAIL: chained and unchained differ by more than the reproducibility")
         print("        floor. Do NOT carry chained results over to unchained production.")
