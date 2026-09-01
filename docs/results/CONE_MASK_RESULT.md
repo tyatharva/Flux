@@ -32,17 +32,17 @@ cannot be far off-axis at large along-wind distance, because `|y'|` is bounded b
 
 ## The mask
 
-    keep  ⟺  |y'| ≤ max(k·σ_y(x'), y_min)   AND   x' ≥ −y_min
+    keep  ⟺  x' ≥ x_min   AND   |y'| ≤ max(k·σ_y(x'), y_min)
 
 with `x' = x·sin_wdir + y·cos_wdir` (positive **upwind**) and `y' = x·cos_wdir − y·sin_wdir`.
 `σ_y` comes from the official FFP v1.42 through `lpdm/kljun_ffp.py:ffp_profile` — the same
-call that produced the `kljun` channel. No separate half-plane cut is needed: a cell at
-negative `x'` is outside a cone opening upwind and the same criterion removes it.
+call that produced the `kljun` channel.
 
-`y_min` and the apex offset are near-field regularisers: `σ_y → 0` at the receptor, so a pure
-cone would pinch the peak.
+`y_min` floors the half-width because `σ_y → 0` at the receptor and a pure cone would pinch
+the peak. `x_min` keeps the cone **empty downwind**, where a genuine footprint is zero by
+construction.
 
-**`k = 8`, `y_min = 90 m`.** Both measured, not asserted.
+**`k = 8`, `y_min = 90 m`, `x_min = 0 m`.** All three measured, not asserted.
 
 ## How `k` was chosen: the distribution is bimodal
 
@@ -71,33 +71,97 @@ gives the same answer.**
 
 ## Sensitivity: the answer barely moves
 
-| k | y_min | removed median | p95 | max | within 200 m median | max | σ_v bias |
+| k | y_min | removed median | p95 | max | within 200 m **upwind** median | max | σ_v bias |
 |---|---|---|---|---|---|---|---|
-| 3 | 0 | 12.83% | 19.75 | 29.75 | 0.000% | 1.142% | 1.01 |
-| 5 | 90 | 12.45% | 18.94 | 29.40 | 0.000% | 0.920% | 1.03 |
-| **8** | **90** | **12.43%** | **18.93** | **29.40** | **0.000%** | **0.920%** | **1.03** |
-| 12 | 120 | 12.38% | 18.90 | 29.40 | 0.000% | 0.699% | 1.02 |
+| 3 | 0 | 12.83% | 19.75 | 29.75 | 0.000% | 0.359% | 1.01 |
+| 5 | 90 | 12.46% | 19.06 | 29.40 | 0.000% | 0.127% | 1.03 |
+| **8** | **90** | **12.46%** | **19.06** | **29.40** | **0.000%** | **0.127%** | **1.03** |
+| 12 | 120 | 12.45% | 19.05 | 29.40 | 0.000% | 0.057% | 1.03 |
 
-Removed mass moves by 0.4 percentage points across a **factor of four in k**. That flatness
+Removed mass moves by 0.38 percentage points across a **factor of four in k**. That flatness
 *is* the evidence: there is nothing between the footprint and the artifact to be sensitive to.
 
 **It does not eat wide footprints.** The σ_v bias column is the top-decile / bottom-decile
 ratio of removed mass: **1.03**, i.e. the broadest 10% of records by σ_v lose 3% more than
 the narrowest 10%. σ_v spans 0.42–1.70 m/s across the corpus and the slope of removed mass
-against σ_v is −0.26 %/(m/s) — **negative**, so if anything the wide cases lose slightly less.
+against σ_v is −0.25 %/(m/s) — **negative**, so if anything the wide cases lose slightly less.
 
-**`y_min` was set by the near-field acceptance criterion**: removed mass within 200 m of the
-receptor at median 0.000% and max ~1.00%. `y_min = 60 m` leaves the max at 1.04–1.08% (fails);
-`y_min = 90 m` brings it to **0.920%** (passes). It binds only where `k·σ_y < y_min`, i.e.
-`x' ≲ 30 m`.
+**The within-200 m column is upwind only, and deliberately.** Downwind of the receptor a
+genuine footprint is zero (next section), so removed mass there is artifact and including it
+would swamp the very signal the column exists to show — it sits at ~1.02–1.14% for every
+setting and discriminates nothing. Upwind, `y_min` discriminates properly: 0.219% at 60 m,
+**0.127% at 90 m**, 0.084% at 120 m, against a 1.00% budget. `y_min = 90 m` binds only where
+`k·σ_y < y_min`, i.e. `x' ≲ 30 m`.
+
+## The `x_min` term was a bug fix, not a refinement
+
+**The first cone bounded the downwind side at `x' ≥ −y_min` instead of `x' ≥ 0`.** That left
+the `y_min` floor open over a strip 90 m deep and ~`2·max(8·σ_y(0), 90)` m wide directly
+behind the receptor.
+
+**It under-removed for axis-aligned winds specifically, and the mechanism says why.** The
+periodic fold is per axis. For a near-axis-aligned wind the fold that matters happens in
+**one** axis, so every wrapped particle lands on a single line through the receptor — straight
+into that strip. Diagonal winds fold in both axes and scatter off-axis, where the cone already
+catches them. So the artifact appeared as a bright rectangle at the tower on **every** N/S/E/W
+record and on **no** diagonal one.
+
+Two measurements fix `x_min = 0`.
+
+**(a) The control.** Diagonal winds are the clean case, so their retained profile near the
+receptor is what a genuine footprint looks like there. Retained `|mass|` per 30 m bin, % of
+`|f|`, under the old rule:
+
+| x' bin [m] | axis-aligned | diagonal | excess |
+|---|---|---|---|
+| −120…−90 | 0.0000 | 0.0000 | +0.0000 |
+| −90…−60 | 0.0299 | **0.0000** | +0.0299 |
+| −60…−30 | 0.0365 | **0.0000** | +0.0365 |
+| −30…0 | 0.0277 | **0.0000** | +0.0277 |
+| 0…30 | 0.0693 | 0.0117 | +0.0576 |
+
+The diagonal control is **exactly 0.0000%** at every bin with `x' < 0`. A genuine footprint
+puts nothing downwind. The axis-aligned group carried **0.0942%** there — that is the
+rectangle, and it is artifact and nothing else.
+
+**(b) Does wrap reach positive `x'`?** A fold shifts a particle by `3660·cos(off)` along the
+wind axis for a wind `off` degrees from that axis, and the particle's own displacement is
+capped at 3660 m, so folded material lands at `x' ≤ 3660·(1 − cos(off))`. If that reach
+mattered, records further off-axis would carry **more** mass just upwind of the receptor:
+
+| off-axis | n | predicted reach into x' > 0 | −90…−60 | −30…0 | **0…30** | 30…60 |
+|---|---|---|---|---|---|---|
+| 0–2° | 75 | 2.2 m | 0.0437 | 0.0380 | **0.0801** | 0.5266 |
+| 2–4° | 66 | 8.9 m | 0.0489 | 0.0400 | **0.0691** | 0.5477 |
+| 4–6° | 67 | 20.0 m | 0.0270 | 0.0271 | **0.0782** | 0.5585 |
+| 6–8° | 61 | 35.6 m | 0.0226 | 0.0244 | **0.0691** | 0.4398 |
+| 8–10° | 56 | 55.6 m | 0.0169 | 0.0155 | **0.0784** | 0.4573 |
+
+The `x' < 0` bins **fall** with off-axis angle — as the wind turns away from an axis the
+fold's crosswind shift grows and the cone already catches it — while the `x' ∈ [0, 30)` bin is
+**flat** against a predicted reach growing from 2 m to 56 m. **Wrap does not measurably reach
+positive `x'`.** `x_min = 0` is sufficient, and any larger value would cut genuine near-field
+mass instead.
+
+**The near-field peak cannot have moved.** The rule is unchanged for `x' ≥ 0`, so `target_cone`
+is bit-identical to the previous version everywhere upwind; `x_min` only empties the downwind
+side. Splitting the within-200 m removed mass confirms it: **upwind (where the peak is) median
+0.000%, max 0.127%** — that is the number the acceptance criterion was written for. The
+downwind part is median 0.000%, max 1.001%, and that is the strip, not the peak.
+
+Corpus-wide the change is small, as expected for a narrow strip: removed `|mass|` went
+median 12.43% → **12.46%**.
+
+**Asserted after the rebuild: 0 of 1366 records carry any nonzero value at `x' < 0`.**
 
 ## What it removes
 
 | | |
 |---|---|
-| \|mass\| removed | p5 6.71%, median **12.43%**, p95 18.93%, max 29.40% |
+| \|mass\| removed | p5 6.71%, median **12.46%**, p95 19.06%, max 29.40% |
 | of it upwind (half-plane blind spot) | median 1.18%, p95 3.76%, max 9.39%; nonzero on 1360/1366 |
-| within 200 m of the receptor | median **0.000%**, max **0.920%** |
+| within 200 m, UPWIND (where the peak is) | median **0.000%**, max **0.127%** |
+| within 200 m, downwind (the strip) | median 0.000%, max 1.001% |
 | **Kljun \|mass\| removed by the same cone** | **max over all records 0.00000%** |
 
 The input channel is untouched, so the cone removes essentially nothing a perfect emulator
@@ -160,9 +224,13 @@ The residual limits are:
 1. **Genuine far-off-axis material is removed with the wrap.** `k` was chosen inside an empty
    valley, so this is measured to be nothing: 0.0110% of LES `|mass|` in `q ∈ [5, 11)`.
 2. **Genuine downwind contribution is removed.** A convective boundary layer puts a little
-   influence downwind and the cone cannot tell it from wrap. Measured within 200 m, where such
-   a contribution would sit: median 0.000%, max 0.920% of `|f|`.
-3. **The near-field floor is a regulariser, not physics.** It binds only for `x' ≲ 30 m`.
+   influence downwind and the cone cannot tell it from wrap. Measured within 200 m downwind,
+   where such a contribution would sit: median 0.000%, max 1.001% of `|f|`. The diagonal
+   control says a genuine footprint puts **exactly nothing** there, so on this corpus that
+   number is wrap — but the mask could not distinguish them if it were not.
+3. **The near-field floor is a regulariser, not physics.** It binds only for `x' ≲ 30 m`, and
+   only upwind — `x_min = 0` keeps the cone empty downwind. The earlier `x' ≥ −y_min` bound
+   was the bug described above.
 4. **The cone is a geometric test, not a trajectory test.** It says where mass ended up, not
    how it got there.
 
@@ -182,7 +250,8 @@ generation-time change and a full corpus regeneration.
     target_cone    NEW. THE TRAINING TARGET.
     meta/u_mean_ms NEW. Carried so sigma_y, and therefore the cone, is reproducible
                    from this file alone.
-    grid/cone_*    the rule, k, y_min, the sigma_y source, the commit and the timestamp
+    grid/cone_*    the rule, k, y_min, x_min, the sigma_y source, the commit and the
+                   timestamp
 
 `target_masked`, the retired half-plane mask, has been **deleted**, and the file was rebuilt
 object by object rather than edited in place so the space was actually reclaimed

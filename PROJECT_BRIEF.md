@@ -360,7 +360,7 @@ list — including `xPos`, `yPos`, `zPos`, `topoPos`, `z0m`.
   material running more than one domain length reappears through a seam — downwind, or upwind
   but far off the wind axis. It is a boundary-condition artifact, no tower measures it, and
   the emulator must not be asked to predict it. `bin/mask_cone.py` zeroes everything outside
-  `|y'| ≤ max(8·σ_y(x'), 90 m)`, σ_y being Kljun's own from the official FFP.
+  `x' ≥ 0 and |y'| ≤ max(8·σ_y(x'), 90 m)`, σ_y being Kljun's own from the official FFP.
   **`k = 8` was measured, not picked:** the LES mass distribution against `q = |y'|/σ_y(x')`
   is **bimodal with an empty valley** — 0.0110% of `|mass|` in `q ∈ [5, 11)`, rising again
   past `q ≈ 11` — so any `k` in [5, 11] gives the same answer, and removed mass moves 0.4 pp

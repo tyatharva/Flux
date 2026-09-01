@@ -30,22 +30,26 @@ import fig_corpus_pairs as fcp                             # noqa: E402
 SPLIT_COLOUR = fcp.SPLIT_COLOUR
 
 
-def cone_boundary(sin_w, cos_w, sy_of_x, k, y_min, smax=2400.0):
+def cone_boundary(sin_w, cos_w, sy_of_x, k, y_min, x_min=0.0, smax=2400.0):
     """The cone edge in the north-up frame, as two polylines.
 
     The wind-frame map (x', y') = (x sin + y cos, x cos - y sin) is an involution, so the
     inverse is the same expression: x = x' sin + y' cos, y = x' cos - y' sin.
     """
-    xp = np.linspace(-y_min, smax, 400)
+    xp = np.linspace(x_min, smax, 400)
     yp = np.maximum(k * sy_of_x(xp), y_min)
     out = []
     for sgn in (+1, -1):
         yy = sgn * yp
         out.append((xp * sin_w + yy * cos_w, xp * cos_w - yy * sin_w))
+    # close the cone across its flat upwind end, so the drawn boundary is the actual
+    # boundary and not two open curves that imply the downwind side is still in play
+    y0 = np.linspace(-yp[0], yp[0], 40)
+    out.append((x_min * sin_w + y0 * cos_w, x_min * cos_w - y0 * sin_w))
     return out
 
 
-def case_row(fig, gs, h5, d, run_id, surf, k, y_min):
+def case_row(fig, gs, h5, d, run_id, surf, k, y_min, x_min):
     """Raw target, target_cone, and what the cone deleted -- for one named record."""
     import h5py
     i = int(np.where(d["run_id"] == run_id)[0][0])
@@ -76,7 +80,7 @@ def case_row(fig, gs, h5, d, run_id, surf, k, y_min):
         im = fcp.raster(ax, F, norm, cmap, ext, mask_below=floor)
         fcp.draw_frame(ax, surf, fg=fg)
         fcp.draw_wind(ax, float(d["wdir"][i]), colour=fg)
-        for bx, by in cone_boundary(sin_w, cos_w, sy_of_x, k, y_min):
+        for bx, by in cone_boundary(sin_w, cos_w, sy_of_x, k, y_min, x_min):
             ax.plot(bx, by, color="#39ff14", lw=1.2, ls="--", zorder=8)
         ax.set_title(name, fontsize=9)
         ax.set_xlabel("east  [m]", fontsize=8)
@@ -110,23 +114,25 @@ def main():
     ap.add_argument("--surface", default="data/grid30_raised")
     ap.add_argument("--k", type=float, default=mc.K_DEFAULT)
     ap.add_argument("--y-min", type=float, default=mc.YMIN_DEFAULT)
+    ap.add_argument("--x-min", type=float, default=mc.XMIN_DEFAULT)
     ap.add_argument("--zm", type=float, default=30.0)
     ap.add_argument("--near-m", type=float, default=200.0)
-    ap.add_argument("--case", default="case_2022030716")
+    ap.add_argument("--case", default="case_2023080716")   # wdir 3 deg: axis-aligned,
+                                                      # where the x_min bug showed
     ap.add_argument("--dpi", type=int, default=130)
     a = ap.parse_args()
 
     print("finding the valley ...")
     edges, Hl, Hk, nsamp = mc.choose_k(a.h5, a.npz_dir)
     print(f"measuring at k = {a.k:g}, y_min = {a.y_min:g} ...")
-    d = mc.measure(a.h5, a.k, a.y_min, a.zm, a.near_m, a.npz_dir)
+    d = mc.measure(a.h5, a.k, a.y_min, a.zm, a.near_m, a.npz_dir, a.x_min)
     surf = fcp.load_surface(a.surface)
     os.makedirs(os.path.dirname(a.out) or ".", exist_ok=True)
 
     fig = plt.figure(figsize=(14.4, 13.4))
     gs = fig.add_gridspec(3, 3, height_ratios=[1.30, 1.0, 1.0], hspace=0.36, wspace=0.27,
                           left=0.055, right=0.965, top=0.902, bottom=0.075)
-    case_row(fig, gs, a.h5, d, a.case, surf, a.k, a.y_min)
+    case_row(fig, gs, a.h5, d, a.case, surf, a.k, a.y_min, a.x_min)
 
     order = ["train", "val", "test"]
     sp = d["split"]
@@ -244,7 +250,8 @@ def main():
     ax.tick_params(labelsize=7)
 
     fig.suptitle(
-        f"The wind-aligned cone: $|y'| \\leq \\max({a.k:g}\\,\\sigma_y(x'), {a.y_min:g}"
+        f"The wind-aligned cone: $x' \\geq {a.x_min:g}$ and "
+        f"$|y'| \\leq \\max({a.k:g}\\,\\sigma_y(x'), {a.y_min:g}"
         f"\\,\\mathrm{{m}})$   (n = {d['n']}; top row: {a.case}, wind FROM "
         f"{d['wdir'][int(np.where(d['run_id'] == a.case)[0][0])]:.0f}$\\degree$)\n"
         f"removes a median {100 * np.median(d['rm_abs']):.2f}% of $|f|$, of which "

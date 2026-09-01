@@ -59,9 +59,9 @@ TGT_LABEL = ["TARGET  LES + backward LPDM",
 
 MASK_CAPTION = (
     "\nTARGET IS target_cone, THE TRAINING TARGET: everything outside a wind-aligned cone "
-    "|y'| <= max(8 sigma_y(x'), 90 m) is set to zero (bin/mask_cone.py).  That is where "
-    "periodic-wrap material lands and where a real footprint cannot reach.  figures/raw/ "
-    "is the same set on the raw LES target, which is retained in corpus.h5.")
+    "x' >= 0 and |y'| <= max(8 sigma_y(x'), 90 m) is set to zero (bin/mask_cone.py).  That "
+    "is where periodic-wrap material lands and where a real footprint cannot reach.  "
+    "figures/raw/ is the same set on the raw LES target, which is retained in corpus.h5.")
 
 CAPTION = (
     "North-up map frame, 30 m cells, receptor (star) at the origin, 122 real cells inside "

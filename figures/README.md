@@ -77,8 +77,8 @@ Neither gate is an exclusion rule; see `corpus/README.md`.
 ## `cone_mask_effect.png` — how the cone was derived
 
 `bin/mask_cone.py` writes `target_cone` into `corpus.h5`: everything outside a wind-aligned
-cone `|y'| ≤ max(8·σ_y(x'), 90 m)` is set to zero, where σ_y is Kljun's own, from the corpus's
-own input channel.
+cone `x' ≥ 0` and `|y'| ≤ max(8·σ_y(x'), 90 m)` is set to zero, where σ_y is Kljun's own,
+from the corpus's own input channel.
 
 The panel that justifies `k = 8` is the middle-left one. The LES mass distribution against
 `q = |y'|/σ_y(x')` is **bimodal with an empty valley**: 0.0110% of `|mass|` in `q ∈ [5, 11)`,
