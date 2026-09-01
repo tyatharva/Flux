@@ -201,7 +201,11 @@ def main():
                 miss_by_split[(v.get("split"), v.get("status"))] += 1
     if mans:
         print(f"  {len(mans)} manifest(s): {expected} case(s) expected across machines "
-              + ", ".join(f"m{k}={v}" for k, v in sorted(mach_cases.items())))
+              # SORT ON str(k). `mid` falls back to a FILENAME when a manifest carries no
+              # "machine" key, so the key set can be mixed int/str and a bare sorted() dies
+              # with TypeError -- at the last step before ML, on a corpus that is fine.
+              + ", ".join(f"m{k}={v}" for k, v in sorted(mach_cases.items(),
+                                                         key=lambda kv: str(kv[0]))))
 
     # ---- load, check, and index -------------------------------------------------------
     recs, seen = [], {}

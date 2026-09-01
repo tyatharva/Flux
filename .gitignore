@@ -82,3 +82,8 @@ jobs/seed_sbl-weak_*/
 runs/dryrun_test/
 runs/skiptest/
 runs/unchain_test/
+
+# the generated corpus: ~100 MB of .npz plus corpus.h5. Data, not source.
+# The safety copy is ~/Desktop/corpus; the record of what produced it is the image tag
+# in corpus/README.md.
+corpus/

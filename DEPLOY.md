@@ -666,7 +666,7 @@ rsync -avP -e 'ssh -p <PORT>' root@<HOST>:/out/manifest.json root@<HOST>:/out/ru
 
 # all eight, into one place -- the filenames are globally unique (case_YYYYMMDDHH)
 for m in 0 1 2 3 4 5 6 7; do
-  rsync -avP -e "ssh -p ${PORT[$m]}" root@${HOST[$m]}:/out/pairs_npz/ ./pairs_npz/
+  rsync -avP -e "ssh -p ${PORT[$m]}" root@${HOST[$m]}:/out/pairs_npz/ ./corpus/pairs_npz/
   rsync -avP -e "ssh -p ${PORT[$m]}" root@${HOST[$m]}:/out/manifest.json ./manifests/machine$m.json
 done
 ```
@@ -678,7 +678,7 @@ deleted by `bin/get_case.sh` on its way out, including on failure.
 Check what came back before destroying anything:
 
 ```bash
-python3 bin/check_npz.py pairs_npz/*.npz --quiet     # every record against the schema
+python3 bin/check_npz.py corpus/pairs_npz/*.npz --quiet     # every record against the schema
 python3 -c "
 import json,glob,collections
 c=collections.Counter(); d=collections.Counter()
@@ -740,10 +740,10 @@ tested.
 any ML.
 
 ```bash
-# from the repo root, with pairs_npz/ and manifests/ as §C6 left them
+# from the repo root, with corpus/pairs_npz/ and corpus/manifests/ as §C6 left them
 docker run --rm -v "$PWD":/w -w /w ghcr.io/tyatharva/flux-seeds:corpus \
     python3 bin/consolidate_corpus.py \
-        --npz-dir pairs_npz --manifests manifests --out corpus.h5
+        --npz-dir corpus/pairs_npz --manifests corpus/manifests --out corpus.h5
 ```
 
 (The host python has no h5py; the analysis stack lives in the image, as it does for

@@ -348,7 +348,13 @@ def write_training_npz(a, rec, st, fp, npz_path, target, kljun_raster, xc, yc, z
     # which cases this machine produced and at which commit and grid, so a corpus assembled
     # from several rented boxes can be checked for gaps and for version skew rather than
     # assumed homogeneous.
-    man = os.path.join(a.npz_dir, "manifest.json")
+    # NAMED BY HOST, NOT "manifest.json". The corpus is generated on eight rented boxes
+    # and their /out/pairs_npz/ directories are rsynced into ONE directory; a fixed name
+    # means each machine's copy overwrites the last and what survives indexes ~1/8 of the
+    # corpus. MEASURED on the 2026-09-01 run: the merged directory held 1368 records and a
+    # manifest.json naming 196 of them, with nothing to say so. A loader that trusted it
+    # would have trained on 14% of the corpus and reported no error.
+    man = os.path.join(a.npz_dir, f"manifest.{os.uname().nodename}.json")
     m = {"format": "flux-footprint-manifest/1", "cases": {}}
     if os.path.exists(man):
         try:
