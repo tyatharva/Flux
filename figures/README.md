@@ -1,24 +1,28 @@
 # Figures
 
-    raw/                    the nine pair figures on the corpus target. THE DEFAULT SET.
-    masked/                   the same nine on target_masked (the ablation, not a fix)
-    wrap_mask_effect.png      why raw/ is still the default
+    cone/                     the nine pair figures on target_cone. THE TRAINING TARGET.
+    raw/                      the same nine on the raw LES target, wraparound and all
+    cone_mask_effect.png      how the cone was derived and what it did
     old/                      the 22 LES-development-pass figures
 
 Regenerate everything from `corpus/corpus.h5` alone:
 
     D="docker run --rm -v $PWD:/w -w /w -u $(id -u):$(id -g) -e MPLCONFIGDIR=/tmp/mpl \
        ghcr.io/tyatharva/flux-seeds:7de9dee2a01d-fe0ce48d5dff06"
+    $D python3 bin/fig_corpus_pairs.py --target target_cone \
+                                       --outdir figures/cone               # -> cone/
     $D python3 bin/fig_corpus_pairs.py                                     # -> raw/
-    $D python3 bin/fig_corpus_pairs.py --target target_masked \
-                                       --outdir figures/masked             # -> masked/
-    $D python3 bin/fig_wrap_mask.py                                        # -> the PNG
+    $D python3 bin/fig_cone_mask.py                                        # -> the PNG
 
 The host python has no h5py, scipy or matplotlib, so this runs in-image like every other
 analysis. `bin/fig_corpus_pairs.py` runs no LES and no LPDM — it opens the same file the
 training loader will open, so a pair that is wrong here is wrong in the dataset.
 
-## `raw/` — the (input, target) pairs, on the corpus target
+## `cone/` and `raw/` — the (input, target) pairs
+
+`cone/` plots `target_cone`, the training target. `raw/` plots `target`, the raw
+LES output with the periodic wraparound still in it. Same nine figures, same
+layout, so the two directories diff by eye.
 
 | file | what it shows |
 |---|---|
@@ -43,17 +47,17 @@ wind-aligned — that is deliberate, and it is the first thing to check by eye.
 * **dotted square** — the boundary of the 122 real cells; outside it is the zero pad.
 * **arrow** — the mean flow. The source area must lie on the *other* side of it.
 * **white contours** — 50% and 80% source area.
-* **dashed cyan** — where the signed target is negative. The negative lobe is physical and
-  nothing clips it; it carries a median 4.8% of `|f|`.
+* **dashed cyan** — where the signed target is negative. Nothing clips it; the negative lobe
+  is a median 4.8% of `|f|` raw and 1.6% after the cone.
 
 The INPUT and TARGET panels of a row **share one colour scale**, spanning four decades below
 the larger of the two peaks. Panels are not renormalised: the absolute scale is an input to
 the loss, so it is what is plotted, and the integral is printed on the target instead.
 
-The faint speckled lobe **downwind** of the target is not a second footprint. Touchdowns are
-binned by LES column index and folded modulo the periodic domain, so trajectories running
-more than one domain length upwind reappear through the seam; displacement is capped at one
-domain length, which is what bounds it.
+In `raw/`, the speckled lobes off the wind axis and downwind are periodic **wrap**, not a
+second footprint: touchdowns are binned by LES column index and folded modulo the domain, per
+axis and independently, so a trajectory running more than one domain length reappears through
+a seam. They are gone in `cone/`.
 
 ### What the sanity figure asserts
 
@@ -70,23 +74,25 @@ the figures use. **G3b is a peak DISTANCE ratio, not a peak amplitude ratio** �
 ratio is a different number, is reported in the same panel, and nothing thresholds it.
 Neither gate is an exclusion rule; see `corpus/README.md`.
 
-## `masked/` and `wrap_mask_effect.png` — the wraparound ablation
+## `cone_mask_effect.png` — how the cone was derived
 
-`bin/mask_wrap.py` writes a second target into `corpus.h5`, `target_masked`, with every cell
-on the **downwind** side of the receptor set to zero. The idea was that downwind mass is
-periodic wrap — Kljun is identically zero downwind, verified at exactly `0.000e+00` over all
-1366 records — and that removing it would pull the footprint integral back to its
-`1 − z_m/z_i` asymptote.
+`bin/mask_cone.py` writes `target_cone` into `corpus.h5`: everything outside a wind-aligned
+cone `|y'| ≤ max(8·σ_y(x'), 90 m)` is set to zero, where σ_y is Kljun's own, from the corpus's
+own input channel.
 
-**It does not.** `wrap_mask_effect.png` is the evidence, and its decisive panel is the middle
-one of row 2: `r(|mass| removed, raw error) = −0.496`. The records that lose the most
-downwind mass are the ones that were *already below* the asymptote. Wrap double-counting
-predicts the opposite sign. Median |error| goes 0.144 → 0.146, i.e. slightly worse, and half
-the corpus ends up below the asymptote.
+The panel that justifies `k = 8` is the middle-left one. The LES mass distribution against
+`q = |y'|/σ_y(x')` is **bimodal with an empty valley**: 0.0110% of `|mass|` in `q ∈ [5, 11)`,
+then it rises again past `q ≈ 11`. The footprint is below `q ≈ 5`, the wrap above `q ≈ 11`,
+and `k` sits between them — which is why removed mass moves only 0.4 pp across a factor of
+four in `k`.
 
-`masked/` is the same nine figures on `target_masked`, for comparison. **Train on `target`.**
-`target_masked` is a defensible ablation, not a correction. Full write-up:
-`docs/results/WRAP_MASK_RESULT.md`.
+The cone also catches what a downwind half-plane cut could not. The periodic fold is per axis
+and independent, so a particle that wraps in one axis alone lands back **upwind** as an
+off-axis streak: a median 1.18% of `|f|`, up to 9.39%, on 1360 of 1366 records.
+
+It is an **operational cleanup, not an integral correction** — the median |error| against the
+`1 − z_m/z_i` asymptote goes 0.1443 → 0.1467, i.e. slightly worse, and that is stated rather
+than hidden. Full write-up: `docs/results/CONE_MASK_RESULT.md`.
 
 ## `old/`
 

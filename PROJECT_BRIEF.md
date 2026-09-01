@@ -24,7 +24,7 @@ inference.
 | | |
 |---|---|
 | records | **1366** — train 837 / val 235 / test 294 |
-| arrays | `scalars` (N,6), `kljun` (N,128,128), `target` (N,128,128), all float32. `target_masked` is an ABLATION, not the training target — see below. |
+| arrays | `scalars` (N,6), `kljun` (N,128,128), `target` (N,128,128), **`target_cone` (N,128,128) — TRAIN ON THIS**, all float32 |
 | normalisation | in `norm/`, computed from the **train split alone** |
 | index / flags | `corpus/INDEX.json`, `corpus/FLAGGED.tsv` |
 | provenance | `corpus/provenance/` — 8 machine manifests, every one of 1945 days accounted for |
@@ -355,22 +355,39 @@ list — including `xPos`, `yPos`, `zPos`, `topoPos`, `z0m`.
 - **Periodic wrap double-counts. Cap trajectory displacement at one streamwise domain length.**
   And **an integral that crosses 1 and keeps climbing cannot be truncation** — a finite backward
   time can only lose influence — so it is always a model inconsistency.
-- **The downwind mass in the target is NOT what inflates the integral, and this is measured.**
-  Touchdowns are folded modulo the domain, so material running more than one domain length
-  upwind reappears downwind; `bin/mask_wrap.py` zeroes that half-plane into `target_masked`.
-  Kljun's downwind mass is **exactly `0.000e+00`** over all 1366 records, so the premise is
-  sound — but removing it moves only **53.8%** of records closer to the `1 − z_m/z_i`
-  asymptote, takes the median |error| **0.1443 → 0.1455 (worse)**, and
-  **`r(|mass| removed, raw error) = −0.496`**: the records that lose the MOST downwind mass
-  are the ones that were ALREADY BELOW the asymptote, which is the opposite sign to what
-  wrap double-counting predicts. What is downwind is a near-uniform offset — 0.743 positive
-  by |mass|, net median 0.058 in integral units on every record alike — and a constant 6%
-  cannot explain errors spread from −0.25 to +0.50. **The advection non-closure already fits
-  the observation** (both signs, tracks `w_bar`). `docs/results/WRAP_MASK_RESULT.md`.
+- **The corpus's ML target is `target_cone`, not `target`.** The raw target carries periodic
+  WRAPAROUND: touchdowns are folded modulo the domain **per axis and independently**, so
+  material running more than one domain length reappears through a seam — downwind, or upwind
+  but far off the wind axis. It is a boundary-condition artifact, no tower measures it, and
+  the emulator must not be asked to predict it. `bin/mask_cone.py` zeroes everything outside
+  `|y'| ≤ max(8·σ_y(x'), 90 m)`, σ_y being Kljun's own from the official FFP.
+  **`k = 8` was measured, not picked:** the LES mass distribution against `q = |y'|/σ_y(x')`
+  is **bimodal with an empty valley** — 0.0110% of `|mass|` in `q ∈ [5, 11)`, rising again
+  past `q ≈ 11` — so any `k` in [5, 11] gives the same answer, and removed mass moves 0.4 pp
+  across a factor of four in `k`. Removes a median 12.43% of `|f|`; **Kljun loses 0.00000%**.
+  `docs/results/CONE_MASK_RESULT.md`.
+- **A DOWNWIND HALF-PLANE CUT IS NOT ENOUGH, because the fold is per-axis.** Single-axis wrap
+  lands back UPWIND as a thin off-axis streak whenever the displacement exceeds
+  `3660·max(|sin|,|cos|)`. The cone removes a median **1.18%** of `|f|` (max 9.39%) that sits
+  upwind, **on 1360 of 1366 records** — all of it invisible to a half-plane.
+- **No particle can wrap TWICE, and that is verified in the image that built the corpus.**
+  `run_corpus_case.sh` passes no `--max-disp`; `stage5_footprint.py` defaults to `None`;
+  `lpdm/driver.py:281` then sets `max_disp = fs.Lx` = 3660 m. So every wrapped particle is
+  displaced exactly one domain length in x, in y, or in both, and therefore lands off-axis or
+  downwind — **the cone catches all of it**, with no double-wrapped material left on-axis.
+  (The eighth-pass 3 L diagnostic did not leak in: those runs are separately named `_3L` and
+  `_uncapped`.)
+- **Removing the wraparound does NOT fix the footprint integral, and is not claimed to.**
+  Median |error| against the asymptote goes **0.1443 → 0.1467** and
+  `r(|mass| removed, raw error) = −0.490`: the records losing the most wrap were the ones
+  already BELOW the asymptote. **The advection non-closure already fits** — departure tracks
+  `w_bar` with the right sign, both signs, subsidence 1.497x and updraft 0.916x. The cone is
+  an operational cleanup; the integral is a separate open question.
 - **The corpus negative lobe does NOT carry the Steinfeld wind-turning signature.** Those
-  negatives sit to the RIGHT of the upstream direction, a prediction with a side to it. Of
-  the negative mass surviving the upwind mask, the right-hand fraction is a median **0.534**,
-  right-hand majority in 53.8% of records — no side preference at all.
+  negatives sit to the RIGHT of the upstream direction, a prediction with a side to it.
+  Measured on the surviving negative mass, the right-hand fraction is a median **0.534** with
+  a right-hand majority in 53.8% of records — no side preference at all. The lobe is a median
+  4.80% of `|f|` raw and **1.59%** after the cone.
 - **Rescaling sub-grid variance breaks well-mixedness unless the drift is rescaled with it.**
   Thomson's reverse-time drift contains `d(sigma²)/dz`; with a height-dependent `sc(z)` it is
   `sc·dsig2dz + (2/3)·e·dsc/dz`, and the second term is the larger.
@@ -581,11 +598,12 @@ cases by ACHIEVED direction.
    RUN is short.** The neutral rungs are genuinely short at 2.0 sim-h.
 8. **The GPU LPDM is validated but is not the production integrator**, so host residency floors
    at the 12.0 GB field cache rather than at one or two snapshots.
-9. **`target_masked` exists and is NOT the training target.** The downwind half-plane
-   ablation is written into `corpus.h5` and is reproducible from `grid/`, but it removes ~11%
-   of `|f|` and ~6% of the integral from every record alike, pushes half the corpus below the
-   asymptote, and cuts more than half the negative lobe — while failing to close the gap it
-   was built to close. **Train on `target`; use `target_masked` to ablate.**
+9. **The ML target is `target_cone`, and the wraparound it removes is a boundary artifact,
+   not signal.** `target` is retained raw. The cone is an operational cleanup and **not** an
+   integral correction: median |error| against the asymptote goes 0.1443 → 0.1467 and 720 of
+   1366 records end up below it. What inflates the integral is still open — the advection
+   non-closure is the candidate that fits, and testing it needs `w_bar` per record, which the
+   corpus does not carry.
 10. **Seed grouping in the split is not settled.** `bin/seed_leakage.py` found no fingerprint at
    the un-confounded receptor — sharing a seed made two cases *less* alike (2.47 vs 1.55 floors)
    — but n = 1 same-seed pair there, so it is weak evidence, not a licence to drop grouping.
@@ -609,10 +627,13 @@ cases by ACHIEVED direction.
 - **A neutral well-mixed PASS as evidence about the convective closure** — the floor is nearly
   inert neutrally. It passed a closure carrying NINE turnovers.
 - **Stable corpus cases at this grid** — see limitation 5.
-- **A post-hoc wraparound mask as a CORRECTION to the footprint integral** — built,
-  measured, and refuted by the sign of its own correlation. It stays as an ablation.
-  The clean fix, which needs a corpus regeneration and is recorded rather than done, is to
-  deposit the UNFOLDED displacement at generation time.
+- **A post-hoc wraparound mask as a CORRECTION to the footprint integral** — built twice
+  (half-plane, then cone), measured both times, and refuted both times by the sign of its own
+  correlation. The cone stays, as an operational cleanup.
+- **A DOWNWIND HALF-PLANE as the wraparound cut** — it cannot see single-axis wrap, which
+  lands back upwind. Superseded by the cone. The clean fix, which needs a corpus regeneration
+  and is recorded rather than done, is to deposit the UNFOLDED displacement at generation
+  time.
 - **Online footprint calculation inside FastEddy** — IO is ~3% of compute so it solves a
   problem we do not have, and it would be a worse estimator: forward tracers resolve source
   *tiles*, so the footprint's resolution becomes the number of tracers you can afford and the
@@ -650,11 +671,11 @@ and corpus design. `docs/results/` holds the twenty per-pass and per-experiment 
 **superseded on absolute numbers by this file**, kept for methodology and for how each
 conclusion was reached.
 
-`bin/fig_corpus_pairs.py` regenerates every figure in `figures/raw/` from `corpus/corpus.h5`
-alone, and re-derives the G2b and G3b counts against `corpus/FLAGGED.tsv` as it goes;
-`--target target_masked --outdir figures/masked` does the ablation set and
-`bin/fig_wrap_mask.py` draws why it is only an ablation. `figures/README.md` says how to read
-a pair panel.
+`bin/fig_corpus_pairs.py` regenerates the nine pair figures from `corpus/corpus.h5` alone and
+re-derives the G2b and G3b counts against `corpus/FLAGGED.tsv` as it goes:
+`--target target_cone --outdir figures/cone` for the training target, no flags for
+`figures/raw/`. `bin/fig_cone_mask.py` draws how the cone was derived.
+`figures/README.md` says how to read a pair panel.
 
 **2026-09-01: 121 GB of LES scratch was removed** (`runs/*/{output,window}`, the `jobs*` dumps,
 and a verified byte-identical duplicate seed library). Inventory, what was kept and why, and

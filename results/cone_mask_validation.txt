@@ -1,0 +1,165 @@
+==============================================================================
+WIND-ALIGNED CONE MASK -- k = 8, y_min = 90 m
+==============================================================================
+records                1366
+rule                   keep <=> |y'| <= max(8*sigma_y(x'), 90 m) AND x' >= -90 m
+sigma_y                official FFP v1.42, the same call that made the kljun channel
+asymptote              1 - z_m/z_i, z_m = 30.0 m; median 0.9645
+
+------------------------------------------------------------------------------
+1. HOW k WAS CHOSEN: the valley in q = |y'| / sigma_y(x')
+------------------------------------------------------------------------------
+  LES |mass| against q, averaged over 400 records. Downwind cells are q = inf
+  and sit in the last row; they are removed at every k.
+
+      q range        LES |mass|/bin      cumulative LES     cumulative Kljun
+       0.00- 0.25       16.837%          16.837%           19.50568%
+       2.00- 2.25        2.100%          84.643%           97.35531%
+       4.00- 4.25        0.011%          87.506%           99.99697%
+       6.00- 6.25        0.000%          87.525%          100.00000%
+       8.00- 8.25        0.000%          87.526%          100.00000%
+      10.00-10.25        0.000%          87.528%          100.00000%
+      12.00-12.25        0.001%          87.533%          100.00000%
+      14.00-14.25        0.003%          87.547%          100.00000%
+      16.00-16.25        0.004%          87.571%          100.00000%
+      18.00-18.25        0.005%          87.607%          100.00000%
+      20.00-20.25        0.006%          87.653%          100.00000%
+      22.00-22.25        0.008%          87.706%          100.00000%
+      q >=  24.0         12.241%         100.000%          100.00000%   <- incl. downwind
+
+  THE VALLEY IS EMPTY. LES |mass| with q in [5, 11) is 0.0110% of the total,
+  and it RISES again beyond q = 11. Two populations that do not overlap: the
+  footprint below q ~ 5, the wrap above q ~ 11. Kljun carries 0.00000% beyond q = 6.
+  k = 8 is the middle of that valley. Any k in [5, 11] gives the same answer,
+  which is the point -- see the sensitivity table below.
+
+------------------------------------------------------------------------------
+2. SENSITIVITY OF THE REMOVED MASS TO k AND y_min
+------------------------------------------------------------------------------
+   k  y_min |  removed |mass| [% of |f|]  | within 200 m [%]  | sigma_v bias
+               median    p95     max      | median     max    | top10%/bot10%
+    3      0 |    12.83  19.75   29.75   |   0.000   1.142   |    1.01
+    3     60 |    12.82  19.75   29.75   |   0.000   1.080   |    1.01
+    3     90 |    12.82  19.75   29.75   |   0.000   0.920   |    1.02
+    3    120 |    12.79  19.63   29.74   |   0.000   0.699   |    1.03
+    5      0 |    12.46  19.06   29.40   |   0.000   1.136   |    1.03
+    5     60 |    12.45  19.03   29.40   |   0.000   1.079   |    1.03
+    5     90 |    12.45  18.94   29.40   |   0.000   0.920   |    1.03
+    5    120 |    12.42  18.91   29.40   |   0.000   0.699   |    1.03
+    8      0 |    12.46  19.06   29.40   |   0.000   1.122   |    1.03
+    8     60 |    12.44  18.94   29.40   |   0.000   1.036   |    1.03
+    8     90 |    12.43  18.93   29.40   |   0.000   0.920   |    1.03  <-- chosen
+    8    120 |    12.41  18.91   29.40   |   0.000   0.699   |    1.03
+   12      0 |    12.45  19.05   29.40   |   0.000   1.029   |    1.03
+   12     60 |    12.42  18.94   29.40   |   0.000   0.863   |    1.02
+   12     90 |    12.40  18.91   29.40   |   0.000   0.835   |    1.02
+   12    120 |    12.38  18.90   29.40   |   0.000   0.699   |    1.02
+
+  The removed mass barely moves across a factor of three in k. That flatness IS the
+  evidence: there is nothing between the footprint and the artifact to be sensitive
+  to. The sigma_v bias column is the 'does it eat wide footprints' test -- the top
+  decile of sigma_v loses only a few percent more than the bottom decile, so the
+  cone is not preferentially clipping the broad cases.
+
+  y_min was then set by the near-field acceptance criterion: removed mass within
+  200 m of the receptor at median 0.000% and max ~1.00%. y_min = 60 m
+  leaves the max at ~1.04-1.08%; y_min = 90 m brings it to 0.920%.
+
+------------------------------------------------------------------------------
+3. WHAT THE CONE REMOVES
+------------------------------------------------------------------------------
+  |mass| removed [% of |f|]   p5 6.71  p25 9.85  median 12.43  p75 14.97  p95 18.93   max 29.40
+    of it UPWIND of the receptor (what the half-plane MISSED):
+        median 1.18%   p95 3.76%   max 9.39%   nonzero on 1360 of 1366 records
+    within 200 m of the receptor: median 0.000%   max 0.920%
+  Kljun |mass| removed by the SAME cone: max over all records 0.00000%
+    The input channel is essentially untouched, so the cone removes almost nothing
+    a perfect emulator would have to reproduce.
+
+------------------------------------------------------------------------------
+4. THE INTEGRAL, against the asymptote
+------------------------------------------------------------------------------
+                             p5      p25   median      p75      p95      mean
+  integral raw           0.7073   0.8704   1.0146   1.1615   1.4560    1.0368
+  integral cone          0.6534   0.8077   0.9461   1.1031   1.3751    0.9725
+  asymptote              0.9376   0.9594   0.9645   0.9718   0.9756    0.9624
+  error raw             -0.2525  -0.0920   0.0524   0.1996   0.5010    0.0744
+  error cone            -0.3125  -0.1514  -0.0166   0.1379   0.4191    0.0101
+
+  records moved CLOSER to the asymptote     735 of 1366  (53.8%)
+  median |error|                          0.1443  ->  0.1467  (DEGRADED)
+  records below the asymptote             557  ->  720
+  r(|mass| removed, raw error)            -0.4903   (Spearman -0.5115)
+
+  THIS IS NOT AN INTEGRAL CORRECTION AND IS NOT CLAIMED AS ONE. The correlation is
+  the same sign as it was for the half-plane: the records that lose the most wrap
+  are the ones that were already LOW, not the ones that were inflated. Whatever
+  inflates the integral is not the wraparound. The cone is an OPERATIONAL CLEANUP --
+  it removes material that the periodic boundary invented and that no emulator
+  should be asked to predict.
+
+  G2b raw   outside [0.6, 1.5]:   65 of 1366   (low 11, high 54)
+  G2b cone  outside [0.6, 1.5]:   62 of 1366   (low 22, high 40)
+
+------------------------------------------------------------------------------
+5. THE NEGATIVE LOBE
+------------------------------------------------------------------------------
+    raw    median 4.80%   p5-p95 2.22-9.58
+    cone   median 1.59%   p5-p95 0.41-5.23
+    change [pp] median -2.97   p5 -5.79   p95 -1.36
+  The negative lobe that survives is the part inside the cone, i.e. the part at
+  crosswind distances a real footprint can reach. The part removed sat where the
+  LES carries no positive mass either, which is what the valley in section 1 says.
+
+WHAT THIS MASK CAN AND CANNOT MISS
+------------------------------------------------------------------------------
+PRODUCTION RETIRES A TRAJECTORY AT ONE DOMAIN LENGTH, so a particle CANNOT wrap
+twice. Verified in the image that generated the corpus
+(ghcr.io/tyatharva/flux-seeds:7de9dee2a01d-fe0ce48d5dff06), all three links:
+
+  /flux/bin/run_corpus_case.sh      passes no --max-disp at all
+  /flux/bin/stage5_footprint.py     --max-disp default is None
+  /flux/lpdm/driver.py:281-282      if max_disp is None: max_disp = fs.Lx
+
+and fs.Lx = 122 * 30 = 3660 m at the production grid. The ninth-pass validation
+records at this geometry carry max_disp_used = 3660.0 in their stage-5 JSON; the
+raised-cap runs are separately named (_3L = 10980, _uncapped = 8784) and are not
+corpus cases.
+
+The consequence is the strong one. Every wrapped particle is displaced by exactly
+one domain length in x, in y, or in both, so it lands:
+
+  wrapped in x only    -> off-axis by ~3660*|cos_wdir|   -> cone removes it
+  wrapped in y only    -> off-axis by ~3660*|sin_wdir|   -> cone removes it
+  wrapped in both      -> off-axis and/or downwind        -> cone removes it
+
+There is NO double-wrapped material sitting on-axis for the cone to miss. That is
+what the half-plane could not say: single-axis wrap survived it whenever the
+displacement exceeded 3660*max(|sin|,|cos|), and on case_2022030716 that left
+2.41% of |f| of pure wrap upwind of the receptor.
+
+The residual limits are:
+
+1. GENUINE FAR-OFF-AXIS MATERIAL IS REMOVED WITH THE WRAP. The cone is a bound on
+   |y'|, so real material beyond k*sigma_y goes too. k was chosen inside an EMPTY
+   valley in the |y'|/sigma_y distribution, so this is measured to be nothing:
+   the LES carries 0.011% of its |mass| in q = [5, 11), and Kljun carries
+   0.00000% beyond q = 6.
+2. GENUINE DOWNWIND CONTRIBUTION IS REMOVED. A convective boundary layer puts a
+   little influence downwind and the cone cannot tell it from wrap. Measured
+   inside 200 m of the receptor, where such a contribution would sit:
+   median 0.000%, max 0.920% of |f|.
+3. THE NEAR-FIELD FLOOR IS A REGULARISER, NOT PHYSICS. sigma_y -> 0 at the
+   receptor, so y_min = 90 m floors the half-width and the apex is pushed
+   to x' = -y_min. It binds only where k*sigma_y < y_min, i.e. x' < ~30 m.
+4. THE CONE IS A GEOMETRIC TEST, NOT A TRAJECTORY TEST. It is a statement about
+   where mass ended up, not about how it got there.
+
+THE CLEAN FIX, if the corpus is ever rebuilt
+------------------------------------------------------------------------------
+Deposit the UNFOLDED displacement at generation time: bin each touchdown by its
+cumulative displacement from the receptor rather than by its folded LES column
+index, and let the raster window truncate what leaves it. Then no wrapped
+material is deposited at all and no mask is needed. It requires the touchdowns,
+which docs/ML_TARGETS.md decided not to save, so it is a generation-time change
+and a full corpus regeneration.

@@ -58,10 +58,10 @@ TGT_LABEL = ["TARGET  LES + backward LPDM",
              "TARGET: LES + backward LPDM (signed)"]
 
 MASK_CAPTION = (
-    "\nTARGET IS target_masked: every cell on the DOWNWIND side of the receptor has been "
-    "set to zero (bin/mask_wrap.py).  The validation in results/wrap_mask_validation.txt "
-    "does NOT support this as a correction to the integral -- it is an ablation.  "
-    "figures/raw/ is the same set on the unmasked target.")
+    "\nTARGET IS target_cone, THE TRAINING TARGET: everything outside a wind-aligned cone "
+    "|y'| <= max(8 sigma_y(x'), 90 m) is set to zero (bin/mask_cone.py).  That is where "
+    "periodic-wrap material lands and where a real footprint cannot reach.  figures/raw/ "
+    "is the same set on the raw LES target, which is retained in corpus.h5.")
 
 CAPTION = (
     "North-up map frame, 30 m cells, receptor (star) at the origin, 122 real cells inside "
@@ -70,11 +70,14 @@ CAPTION = (
     "dashed cyan: region where the signed target is negative.\n"
     "The INPUT and TARGET panels of a row share ONE logarithmic colour scale spanning four "
     "decades below the larger of the two peaks; cells below that floor are left blank "
-    "rather than painted the darkest colour.  Nothing is renormalised.\n"
-    "The faint speckled lobe on the DOWNWIND side of the target is not a second footprint: "
-    "touchdowns are binned by LES column index and folded modulo the periodic domain, so "
-    "trajectories running more than one domain length upwind reappear through the seam.  "
-    "Displacement is capped at one domain length, which is what bounds it.")
+    "rather than painted the darkest colour.  Nothing is renormalised.")
+
+RAW_CAPTION = (
+    "\nThe speckled lobes off the wind axis and downwind of the target are periodic WRAP, "
+    "not a second footprint: touchdowns are binned by LES column index and folded modulo "
+    "the domain, per axis and independently, so a trajectory running more than one domain "
+    "length reappears through a seam.  bin/mask_cone.py removes them; figures/cone/ is the "
+    "same set on target_cone, which is the training target.")
 
 
 # ------------------------------------------------------------------------ loading
@@ -88,7 +91,7 @@ def load_corpus(path, target_key="target"):
     with h5py.File(path, "r") as f:
         if target_key not in f:
             sys.exit(f"FATAL: {path} has no dataset '{target_key}'. Run "
-                     f"bin/mask_wrap.py first if you want target_masked.")
+                     f"bin/mask_cone.py first if you want target_cone.")
         g = f["grid"].attrs
         # Rule 1: validate the artifact, not the constant you hoped it had.
         for name, want, got in (("n", NRAW, int(g["n"])),
@@ -762,11 +765,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--h5", default="corpus/corpus.h5")
     ap.add_argument("--outdir", default="figures/raw")
-    ap.add_argument("--target", default="target", choices=["target", "target_masked"],
-                    help="which target dataset to plot. target_masked is the "
-                         "downwind-half-plane ablation written by bin/mask_wrap.py; its "
-                         "integral and peak are recomputed from the raster because "
-                         "meta/ describes the unmasked target")
+    ap.add_argument("--target", default="target", choices=["target", "target_cone"],
+                    help="which target dataset to plot. target_cone is THE TRAINING "
+                         "TARGET, written by bin/mask_cone.py; its integral and peak are "
+                         "recomputed from the raster because meta/ describes the raw "
+                         "target")
     ap.add_argument("--surface", default="data/grid30_raised",
                     help="production surface dir, for the lake outline; optional")
     ap.add_argument("--dpi", type=int, default=130)
@@ -780,9 +783,10 @@ def main():
     os.makedirs(a.outdir, exist_ok=True)
     print(f"reading {a.h5}  (target dataset: {a.target})")
     global CAPTION
+    CAPTION = CAPTION + (RAW_CAPTION if a.target == "target" else "")
     if a.target != "target":
-        TGT_LABEL[0] = "TARGET  masked (downwind zeroed)"
-        TGT_LABEL[1] = "TARGET: masked -- downwind half-plane zeroed"
+        TGT_LABEL[0] = "TARGET  target_cone (training target)"
+        TGT_LABEL[1] = "TARGET: target_cone -- wind-aligned cone, the training target"
         CAPTION = CAPTION + MASK_CAPTION
     d = load_corpus(a.h5, a.target)
     print(f"  {d['n']} records, splits " +
