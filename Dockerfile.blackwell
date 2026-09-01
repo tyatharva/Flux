@@ -488,9 +488,15 @@ RUN set -eux; \
                        echo "       the way this file gets lost, and the dry run replaces"; \
                        echo "       the whole case path so it cannot catch it."; exit 1; }; \
     done; \
-    grep -q 'Nxp' /flux/runs/g30_base/base.in || { \
-      echo "FATAL: /flux/runs/g30_base/base.in is present but is not a FastEddy .in"; \
-      exit 1; }; \
+    for k in Nx Ny Nz dt; do \
+      grep -qE "^${k} *=" /flux/runs/g30_base/base.in || { \
+        echo "FATAL: /flux/runs/g30_base/base.in has no '${k} =' -- it is present but is"; \
+        echo "       not a FastEddy .in, so stage 2 would build a case from the wrong file."; \
+        exit 1; }; \
+    done; \
+    grep -qE '^Nz *= *122' /flux/runs/g30_base/base.in || { \
+      echo "FATAL: the baked template is not the 122^3 @ 30 m production grid."; \
+      grep -E '^N[xyz] *=' /flux/runs/g30_base/base.in; exit 1; }; \
     echo "case path inputs present: .in template, 30 m surface, sigma_w curve, FFP, liblpdm"
 
 # The provenance goes into the FILESYSTEM as well as into the labels, because
