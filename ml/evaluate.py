@@ -56,8 +56,15 @@ FLOORS = {
                   "results/les_realisation_spread.txt"),
                  ("5.5% two LPDM seeds on the same fields", "1 case",
                   "results/les_realisation_spread.txt:30")],
+    "shape_l1_2d": [("0.41 two LPDM seeds on the same fields", "1 case",
+                     "results/les_realisation_spread.txt:30"),
+                    ("0.92 two release ensembles, retired 60 m grid", "1 case",
+                     "results/stage5.txt:36; docs/results/STAGE2-6_RESULTS.md:520-545")],
+    "shape_1d": [("the two-window pair scored by this evaluator", "1 pair",
+                  "results/ml/eval/floor/pair_floor.json")],
 }
-UNITS = dict(peak_x="m", centroid="m", overlap80="Jaccard", array_share="pp", integral="")
+UNITS = dict(peak_x="m", centroid="m", overlap80="Jaccard", array_share="pp", integral="",
+             shape_l1_2d="", shape_1d="")
 
 
 def load_checkpoint(path):
@@ -107,12 +114,12 @@ def bootstrap_median_diff(a, b, n=2000, seed=0):
     return float(np.percentile(diffs, 2.5)), float(np.percentile(diffs, 97.5))
 
 
-def compare(sc_model, sc_ref, mask=None):
+def compare(sc_model, sc_ref, mask=None, keys=M.METRIC_KEYS):
     """Per metric: medians, means, win fraction, Wilcoxon p, bootstrap CI of the median
     difference (model - ref; negative is better)."""
     from scipy.stats import wilcoxon
     out = {}
-    for k in M.METRIC_KEYS:
+    for k in keys:
         a = M.error_of(sc_model, k)
         b = M.error_of(sc_ref, k)
         if mask is not None:
@@ -174,10 +181,11 @@ def fmt_table(cmp_all, title):
                      f"{c['ratio']:.2f} | {100*c['win_frac']:.0f}% | {c['wilcoxon_p']:.2g} | "
                      f"[{lo:+.3f}, {hi:+.3f}] |")
     lines.append("")
-    lines.append("overlap80 is reported as 1 - Jaccard (smaller is better); the raw medians "
-                 "are FNO {:.3f} / Kljun {:.3f}.".format(
-                     cmp_all["overlap80"]["model_overlap_median"],
-                     cmp_all["overlap80"]["ref_overlap_median"]))
+    if "overlap80" in cmp_all:
+        lines.append("overlap80 is reported as 1 - Jaccard (smaller is better); the raw "
+                     "medians are FNO {:.3f} / Kljun {:.3f}.".format(
+                         cmp_all["overlap80"]["model_overlap_median"],
+                         cmp_all["overlap80"]["ref_overlap_median"]))
     return lines
 
 
@@ -217,11 +225,100 @@ def pair_floor():
                      "PROJECT_BRIEF.md N_WINDOWS)")
 
 
+def _panel_row(axes, split, fields, sc, arr, i, FCP, half=900):
+    """LES / Kljun / FNO rasters on one shared log scale, plus the crosswind-integrated
+    profiles of all three on the wind axis. The visual-match panel."""
+    import numpy as np
+    xc, xe = FCP.axes_m()
+    ext = [xe[0], xe[-1], xe[0], xe[-1]]
+    klj, tgt, fno = split.kljun[i], split.target[i], fields["fno"][i]
+    lognorm, _, vmax = FCP.pair_norms(klj, np.maximum(tgt, fno))
+    surf = dict(water=np.zeros_like(arr, bool), array=arr)
+    wd = float(split.wdir_deg[i])
+    for c, (Fld, name, key) in enumerate(((tgt, "LES target (cone)", "les"),
+                                          (klj, "Kljun", "kljun"), (fno, "FNO", "fno"))):
+        ax = axes[c]
+        FCP.raster(ax, Fld, lognorm, "magma", ext, mask_below=lognorm.vmin)
+        l50, l80 = FCP.source_area_levels(Fld)
+        if np.isfinite(l50):
+            ax.contour(xc, xc, Fld, levels=[l80], colors="w", linewidths=0.6, linestyles="--")
+        FCP.draw_frame(ax, surf, fg="w")
+        FCP.draw_wind(ax, wd)
+        ax.set_xlim(-half, half)
+        ax.set_ylim(-half, half)
+        ax.tick_params(labelsize=6)
+        share = float(D.raster_array_share(Fld, arr))
+        pk = sc[key]["peak_x" if key == "les" else "abs_peak_x"][i]
+        ax.set_title(f"{name}  array {100*share:.1f}%  peak_x {pk:.0f} m", fontsize=7.5)
+    ax = axes[3]
+    for Fld, col, nm in ((tgt, "#4c72b0", "LES"), (klj, "#c44e52", "Kljun"),
+                         (fno, "#2ca02c", "FNO")):
+        s_, fy = FCP.crosswind_integrated(Fld, wd)
+        ax.plot(s_, fy, color=col, lw=1.2, label=nm)
+    ax.axhline(0, color="k", lw=0.5)
+    ax.set_xlim(-200, 1500)
+    ax.set_xlabel("upwind distance [m]", fontsize=7)
+    ax.set_ylabel("f_y [m^-1]", fontsize=7)
+    ax.tick_params(labelsize=6)
+    ax.legend(fontsize=6, frameon=False)
+    ax.set_title(f"{split.meta['run_id'][i]}  {split.octant[i]} {wd:.0f} deg  "
+                 f"z/L {split.zL[i]:.2f}  z_i {split.scalars[i, 0]:.0f} m", fontsize=7)
+
+
 def figures(outdir, split, fields, sc, cmp_groups, arr):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+    from matplotlib.colors import SymLogNorm
     import fig_corpus_pairs as FCP
+    oc = split.octant.astype(str)
+    # 0. one typical record per octant: the record whose LES integral is the octant median
+    picks = []
+    for o in D.OCTANTS:
+        idx = np.where(oc == o)[0]
+        if len(idx):
+            integ = sc["les"]["integral"][idx]
+            picks.append(int(idx[np.argsort(np.abs(integ - np.median(integ)))[0]]))
+    fig, axes = plt.subplots(len(picks), 4, figsize=(14, 3.3 * len(picks)), squeeze=False)
+    for r, i in enumerate(picks):
+        _panel_row(axes[r], split, fields, sc, arr, i, FCP)
+    fig.suptitle("One typical record per octant (LES integral at the octant median): "
+                 "LES / Kljun / FNO on one log scale; dashed = 80% source area", fontsize=9)
+    fig.tight_layout()
+    fig.savefig(os.path.join(outdir, "octant_examples.png"), dpi=110)
+    plt.close(fig)
+    # 0b. residual panels for the four N-wind records with the largest LES array share:
+    # what the LES adds to Kljun against what the FNO adds to Kljun.
+    north = np.where(oc == "N")[0]
+    if len(north):
+        top = north[np.argsort(-split.meta["array_share"][north])][:4]
+        xc, xe = FCP.axes_m()
+        ext = [xe[0], xe[-1], xe[0], xe[-1]]
+        surf = dict(water=np.zeros_like(arr, bool), array=arr)
+        fig, axes = plt.subplots(len(top), 2, figsize=(8.2, 3.6 * len(top)), squeeze=False)
+        for r, i in enumerate(top):
+            klj, tgt, fno = split.kljun[i], split.target[i], fields["fno"][i]
+            vmax = float(max(np.abs(tgt - klj).max(), np.abs(fno - klj).max(), 1e-12))
+            norm = SymLogNorm(linthresh=vmax * 1e-3, vmin=-vmax, vmax=vmax, base=10)
+            for c, (Fld, name) in enumerate(((tgt - klj, "LES - Kljun (the truth's correction)"),
+                                             (fno - klj, "FNO - Kljun (the learned residual)"))):
+                ax = axes[r][c]
+                im = FCP.raster(ax, Fld, norm, "RdBu_r", ext)
+                FCP.draw_frame(ax, surf, fg="k")
+                FCP.draw_wind(ax, float(split.wdir_deg[i]), colour="k")
+                ax.set_xlim(-900, 900)
+                ax.set_ylim(-900, 900)
+                ax.tick_params(labelsize=6)
+                ax.set_title(name, fontsize=7.5)
+                sl = M.shape_l1_2d(fno, tgt) if c else M.shape_l1_2d(klj, tgt)
+                ax.text(0.02, 0.02, f"shape L1 vs LES {sl:.2f}", transform=ax.transAxes,
+                        fontsize=6.5, color="k", bbox=dict(fc="w", alpha=0.7, ec="none"))
+            fig.colorbar(im, ax=axes[r][1], fraction=0.046, pad=0.02).ax.tick_params(labelsize=5.5)
+            axes[r][0].set_ylabel(f"{split.meta['run_id'][i]}  N {split.wdir_deg[i]:.0f} deg",
+                                  fontsize=7)
+        fig.tight_layout()
+        fig.savefig(os.path.join(outdir, "north_residuals.png"), dpi=110)
+        plt.close(fig)
     # 1. per-octant ratio bars
     keys = list(M.METRIC_KEYS)
     octs = ["oct_" + o for o in D.OCTANTS]
@@ -317,6 +414,10 @@ def main(argv=None):
     groups = breakouts(split, shared)
     cmp = {name: {g: compare(sc[name], sc["kljun"], m) for g, m in groups.items()}
            for name in ("fno", "fno_cone")}
+    shape = {name: {g: compare(sc[name], sc["kljun"], m, M.SHAPE_KEYS)
+                    for g, m in (("all", groups["all"]),
+                                 ("north_N_NE_NW", groups["north_N_NE_NW"]))}
+             for name in ("fno", "fno_cone")}
     comp = {name: {g: M.composite(sc[name], sc["kljun"], m)[0] for g, m in groups.items()}
             for name in ("fno", "fno_cone")}
     # Kljun and each field against the asymptote (integral), all records
@@ -325,7 +426,7 @@ def main(argv=None):
     asym["les"] = dict(median_abs=float(np.nanmedian(np.abs(sc["les"]["integral_asym_err"]))))
 
     out = dict(tag=a.tag, split=a.split, n=split.n, n_members=n_members, ckpts=a.ckpt,
-               groups={g: int(m.sum()) for g, m in groups.items()}, compare=cmp,
+               groups={g: int(m.sum()) for g, m in groups.items()}, compare=cmp, shape=shape,
                composite=comp, integral_vs_asymptote=asym, floors=FLOORS,
                cone_keep_fraction_of_fno_mass=float(
                    np.abs(fields["fno_cone"]).sum() / max(np.abs(fno).sum(), 1e-30)))
@@ -358,6 +459,9 @@ def main(argv=None):
                         f"N/NE/NW only ({int(groups['north_N_NE_NW'].sum())} records)")
         L_ += fmt_table(cmp[name]["array_in_view_gt5pct"],
                         f"array in view, LES share > 5% ({int(groups['array_in_view_gt5pct'].sum())})")
+        L_ += fmt_table(shape[name]["all"], "shape metrics, all records (not in the "
+                        "composite; per-cell agreement sits on the noise floor)")
+        L_ += fmt_table(shape[name]["north_N_NE_NW"], "shape metrics, N/NE/NW only")
         L_ += ["", "### composite (geometric mean of the five ratios) by group", "",
                "| group | n | composite |", "|---|---|---|"]
         for g, m in groups.items():

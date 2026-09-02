@@ -28,10 +28,21 @@ for _p in (REPO, os.path.join(REPO, "bin")):
 from lpdm.footprint import FootprintGrid, source_area_overlap        # noqa: E402
 import fig_corpus_pairs as FCP                                       # noqa: E402
 import stage5_footprint as S5                                        # noqa: E402
+import seed_leakage as SL                                            # noqa: E402
 from ml import data as D                                             # noqa: E402
 
 CELL_AREA = D.DX * D.DX
 METRIC_KEYS = ("peak_x", "centroid", "overlap80", "array_share", "integral")
+# Shape metrics, reported beside their floors but kept OUT of the composite: per-cell
+# agreement between two realisations of identical conditions sits on the noise floor.
+SHAPE_KEYS = ("shape_l1_2d", "shape_1d")
+
+
+def shape_l1_2d(a, b):
+    """bin/stage5_footprint.py:693 l1_rel: sum|a-b| / (0.5 * (sum|a| + sum|b|))."""
+    a = np.asarray(a, np.float64); b = np.asarray(b, np.float64)
+    den = 0.5 * (np.abs(a).sum() + np.abs(b).sum())
+    return float(np.abs(a - b).sum() / den) if den > 0 else np.nan
 
 
 def _grid():
@@ -86,7 +97,12 @@ def pair_errors(f, ref, wdir_deg, array_mask, asymptote, mf=None, mr=None):
     mr = record_metrics(ref, wdir_deg, array_mask, asymptote) if mr is None else mr
     ov = source_area_overlap(np.maximum(np.asarray(f, np.float64), 0),
                              np.maximum(np.asarray(ref, np.float64), 0), 0.80)
+    _, fy_f = FCP.crosswind_integrated(np.asarray(f, np.float64), float(wdir_deg))
+    _, fy_r = FCP.crosswind_integrated(np.asarray(ref, np.float64), float(wdir_deg))
     return dict(
+        shape_l1_2d=shape_l1_2d(f, ref),
+        shape_1d=float(SL.d_shape(fy_f, fy_r)) if (np.abs(fy_f).sum() > 0
+                                                   and np.abs(fy_r).sum() > 0) else np.nan,
         peak_x=abs(mf["peak_x"] - mr["peak_x"]),
         centroid=float(np.hypot(mf["centroid_e"] - mr["centroid_e"],
                                 mf["centroid_n"] - mr["centroid_n"])),
@@ -143,7 +159,7 @@ def composite(scores_model, scores_ref, mask=None, keys=METRIC_KEYS):
 def summarise(scores, mask=None):
     """Median / mean of each error for one field, optionally on a subset."""
     out = {}
-    for k in METRIC_KEYS + ("x80", "peak_xy", "area80_ratio", "integral_asym"):
+    for k in METRIC_KEYS + SHAPE_KEYS + ("x80", "peak_xy", "area80_ratio", "integral_asym"):
         v = scores[k] if mask is None else scores[k][mask]
         out[k] = dict(median=float(np.nanmedian(v)), mean=float(np.nanmean(v)),
                       n=int(np.isfinite(v).sum()))
