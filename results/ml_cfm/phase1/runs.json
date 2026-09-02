@@ -1,0 +1,6 @@
+{
+ "v_s0.1_seed0": {"param": "velocity", "sigma": 0.1, "seed": 0},
+ "v_s0.1_seed1": {"param": "velocity", "sigma": 0.1, "seed": 1},
+ "x_s0.1": {"param": "x", "sigma": 0.1, "seed": 0},
+ "v_s0.3": {"param": "velocity", "sigma": 0.3, "seed": 0}
+}

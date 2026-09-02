@@ -97,3 +97,9 @@ results/ml/*.db
 results/ml/*.db-journal
 results/ml/cache/
 results/ml/final/seed*/pred_val.npz
+results/ml_cfm/**/*.pt
+results/ml_cfm/**/samples_val.npz
+results/ml_cfm/**/samples_*.npz
+results/ml_cfm/cache/
+results/ml_cfm/*.db
+results/ml_cfm/.t0
