@@ -19,3 +19,7 @@
 - 2026-09-02T22:52:56Z calibrate (S=64, 11 variants) starts
 - 2026-09-02T23:14:25Z calibrate final done; thresholded-target scoring starts
 - 2026-09-02T23:15:43Z batch C starts (crps_share_ft lam_share 5, crps_pure_scratch; K=2) -- conditional runs triggered by pass 1
+- 2026-09-02T23:31:31Z CALIB_DONE
+- 2026-09-02T23:32:09Z batch C done; calibrate pass 2 starts
+- 2026-09-02T23:35:20Z CALIB2_DONE
+- 2026-09-02T23:36:01Z write-up complete; final gate

@@ -27,7 +27,10 @@ was never read** (§7).
    against 0.00388 at 16.2 ms, where the flow model sampled with 2 steps gives 0.00439 and a
    collapsed spread (2.19 pp vs 3.88 pp in view). The mean's MSE rises 9% (1.17 → 1.27e-4) while
    its production-metric composite is unchanged or slightly better (0.483 / 0.477 vs 0.489,
-   Wilcoxon p 0.02). It overfits after ~20 epochs at this data size.
+   Wilcoxon p 0.02). It overfits after ~20 epochs at this data size. The two conditional
+   runs (§3) confirm it from the other side: an array-share term in the objective does not
+   train at all, and CRPS from scratch produces a good mean with **half** the flow's spread
+   (in view 0.17 / 0.40).
 3. **Raising σ at inference destroys the mean** (composite 1.26 at σ 0.2, 5.6 at σ 0.5: the
    network is off-distribution) and a model *trained* at σ 0.3 is the baseline again
    (0.33 / 0.76 in view, composite 0.477).
@@ -90,7 +93,30 @@ the objective and trains CRPS from scratch.
 
 Triggered by the rule in the plan (in-view cover90 < 0.81 after the fine-tunes).
 
-PENDING_BATCH_C
+| run | loss | best epoch / run | val CRPS | val_mse_ref | composite (64-sample mean) | in view cover50 / 90 | z sd | spread/skill | in-view sample sd [pp] | field CRPS |
+|---|---|---|---|---|---|---|---|---|---|---|
+| fm_seed1 (baseline, Euler 16) | fm | 90 / 141 | – | 1.172e-4 | 0.489 | 0.31 / 0.74 | 1.55 | 0.81 | 3.88 | 0.00388 |
+| crps_share_ft (field CRPS + 5 × array-share CRPS, from seed1) | crps | **0 / 21** | 0.00483 | 1.163e-4 | 0.486 | 0.21 / 0.45 | 2.52 | 0.53 | 2.21 | 0.00438 |
+| crps_pure_scratch (CRPS alone, from scratch, 2 steps) | crps | 45 / 76 | 0.00421 | 1.299e-4 | 0.477 | **0.17 / 0.40** | 2.88 | 0.44 | 2.00 | 0.00392 |
+| crps_pure_ft (§2, for reference) | crps | 20 / 51 | 0.00426 | 1.273e-4 | 0.483 | 0.31 / 0.76 | 1.48 | 0.77 | 3.72 | 0.00388 |
+
+- **The share-weighted objective did not train.** With the array-share CRPS at weight 5 the
+  val field CRPS rose from the first evaluation (0.00483 → 0.0054 by epoch 10) and the
+  training loss stayed at 0.04–0.05, so the selection (on val field CRPS) kept epoch 0 —
+  the baseline weights sampled with 2 steps, which is the collapsed-spread row of §2. A
+  scalar term on 44 cells, with S = 2, is too noisy a gradient to move the network; a
+  smaller weight would be a smaller version of the same thing.
+- **CRPS from scratch gives a good mean and half the spread.** The 2-step generator trained
+  on CRPS alone reaches the baseline's field CRPS (0.00392 vs 0.00388) and composite
+  (0.477) in 45 epochs — the objective works as a regression-with-spread loss — but its
+  array-share spread is 2.0 pp where the flow's is 3.9 pp and the LES needs ~5, so its
+  coverage is the worst of the study (0.17 / 0.40 in view, spread/skill 0.44). The fine-tune
+  keeps the flow's spread because it starts from it; trained from nothing, the pixelwise
+  CRPS optimum at S = 2 is nearly deterministic on the near field.
+
+Neither conditional run changes the answer of §2: CRPS is not the lever for this defect.
+`results/ml_cfm/calib/final2/calib.{md,json}`, `coverage.png`, `pit.png`.
+
 
 ## 4. The cheap fixes
 
@@ -106,8 +132,9 @@ PENDING_BATCH_C
 The network has only seen `z_0 = x_prior + N(0, 0.1²)`; larger noise is out of distribution
 and the mean is wrong before the spread can widen. A model trained at σ = 0.3
 (`phase1/v_s0.3`, 64 samples) is the baseline again: composite 0.477, in-view 0.33 / 0.76,
-z sd 1.35, spread/skill 0.96 on all records but 0.96 in view with cover90 still 0.76 — the
-noise scale sets the spread on the tail, not on the near field the array share depends on.
+z sd 1.35, spread/skill 0.96 in view (0.99 on all records) with cover90 still 0.76 and z sd
+1.35 — a 3× larger noise scale widens the spread on the tail, not on the near field the
+array share depends on.
 
 **Post-hoc temperature** on the baseline's asinh-space samples, `T_s′ = T̄ + τ(T_s − T̄)`, τ
 fitted so the array-share z sd is 1:
@@ -185,7 +212,28 @@ The two seeds straddle the baseline (the five raw-target seeds span 0.474–0.56
 thresholded targets neither help nor hurt the mean on raw targets, and the calibration is
 the baseline's.
 
-PENDING_THRESHOLDED_SCORING
+**Scored against the thresholded targets and thresholded Kljun** (`calib/final_vs_thresholded/
+calib.md`; the LES loses a median 2.51% of |mass|, Kljun 1.00%), so the comparison is
+fair to a model trained on clean targets:
+
+| model (trained on) | composite vs Kljun_thr, all | in view | vs fm_seed1 (p) | field CRPS | in-view cover50 / 90 |
+|---|---|---|---|---|---|
+| fm_seed1 (raw) | 0.454 | 0.754 | – | 0.00373 | 0.31 / 0.74 |
+| fm_seed2 (raw) | 0.460 | 0.738 | 1.010 (2e-5) | 0.00372 | 0.31 / 0.76 |
+| thresh_seed0 (sa99) | 0.469 | 0.792 | 1.025 (7e-5) | 0.00380 | 0.29 / 0.79 |
+| thresh_seed1 (sa99) | 0.460 | 0.738 | 1.010 (2e-6) | 0.00372 | 0.33 / 0.71 |
+
+Every model, whatever it was trained on, gains the same ~0.03 in composite when the
+speckle is removed from the reference (0.489 → 0.454 for the baseline: that 0.03 is the
+part of the score the noise was costing every emulator), and the two models trained on
+clean targets are no better than the two trained on raw ones **even on the clean targets**.
+**The raw-target model already averages the speckle out** — it is unpredictable from the
+inputs, so an MSE-trained mean ignores it — and the noise in the target costs the model
+nothing that removing it from training would recover. Thresholding the targets is therefore
+not applied; the two runs stay as the measurement. What the threshold is good for is the
+reference side: scoring against the 99% source area removes a noise floor of ~0.03 in
+composite that no model can beat, and `--score-target sa99` exists for that.
+
 
 ## 6. Cost
 
