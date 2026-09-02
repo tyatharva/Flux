@@ -1,0 +1,17 @@
+{
+ "seed0": {
+  "param": "velocity",
+  "sigma": 0.1,
+  "seed": 0
+ },
+ "seed1": {
+  "param": "velocity",
+  "sigma": 0.1,
+  "seed": 1
+ },
+ "seed2": {
+  "param": "velocity",
+  "sigma": 0.1,
+  "seed": 2
+ }
+}

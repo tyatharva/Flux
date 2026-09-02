@@ -1,0 +1,29 @@
+{
+ "tag": "final",
+ "K": 3,
+ "base": {
+  "epochs": 500,
+  "save_ckpt": true,
+  "save_samples": 32,
+  "steps_final": 16
+ },
+ "wall_s": 1290.9444227218628,
+ "runs": [
+  {
+   "name": "seed0",
+   "status": "ok",
+   "wall": 1136.1476531028748
+  },
+  {
+   "name": "seed1",
+   "status": "ok",
+   "wall": 1290.755797624588
+  },
+  {
+   "name": "seed2",
+   "status": "ok",
+   "wall": 1290.9429626464844
+  }
+ ],
+ "started_utc": "2026-09-02T15:58:59Z"
+}

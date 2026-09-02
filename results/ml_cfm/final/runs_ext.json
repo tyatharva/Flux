@@ -1,0 +1,19 @@
+{
+ "seed3": {
+  "param": "velocity",
+  "sigma": 0.1,
+  "seed": 3
+ },
+ "seed4": {
+  "param": "velocity",
+  "sigma": 0.1,
+  "seed": 4
+ },
+ "long1000_seed0": {
+  "param": "velocity",
+  "sigma": 0.1,
+  "seed": 0,
+  "epochs": 1000,
+  "patience": 20
+ }
+}

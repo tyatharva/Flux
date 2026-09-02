@@ -1,0 +1,11 @@
+# Timeline (UTC)
+- 2026-09-02T15:21:56Z plan approved; build starts
+- 15:25:25Z smoke60 launched
+- 2026-09-02T15:28:07Z run_all: phase1 starts
+- 15:29:30Z code committed; pipeline running unattended (expected ALL_DONE ~16:50Z)
+- 2026-09-02T15:58:59Z run_all: phase1 done
+- 2026-09-02T15:58:59Z run_all: final starts ({ "winner": "v_s0.1_seed0", "val_mse_ref": {  "v_s0.3": 0.00012484838953241706, )
+- 2026-09-02T16:20:30Z run_all: final done
+- 2026-09-02T16:22:17Z run_all: solver study done; ALL DONE
+- 16:22:37Z run_ext: starts
+- 16:49:35Z run_ext: done; EXT_DONE

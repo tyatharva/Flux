@@ -35,6 +35,7 @@ document is the record of what was believed at the time.
 | cases | `TARGET_CASE_RESULT.md` | the validation case the estimator was built against |
 | corpus | `CONE_MASK_RESULT.md` | the wind-aligned cone: how `target_cone`, the training target, was derived |
 | emulator | `FNO_RESULT.md` | the FNO emulator: build, Phase 1 exploration, Optuna, the val evaluation against Kljun with floors; the test split untouched |
+- `results/CFM_RESULT.md` — the prior-anchored flow-matching emulator: ties the FNO with 2.95 M parameters and gives calibrated-ish error bars on the array share (2026-09-02)
 
 The most load-bearing of them, cited from `PROJECT_BRIEF.md`:
 

@@ -1,0 +1,33 @@
+{
+ "tag": "p1",
+ "K": 4,
+ "base": {
+  "epochs": 300,
+  "save_ckpt": true,
+  "save_samples": 8
+ },
+ "wall_s": 1851.4769427776337,
+ "runs": [
+  {
+   "name": "v_s0.1_seed0",
+   "status": "ok",
+   "wall": 1786.6831302642822
+  },
+  {
+   "name": "v_s0.1_seed1",
+   "status": "ok",
+   "wall": 1672.3520157337189
+  },
+  {
+   "name": "x_s0.1",
+   "status": "ok",
+   "wall": 1851.474674463272
+  },
+  {
+   "name": "v_s0.3",
+   "status": "ok",
+   "wall": 1813.3059430122375
+  }
+ ],
+ "started_utc": "2026-09-02T15:28:07Z"
+}

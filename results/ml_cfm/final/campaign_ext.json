@@ -1,0 +1,29 @@
+{
+ "tag": "ext",
+ "K": 3,
+ "base": {
+  "epochs": 500,
+  "save_ckpt": true,
+  "save_samples": 32,
+  "steps_final": 16
+ },
+ "wall_s": 1617.1840975284576,
+ "runs": [
+  {
+   "name": "seed3",
+   "status": "ok",
+   "wall": 1402.5145061016083
+  },
+  {
+   "name": "seed4",
+   "status": "ok",
+   "wall": 1529.8086922168732
+  },
+  {
+   "name": "long1000_seed0",
+   "status": "ok",
+   "wall": 1617.1817934513092
+  }
+ ],
+ "started_utc": "2026-09-02T16:22:38Z"
+}
