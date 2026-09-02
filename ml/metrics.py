@@ -68,12 +68,16 @@ def record_metrics(f, wdir_deg, array_mask, asymptote):
     integ = float(f.sum() * CELL_AREA)
     tot = f.sum()
     share = float((f * array_mask).sum() / tot) if tot != 0 else np.nan
+    # metrics_map returns a shorter dict (no peak_value / area50_ha) when the field's
+    # total is <= 0 -- a degenerate prediction. Carry NaN rather than raise, so one bad
+    # record scores as NaN and the run is still summarised.
+    g = lambda k: float(m.get(k, np.nan))
     return dict(peak_x=w["peak_x"], x80=w["x80"], mean_x=w["mean_x"],
-                centroid_e=m["centroid_e"], centroid_n=m["centroid_n"],
-                centroid_dist=m["centroid_dist"], area80_ha=m["area80_ha"],
-                peak_e=m["peak_e"], peak_n=m["peak_n"], peak_value=m["peak_value"],
+                centroid_e=g("centroid_e"), centroid_n=g("centroid_n"),
+                centroid_dist=g("centroid_dist"), area80_ha=g("area80_ha"),
+                peak_e=g("peak_e"), peak_n=g("peak_n"), peak_value=g("peak_value"),
                 array_share=share, integral=integ, integral_asym_err=integ - asymptote,
-                neg_frac=FCP.negative_fraction(f))
+                neg_frac=FCP.negative_fraction(f), degenerate=bool(m.get("degenerate", False)))
 
 
 def pair_errors(f, ref, wdir_deg, array_mask, asymptote, mf=None, mr=None):

@@ -109,7 +109,7 @@ def worker(a):
         return r["val_mse_ref"]
 
     study.optimize(objective, n_trials=a.n_trials, timeout=a.timeout,
-                   catch=(RuntimeError,), gc_after_trial=True)
+                   catch=(Exception,), gc_after_trial=True)
     return 0
 
 
