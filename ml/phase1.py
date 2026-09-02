@@ -236,9 +236,11 @@ def main(argv=None):
     ap.add_argument("--tag", default=None)
     ap.add_argument("--summarise", action="store_true")
     ap.add_argument("--only", default=None, help="comma-separated run names to run")
+    ap.add_argument("--baseline-prefix", default="b0_s",
+                    help="runs whose names start with this are the seed-spread reference")
     a = ap.parse_args(argv)
     if a.summarise:
-        summarise(a.outdir)
+        summarise(a.outdir, a.baseline_prefix)
         return 0
     base = dict(BASE)
     if a.base:
@@ -254,7 +256,7 @@ def main(argv=None):
         keep = a.only.split(",")
         runs = {k: v for k, v in runs.items() if k in keep}
     campaign(runs, a.outdir, a.K, base, a.tag or (f"round{a.round}" if a.round else "custom"))
-    summarise(a.outdir)
+    summarise(a.outdir, a.baseline_prefix)
     return 0
 
 
