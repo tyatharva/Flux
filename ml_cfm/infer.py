@@ -1,6 +1,6 @@
 """Load a checkpoint and prepare a split for sampling. Shared by the solver study, the final
 driver and the evaluator. The split is whatever the caller passes; nothing here can read
-the test split without ml.data's explicit flag, which nothing in ml_cfm passes.
+the test split: ml.data refuses it, and nothing in ml_cfm asks for it.
 """
 import os
 import sys
