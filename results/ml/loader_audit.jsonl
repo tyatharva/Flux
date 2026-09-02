@@ -212,3 +212,20 @@
 {"utc": "2026-09-02T15:28:09Z", "file": "corpus/corpus_cone.h5", "split": "val", "n": 235, "rows_min": 762, "rows_max": 996, "allow_test": false, "seconds": 0.06, "caller": "train.py"}
 {"utc": "2026-09-02T15:28:20Z", "file": "corpus/corpus_cone.h5", "split": "test", "n": 0, "allow_test": false, "refused": true}
 {"utc": "2026-09-02T15:28:20Z", "file": "corpus/corpus_cone.h5", "split": "val", "n": 235, "rows_min": 762, "rows_max": 996, "allow_test": false, "seconds": 0.06, "caller": "test_cfm.py"}
+{"utc": "2026-09-02T15:59:00Z", "file": "corpus/corpus_cone.h5", "split": "train", "n": 837, "rows_min": 0, "rows_max": 1365, "allow_test": false, "seconds": 0.89, "caller": "train.py"}
+{"utc": "2026-09-02T15:59:01Z", "file": "corpus/corpus_cone.h5", "split": "train", "n": 837, "rows_min": 0, "rows_max": 1365, "allow_test": false, "seconds": 0.89, "caller": "train.py"}
+{"utc": "2026-09-02T15:59:01Z", "file": "corpus/corpus_cone.h5", "split": "train", "n": 837, "rows_min": 0, "rows_max": 1365, "allow_test": false, "seconds": 0.89, "caller": "train.py"}
+{"utc": "2026-09-02T15:59:01Z", "file": "corpus/corpus_cone.h5", "split": "val", "n": 235, "rows_min": 762, "rows_max": 996, "allow_test": false, "seconds": 0.06, "caller": "train.py"}
+{"utc": "2026-09-02T15:59:01Z", "file": "corpus/corpus_cone.h5", "split": "val", "n": 235, "rows_min": 762, "rows_max": 996, "allow_test": false, "seconds": 0.06, "caller": "train.py"}
+{"utc": "2026-09-02T15:59:01Z", "file": "corpus/corpus_cone.h5", "split": "val", "n": 235, "rows_min": 762, "rows_max": 996, "allow_test": false, "seconds": 0.06, "caller": "train.py"}
+{"utc": "2026-09-02T16:20:31Z", "file": "corpus/corpus_cone.h5", "split": "val", "n": 235, "rows_min": 762, "rows_max": 996, "allow_test": false, "seconds": 0.06, "caller": "solver_study.py"}
+{"utc": "2026-09-02T16:22:39Z", "file": "corpus/corpus_cone.h5", "split": "train", "n": 837, "rows_min": 0, "rows_max": 1365, "allow_test": false, "seconds": 0.89, "caller": "train.py"}
+{"utc": "2026-09-02T16:22:39Z", "file": "corpus/corpus_cone.h5", "split": "train", "n": 837, "rows_min": 0, "rows_max": 1365, "allow_test": false, "seconds": 0.89, "caller": "train.py"}
+{"utc": "2026-09-02T16:22:39Z", "file": "corpus/corpus_cone.h5", "split": "train", "n": 837, "rows_min": 0, "rows_max": 1365, "allow_test": false, "seconds": 0.89, "caller": "train.py"}
+{"utc": "2026-09-02T16:22:39Z", "file": "corpus/corpus_cone.h5", "split": "val", "n": 235, "rows_min": 762, "rows_max": 996, "allow_test": false, "seconds": 0.06, "caller": "train.py"}
+{"utc": "2026-09-02T16:22:39Z", "file": "corpus/corpus_cone.h5", "split": "val", "n": 235, "rows_min": 762, "rows_max": 996, "allow_test": false, "seconds": 0.06, "caller": "train.py"}
+{"utc": "2026-09-02T16:22:39Z", "file": "corpus/corpus_cone.h5", "split": "val", "n": 235, "rows_min": 762, "rows_max": 996, "allow_test": false, "seconds": 0.06, "caller": "train.py"}
+{"utc": "2026-09-02T19:29:05Z", "file": "corpus/corpus_cone.h5", "split": "val", "n": 235, "rows_min": 762, "rows_max": 996, "allow_test": false, "seconds": 0.07, "caller": "evaluate.py"}
+{"utc": "2026-09-02T19:29:24Z", "file": "corpus/corpus_cone.h5", "split": "train", "n": 837, "rows_min": 0, "rows_max": 1365, "allow_test": false, "seconds": 0.9, "caller": "evaluate.py"}
+{"utc": "2026-09-02T19:32:41Z", "file": "corpus/corpus_cone.h5", "split": "test", "n": 0, "allow_test": false, "refused": true}
+{"utc": "2026-09-02T19:32:41Z", "file": "corpus/corpus_cone.h5", "split": "val", "n": 235, "rows_min": 762, "rows_max": 996, "allow_test": false, "seconds": 0.06, "caller": "test_cfm.py"}
