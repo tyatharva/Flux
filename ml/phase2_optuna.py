@@ -56,6 +56,17 @@ def suggest(trial, space):
     return out
 
 
+def make_sampler(seed):
+    import optuna
+    return optuna.samplers.TPESampler(seed=seed, multivariate=True, n_startup_trials=12)
+
+
+def make_pruner():
+    import optuna
+    # 20 warm-up epochs of 150 before a trial can be pruned; compared every 5 epochs.
+    return optuna.pruners.MedianPruner(n_startup_trials=8, n_warmup_steps=20, interval_steps=5)
+
+
 def make_storage(url):
     import optuna
     from optuna.storages import RetryFailedTrialCallback
@@ -71,7 +82,13 @@ def worker(a):
     from ml import train as T
     optuna.logging.set_verbosity(optuna.logging.WARNING)
     storage = make_storage(a.storage)
-    study = optuna.load_study(study_name=a.study, storage=storage)
+    # THE PRUNER LIVES IN THE PROCESS THAT CALLS optimize(), NOT IN THE DATABASE. A worker
+    # that load_study()s without one gets MedianPruner() with ZERO warm-up and pruned every
+    # trial at epoch 0 once five had completed. The sampler seed is per worker so three
+    # workers do not propose the same point at the same time.
+    study = optuna.load_study(study_name=a.study, storage=storage,
+                              sampler=make_sampler(a.seed + 1000 * (a.worker_id + 1)),
+                              pruner=make_pruner())
     fixed = json.loads(a.fixed) if a.fixed else {}
     space = dict(DEFAULT_SPACE)
     for k, v in (json.loads(a.space) if a.space else {}).items():
@@ -191,6 +208,9 @@ def main(argv=None):
     ap.add_argument("--worker", action="store_true")
     ap.add_argument("--summarise", action="store_true")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--worker-id", type=int, default=0)
+    ap.add_argument("--enqueue", default=None,
+                    help="JSON list of param dicts to run first (e.g. a prior study's best)")
     a = ap.parse_args(argv)
     if a.storage is None:
         os.makedirs(a.outdir, exist_ok=True)
@@ -205,9 +225,11 @@ def main(argv=None):
     storage = make_storage(a.storage)
     study = optuna.create_study(
         study_name=a.study, storage=storage, direction="minimize", load_if_exists=True,
-        sampler=optuna.samplers.TPESampler(seed=a.seed, multivariate=True, n_startup_trials=12),
-        pruner=optuna.pruners.MedianPruner(n_startup_trials=8, n_warmup_steps=20,
-                                           interval_steps=5))
+        sampler=make_sampler(a.seed), pruner=make_pruner())
+    if a.enqueue:
+        with open(a.enqueue) as fh:
+            for params in json.load(fh):
+                study.enqueue_trial(params, skip_if_exists=True)
     study.set_user_attr("fixed", a.fixed or "")
     study.set_user_attr("space", a.space or "")
     study.set_user_attr("base", a.base or "")
@@ -224,7 +246,8 @@ def main(argv=None):
     for k in range(a.K):
         args = [PY, "-m", "ml.phase2_optuna", "--worker", "--study", a.study, "--storage",
                 a.storage, "--outdir", a.outdir, "--n-trials", str(per),
-                "--timeout", str(a.timeout), "--objective", a.objective]
+                "--timeout", str(a.timeout), "--objective", a.objective,
+                "--worker-id", str(k), "--seed", str(a.seed)]
         for flag, val in (("--fixed", a.fixed), ("--space", a.space), ("--base", a.base)):
             if val:
                 args += [flag, val]
