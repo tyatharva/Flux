@@ -31,6 +31,7 @@ from ml import losses as L                        # noqa: E402
 from ml import metrics as M                       # noqa: E402
 from ml.train import _git_commit, _coerce         # noqa: E402
 from ml_cfm import flow as FL                     # noqa: E402
+from ml_cfm import crps as CR                     # noqa: E402
 from ml_cfm.model import build_model              # noqa: E402
 
 
@@ -50,6 +51,17 @@ class CfmConfig:
     gate: str = "cone"             # cone | none: noise, prior and samples confined to the cone
     t_weight: str = "uniform"      # uniform | logit_normal
     lam_l1: float = 0.0
+    # CRPS objective (ml_cfm/crps.py): the model's own few-step sampler inside the loss
+    loss: str = "fm"               # fm | crps | fm+crps
+    lam_crps: float = 1.0          # weight of the CRPS term in fm+crps
+    lam_share: float = 0.0         # scalar CRPS on the physical array share, added to the field CRPS
+    crps_S: int = 2                # samples per record inside the loss
+    crps_steps: int = 2            # Euler steps of the in-loss sampler (and of the eval sampler for CRPS runs)
+    alpha_fair: float = 1.0        # 1 = fair CRPS; <1 mixes in the biased 1/S^2 spread weight
+    init_from: str = ""            # a best.pt to start from (fine-tuning); "" = scratch
+    select: str = "ref"            # ref (val_mse_ref of the sample mean) | crps (val field CRPS)
+    # targets
+    target_thresh: str = "none"    # none | sa99: zero LES-target cells below the record's 99% source-area level
     # model
     widths: str = "32,64,128,192"
     film_hidden: int = 128
@@ -115,6 +127,19 @@ class _Data:
         self.dev = dev
         self.array = self.st["array"] > 0.5
         self._spec_key = None
+        self.va_target_orig = self.va.target.copy()
+        self.tr_target_orig = self.tr.target.copy()
+        self.thresh_info = None
+        if cfg.target_thresh == "sa99":
+            from ml_cfm import tailthresh as TT
+            self.tr.target, itr = TT.threshold_stack(self.tr.target, 0.99)
+            self.va.target, iva = TT.threshold_stack(self.va.target, 0.99)
+            self.thresh_info = {sp: dict(median_mass_removed_pct=float(100 * np.median(i["mass_removed_frac"])),
+                                         p75_mass_removed_pct=float(100 * np.percentile(i["mass_removed_frac"], 75)),
+                                         median_level_over_peak=float(np.median(i["level_over_peak"])))
+                                for sp, i in (("train", itr), ("val", iva))}
+        elif cfg.target_thresh != "none":
+            raise ValueError(f"target_thresh {cfg.target_thresh!r}")
 
     def cones(self):
         if not hasattr(self, "_cones"):
@@ -201,11 +226,17 @@ def train_one(cfg, data=None, trial=None, log=print):
         Ttr["base"] = Ttr["base"] * mtr
         Tva["base"] = Tva["base"] * mva
     s_ref = float(data.norm["target_scale"])
-    tgt_ref = torch.from_numpy(np.arcsinh(data.va.target / s_ref).astype(np.float32)).to(dev)
+    tgt_ref = torch.from_numpy(np.arcsinh(data.va_target_orig / s_ref).astype(np.float32)).to(dev)
     c_in = 1 + fx_tr.n_channels                     # z_t + kljun_T + const channels
 
     model = build_model(cfg, c_in).to(dev)
+    if cfg.init_from:
+        ck = torch.load(cfg.init_from, map_location="cpu", weights_only=False)
+        if int(ck["c_in"]) != c_in:
+            raise RuntimeError(f"init_from {cfg.init_from}: c_in {ck['c_in']} != {c_in}")
+        model.load_state_dict(ck["state_dict"])
     ema = copy.deepcopy(model).eval() if cfg.ema > 0 else None
+    arr_t = torch.from_numpy(data.array.astype(np.float32)).to(dev)
     if ema is not None:
         for p in ema.parameters():
             p.requires_grad_(False)
@@ -247,11 +278,12 @@ def train_one(cfg, data=None, trial=None, log=print):
         mean_T = samp.mean(0)
         f_phys = Tva["s_out"][:, None, None] * torch.sinh(mean_T.clamp(-20, 20)) * valid
         v_ref = float(L.masked_mse(torch.asinh(f_phys / s_ref), tgt_ref, valid))
+        v_crps = float(CR.crps_field_eval(samp, Tva["tgt"], mva).mean()) if samp.shape[0] >= 2 else float("nan")
         model.train()
-        return fl / n_va, v_ref, mean_T, samp, secs
+        return fl / n_va, v_ref, mean_T, samp, secs, v_crps
 
     hist = []
-    best = dict(epoch=-1, val_mse_ref=float("inf"))
+    best = dict(epoch=-1, crit=float("inf"), val_mse_ref=float("inf"))
     best_state = None
     bad = 0
     step = 0
@@ -259,11 +291,19 @@ def train_one(cfg, data=None, trial=None, log=print):
         model.train()
         perm = torch.randperm(n_tr, generator=g_cpu).to(dev)
         tl = 0.0
+        tc = 0.0
         for b in range(steps_per_epoch):
             idx = perm[b * cfg.batch:(b + 1) * cfg.batch]
-            t = draw_t(len(idx), cfg, g, dev)
-            eps = cfg.sigma * torch.randn((len(idx), D.N, D.N), generator=g, device=dev)
-            loss = fm_loss(model, cfg, Ttr, const, idx, mtr, t, eps, Ttr["w"])
+            if cfg.loss in ("fm", "fm+crps"):
+                t = draw_t(len(idx), cfg, g, dev)
+                eps = cfg.sigma * torch.randn((len(idx), D.N, D.N), generator=g, device=dev)
+                loss = fm_loss(model, cfg, Ttr, const, idx, mtr, t, eps, Ttr["w"])
+            if cfg.loss in ("crps", "fm+crps"):
+                lc, terms = CR.crps_field_loss(model, cfg, Ttr, const, idx, mtr, g, valid, arr_t, Ttr["w"])
+                loss = lc if cfg.loss == "crps" else loss + cfg.lam_crps * lc
+                tc += terms["crps_field"] * len(idx)
+            if cfg.loss not in ("fm", "crps", "fm+crps"):
+                raise ValueError(f"loss {cfg.loss!r}")
             opt.zero_grad(set_to_none=True)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
@@ -279,25 +319,31 @@ def train_one(cfg, data=None, trial=None, log=print):
             tl += float(loss) * len(idx)
         rec = dict(epoch=epoch, train_loss=tl / n_tr, lr=opt.param_groups[0]["lr"],
                    t=round(time.time() - t_start, 1))
+        if cfg.loss != "fm":
+            rec["train_crps"] = tc / n_tr
         do_eval = (epoch % cfg.eval_every == 0) or epoch == cfg.epochs - 1
         if do_eval:
-            v_fm, v_ref, _, _, secs = val_pass()
-            rec.update(val_fm=v_fm, val_mse_ref=v_ref, sample_s=round(secs, 2))
-            if not np.isfinite(v_ref):
+            v_fm, v_ref, _, _, secs, v_crps = val_pass()
+            rec.update(val_fm=v_fm, val_mse_ref=v_ref, val_crps=v_crps, sample_s=round(secs, 2))
+            crit = v_ref if cfg.select == "ref" else v_crps
+            if cfg.select not in ("ref", "crps"):
+                raise ValueError(f"select {cfg.select!r}")
+            if not np.isfinite(crit):
                 log(f"  epoch {epoch}: non-finite val; stopping")
                 hist.append(rec)
                 break
-            if v_ref < best["val_mse_ref"]:
-                best = dict(epoch=epoch, val_mse_ref=v_ref, val_fm=v_fm, train_loss=tl / n_tr)
+            if crit < best["crit"]:
+                best = dict(epoch=epoch, crit=crit, val_mse_ref=v_ref, val_fm=v_fm, val_crps=v_crps,
+                            train_loss=tl / n_tr)
                 best_state = {k: v.detach().clone() for k, v in eval_model().state_dict().items()}
                 bad = 0
             else:
                 bad += 1
             log(f"  epoch {epoch:3d} train {tl/n_tr:.5f} val_fm {v_fm:.5f} ref {v_ref:.6f} "
-                f"best {best['val_mse_ref']:.6f}@{best['epoch']} lr {rec['lr']:.2e} "
+                f"crps {v_crps:.5f} best {best['crit']:.6f}@{best['epoch']} lr {rec['lr']:.2e} "
                 f"{rec['t']:.0f}s")
             if trial is not None:
-                trial.report(v_ref, epoch)
+                trial.report(crit, epoch)
                 if trial.should_prune():
                     import optuna
                     raise optuna.TrialPruned()
@@ -313,12 +359,14 @@ def train_one(cfg, data=None, trial=None, log=print):
     final.eval()
 
     # ---- the evaluation at the best epoch: sample mean vs Kljun on val and train --------
-    v_fm, v_ref, mean_va, samp_va, secs = val_pass(S=max(cfg.S_sel, cfg.save_samples or 0),
-                                                   steps=cfg.steps_final)
+    v_fm, v_ref, mean_va, samp_va, secs, v_crps = val_pass(S=max(cfg.S_sel, cfg.save_samples or 0),
+                                                           steps=cfg.steps_final)
     f_va = fx_va.to_physical(mean_va.cpu().numpy())
     va = data.va
-    sc = M.score_fields({"cfm": f_va, "kljun": va.kljun}, va.target, va.wdir_deg,
+    sc = M.score_fields({"cfm": f_va, "kljun": va.kljun}, data.va_target_orig, va.wdir_deg,
                         data.array, va.asymptote)
+    sc_thr = (M.score_fields({"cfm": f_va, "kljun": va.kljun}, va.target, va.wdir_deg,
+                             data.array, va.asymptote) if data.thresh_info else None)
     north = np.isin(va.octant.astype(str), ("N", "NE", "NW"))
     comp, ratios = M.composite(sc["cfm"], sc["kljun"])
     comp_n, ratios_n = M.composite(sc["cfm"], sc["kljun"], north)
@@ -328,7 +376,7 @@ def train_one(cfg, data=None, trial=None, log=print):
         samp_tr, _ = FL.draw_samples(final, cfg.param, Ttr, const, idx, mtr, cfg.sigma,
                                      cfg.S_sel, cfg.steps_final, cfg.solver, gs)
         mean_tr = samp_tr.mean(0)
-        s_ref_t = torch.from_numpy(np.arcsinh(data.tr.target / s_ref).astype(np.float32)).to(dev)
+        s_ref_t = torch.from_numpy(np.arcsinh(data.tr_target_orig / s_ref).astype(np.float32)).to(dev)
         f_tr_phys = Ttr["s_out"][:, None, None] * torch.sinh(mean_tr.clamp(-20, 20)) * valid
         tr_ref = float(L.masked_mse(torch.asinh(f_tr_phys / s_ref), s_ref_t, valid))
     f_tr = fx_tr.to_physical(mean_tr.cpu().numpy())
@@ -341,7 +389,11 @@ def train_one(cfg, data=None, trial=None, log=print):
         name=cfg.name, config=dataclasses.asdict(cfg), n_params=final.n_params(),
         channels=["z_t"] + fx_tr.channel_names, n_train=n_tr, n_val=va.n,
         best_epoch=best["epoch"], epochs_run=len(hist), stopped_early=len(hist) < cfg.epochs,
-        val_loss=v_ref, val_mse_ref=v_ref, val_fm_loss=v_fm, train_mse_ref_at_best=tr_ref,
+        val_loss=v_ref, val_mse_ref=v_ref, val_fm_loss=v_fm, val_crps=v_crps,
+        train_mse_ref_at_best=tr_ref, selection=cfg.select, target_thresh=data.thresh_info,
+        composite_vs_thresholded_target=(M.composite(sc_thr["cfm"], sc_thr["kljun"])[0] if sc_thr else None),
+        val_metrics_thresholded_target=(dict(cfm=M.summarise(sc_thr["cfm"]), kljun=M.summarise(sc_thr["kljun"]))
+                                        if sc_thr else None),
         gap=dict(loss=v_ref - tr_ref, loss_ratio=v_ref / max(tr_ref, 1e-12),
                  composite_train=comp_tr, composite_val=comp),
         composite=comp, composite_ratios=ratios, composite_north=comp_n,
@@ -370,7 +422,7 @@ def train_one(cfg, data=None, trial=None, log=print):
             np.savez_compressed(os.path.join(cfg.out, "samples_val.npz"),
                                 samples_T=samp_va[:cfg.save_samples].cpu().numpy().astype(np.float16),
                                 mean=f_va, run_id=va.meta["run_id"], s_out=fx_va.s_out)
-    log(f"  done {cfg.name}: best epoch {best['epoch']} ref {v_ref:.6f} composite {comp:.3f} "
+    log(f"  done {cfg.name}: best epoch {best['epoch']} ref {v_ref:.6f} crps {v_crps:.5f} composite {comp:.3f} "
         f"(north {comp_n:.3f}) gap x{out['gap']['loss_ratio']:.2f} {out['wall_s']:.0f}s")
     return out
 

@@ -106,10 +106,58 @@ def main():
     tau = CC.connectivity_level(g)
     check("filter B: gaussian is single-connected down to the floor", tau <= 1e-6, f"tau {tau:.1e}")
 
+    # 8. CRPS (ml_cfm/crps.py): identities
+    from ml_cfm import crps as CR
+    from ml_cfm import tailthresh as TT
+    gcpu = torch.Generator().manual_seed(0)
+    xs = torch.randn(7, 5, 6, generator=gcpu, dtype=torch.float64)
+    y = torch.randn(5, 6, generator=gcpu, dtype=torch.float64)
+    check("CRPS sorted form == pairwise form", torch.allclose(CR.crps_sorted(xs, y), CR.crps_pairwise(xs, y), atol=1e-12))
+    pm = y.unsqueeze(0).expand(3, -1, -1) + 0.3
+    check("CRPS of a point mass = |x - y|", torch.allclose(CR.crps_sorted(pm, y), torch.full_like(y, 0.3), atol=1e-12))
+    check("CRPS of samples equal to y = 0", float(CR.crps_sorted(y.unsqueeze(0).expand(4, -1, -1), y).abs().max()) < 1e-12)
+    # the fair estimator is unbiased in S: the mean over many S=2 draws matches the S=2000 value
+    big = torch.randn(2000, 4000, generator=gcpu, dtype=torch.float64)
+    yb = torch.zeros(4000, dtype=torch.float64)
+    c_big = float(CR.crps_sorted(big, yb).mean())
+    c_two = float(CR.crps_sorted(big[:2], yb).mean())
+    check("fair CRPS at S=2 agrees with S=2000 (unbiased)", abs(c_two - c_big) < 0.03, f"{c_two:.4f} vs {c_big:.4f}")
+    cfg_c = CfmConfig(loss="crps", crps_S=2, crps_steps=2)
+    gd = torch.Generator(device=dev).manual_seed(1)
+    valid_t = torch.from_numpy(prep.valid.astype(np.float32)).to(dev)
+    arr_t = torch.from_numpy((st["array"] > 0.5).astype(np.float32)).to(dev)
+    T["s_out"] = prep.T["s_out"][idx]
+    lc, terms = CR.crps_field_loss(model, cfg_c, T, prep.const, i8, prep.mask[idx], gd, valid_t, arr_t)
+    lc.backward()
+    gnorm = sum(float(p.grad.norm()) for p in model.parameters() if p.grad is not None)
+    check("CRPS loss through the sampler is finite and has a gradient", np.isfinite(float(lc)) and gnorm > 0,
+          f"loss {float(lc):.3e} grad {gnorm:.2e}")
+    model.zero_grad(set_to_none=True)
+    d = CfmConfig()
+    check("default config takes the unchanged fm path", d.loss == "fm" and d.select == "ref"
+          and d.target_thresh == "none" and d.init_from == "")
+
+    # 9. the source-area threshold
+    tg = va.target[:32].astype(np.float64)
+    thr, ti = TT.threshold_stack(tg, 0.99)
+    check("threshold: kept cells unchanged", all(np.all((o == 0) | (o == g)) for o, g in zip(thr, tg)))
+    rem = 1 - np.abs(thr).sum(axis=(1, 2)) / np.abs(tg).sum(axis=(1, 2))
+    check("threshold: mass removed accounted exactly", np.allclose(rem, ti["mass_removed_frac"], atol=1e-6),
+          f"median removed {100*np.median(rem):.2f}%")
+    ok = True
+    for g, o, lev in zip(tg, thr, ti["level"]):
+        sa = g >= lev                      # the 99% source area by construction
+        ok &= np.array_equal(o != 0, sa & (g != 0)) and (o >= 0).all()
+        kept = g[sa].sum() / np.maximum(g, 0).sum()
+        ok &= kept >= 0.99 - 1e-9
+    check("threshold: support == the 99% source area, no negatives, >= 99% of positive mass kept", ok)
+    check("threshold: gaussian keeps 99% and removes < 1.1%", TT.threshold_sa(g_ := np.exp(-((np.arange(128)[:, None] - 64) ** 2
+          + (np.arange(128)[None] - 64) ** 2) / 200.0))[1]["mass_removed_frac"] < 0.011)
+
     # 7. ml/ and the FNO's final results are untouched
-    diff = subprocess.check_output(["git", "diff", "--stat", "--", "ml/", "results/ml/final/"],
-                                   cwd=REPO, text=True).strip()
-    check("git diff on ml/ and results/ml/final/ is empty", diff == "", diff[:80])
+    frozen = ["ml/", "results/ml/final/", "results/ml_cfm/final/", "results/ml_cfm/phase1/", "results/ml_cfm/eval/"]
+    diff = subprocess.check_output(["git", "diff", "--stat", "--"] + frozen, cwd=REPO, text=True).strip()
+    check("git diff on ml/, results/ml/final/ and the first CFM run is empty", diff == "", diff[:80])
 
     print("test_cfm:", "FAIL " + ", ".join(fails) if fails else "PASS")
     return 1 if fails else 0

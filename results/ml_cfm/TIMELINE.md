@@ -9,3 +9,5 @@
 - 2026-09-02T16:22:17Z run_all: solver study done; ALL DONE
 - 16:22:37Z run_ext: starts
 - 16:49:35Z run_ext: done; EXT_DONE
+- 2026-09-02T22:12:18Z CALIB/TAIL follow-up approved; step 1 (coherence) starts
+- 2026-09-02T22:20:23Z batch A starts (crps_pure_ft, crps_blend_ft, crps_pure_ft_S4; K=3)

@@ -49,12 +49,13 @@ class Prepared:
         self.const = t(self.fx.const)
         self.dev = dev
 
-    def samples(self, model, cfg, S, steps, solver, seed, idx=None):
-        """(S, n, 128, 128) asinh-space samples and the wall seconds."""
+    def samples(self, model, cfg, S, steps, solver, seed, idx=None, sigma=None):
+        """(S, n, 128, 128) asinh-space samples and the wall seconds. `sigma` overrides the
+        training noise scale (the input-noise temperature; off-distribution for the net)."""
         idx = torch.arange(self.split.n, device=self.dev) if idx is None else idx
         gs = torch.Generator(device=self.dev).manual_seed(seed)
         return FL.draw_samples(model, cfg.param, self.T, self.const, idx, self.mask,
-                               cfg.sigma, S, steps, solver, gs)
+                               cfg.sigma if sigma is None else float(sigma), S, steps, solver, gs)
 
     def physical(self, T_field, idx=None):
         """asinh-space (m,128,128) or (S,m,128,128) -> m^-2."""

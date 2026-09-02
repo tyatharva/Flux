@@ -1,0 +1,4 @@
+{
+ "thresh_seed0": {"target_thresh": "sa99", "epochs": 300, "seed": 0},
+ "thresh_seed1": {"target_thresh": "sa99", "epochs": 300, "seed": 1}
+}
