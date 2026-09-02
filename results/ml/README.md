@@ -11,7 +11,8 @@ Ignored (regenerable): `ckpt/`, `**/*.pt`, `*.db`, `cache/`.
 | `runs/` | one-off training runs (`smoke*` are trainer smoke tests, not results) |
 | `phase1/<run>/run.json` | Phase 1 exploration, one directory per configuration; `summary.{tsv,md}`, `gpu_util.csv`, `DECISIONS.md` |
 | `phase2/` | the Optuna study: `optuna_<study>.db` (ignored), `trials.tsv`, `study_summary.{json,md}`, `trials/t*/run.json` |
-| `final/` | the retrained final configuration (seeds, ensemble), `pred_val.npz` |
+| `haze/` | the post-Optuna round on the haze: cone gate and L1 term variants; `summary.md`, `DECISIONS` in `docs/results/FNO_RESULT.md` §5 |
+| `final/` | the five seeds of the final configuration (`seed*/run.json`; checkpoints and `pred_val.npz` ignored) and `final.json` |
 | `eval/<tag>/` | `ml/evaluate.py` output: `eval.{json,md}`, `per_record.tsv`, figures. `eval/floor/` is the two-window pair scored by the same evaluator |
 
 `run.json` fields: `config`, `history` (per-epoch train/val loss), `best_epoch`, `val_loss`

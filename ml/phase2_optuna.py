@@ -228,7 +228,9 @@ def main(argv=None):
         sampler=make_sampler(a.seed), pruner=make_pruner())
     if a.enqueue:
         with open(a.enqueue) as fh:
-            for params in json.load(fh):
+            queued = json.load(fh)
+            # an object with "trials" (results/**/*.json must be objects: bin/test_floor_health.py)
+            for params in (queued["trials"] if isinstance(queued, dict) else queued):
                 study.enqueue_trial(params, skip_if_exists=True)
     study.set_user_attr("fixed", a.fixed or "")
     study.set_user_attr("space", a.space or "")

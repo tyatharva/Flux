@@ -1,0 +1,131 @@
+{
+ "study": "fno_v2",
+ "best_trial": 40,
+ "params": {
+  "modes": 32,
+  "width": 48,
+  "depth": 3,
+  "lr": 0.00025846648280717396,
+  "wd": 0.019029575405491186,
+  "batch": 8,
+  "film_hidden": 32,
+  "dropout": 0.21896366569377654,
+  "local": "conv3x3"
+ },
+ "objective": 0.00011663237819448113,
+ "override": {
+  "gate": "cone",
+  "lam_l1": 0.03
+ },
+ "config": {
+  "head": "residual",
+  "statics": "none",
+  "dist": "lin_exp_xy",
+  "norm_mode": "global",
+  "knee": 1.0,
+  "stab": "zL",
+  "lam_peak": 0.0,
+  "lam_int": 0.0,
+  "weight": "none",
+  "modes": 32,
+  "width": 48,
+  "depth": 3,
+  "lr": 0.00025846648280717396,
+  "wd": 0.019029575405491186,
+  "batch": 8,
+  "film_hidden": 32,
+  "dropout": 0.21896366569377654,
+  "local": "conv3x3",
+  "gate": "cone",
+  "lam_l1": 0.03
+ },
+ "trial_attrs": {
+  "best_epoch": 81,
+  "composite": 0.5357632575712207,
+  "composite_north": 0.6112442485986589,
+  "epochs_run": 107,
+  "gap_ratio": 1.0549601151136105,
+  "n_params": 28390321,
+  "peak_vram_gb": 3.1129088,
+  "r_array_share": 0.19199417344637107,
+  "r_centroid": 0.6365522720499479,
+  "r_integral": 0.7290063788733178,
+  "r_overlap80": 0.9247796321004396,
+  "r_peak_x": 0.0,
+  "rn_array_share": 0.3314108533441085,
+  "rn_centroid": 0.6968911915598553,
+  "rn_integral": 0.6493902084953946,
+  "rn_overlap80": 0.9307256966831436,
+  "rn_peak_x": 0.0,
+  "val_loss": 0.00011663237819448113,
+  "val_mse_ref": 0.00011663237819448113,
+  "wall_s": 623.6
+ },
+ "seeds": {
+  "seed0": {
+   "composite": 0.542765754556761,
+   "composite_cone": 0.542765754556761,
+   "composite_north": 0.6101515755246599
+  },
+  "seed1": {
+   "composite": 0.5324561901982809,
+   "composite_cone": 0.5324561901982809,
+   "composite_north": 0.6057997487512117
+  },
+  "seed2": {
+   "composite": 0.5256254312838581,
+   "composite_cone": 0.5256254312838581,
+   "composite_north": 0.6473958233118687
+  },
+  "seed3": {
+   "composite": 0.5139589027614946,
+   "composite_cone": 0.5139589027614946,
+   "composite_north": 0.5928654233996391
+  },
+  "seed4": {
+   "composite": 0.5489577142319454,
+   "composite_cone": 0.5489577142319454,
+   "composite_north": 0.5831407134593676
+  }
+ },
+ "best_seed": "seed3",
+ "ensemble": {
+  "composite": 0.5257574759469198,
+  "composite_cone": 0.5257574759469198,
+  "composite_north": 0.5971483732229086,
+  "n_members": 5
+ },
+ "selected": "seed3",
+ "train_val_gap": {
+  "seed0": {
+   "loss": 7.154761988203973e-06,
+   "loss_ratio": 1.0648513864848312,
+   "composite_train": 0.5322570436744073,
+   "composite_val": 0.5427169396176965
+  },
+  "seed1": {
+   "loss": 7.332244422286749e-06,
+   "loss_ratio": 1.0665458358434883,
+   "composite_train": 0.538010077590472,
+   "composite_val": 0.5327221427080311
+  },
+  "seed2": {
+   "loss": 5.512447387445718e-06,
+   "loss_ratio": 1.049705744616165,
+   "composite_train": 0.5427568765183467,
+   "composite_val": 0.5254500779739684
+  },
+  "seed3": {
+   "loss": 7.463480869773775e-06,
+   "loss_ratio": 1.0683619471845072,
+   "composite_train": 0.5111387281847894,
+   "composite_val": 0.5138644237550277
+  },
+  "seed4": {
+   "loss": 4.646462912205607e-06,
+   "loss_ratio": 1.0411174483738936,
+   "composite_train": 0.539336383140544,
+   "composite_val": 0.5489950465087731
+  }
+ }
+}

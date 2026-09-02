@@ -144,7 +144,70 @@ final configuration is the Optuna best with the cone gate and λ_L1 = 0.03.
 
 ## 6. The final model and the val evaluation
 
-TODO after `results/ml/final/final.json` and `results/ml/eval/final_ensemble/eval.md`.
+Configuration: Optuna best (#40) + cone gate + λ_L1 0.03: modes 32, width 48, depth 3, conv3×3, lr 2.6e-4, weight decay 0.019, dropout 0.22, batch 8, FiLM hidden 32; 28.4 M parameters; 150 epochs, patience 25. Five seeds (`results/ml/final/seed*/`), each with a checkpoint and val predictions; the ensemble is the mean of the five physical-space predictions (`results/ml/eval/final_ensemble/`).
+
+| seed | val loss (file space) | best epoch / run | composite | N/NE/NW composite | val/train loss ratio | wall (K = 3) |
+|---|---|---|---|---|---|---|
+| seed0 | 1.1748e-04 | 99 / 125 | 0.543 | 0.610 | 1.06 | 740 s |
+| seed1 | 1.1752e-04 | 107 / 133 | 0.532 | 0.606 | 1.07 | 783 s |
+| seed2 | 1.1641e-04 | 84 / 110 | 0.526 | 0.647 | 1.05 | 659 s |
+| seed3 | 1.1664e-04 | 107 / 133 | 0.514 | 0.593 | 1.07 | 542 s |
+| seed4 | 1.1765e-04 | 79 / 105 | 0.549 | 0.583 | 1.04 | 436 s |
+| **ensemble of 5** | — | — | **0.526** | **0.597** | — | — |
+
+The selection rule in `ml/final.py` picked the best single seed (seed3, composite 0.514) over the ensemble (0.526); the margin is inside the seed spread of the composite (sd 0.014 over the five seeds), so **the ensemble is the recommended model for the test evaluation** — it is the lower-variance estimate of the same conditional mean, and every table below is the ensemble. The train/val gap is 1.04–1.07× on the loss; on the composite the train side is 0.532, 0.538, 0.543, 0.511, 0.539 against the val values above.
+
+**All val records** (235 records)
+
+| metric | FNO median | Kljun median | ratio | FNO wins | Wilcoxon p | floor |
+|---|---|---|---|---|---|---|
+| peak_x | 0.000 m | 30.000 m | 0.00 | 64% | 2e-21 | 30 m (one cell) |
+| centroid | 55.096 m | 91.855 m | 0.60 | 82% | 2e-30 | 15–90 m (convective halves); 46 m run-to-run |
+| overlap80 | 0.622 | 0.566 | 0.87 (on 1−J) | 84% | 5e-28 | 0.59 halves; 0.51 two windows |
+| array_share | 0.286 pp | 1.460 pp | 0.20 | 86% | 2e-26 | 5.3 pp two windows; 0.19 pp within-window SE |
+| integral | 0.104 | 0.140 | 0.75 | 63% | 7e-08 | 1.2–1.44× run-to-run |
+
+**N/NE/NW, where the array signal lives** (71 records)
+
+| metric | FNO median | Kljun median | ratio | FNO wins | Wilcoxon p | floor |
+|---|---|---|---|---|---|---|
+| peak_x | 0.000 m | 30.000 m | 0.00 | 39% | 0.0003 | 30 m (one cell) |
+| centroid | 57.979 m | 83.988 m | 0.69 | 72% | 7e-06 | 15–90 m (convective halves); 46 m run-to-run |
+| overlap80 | 0.636 | 0.580 | 0.87 (on 1−J) | 82% | 9e-08 | 0.59 halves; 0.51 two windows |
+| array_share | 1.255 pp | 3.839 pp | 0.33 | 83% | 1e-07 | 5.3 pp two windows; 0.19 pp within-window SE |
+| integral | 0.104 | 0.160 | 0.65 | 72% | 2e-05 | 1.2–1.44× run-to-run |
+
+**Array in view (LES share > 5%)** (42 records)
+
+| metric | FNO median | Kljun median | ratio | FNO wins | Wilcoxon p | floor |
+|---|---|---|---|---|---|---|
+| peak_x | 0.000 m | 0.000 m | both 0 | 24% | 0.02 | 30 m (one cell) |
+| centroid | 56.270 m | 65.412 m | 0.86 | 52% | 0.6 | 15–90 m (convective halves); 46 m run-to-run |
+| overlap80 | 0.638 | 0.586 | 0.87 (on 1−J) | 76% | 0.001 | 0.59 halves; 0.51 two windows |
+| array_share | 3.512 pp | 5.004 pp | 0.70 | 74% | 0.002 | 5.3 pp two windows; 0.19 pp within-window SE |
+| integral | 0.113 | 0.181 | 0.62 | 71% | 9e-05 | 1.2–1.44× run-to-run |
+
+**Does it win only where the array is absent? No.** It wins on every metric in the N/NE/NW group (array share 1.26 pp against 3.84 pp, p = 1e-7; overlap 0.636 against 0.580). The margin is smallest exactly where the signal is largest: on the 42 array-in-view records the centroid is a tie (p = 0.57) and the array-share gain shrinks to 3.5 pp against 5.0 pp (p = 0.002), because those are the records whose realisation floor is largest (5.3 pp between two windows of one run at a 20% share). By octant the composite is N 0.76, NE 0.56 (n = 7), E 0.76, SE 0.71, S 0.70, SW 0.42, W 0.39, NW 0.51 — below 1 everywhere (`octant_ratios.png`). By stability tercile the advantage grows toward the least unstable third (composite 0.68 → 0.55 → 0.39); by z_i tercile it is flat (0.52, 0.48, 0.55). The shared-seed breakout is uninformative (231 against 4 records).
+
+**Shape and 2-D field metrics** (all 235 records; not in the selection composite):
+
+| metric | FNO | Kljun | FNO wins | Wilcoxon p | floor |
+|---|---|---|---|---|---|
+| shape_l1_2d | 0.473 | 0.631 | 91% | 3e-35 | 0.63 two windows; 0.41–0.92 in the record |
+| shape_1d | 0.071 | 0.141 | 93% | 5e-37 | 0.065 two windows |
+| rel_l2 | 0.340 | 0.541 | 91% | 6e-37 | 0.40 two windows |
+| rel_l2_T | 0.328 | 0.515 | 91% | 7e-37 | 0.39 two windows |
+| mae_T | 0.001 | 0.002 | 92% | 5e-35 | 0.0019 two windows |
+| rmse_T | 0.009 | 0.014 | 91% | 1e-36 | 0.013 two windows |
+| pearson_T | 0.956 | 0.877 | 92% | 6e-35 | 0.92 two windows |
+| ssim_T | 0.980 | 0.975 | 94% | 1e-34 | 0.980 two windows |
+| psnr_T | 39.832 | 36.139 | 91% | 4e-37 | 40.1 dB two windows |
+
+The FNO is closer to the LES target than a second realisation of the same case is, on the 2-D shape (0.47 against the 0.63 between the two validation windows), the 1-D shape (0.071 against 0.065, at the floor), and the relative L2 (0.34 against 0.40). That is what a conditional mean should do: it sits nearer any one sample than samples sit to each other. Pearson r rises from 0.877 to 0.956, SSIM from 0.975 to 0.980, PSNR from 36.1 to 39.8 dB.
+
+**Integral against the asymptote 1 − z_m/z_i**: median |error| LES 0.153, FNO 0.116, Kljun 0.080. The FNO learns the LES's departure from the asymptote (the advection non-closure PROJECT_BRIEF.md names), so it is further from the asymptote than Kljun and closer to the LES; the integral is not scored against the asymptote, and the integral term that would have done so hurt (§3).
+
+Figures in `results/ml/eval/final_ensemble/`: `octant_examples.png` (one typical record per octant: LES / Kljun / FNO raw / FNO cone-cropped on one log scale with the crosswind-integrated profiles), `north_examples.png` (the four strongest-array N records), `north_residuals.png` (LES − Kljun against FNO − Kljun), `octant_ratios.png`. With the gate inside the model the raw and cone-cropped FNO are identical (cone keep fraction 1.000).
 
 ## 7. Limitations, stated
 

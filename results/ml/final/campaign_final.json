@@ -1,0 +1,40 @@
+{
+ "tag": "final",
+ "K": 3,
+ "base": {
+  "epochs": 150,
+  "patience": 25,
+  "eval_every": 25,
+  "save_ckpt": true,
+  "save_pred": true
+ },
+ "wall_s": 1203.7032001018524,
+ "runs": [
+  {
+   "name": "seed0",
+   "status": "ok",
+   "wall": 741.8213558197021
+  },
+  {
+   "name": "seed1",
+   "status": "ok",
+   "wall": 783.9372615814209
+  },
+  {
+   "name": "seed2",
+   "status": "ok",
+   "wall": 659.9616341590881
+  },
+  {
+   "name": "seed3",
+   "status": "ok",
+   "wall": 543.7398357391357
+  },
+  {
+   "name": "seed4",
+   "status": "ok",
+   "wall": 437.13219833374023
+  }
+ ],
+ "started_utc": "2026-09-02T06:49:43Z"
+}
