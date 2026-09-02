@@ -1,0 +1,29 @@
+phase1[tailB]: 2 runs, K=2, base={'epochs': 300, 'save_ckpt': True, 'save_samples': 0}
+  thresh_seed0     ok             1266 s
+  thresh_seed1     ok             1215 s
+phase1[tailB]: 1266 s wall for 2 runs at K=2
+# Phase 1 summary
+
+2 runs in `results/ml_cfm/tail/runs`; baseline `v_s0.1_seed*` n = 0.
+
+## Baseline seed spread
+
+| quantity | mean | sd | n |
+|---|---|---|---|
+| val_loss | nan | nan | 0 |
+| val_mse_ref | nan | nan | 0 |
+| composite | nan | nan | 0 |
+| composite_north | nan | nan | 0 |
+
+## GPU
+
+utilisation mean 100% / p50 100% / p90 100%; memory mean 6626 MiB, max 7120 MiB; concurrent processes mean 2.9, max 3 (252 samples)
+
+## Runs, as z-scores against the baseline seed spread (negative = better for losses and composites)
+
+| run | val_mse_ref | z | composite | z | composite_north | z | gap x | best/epochs | r_array | rn_array | r_centroid | r_overlap | r_integral |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| thresh_seed1 | 0.000132589 | +nan | 0.530 | +nan | 0.613 | +nan | 1.13 | 95/146 | 0.16 | 0.37 | 0.62 | 0.95 | 0.84 |
+| thresh_seed0 | 0.000132743 | +nan | 0.554 | +nan | 0.584 | +nan | 1.15 | 105/156 | 0.19 | 0.31 | 0.62 | 0.95 | 0.84 |
+
+Spearman rank correlation across runs: val_mse_ref vs composite +nan, vs composite_north +nan.

@@ -1,5 +1,7 @@
 # Prior-anchored flow matching beside the FNO: build, comparison, spread and calibration on val
 
+> Follow-up 2026-09-02: `CFM_CALIB_RESULT.md` — the calibration defect of §6 is a global mis-scaling (τ = 1.19), CRPS training does not fix it, and the tail speckle of §5 is sampling noise.
+
 2026-09-02. Code in `ml_cfm/` (nothing under `ml/` or `results/ml/final/` was modified; hashes
 in `results/ml_cfm/ml_final_sha256_before.txt`), gate `bin/test_cfm.py`, every number below
 in `results/ml_cfm/` (file named beside it). **The test split was never read** (§8).

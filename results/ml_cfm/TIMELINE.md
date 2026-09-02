@@ -11,3 +11,11 @@
 - 16:49:35Z run_ext: done; EXT_DONE
 - 2026-09-02T22:12:18Z CALIB/TAIL follow-up approved; step 1 (coherence) starts
 - 2026-09-02T22:20:23Z batch A starts (crps_pure_ft, crps_blend_ft, crps_pure_ft_S4; K=3)
+- 2026-09-02T22:22:05Z crps_pure_ft_S4 killed at epoch 0: 4x the work per epoch (~2 h at K=3) would block batch B; rerun conditionally with fewer epochs
+- 2026-09-02T22:31:50Z batch A done
+- 2026-09-02T22:31:50Z batch B starts (thresh_seed0, thresh_seed1; K=2)
+- 2026-09-02T22:32:29Z crps_pure_ft_S4 relaunched (batch 4, S 4, steps 4, 30 epochs) beside batch B
+- 2026-09-02T22:52:56Z batch B done
+- 2026-09-02T22:52:56Z calibrate (S=64, 11 variants) starts
+- 2026-09-02T23:14:25Z calibrate final done; thresholded-target scoring starts
+- 2026-09-02T23:15:43Z batch C starts (crps_share_ft lam_share 5, crps_pure_scratch; K=2) -- conditional runs triggered by pass 1

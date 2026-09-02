@@ -1,0 +1,4 @@
+{
+ "crps_share_ft":     {"loss": "crps", "lam_share": 5.0, "init_from": "results/ml_cfm/final/seed1/best.pt", "batch": 8, "lr": 2e-4, "warmup": 2, "epochs": 40, "eval_every": 5, "patience": 4, "min_epochs": 10, "S_sel": 8, "steps_sel": 2, "steps_final": 2, "crps_S": 2, "crps_steps": 2, "select": "crps", "seed": 1},
+ "crps_pure_scratch": {"loss": "crps", "batch": 8, "lr": 1e-3, "warmup": 3, "epochs": 100, "eval_every": 5, "patience": 6, "min_epochs": 20, "S_sel": 8, "steps_sel": 2, "steps_final": 2, "crps_S": 2, "crps_steps": 2, "select": "crps", "seed": 1}
+}

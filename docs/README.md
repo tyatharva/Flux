@@ -36,6 +36,7 @@ document is the record of what was believed at the time.
 | corpus | `CONE_MASK_RESULT.md` | the wind-aligned cone: how `target_cone`, the training target, was derived |
 | emulator | `FNO_RESULT.md` | the FNO emulator: build, Phase 1 exploration, Optuna, the val evaluation against Kljun with floors; the test split untouched |
 | emulator | `CFM_RESULT.md` | the prior-anchored flow-matching emulator: ties the FNO with 2.95 M parameters, sample spread and calibration on the array share; the test split untouched |
+| emulator | `CFM_CALIB_RESULT.md` | CFM follow-up: a global temperature of 1.19 fixes the array-share coverage, CRPS training does not; the tail speckle is sampling noise (n = 1 pair) and thresholding the targets at their 99% source area changes nothing measurable |
 
 The most load-bearing of them, cited from `PROJECT_BRIEF.md`:
 
