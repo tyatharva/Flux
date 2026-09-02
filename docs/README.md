@@ -34,6 +34,7 @@ document is the record of what was believed at the time.
 | box | `CONTAINMENT_RESULT.md` | domain size, water share, tail retention |
 | cases | `TARGET_CASE_RESULT.md` | the validation case the estimator was built against |
 | corpus | `CONE_MASK_RESULT.md` | the wind-aligned cone: how `target_cone`, the training target, was derived |
+| emulator | `FNO_RESULT.md` | the FNO emulator: build, Phase 1 exploration, Optuna, the val evaluation against Kljun with floors; the test split untouched |
 
 The most load-bearing of them, cited from `PROJECT_BRIEF.md`:
 

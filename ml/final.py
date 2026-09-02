@@ -47,6 +47,9 @@ def main(argv=None):
     ap.add_argument("-K", type=int, default=2)
     ap.add_argument("--epochs", type=int, default=150)
     ap.add_argument("--patience", type=int, default=25)
+    ap.add_argument("--override", default=None,
+                    help="JSON overrides applied on top of the trial's params (the haze "
+                         "round's winner: gate, lam_l1, knee)")
     a = ap.parse_args(argv)
     storage = a.storage or "sqlite:///" + os.path.join(REPO, "results", "ml", "phase2",
                                                         f"optuna_{a.study}.db")
@@ -55,6 +58,8 @@ def main(argv=None):
     os.makedirs(OUT, exist_ok=True)
     cfg = dict(FIXED)
     cfg.update(params)
+    if a.override:
+        cfg.update(json.loads(a.override))
     runs = {f"seed{s}": dict(cfg, seed=s) for s in range(a.seeds)}
     with open(os.path.join(OUT, "runs.json"), "w") as fh:
         json.dump(runs, fh, indent=1)
@@ -81,6 +86,7 @@ def main(argv=None):
         ens = json.load(fh)
     best_seed = min(per_seed, key=lambda k: per_seed[k]["composite"])
     summary = dict(study=a.study, best_trial=number, params=params, objective=value,
+                   override=json.loads(a.override) if a.override else {}, config=cfg,
                    trial_attrs=attrs, seeds=per_seed, best_seed=best_seed,
                    ensemble=dict(composite=ens["composite"]["fno"]["all"],
                                  composite_cone=ens["composite"]["fno_cone"]["all"],
