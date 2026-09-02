@@ -36,6 +36,67 @@ METRIC_KEYS = ("peak_x", "centroid", "overlap80", "array_share", "integral")
 # Shape metrics, reported beside their floors but kept OUT of the composite: per-cell
 # agreement between two realisations of identical conditions sits on the noise floor.
 SHAPE_KEYS = ("shape_l1_2d", "shape_1d")
+# Standard 2-D field metrics, as used for ML emulators of gridded fields. rel_l2 is
+# ||f - ref||_2 / ||ref||_2 in m^-2 (the FNO literature's number); the rest are in the
+# file's asinh space (y = asinh(x / target_scale)), which is the space the loss lives in
+# and the log-like space the figures are drawn in. Scored on the 122^2 interior only.
+IMAGE_KEYS = ("rel_l2", "rel_l2_T", "mae_T", "rmse_T", "pearson_T", "ssim_T", "psnr_T")
+_NORM = None
+
+
+def _s_ref():
+    global _NORM
+    if _NORM is None:
+        _NORM = D.read_norm()
+    return float(_NORM["target_scale"])
+
+
+def _interior():
+    v = np.zeros((D.N, D.N), bool)
+    v[D.PAD:D.PAD + D.NG, D.PAD:D.PAD + D.NG] = True
+    return v
+
+
+_VALID = None
+
+
+def ssim(a, b, data_range, sigma=1.5):
+    """Wang et al. (2004) SSIM with a Gaussian window, mean over the map."""
+    from scipy.ndimage import gaussian_filter
+    c1, c2 = (0.01 * data_range) ** 2, (0.03 * data_range) ** 2
+    mu_a = gaussian_filter(a, sigma, truncate=3.5)
+    mu_b = gaussian_filter(b, sigma, truncate=3.5)
+    saa = gaussian_filter(a * a, sigma, truncate=3.5) - mu_a ** 2
+    sbb = gaussian_filter(b * b, sigma, truncate=3.5) - mu_b ** 2
+    sab = gaussian_filter(a * b, sigma, truncate=3.5) - mu_a * mu_b
+    m = ((2 * mu_a * mu_b + c1) * (2 * sab + c2)) / ((mu_a ** 2 + mu_b ** 2 + c1) * (saa + sbb + c2))
+    return float(m.mean())
+
+
+def image_metrics(f, ref):
+    global _VALID
+    if _VALID is None:
+        _VALID = _interior()
+    f = np.asarray(f, np.float64); ref = np.asarray(ref, np.float64)
+    s = _s_ref()
+    fT, rT = np.arcsinh(f / s), np.arcsinh(ref / s)
+    v = _VALID
+    nr = np.linalg.norm(ref[v])
+    nrT = np.linalg.norm(rT[v])
+    d = (fT - rT)[v]
+    rng = float(rT[v].max() - rT[v].min())
+    rmse = float(np.sqrt((d ** 2).mean()))
+    with np.errstate(invalid="ignore", divide="ignore"):
+        pear = float(np.corrcoef(fT[v], rT[v])[0, 1]) if fT[v].std() > 0 and rT[v].std() > 0 \
+            else np.nan
+    # SSIM/PSNR on the interior crop so the structural zero pad never enters
+    sl = slice(D.PAD, D.PAD + D.NG)
+    return dict(
+        rel_l2=float(np.linalg.norm((f - ref)[v]) / nr) if nr > 0 else np.nan,
+        rel_l2_T=float(np.linalg.norm(d) / nrT) if nrT > 0 else np.nan,
+        mae_T=float(np.abs(d).mean()), rmse_T=rmse, pearson_T=pear,
+        ssim_T=ssim(fT[sl, sl], rT[sl, sl], rng) if rng > 0 else np.nan,
+        psnr_T=float(20 * np.log10(rng / rmse)) if (rng > 0 and rmse > 0) else np.nan)
 
 
 def shape_l1_2d(a, b):
@@ -100,6 +161,7 @@ def pair_errors(f, ref, wdir_deg, array_mask, asymptote, mf=None, mr=None):
     _, fy_f = FCP.crosswind_integrated(np.asarray(f, np.float64), float(wdir_deg))
     _, fy_r = FCP.crosswind_integrated(np.asarray(ref, np.float64), float(wdir_deg))
     return dict(
+        **image_metrics(f, ref),
         shape_l1_2d=shape_l1_2d(f, ref),
         shape_1d=float(SL.d_shape(fy_f, fy_r)) if (np.abs(fy_f).sum() > 0
                                                    and np.abs(fy_r).sum() > 0) else np.nan,
@@ -135,10 +197,16 @@ def score_fields(fields, les, wdir_deg, array_mask, asymptote):
     return out
 
 
+LARGER_IS_BETTER = ("overlap80", "pearson_T", "ssim_T", "psnr_T")
+
+
 def error_of(scores, key):
-    """The 'smaller is better' error for a metric key; overlap becomes 1 - Jaccard."""
-    if key == "overlap80":
-        return 1.0 - scores["overlap80"]
+    """The 'smaller is better' form of a metric: overlap -> 1 - Jaccard, correlation and
+    SSIM -> 1 - value, PSNR -> -PSNR."""
+    if key in ("overlap80", "pearson_T", "ssim_T"):
+        return 1.0 - scores[key]
+    if key == "psnr_T":
+        return -scores[key]
     return scores[key]
 
 
@@ -159,7 +227,8 @@ def composite(scores_model, scores_ref, mask=None, keys=METRIC_KEYS):
 def summarise(scores, mask=None):
     """Median / mean of each error for one field, optionally on a subset."""
     out = {}
-    for k in METRIC_KEYS + SHAPE_KEYS + ("x80", "peak_xy", "area80_ratio", "integral_asym"):
+    for k in METRIC_KEYS + SHAPE_KEYS + IMAGE_KEYS + ("x80", "peak_xy", "area80_ratio",
+                                                       "integral_asym"):
         v = scores[k] if mask is None else scores[k][mask]
         out[k] = dict(median=float(np.nanmedian(v)), mean=float(np.nanmean(v)),
                       n=int(np.isfinite(v).sum()))

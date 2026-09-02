@@ -64,7 +64,14 @@ FLOORS = {
                   "results/ml/eval/floor/pair_floor.json")],
 }
 UNITS = dict(peak_x="m", centroid="m", overlap80="Jaccard", array_share="pp", integral="",
-             shape_l1_2d="", shape_1d="")
+             shape_l1_2d="", shape_1d="", rel_l2="", rel_l2_T="", mae_T="asinh", rmse_T="asinh",
+             pearson_T="r", ssim_T="", psnr_T="dB")
+for _k in M.IMAGE_KEYS:
+    FLOORS[_k] = [("the two-window pair scored by this evaluator", "1 pair",
+                   "results/ml/eval/floor/pair_floor.json")]
+FLOORS["rel_l2"].insert(0, ("per-cell L1 0.41 (two LPDM seeds) to 0.92 (two release "
+                            "ensembles, retired grid)", "1 case each",
+                            "results/les_realisation_spread.txt:30; results/stage5.txt:36"))
 
 
 def load_checkpoint(path):
@@ -232,11 +239,13 @@ def _panel_row(axes, split, fields, sc, arr, i, FCP, half=900):
     xc, xe = FCP.axes_m()
     ext = [xe[0], xe[-1], xe[0], xe[-1]]
     klj, tgt, fno = split.kljun[i], split.target[i], fields["fno"][i]
+    fnc = fields["fno_cone"][i]
     lognorm, _, vmax = FCP.pair_norms(klj, np.maximum(tgt, fno))
     surf = dict(water=np.zeros_like(arr, bool), array=arr)
     wd = float(split.wdir_deg[i])
     for c, (Fld, name, key) in enumerate(((tgt, "LES target (cone)", "les"),
-                                          (klj, "Kljun", "kljun"), (fno, "FNO", "fno"))):
+                                          (klj, "Kljun", "kljun"), (fno, "FNO raw", "fno"),
+                                          (fnc, "FNO, cone-cropped", "fno_cone"))):
         ax = axes[c]
         FCP.raster(ax, Fld, lognorm, "magma", ext, mask_below=lognorm.vmin)
         l50, l80 = FCP.source_area_levels(Fld)
@@ -250,9 +259,9 @@ def _panel_row(axes, split, fields, sc, arr, i, FCP, half=900):
         share = float(D.raster_array_share(Fld, arr))
         pk = sc[key]["peak_x" if key == "les" else "abs_peak_x"][i]
         ax.set_title(f"{name}  array {100*share:.1f}%  peak_x {pk:.0f} m", fontsize=7.5)
-    ax = axes[3]
+    ax = axes[4]
     for Fld, col, nm in ((tgt, "#4c72b0", "LES"), (klj, "#c44e52", "Kljun"),
-                         (fno, "#2ca02c", "FNO")):
+                         (fnc, "#2ca02c", "FNO (cone)")):
         s_, fy = FCP.crosswind_integrated(Fld, wd)
         ax.plot(s_, fy, color=col, lw=1.2, label=nm)
     ax.axhline(0, color="k", lw=0.5)
@@ -279,12 +288,13 @@ def figures(outdir, split, fields, sc, cmp_groups, arr):
         if len(idx):
             integ = sc["les"]["integral"][idx]
             picks.append(int(idx[np.argsort(np.abs(integ - np.median(integ)))[0]]))
-    fig, axes = plt.subplots(len(picks), 4, figsize=(14, 3.3 * len(picks)), squeeze=False)
+    fig, axes = plt.subplots(len(picks), 5, figsize=(17, 3.3 * len(picks)), squeeze=False)
     for r, i in enumerate(picks):
         _panel_row(axes[r], split, fields, sc, arr, i, FCP)
     fig.suptitle("One typical record per octant (LES integral at the octant median): "
-                 "LES / Kljun / FNO on one log scale; dashed = 80% source area", fontsize=9)
-    fig.tight_layout()
+                 "LES / Kljun / FNO raw / FNO cone-cropped on one log scale; "
+                 "dashed = 80% source area", fontsize=9)
+    fig.tight_layout(rect=[0, 0, 1, 0.985])
     fig.savefig(os.path.join(outdir, "octant_examples.png"), dpi=110)
     plt.close(fig)
     # 0b. residual panels for the four N-wind records with the largest LES array share:
@@ -414,7 +424,7 @@ def main(argv=None):
     groups = breakouts(split, shared)
     cmp = {name: {g: compare(sc[name], sc["kljun"], m) for g, m in groups.items()}
            for name in ("fno", "fno_cone")}
-    shape = {name: {g: compare(sc[name], sc["kljun"], m, M.SHAPE_KEYS)
+    shape = {name: {g: compare(sc[name], sc["kljun"], m, M.SHAPE_KEYS + M.IMAGE_KEYS)
                     for g, m in (("all", groups["all"]),
                                  ("north_N_NE_NW", groups["north_N_NE_NW"]))}
              for name in ("fno", "fno_cone")}
@@ -425,8 +435,11 @@ def main(argv=None):
             for name in fields}
     asym["les"] = dict(median_abs=float(np.nanmedian(np.abs(sc["les"]["integral_asym_err"]))))
 
+    raw = {name: {k: float(np.nanmedian(sc[name][k])) for k in
+                  M.METRIC_KEYS + M.SHAPE_KEYS + M.IMAGE_KEYS} for name in fields}
     out = dict(tag=a.tag, split=a.split, n=split.n, n_members=n_members, ckpts=a.ckpt,
                groups={g: int(m.sum()) for g, m in groups.items()}, compare=cmp, shape=shape,
+               raw_medians=raw,
                composite=comp, integral_vs_asymptote=asym, floors=FLOORS,
                cone_keep_fraction_of_fno_mass=float(
                    np.abs(fields["fno_cone"]).sum() / max(np.abs(fno).sum(), 1e-30)))
@@ -459,9 +472,12 @@ def main(argv=None):
                         f"N/NE/NW only ({int(groups['north_N_NE_NW'].sum())} records)")
         L_ += fmt_table(cmp[name]["array_in_view_gt5pct"],
                         f"array in view, LES share > 5% ({int(groups['array_in_view_gt5pct'].sum())})")
-        L_ += fmt_table(shape[name]["all"], "shape metrics, all records (not in the "
-                        "composite; per-cell agreement sits on the noise floor)")
-        L_ += fmt_table(shape[name]["north_N_NE_NW"], "shape metrics, N/NE/NW only")
+        L_ += fmt_table(shape[name]["all"], "shape and 2-D field metrics, all records (not "
+                        "in the composite; per-cell agreement sits on the noise floor)")
+        L_ += fmt_table(shape[name]["north_N_NE_NW"], "shape and 2-D field metrics, N/NE/NW only")
+        L_ += ["", "Larger-is-better metrics (overlap80, pearson_T, ssim_T, psnr_T) are "
+               "tabulated in their smaller-is-better form (1 - value, or -PSNR); the raw "
+               "medians are in eval.json under `raw_medians`.", ""]
         L_ += ["", "### composite (geometric mean of the five ratios) by group", "",
                "| group | n | composite |", "|---|---|---|"]
         for g, m in groups.items():
