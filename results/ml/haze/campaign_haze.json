@@ -1,0 +1,79 @@
+{
+ "tag": "haze",
+ "K": 3,
+ "base": {
+  "epochs": 150,
+  "patience": 25,
+  "eval_every": 50,
+  "save_ckpt": true
+ },
+ "wall_s": 3169.1162462234497,
+ "runs": [
+  {
+   "name": "h_base_s0",
+   "status": "ok",
+   "wall": 666.780773639679
+  },
+  {
+   "name": "h_gate_s0",
+   "status": "ok",
+   "wall": 707.8801953792572
+  },
+  {
+   "name": "h_base_s1",
+   "status": "ok",
+   "wall": 784.5030994415283
+  },
+  {
+   "name": "h_gate_s1",
+   "status": "ok",
+   "wall": 784.5991191864014
+  },
+  {
+   "name": "h_base_s2",
+   "status": "ok",
+   "wall": 839.3337304592133
+  },
+  {
+   "name": "h_gate_s2",
+   "status": "ok",
+   "wall": 662.9666340351105
+  },
+  {
+   "name": "h_gate_l1a_s0",
+   "status": "ok",
+   "wall": 827.1946058273315
+  },
+  {
+   "name": "h_gate_l1b_s0",
+   "status": "ok",
+   "wall": 816.0775344371796
+  },
+  {
+   "name": "h_gate_knee_s0",
+   "status": "ok",
+   "wall": 445.5011878013611
+  },
+  {
+   "name": "h_gate_l1a_s1",
+   "status": "ok",
+   "wall": 802.2893643379211
+  },
+  {
+   "name": "h_gate_l1b_s1",
+   "status": "ok",
+   "wall": 687.3349089622498
+  },
+  {
+   "name": "h_gate_knee_s1",
+   "status": "ok",
+   "wall": 529.4848580360413
+  },
+  {
+   "name": "h_l1a_s0",
+   "status": "ok",
+   "wall": 374.10965752601624
+  }
+ ],
+ "started_utc": "2026-09-02T05:48:40Z"
+}

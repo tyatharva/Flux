@@ -112,9 +112,35 @@ workers had loaded the study without the driver's pruner and fell back to Optuna
 zero-warm-up `MedianPruner`. Fixed by passing sampler and pruner to every worker
 (`ml/phase2_optuna.py`); the five completed configurations were re-queued into `fno_v2`.
 
-## 5. The haze round
+## 5. The haze round (`results/ml/haze/summary.md`)
 
-TODO after `results/ml/haze/summary.md`.
+The early baseline's panels (`results/ml/eval/early_b0x/octant_examples.png`) showed the one
+visible defect: a low-level haze over the whole domain, at about a thousandth of the peak,
+which the LES target never has. The cause is the objective, not convergence — in asinh
+space that haze is a per-cell error of ~1e-3, squared 1e-6, under 1% of the converged loss
+of 1.2e-4 — so it was attacked with two levers on the Optuna best, three seeds for the
+reference and the gate, two for the rest:
+
+| variant | val loss z (base spread 3.6e-7) | 80% overlap (Kljun 0.566) | area-80 / LES | 2-D shape L1 (Kljun 0.63) | integral error |
+|---|---|---|---|---|---|
+| Optuna best, as is | 0 | 0.52 / 0.54 / 0.57 | 1.17–1.53 | 0.53–0.54 | 0.110–0.124 |
+| + cone gate | −1.2 / +0.9 / +2.6 | 0.49 / 0.55 / 0.59 | 1.31–1.83 | 0.50–0.52 | 0.113–0.140 |
+| **+ cone gate + L1 λ 0.03** | **−0.2 / +0.1** | **0.615 / 0.616** | **0.98 / 1.01** | **0.47 / 0.48** | 0.105 / 0.107 |
+| + cone gate + L1 λ 0.3 | +1.2 / +1.4 | 0.615 / 0.619 | 0.95 / 0.97 | 0.467 / 0.469 | 0.096 / 0.097 |
+| + L1 λ 0.03, no gate | +6.4 | 0.614 | 0.98 | 0.477 | 0.096 |
+| + cone gate, knee 0.3 | +4.6 / +11.1 | 0.53 / 0.59 | 1.35–1.60 | 0.49–0.51 | 0.105–0.125 |
+
+The gate is `pred = cone ⊙ (Kljun + residual)` in asinh space, where the cone is Kljun's own
+σ_y and the wind direction — inputs the model already has, so nothing new enters. The L1
+term is a masked mean absolute error in asinh space added to the MSE (`ml/losses.py`).
+
+**The L1 term is what removes the haze**; the gate alone does not, and the gate with the
+L1 term keeps the val loss inside the seed spread where the L1 term alone costs six sd.
+With λ = 0.03 the 80% overlap moves from below Kljun to above it, the 80% area lands on
+the LES's, and the 2-D shape L1 falls to 0.48 against Kljun's 0.63 — below the 0.63 that
+separates two realisations of one case, which is what a conditional mean should do. λ = 0.3
+buys a little more shape and integral for a loss and centroid cost and was not taken. The
+final configuration is the Optuna best with the cone gate and λ_L1 = 0.03.
 
 ## 6. The final model and the val evaluation
 

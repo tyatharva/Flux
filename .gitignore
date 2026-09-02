@@ -96,3 +96,4 @@ results/ml/**/*.pt
 results/ml/*.db
 results/ml/*.db-journal
 results/ml/cache/
+results/ml/final/seed*/pred_val.npz
