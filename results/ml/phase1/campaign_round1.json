@@ -1,0 +1,169 @@
+{
+ "tag": "round1",
+ "K": 4,
+ "base": {
+  "epochs": 80,
+  "patience": 20,
+  "eval_every": 20,
+  "save_ckpt": false
+ },
+ "wall_s": 2178.1755423545837,
+ "runs": [
+  {
+   "name": "b0_s0",
+   "status": "cached",
+   "wall": 0.0
+  },
+  {
+   "name": "b0_s1",
+   "status": "ok",
+   "wall": 276.31198048591614
+  },
+  {
+   "name": "b0_s2",
+   "status": "ok",
+   "wall": 262.67495918273926
+  },
+  {
+   "name": "b0_s3",
+   "status": "ok",
+   "wall": 280.6493525505066
+  },
+  {
+   "name": "modes8",
+   "status": "ok",
+   "wall": 272.37027192115784
+  },
+  {
+   "name": "modes12",
+   "status": "ok",
+   "wall": 269.66293811798096
+  },
+  {
+   "name": "modes24",
+   "status": "ok",
+   "wall": 240.81538820266724
+  },
+  {
+   "name": "modes32",
+   "status": "ok",
+   "wall": 226.38303446769714
+  },
+  {
+   "name": "width16",
+   "status": "ok",
+   "wall": 167.19521617889404
+  },
+  {
+   "name": "width64",
+   "status": "ok",
+   "wall": 624.9183597564697
+  },
+  {
+   "name": "depth2",
+   "status": "ok",
+   "wall": 172.57212948799133
+  },
+  {
+   "name": "depth6",
+   "status": "ok",
+   "wall": 454.13836765289307
+  },
+  {
+   "name": "local_none",
+   "status": "ok",
+   "wall": 232.96770977973938
+  },
+  {
+   "name": "local_conv3x3",
+   "status": "ok",
+   "wall": 272.0509488582611
+  },
+  {
+   "name": "head_direct",
+   "status": "ok",
+   "wall": 357.4364104270935
+  },
+  {
+   "name": "norm_record",
+   "status": "ok",
+   "wall": 296.5649325847626
+  },
+  {
+   "name": "knee0.3",
+   "status": "ok",
+   "wall": 202.71283340454102
+  },
+  {
+   "name": "knee3",
+   "status": "ok",
+   "wall": 347.32461428642273
+  },
+  {
+   "name": "dist_none",
+   "status": "ok",
+   "wall": 287.93741750717163
+  },
+  {
+   "name": "dist_xy",
+   "status": "ok",
+   "wall": 327.3865783214569
+  },
+  {
+   "name": "statics_none",
+   "status": "ok",
+   "wall": 284.1851053237915
+  },
+  {
+   "name": "statics_C",
+   "status": "ok",
+   "wall": 285.37699007987976
+  },
+  {
+   "name": "statics_rot90",
+   "status": "ok",
+   "wall": 285.79805612564087
+  },
+  {
+   "name": "stab_L",
+   "status": "ok",
+   "wall": 284.79558396339417
+  },
+  {
+   "name": "peak0.1",
+   "status": "ok",
+   "wall": 285.6147801876068
+  },
+  {
+   "name": "peak1",
+   "status": "ok",
+   "wall": 272.6363344192505
+  },
+  {
+   "name": "int0.1_tgt",
+   "status": "ok",
+   "wall": 298.9077262878418
+  },
+  {
+   "name": "int1_tgt",
+   "status": "ok",
+   "wall": 343.86813616752625
+  },
+  {
+   "name": "int0.1_asym",
+   "status": "ok",
+   "wall": 329.6977183818817
+  },
+  {
+   "name": "int1_asym",
+   "status": "ok",
+   "wall": 135.64727544784546
+  },
+  {
+   "name": "weight_north3",
+   "status": "ok",
+   "wall": 173.37907910346985
+  }
+ ],
+ "started_utc": "2026-09-01T23:39:15Z"
+}

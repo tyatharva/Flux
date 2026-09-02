@@ -1,0 +1,6 @@
+  epoch   0 train 0.00027 val 0.00028 (ref 0.00028) best 0.00028@0 lr 2.04e-04 3s
+  epoch  20 train 0.00013 val 0.00013 (ref 0.00013) best 0.00013@20 lr 8.92e-04 26s
+  epoch  40 train 0.00011 val 0.00012 (ref 0.00012) best 0.00012@37 lr 5.31e-04 48s
+  epoch  60 train 0.00010 val 0.00013 (ref 0.00013) best 0.00012@47 lr 1.50e-04 70s
+  early stop at epoch 67: no val improvement for 20 epochs
+  done b0_s0: best epoch 47 val 0.00012 ref 0.00012 composite 0.645 (north 0.891) gap x1.14 81s

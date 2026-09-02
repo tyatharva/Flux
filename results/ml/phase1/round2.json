@@ -1,0 +1,9 @@
+{
+ "statics_none_xy": {"statics": "none", "dist": "lin_exp_xy"},
+ "b1_s0": {"depth": 6, "local": "conv3x3", "modes": 24, "statics": "C", "seed": 0},
+ "b1_s1": {"depth": 6, "local": "conv3x3", "modes": 24, "statics": "C", "seed": 1},
+ "b1_s2": {"depth": 6, "local": "conv3x3", "modes": 24, "statics": "C", "seed": 2},
+ "b1x_s0": {"depth": 6, "local": "conv3x3", "modes": 24, "statics": "none", "dist": "lin_exp_xy", "seed": 0},
+ "b1x_s1": {"depth": 6, "local": "conv3x3", "modes": 24, "statics": "none", "dist": "lin_exp_xy", "seed": 1},
+ "b1x_s2": {"depth": 6, "local": "conv3x3", "modes": 24, "statics": "none", "dist": "lin_exp_xy", "seed": 2}
+}

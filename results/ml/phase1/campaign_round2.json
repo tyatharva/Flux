@@ -1,0 +1,49 @@
+{
+ "tag": "round2",
+ "K": 4,
+ "base": {
+  "epochs": 80,
+  "patience": 20,
+  "eval_every": 20,
+  "save_ckpt": false
+ },
+ "wall_s": 712.2190008163452,
+ "runs": [
+  {
+   "name": "statics_none_xy",
+   "status": "ok",
+   "wall": 267.87835240364075
+  },
+  {
+   "name": "b1_s0",
+   "status": "ok",
+   "wall": 394.13530373573303
+  },
+  {
+   "name": "b1_s1",
+   "status": "ok",
+   "wall": 456.50878643989563
+  },
+  {
+   "name": "b1_s2",
+   "status": "ok",
+   "wall": 394.52273869514465
+  },
+  {
+   "name": "b1x_s0",
+   "status": "ok",
+   "wall": 442.47817516326904
+  },
+  {
+   "name": "b1x_s1",
+   "status": "ok",
+   "wall": 318.08116483688354
+  },
+  {
+   "name": "b1x_s2",
+   "status": "ok",
+   "wall": 312.92547821998596
+  }
+ ],
+ "started_utc": "2026-09-02T00:17:00Z"
+}

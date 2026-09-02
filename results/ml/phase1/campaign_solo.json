@@ -1,0 +1,19 @@
+{
+ "tag": "solo",
+ "K": 1,
+ "base": {
+  "epochs": 80,
+  "patience": 20,
+  "eval_every": 20,
+  "save_ckpt": false
+ },
+ "wall_s": 82.36481380462646,
+ "runs": [
+  {
+   "name": "b0_s0",
+   "status": "ok",
+   "wall": 82.3640398979187
+  }
+ ],
+ "started_utc": "2026-09-01T23:37:43Z"
+}

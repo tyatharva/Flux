@@ -1,0 +1,6 @@
+  epoch   0 train 0.00027 val 0.00028 (ref 0.00028) best 0.00028@0 lr 2.04e-04 12s
+  epoch  20 train 0.00027 val 0.00028 (ref 0.00028) best 0.00028@20 lr 8.92e-04 95s
+  epoch  40 train 0.00020 val 0.00019 (ref 0.00019) best 0.00019@40 lr 5.31e-04 182s
+  epoch  60 train 0.00016 val 0.00016 (ref 0.00016) best 0.00016@60 lr 1.50e-04 263s
+  epoch  79 train 0.00015 val 0.00015 (ref 0.00015) best 0.00015@79 lr 0.00e+00 339s
+  done int1_tgt: best epoch 79 val 0.00015 ref 0.00015 composite 0.699 (north 0.739) gap x0.98 343s
