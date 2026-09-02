@@ -27,6 +27,15 @@ def masked_mse(pred_T, target_T, valid, weights=None):
     return per.mean()
 
 
+def masked_mae(pred_T, target_T, valid, weights=None):
+    """Mean |error| over valid cells; sees the 1e-3-of-peak haze that the MSE does not."""
+    v = valid.to(pred_T.dtype)
+    per = ((pred_T - target_T).abs() * v).sum(dim=(-2, -1)) / v.sum()
+    if weights is not None:
+        per = per * weights
+    return per.mean()
+
+
 def soft_peak_xy(field_T, valid, X, Y, tau):
     """Expected (east, north) under softmax(tau * field) over valid cells. (B,), (B,)."""
     logits = (field_T * tau).masked_fill(~valid, -1e9).flatten(1)

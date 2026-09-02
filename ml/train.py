@@ -52,7 +52,10 @@ class TrainConfig:
     local: str = "conv1x1"          # none | conv1x1 | conv3x3
     film_hidden: int = 64
     dropout: float = 0.0
+    gate: str = "none"              # none | cone: pred_T = cone * (base_T + r); the cone is
+                                    # Kljun's own sigma_y and the wind direction, both inputs
     # loss
+    lam_l1: float = 0.0             # masked MAE in asinh space, added to the MSE
     lam_peak: float = 0.0
     lam_int: float = 0.0
     int_ref: str = "target"         # target | asymptote
@@ -134,6 +137,12 @@ class _Data:
         self.array = self.st["array"] > 0.5
         self._spec_key = None
 
+    def cones(self):
+        if not hasattr(self, "_cones"):
+            self._cones = (D.cone_masks(self.tr, verbose=False),
+                           D.cone_masks(self.va, verbose=False))
+        return self._cones
+
     def features(self, cfg):
         spec = cfg.feature_spec()
         key = json.dumps(spec.to_dict(), sort_keys=True)
@@ -152,9 +161,12 @@ def _tensors(fx, dev):
                 I_tgt=t((fx.split.target.sum(axis=(1, 2)) * M.CELL_AREA).astype(np.float32)))
 
 
-def _predict_T(model, T, const, idx, head):
+def _predict_T(model, T, const, idx, head, gate="none"):
     r = model(T["x_in"][idx], const, T["scal"][idx])
-    return T["base"][idx] + r if head == "residual" else r
+    p = T["base"][idx] + r if head == "residual" else r
+    if gate == "cone":
+        p = p * T["cone"][idx]
+    return p
 
 
 def train_one(cfg, data=None, trial=None, log=print):
@@ -167,6 +179,12 @@ def train_one(cfg, data=None, trial=None, log=print):
         data = _Data(cfg, dev)
     fx_tr, fx_va = data.features(cfg)
     Ttr, Tva = _tensors(fx_tr, dev), _tensors(fx_va, dev)
+    if cfg.gate == "cone":
+        ctr, cva = data.cones()
+        Ttr["cone"] = torch.from_numpy(ctr.astype(np.float32)).to(dev)
+        Tva["cone"] = torch.from_numpy(cva.astype(np.float32)).to(dev)
+    elif cfg.gate != "none":
+        raise ValueError(f"gate {cfg.gate!r}")
     const = torch.from_numpy(fx_tr.const).to(dev)
     valid = torch.from_numpy(fx_tr.valid).to(dev)
     X, Y = D.meshgrid_m()
@@ -193,6 +211,9 @@ def train_one(cfg, data=None, trial=None, log=print):
     def loss_fn(pred, idx, T, weighted):
         mse = L.masked_mse(pred, T["tgt"][idx], valid, T["w"][idx] if weighted else None)
         tot = mse
+        if cfg.lam_l1 > 0:
+            tot = tot + cfg.lam_l1 * L.masked_mae(pred, T["tgt"][idx], valid,
+                                                  T["w"][idx] if weighted else None)
         # THE SCALES DIFFER BY THREE ORDERS OF MAGNITUDE. The masked MSE is a mean over
         # 14,884 mostly-zero cells and converges near 1e-4; the peak term (metres / 300 m)
         # and the integral term (dimensionless) are O(0.1). AUX_SCALE puts lam = 1 at
@@ -213,7 +234,7 @@ def train_one(cfg, data=None, trial=None, log=print):
         preds = []
         for i in range(0, n, 64):
             idx = torch.arange(i, min(n, i + 64), device=dev)
-            preds.append(_predict_T(model, Tva, const, idx, cfg.head))
+            preds.append(_predict_T(model, Tva, const, idx, cfg.head, cfg.gate))
         pred = torch.cat(preds)
         v_loss = float(L.masked_mse(pred, Tva["tgt"], valid))
         f_phys = Tva["s_out"][:, None, None] * torch.sinh(pred.clamp(-20, 20)) * valid
@@ -233,7 +254,7 @@ def train_one(cfg, data=None, trial=None, log=print):
         tl, tm = 0.0, 0.0
         for b in range(steps_per_epoch):
             idx = perm[b * cfg.batch:(b + 1) * cfg.batch]
-            pred = _predict_T(model, Ttr, const, idx, cfg.head)
+            pred = _predict_T(model, Ttr, const, idx, cfg.head, cfg.gate)
             tot, mse = loss_fn(pred, idx, Ttr, weighted=True)
             opt.zero_grad(set_to_none=True)
             tot.backward()
@@ -292,7 +313,7 @@ def train_one(cfg, data=None, trial=None, log=print):
         n = n_tr
         for i in range(0, n, 64):
             idx = torch.arange(i, min(n, i + 64), device=dev)
-            preds.append(_predict_T(model, Ttr, const, idx, cfg.head))
+            preds.append(_predict_T(model, Ttr, const, idx, cfg.head, cfg.gate))
         pred_tr = torch.cat(preds)
         tr_loss = float(L.masked_mse(pred_tr, Ttr["tgt"], valid))
     f_tr = fx_tr.to_physical(pred_tr.cpu().numpy())

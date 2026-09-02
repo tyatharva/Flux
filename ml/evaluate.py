@@ -91,11 +91,14 @@ def predict_split(ckpt_paths, split, statics, norm, dev=None):
     import torch
     dev = dev or torch.device("cuda" if torch.cuda.is_available() else "cpu")
     preds = []
+    cone = None
     for p in ckpt_paths:
         cfg, model, _ = load_checkpoint(p)
         model = model.to(dev)
         fx = F.Features(split, statics, norm, cfg.feature_spec())
         const = torch.from_numpy(fx.const).to(dev)
+        if cfg.gate == "cone" and cone is None:
+            cone = torch.from_numpy(D.cone_masks(split, verbose=False).astype(np.float32)).to(dev)
         out = []
         with torch.no_grad():
             for i in range(0, split.n, 64):
@@ -105,6 +108,8 @@ def predict_split(ckpt_paths, split, statics, norm, dev=None):
                 r = model(x, const, s)
                 base = torch.from_numpy(fx.base_T[sl]).to(dev)
                 pT = base + r if cfg.head == "residual" else r
+                if cfg.gate == "cone":
+                    pT = pT * cone[sl]
                 out.append(pT.cpu().numpy())
         preds.append(fx.to_physical(np.concatenate(out)))
     return np.mean(preds, axis=0).astype(np.float32), len(preds)
