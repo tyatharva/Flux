@@ -242,6 +242,36 @@ S = 4 / 4-step variant 4× that again. A CRPS-tuned model samples in 1.0 ms per 
 sample (Euler 2) against 16.2 ms for the 16-step flow; the two have the same field CRPS.
 Evaluator: ~2 min per variant at S = 64 (sampling + 15,040 per-sample metric evaluations).
 
+## 6a. How many samples the mean needs (`results/ml_cfm/calib/samples/`)
+
+S = 32 per seed was a budget number, never measured. 128 extra samples per seed (Euler 16,
+8 ms per record per sample) give 160 per seed and 800 pooled; the S-sample mean is scored
+against the LES at every S with random-subset repeats, the law `err(S) = a + b S^-p` is
+fitted, and saturation is defined against the val noise floor — the record-bootstrap sd of
+the composite — so S is chosen from the fit, not from the lowest val value
+(`sample_count.md`, `sample_saturation.md`, `sample_count.png`).
+
+| group | n | composite at S = 800 [record-bootstrap 95%] | floor (sd) | asymptote a [95%] | S_sat [95%] | S at half the floor |
+|---|---|---|---|---|---|---|
+| all | 235 | 0.473 [0.438, 0.523] | 0.022 | 0.471 [0.462, 0.480] | 21 [2, 64] | 83 |
+| N/NE/NW | 71 | 0.550 [0.433, 0.684] | 0.064 | 0.545 [0.528, 0.560] | 2 [0, 15] | 7 |
+| array in view | 42 | 0.761 [0.656, 0.863] | 0.052 | 0.761 [0.748, 0.776] | 2 [0, 13] | 8 |
+
+Per seed the curve follows 1/S and is within 1% of its asymptote by S ≈ 30, so the 32 per
+seed already in use were at saturation for a single seed; pooled over five seeds it
+follows 1/√S with S_sat = 21 (upper band 64). **S = 70 pooled (14 per seed) is the setting
+read from the fit**; at S = 800 the remaining fitted improvement is 0.16 of the floor. The
+first write-up's "S-dependence" table (0.743 → 0.492 from S = 1 to 160) was confounded:
+its subsets for S ≤ 32 all came from seed 0, the weakest seed (asymptote 0.535 against
+0.470–0.483 for seeds 1–3), so most of that fall was seed quality, not sample count. More
+samples are not a lever: the asymptote is 0.471 and the 160-sample value in §4 of
+`CFM_RESULT.md` (0.492) is one floor from it.
+
+Headline at S = 70 (ten random 70-subsets, mean ± sd; paired tests from the first):
+composite vs Kljun 0.481 ± 0.007 (all), 0.556 ± 0.013 (N/NE/NW), 0.769 ± 0.009 (in view);
+CFM/FNO 0.93 / 0.94 / 0.96; array share 0.222 pp vs the FNO's 0.286 (p 0.001); centroid
+48.8 vs 55.1 m (p 9e-7). The conclusions of `CFM_RESULT.md` §4 stand at the fitted S.
+
 ## 7. Limitations, and the test split
 
 - One two-window pair for the coherence test (n = 1, a train record); the corpus-level

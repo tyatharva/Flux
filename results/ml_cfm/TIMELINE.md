@@ -23,3 +23,5 @@
 - 2026-09-02T23:32:09Z batch C done; calibrate pass 2 starts
 - 2026-09-02T23:35:20Z CALIB2_DONE
 - 2026-09-02T23:36:01Z write-up complete; final gate
+- 2026-09-02T23:54:03Z sample-count study launched (128 extra samples per seed, Euler 16)
+- 2026-09-03T00:22:55Z sample-count study done: asymptote 0.471, S_sat 21 [2, 64] pooled, S = 70 chosen from the fit
