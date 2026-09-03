@@ -272,6 +272,33 @@ composite vs Kljun 0.481 ± 0.007 (all), 0.556 ± 0.013 (N/NE/NW), 0.769 ± 0.00
 CFM/FNO 0.93 / 0.94 / 0.96; array share 0.222 pp vs the FNO's 0.286 (p 0.001); centroid
 48.8 vs 55.1 m (p 9e-7). The conclusions of `CFM_RESULT.md` §4 stand at the fitted S.
 
+## 6b. The frozen recipe (`ml_cfm/final_recipe.py`, `results/ml_cfm/final_recipe/`)
+
+Decided on val 2026-09-03, to be applied unchanged to test:
+
+| item | choice | why |
+|---|---|---|
+| CFM seeds | 0–3 (seed 4 dropped, worst on val: 0.544) | four-seed pool 0.473 = the five-seed pool; drop-the-worst is the user's rule for both models |
+| samples | 20 per seed, the first 20 stored (80 pooled) | S_sat 21, upper band 64 → 70 → 17.5 per seed, rounded up |
+| spread | τ = 1.19 around the per-record mean in asinh space | §4: one global τ puts the array-share coverage in band |
+| estimator | physical-space mean | ties the asinh mean within the floor; preserves the integral and the array share exactly; median loses 0.03–0.08 |
+| cut | 99.5% source-area cut on the CFM and FNO means | metrics tied across 99.0–99.9 and a 1e-8 floor; scale-free; clean edge; removes every negative cell |
+| FNO | seeds 0–3 mean (seed 4 dropped, 0.549), same cut | the four-seed FNO is 0.526, the five-seed 0.526 |
+| Kljun | untouched | never negative |
+| LES | positive-only (negatives → 0) | the cut denies the models any negative structure; the lobe is noise (§5.1) |
+
+Val result (`recipe.md`): composite vs Kljun CFM **0.476** / FNO 0.545 (all), 0.545 / 0.617
+(N/NE/NW), 0.759 / 0.831 (array in view); CFM/FNO 0.90–0.91 everywhere. Against the raw LES
+with unmodified fields the same models are 0.489 / 0.526. The recipe moved the CFM by −0.013
+and the FNO by +0.019, both inside the 0.022 floor, and the shift is the reference: zeroing
+the LES negatives moves its centroid and x80 outward (Kljun's centroid error 92 → 107 m,
+x80 120 → 143 m with Kljun untouched); the CFM's cut removes its own negative lobe (1.7% of
+|mass|) and follows, the FNO's cut removes 0.7% and does not. The crosswind-integrated
+product is intact: CFM peak_x error 0, x80 62 → 65 m, shape_1d 0.0653 → 0.0633.
+Calibration of the 80 τ-scaled samples against the positive-only LES: array-share
+cover50/90 0.58/0.91 (all), 0.52/0.90 (north), 0.43/0.79 (in view; z sd 1.46), spread/skill
+0.97–1.02; the integral stays under-dispersed (z sd 1.1–1.4). Figure `recipe_val.png`.
+
 ## 7. Limitations, and the test split
 
 - One two-window pair for the coherence test (n = 1, a train record); the corpus-level
@@ -287,6 +314,6 @@ CFM/FNO 0.93 / 0.94 / 0.96; array share 0.222 pp vs the FNO's 0.286 (p 0.001); c
   reported and the composite is the production one.
 
 **The test split was never read.** `ml.data.load_split` refuses it without `allow_test=True`;
-`grep -rnI allow_test ml_cfm/` shows only the `--allow-test` option of `ml_cfm/evaluate.py`
-(`ml_cfm/calibrate.py` has no such option and loads `val` and `train` only);
+`grep -rnI allow_test ml_cfm/` shows only the `--allow-test` options of `ml_cfm/evaluate.py` and
+`ml_cfm/final_recipe.py` (the latter refuses any split but val; `ml_cfm/calibrate.py` has no such option);
 `results/ml/loader_audit.jsonl` holds no `test` read with `n > 0`.
