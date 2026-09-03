@@ -1,5 +1,5 @@
 """Five val cases, full domain, one global log colour scale:
-Kljun | FNO ensemble | CFM mean | CFM mean with the spread scaled by tau | LES target.
+Kljun | FNO ensemble | CFM + tau (all stored samples) | CFM + tau at the fitted S | LES target.
 
     python -m ml_cfm.fig_models_val [--tau 1.19] [--out results/ml_cfm/calib/final/models_val.png]
 
@@ -30,6 +30,7 @@ def main(argv=None):
     ap.add_argument("--seeds", nargs="+", default=sorted(glob.glob(os.path.join(REPO, "results", "ml_cfm", "final", "seed?"))))
     ap.add_argument("--out", default=os.path.join(REPO, "results", "ml_cfm", "calib", "final", "models_val.png"))
     ap.add_argument("--floor", type=float, default=1e-4, help="colour floor as a fraction of the global peak")
+    ap.add_argument("--S-opt", type=int, default=70, help="the S read from the fitted curve (sample_saturation.md)")
     a = ap.parse_args(argv)
     import matplotlib
     matplotlib.use("Agg")
@@ -53,14 +54,21 @@ def main(argv=None):
     for sd in a.seeds:
         with np.load(os.path.join(sd, "samples_val.npz")) as z:
             assert np.array_equal(z["run_id"], split.meta["run_id"])
-            T.append(z["samples_T"][:, rows].astype(np.float32))
+            Ts = [z["samples_T"][:, rows].astype(np.float32)]
             s_out = z["s_out"].astype(np.float32)[rows]
-    T = np.concatenate(T)                                              # (S, 5, 128, 128)
+        for p_ in sorted(glob.glob(os.path.join(sd, "samples_val_extra*.npz"))):
+            Ts.append(np.load(p_)["samples_T"][:, rows].astype(np.float32))
+        T.append(np.concatenate(Ts))
+    per_seed = min(t.shape[0] for t in T)
+    k_opt = int(np.ceil(a.S_opt / len(T)))                             # samples per seed at the fitted S
+    T_opt = np.concatenate([t[:k_opt] for t in T])                     # seeds interleaved: k_opt from each
+    T = np.concatenate([t[:per_seed] for t in T])                      # (S_all, 5, 128, 128)
     phys = lambda TT: s_out[None, :, None, None] * np.sinh(np.clip(TT, -20, 20)) * valid
-    F = phys(T)
-    m = T.mean(0, keepdims=True)
-    Ft = phys(m + a.tau * (T - m))
+    temp = lambda TT: (lambda m: m + a.tau * (TT - m))(TT.mean(0, keepdims=True))
+    F = phys(temp(T))
+    Ft = phys(temp(T_opt))
     cfm, cfm_t = F.mean(0), Ft.mean(0)
+    S_all, S_opt = F.shape[0], Ft.shape[0]
     fno = np.mean([np.load(p)["fno"][rows] for p in sorted(glob.glob(os.path.join(REPO, "results", "ml", "final", "seed*", "pred_val.npz")))], axis=0)
     les, kl = split.target[rows], split.kljun[rows]
 
@@ -70,8 +78,8 @@ def main(argv=None):
     ext = [xe[0], xe[-1], xe[0], xe[-1]]
     surf = dict(water=st["water"] > 0.5, array=arr)
     share = lambda f: 100 * D.raster_array_share(f, arr)
-    cols = [("Kljun", kl), ("FNO ensemble (5 seeds)", fno), ("CFM mean (5 seeds x 32 samples)", cfm),
-            (f"CFM mean, spread x tau = {a.tau}", cfm_t), ("LES target", les)]
+    cols = [("Kljun", kl), ("FNO ensemble (5 seeds)", fno), (f"CFM + tau {a.tau}, all {S_all} samples (5 seeds)", cfm),
+            (f"CFM + tau {a.tau}, S = {S_opt} from the fitted curve", cfm_t), ("LES target", les)]
     fig, axes = plt.subplots(len(rows), 5, figsize=(21, 4.15 * len(rows)), squeeze=False)
     for r, i in enumerate(rows):
         wd = float(split.wdir_deg[i])
@@ -94,7 +102,7 @@ def main(argv=None):
     cb = fig.colorbar(im, cax=cax)
     cb.set_label("footprint [m$^{-2}$], one log scale for every panel", fontsize=8)
     cb.ax.tick_params(labelsize=7)
-    fig.suptitle(f"Val: Kljun / FNO / CFM / CFM with tau / LES on the full 3660 m domain; global scale, floor {a.floor:g} x peak. "
+    fig.suptitle(f"Val: Kljun / FNO / CFM + tau ({S_all} samples) / CFM + tau (S = {S_opt}) / LES on the full 3660 m domain; global scale, floor {a.floor:g} x peak. "
                  "Green = array, cyan = water, dotted = last real cell, arrow = mean flow", fontsize=9)
     fig.savefig(a.out, dpi=100)
     print("wrote", a.out, "cases", [split.meta["run_id"][i] for i in rows])
