@@ -31,7 +31,7 @@ def main(argv=None):
     ap.add_argument("--out", default=None)
     ap.add_argument("--floor", type=float, default=1e-4, help="colour floor as a fraction of the global peak")
     ap.add_argument("--S-opt", type=int, default=70, help="the S read from the fitted curve (sample_saturation.md)")
-    ap.add_argument("--col4", default="thr99", choices=["thr99", "sopt"],
+    ap.add_argument("--col4", default="thr99", choices=["thr99", "sopt", "sopt_thr99"],
                     help="4th column: the full mean thresholded at its own 99%% source area (thr99) or the mean at S_opt (sopt)")
     a = ap.parse_args(argv)
     a.out = a.out or os.path.join(REPO, "results", "ml_cfm", "calib", "final", f"models_val_{a.col4}.png")
@@ -86,6 +86,10 @@ def main(argv=None):
         cfm_t, _ = TT.threshold_stack(cfm, 0.99)
         Ft = F
         col4 = (f"CFM + tau {a.tau}, {S_all} samples, cut at its own 99% source area", cfm_t)
+    elif a.col4 == "sopt_thr99":
+        from ml_cfm import tailthresh as TT
+        cfm_t, _ = TT.threshold_stack(cfm_t, 0.99)
+        col4 = (f"CFM + tau {a.tau}, S = {S_opt}, cut at its own 99% source area", cfm_t)
     else:
         col4 = (f"CFM + tau {a.tau}, S = {S_opt} from the fitted curve", cfm_t)
     cols = [("Kljun", kl), ("FNO ensemble (5 seeds)", fno), (f"CFM + tau {a.tau}, all {S_all} samples (5 seeds)", cfm),
@@ -112,7 +116,7 @@ def main(argv=None):
     cb = fig.colorbar(im, cax=cax)
     cb.set_label("footprint [m$^{-2}$], one log scale for every panel", fontsize=8)
     cb.ax.tick_params(labelsize=7)
-    fig.suptitle(f"Val: Kljun / FNO / CFM + tau ({S_all} samples) / {'same, 99% source-area cut' if a.col4 == 'thr99' else f'CFM + tau (S = {S_opt})'} / LES on the full 3660 m domain; global scale, floor {a.floor:g} x peak. "
+    fig.suptitle(f"Val: Kljun / FNO / CFM + tau ({S_all} samples) / {'same, 99% source-area cut' if a.col4 == 'thr99' else f'CFM + tau (S = {S_opt}' + (', 99% cut)' if a.col4 == 'sopt_thr99' else ')')} / LES on the full 3660 m domain; global scale, floor {a.floor:g} x peak. "
                  "Green = array, cyan = water, dotted = last real cell, arrow = mean flow", fontsize=9)
     fig.savefig(a.out, dpi=100)
     print("wrote", a.out, "cases", [split.meta["run_id"][i] for i in rows])
