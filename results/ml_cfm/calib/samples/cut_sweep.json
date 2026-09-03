@@ -1,0 +1,376 @@
+{
+ "per_seed": {
+  "seed0": {
+   "all": 0.5301716463231787,
+   "north_N_NE_NW": 0.6335855491970184,
+   "array_in_view_gt5pct": 0.8517122837256037
+  },
+  "seed1": {
+   "all": 0.48298739670709423,
+   "north_N_NE_NW": 0.551371565143673,
+   "array_in_view_gt5pct": 0.7560451431359367
+  },
+  "seed2": {
+   "all": 0.47707830160389286,
+   "north_N_NE_NW": 0.5308987632196419,
+   "array_in_view_gt5pct": 0.7585138754337144
+  },
+  "seed3": {
+   "all": 0.4702598365792061,
+   "north_N_NE_NW": 0.526073870286032,
+   "array_in_view_gt5pct": 0.7575843004730076
+  },
+  "seed4": {
+   "all": 0.5437292822882844,
+   "north_N_NE_NW": 0.5926464849385438,
+   "array_in_view_gt5pct": 0.8245392898138344
+  }
+ },
+ "best_seed": "seed3",
+ "results": {
+  "pool5_S800": {
+   "none": {
+    "mass_removed": 0.0,
+    "cells_removed": 0.0,
+    "all": 0.4760213860202975,
+    "north_N_NE_NW": 0.5588394007537019,
+    "array_in_view_gt5pct": 0.7590739367488084,
+    "array_share_pp": {
+     "all": 0.2155626659312876,
+     "north_N_NE_NW": 1.2943356614141301,
+     "array_in_view_gt5pct": 3.36241682498863
+    }
+   },
+   "99.9": {
+    "mass_removed": 0.005627303479811709,
+    "cells_removed": 0.5446278208150892,
+    "all": 0.48052800685476543,
+    "north_N_NE_NW": 0.5485768021189125,
+    "array_in_view_gt5pct": 0.7521278827318025,
+    "array_share_pp": {
+     "all": 0.22169486407876793,
+     "north_N_NE_NW": 1.2002949094243291,
+     "array_in_view_gt5pct": 3.578089971837056
+    }
+   },
+   "99.7": {
+    "mass_removed": 0.007617709029775401,
+    "cells_removed": 0.6106894370651487,
+    "all": 0.4776493594856497,
+    "north_N_NE_NW": 0.5469704006989241,
+    "array_in_view_gt5pct": 0.7613982773301987,
+    "array_share_pp": {
+     "all": 0.21956715131012383,
+     "north_N_NE_NW": 1.2328105169761794,
+     "array_in_view_gt5pct": 3.5874858578762603
+    }
+   },
+   "99.5": {
+    "mass_removed": 0.009599891686988824,
+    "cells_removed": 0.6399228012131238,
+    "all": 0.4786074468261754,
+    "north_N_NE_NW": 0.549858365937663,
+    "array_in_view_gt5pct": 0.7653597856220031,
+    "array_share_pp": {
+     "all": 0.21999269366773927,
+     "north_N_NE_NW": 1.2575095456937717,
+     "array_in_view_gt5pct": 3.595378066269558
+    }
+   },
+   "99.3": {
+    "mass_removed": 0.011597820887769249,
+    "cells_removed": 0.6588235294117647,
+    "all": 0.4798722504163099,
+    "north_N_NE_NW": 0.5554191191232359,
+    "array_in_view_gt5pct": 0.7653044031190384,
+    "array_share_pp": {
+     "all": 0.22097351196603576,
+     "north_N_NE_NW": 1.2800697529080065,
+     "array_in_view_gt5pct": 3.527639520901629
+    }
+   },
+   "99.1": {
+    "mass_removed": 0.013586604136259015,
+    "cells_removed": 0.6736505681818182,
+    "all": 0.4779915162928014,
+    "north_N_NE_NW": 0.5527234716625269,
+    "array_in_view_gt5pct": 0.7681482522388589,
+    "array_share_pp": {
+     "all": 0.22198976461701728,
+     "north_N_NE_NW": 1.2769467327878914,
+     "array_in_view_gt5pct": 3.456425376645017
+    }
+   },
+   "99.0": {
+    "mass_removed": 0.014549095587624461,
+    "cells_removed": 0.6796875,
+    "all": 0.47525731684301553,
+    "north_N_NE_NW": 0.5536013262588019,
+    "array_in_view_gt5pct": 0.7684866645445259,
+    "array_share_pp": {
+     "all": 0.22248788500713215,
+     "north_N_NE_NW": 1.2753666958616436,
+     "array_in_view_gt5pct": 3.4206648755066764
+    }
+   }
+  },
+  "pool5_S70": {
+   "none": {
+    "mass_removed": 0.0,
+    "cells_removed": 0.0,
+    "all": 0.4892703253046546,
+    "north_N_NE_NW": 0.5613774303511858,
+    "array_in_view_gt5pct": 0.7690545996301812,
+    "array_share_pp": {
+     "all": 0.23138368127209197,
+     "north_N_NE_NW": 1.1961250548955888,
+     "array_in_view_gt5pct": 3.45643302156971
+    }
+   },
+   "99.9": {
+    "mass_removed": 0.006506998116933781,
+    "cells_removed": 0.5196451204055766,
+    "all": 0.48526727680986653,
+    "north_N_NE_NW": 0.5485596635486761,
+    "array_in_view_gt5pct": 0.7624419895474583,
+    "array_share_pp": {
+     "all": 0.23359955725957454,
+     "north_N_NE_NW": 1.1856852856526072,
+     "array_in_view_gt5pct": 3.3586506657070236
+    }
+   },
+   "99.7": {
+    "mass_removed": 0.008487280516443246,
+    "cells_removed": 0.5986733001658375,
+    "all": 0.4902648003193646,
+    "north_N_NE_NW": 0.5467325490494233,
+    "array_in_view_gt5pct": 0.7672916508816748,
+    "array_share_pp": {
+     "all": 0.24133095301099428,
+     "north_N_NE_NW": 1.1871195968475814,
+     "array_in_view_gt5pct": 3.379998789076981
+    }
+   },
+   "99.5": {
+    "mass_removed": 0.010479445827026913,
+    "cells_removed": 0.6326530612244898,
+    "all": 0.49110070977265036,
+    "north_N_NE_NW": 0.5519309488779768,
+    "array_in_view_gt5pct": 0.767323918398411,
+    "array_share_pp": {
+     "all": 0.24191725570912592,
+     "north_N_NE_NW": 1.1934745031144425,
+     "array_in_view_gt5pct": 3.4041299822069853
+    }
+   },
+   "99.3": {
+    "mass_removed": 0.012455689217507344,
+    "cells_removed": 0.653106275622832,
+    "all": 0.4841266896399423,
+    "north_N_NE_NW": 0.5549462727938363,
+    "array_in_view_gt5pct": 0.7705286777583442,
+    "array_share_pp": {
+     "all": 0.234994406020958,
+     "north_N_NE_NW": 1.1999115460094474,
+     "array_in_view_gt5pct": 3.4276896244909336
+    }
+   },
+   "99.1": {
+    "mass_removed": 0.014436033373916527,
+    "cells_removed": 0.6701222753854332,
+    "all": 0.48338083471909926,
+    "north_N_NE_NW": 0.558358722867174,
+    "array_in_view_gt5pct": 0.7759308317042772,
+    "array_share_pp": {
+     "all": 0.23380460349403578,
+     "north_N_NE_NW": 1.20626796840606,
+     "array_in_view_gt5pct": 3.452423993734044
+    }
+   },
+   "99.0": {
+    "mass_removed": 0.01541379794000141,
+    "cells_removed": 0.6766118836915297,
+    "all": 0.4832360178900844,
+    "north_N_NE_NW": 0.5598578034676351,
+    "array_in_view_gt5pct": 0.7812550603689145,
+    "array_share_pp": {
+     "all": 0.2312360053970902,
+     "north_N_NE_NW": 1.211017891790552,
+     "array_in_view_gt5pct": 3.4615692540565197
+    }
+   }
+  },
+  "seed3_S160": {
+   "none": {
+    "mass_removed": 0.0,
+    "cells_removed": 0.0,
+    "all": 0.4702598365792061,
+    "north_N_NE_NW": 0.526073870286032,
+    "array_in_view_gt5pct": 0.7575843004730076,
+    "array_share_pp": {
+     "all": 0.19295618226455902,
+     "north_N_NE_NW": 1.0622755786084188,
+     "array_in_view_gt5pct": 3.503160426705089
+    }
+   },
+   "99.9": {
+    "mass_removed": 0.02748535532619421,
+    "cells_removed": 0.6433545261883137,
+    "all": 0.4554667728770374,
+    "north_N_NE_NW": 0.5166708299960385,
+    "array_in_view_gt5pct": 0.7507202968606496,
+    "array_share_pp": {
+     "all": 0.18893143690486305,
+     "north_N_NE_NW": 1.0697134687317442,
+     "array_in_view_gt5pct": 3.3836383201686187
+    }
+   },
+   "99.7": {
+    "mass_removed": 0.029423156353918102,
+    "cells_removed": 0.6689914163090128,
+    "all": 0.45577455932141847,
+    "north_N_NE_NW": 0.5185374515989937,
+    "array_in_view_gt5pct": 0.7550139871672189,
+    "array_share_pp": {
+     "all": 0.18819964827449773,
+     "north_N_NE_NW": 1.0619727305086626,
+     "array_in_view_gt5pct": 3.408583687018679
+    }
+   },
+   "99.5": {
+    "mass_removed": 0.031340129880857825,
+    "cells_removed": 0.6850461893764435,
+    "all": 0.45585236180308913,
+    "north_N_NE_NW": 0.5240069964159882,
+    "array_in_view_gt5pct": 0.7575454201712983,
+    "array_share_pp": {
+     "all": 0.18945419618675607,
+     "north_N_NE_NW": 1.0498774416156522,
+     "array_in_view_gt5pct": 3.4290791420121014
+    }
+   },
+   "99.3": {
+    "mass_removed": 0.03329328948419206,
+    "cells_removed": 0.697740846533368,
+    "all": 0.4561019604461869,
+    "north_N_NE_NW": 0.524947095798913,
+    "array_in_view_gt5pct": 0.7606498261763712,
+    "array_share_pp": {
+     "all": 0.19072746805592916,
+     "north_N_NE_NW": 1.0375343840124098,
+     "array_in_view_gt5pct": 3.4541210417224057
+    }
+   },
+   "99.1": {
+    "mass_removed": 0.03524816308416773,
+    "cells_removed": 0.7082986400222038,
+    "all": 0.45350107904389436,
+    "north_N_NE_NW": 0.5257748526453961,
+    "array_in_view_gt5pct": 0.7654927025865826,
+    "array_share_pp": {
+     "all": 0.18469756494358963,
+     "north_N_NE_NW": 1.061263960504688,
+     "array_in_view_gt5pct": 3.4737779528765222
+    }
+   },
+   "99.0": {
+    "mass_removed": 0.03616957437280566,
+    "cells_removed": 0.7137066126171776,
+    "all": 0.45395986045827785,
+    "north_N_NE_NW": 0.5298675004044551,
+    "array_in_view_gt5pct": 0.7644619213457132,
+    "array_share_pp": {
+     "all": 0.18601736155907117,
+     "north_N_NE_NW": 1.0958424456239513,
+     "array_in_view_gt5pct": 3.485817525857217
+    }
+   }
+  },
+  "seed3_S70": {
+   "none": {
+    "mass_removed": 0.0,
+    "cells_removed": 0.0,
+    "all": 0.46429687543765824,
+    "north_N_NE_NW": 0.521313957849512,
+    "array_in_view_gt5pct": 0.7508003236259359,
+    "array_share_pp": {
+     "all": 0.18606957041304584,
+     "north_N_NE_NW": 1.124664137987072,
+     "array_in_view_gt5pct": 3.5687452562426736
+    }
+   },
+   "99.9": {
+    "mass_removed": 0.027343051811548186,
+    "cells_removed": 0.6437781109445277,
+    "all": 0.45173817719238407,
+    "north_N_NE_NW": 0.5390344765563899,
+    "array_in_view_gt5pct": 0.7469888983104651,
+    "array_share_pp": {
+     "all": 0.18496161799499025,
+     "north_N_NE_NW": 1.3229262051420478,
+     "array_in_view_gt5pct": 3.5206642979719067
+    }
+   },
+   "99.7": {
+    "mass_removed": 0.029284175082464753,
+    "cells_removed": 0.6707065497679217,
+    "all": 0.45417298370133674,
+    "north_N_NE_NW": 0.539036447250398,
+    "array_in_view_gt5pct": 0.7489181059566455,
+    "array_share_pp": {
+     "all": 0.1907664592158907,
+     "north_N_NE_NW": 1.3157659831025765,
+     "array_in_view_gt5pct": 3.545708698830559
+    }
+   },
+   "99.5": {
+    "mass_removed": 0.03122507183429518,
+    "cells_removed": 0.6860427978281699,
+    "all": 0.45538667354585377,
+    "north_N_NE_NW": 0.5320271047294917,
+    "array_in_view_gt5pct": 0.7534398977948696,
+    "array_share_pp": {
+     "all": 0.18969259820266152,
+     "north_N_NE_NW": 1.2689060274273771,
+     "array_in_view_gt5pct": 3.567366575941734
+    }
+   },
+   "99.3": {
+    "mass_removed": 0.033176012810228965,
+    "cells_removed": 0.697617293048391,
+    "all": 0.4595646915737042,
+    "north_N_NE_NW": 0.5346602129951609,
+    "array_in_view_gt5pct": 0.7593830653242987,
+    "array_share_pp": {
+     "all": 0.19140998967101028,
+     "north_N_NE_NW": 1.248932187307511,
+     "array_in_view_gt5pct": 3.5805926101778294
+    }
+   },
+   "99.1": {
+    "mass_removed": 0.03511474732237275,
+    "cells_removed": 0.7077158916709249,
+    "all": 0.46177730825253765,
+    "north_N_NE_NW": 0.5376492833895714,
+    "array_in_view_gt5pct": 0.7606030708803184,
+    "array_share_pp": {
+     "all": 0.19379714113459912,
+     "north_N_NE_NW": 1.2430616109713577,
+     "array_in_view_gt5pct": 3.565182901843449
+    }
+   },
+   "99.0": {
+    "mass_removed": 0.036099247677985065,
+    "cells_removed": 0.7124439461883408,
+    "all": 0.46078278627271374,
+    "north_N_NE_NW": 0.5372979953314467,
+    "array_in_view_gt5pct": 0.7614684565775203,
+    "array_share_pp": {
+     "all": 0.19220148035401613,
+     "north_N_NE_NW": 1.225820634615868,
+     "array_in_view_gt5pct": 3.5789685044161867
+    }
+   }
+  }
+ }
+}
