@@ -28,10 +28,13 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--tau", type=float, default=1.19)
     ap.add_argument("--seeds", nargs="+", default=sorted(glob.glob(os.path.join(REPO, "results", "ml_cfm", "final", "seed?"))))
-    ap.add_argument("--out", default=os.path.join(REPO, "results", "ml_cfm", "calib", "final", "models_val.png"))
+    ap.add_argument("--out", default=None)
     ap.add_argument("--floor", type=float, default=1e-4, help="colour floor as a fraction of the global peak")
     ap.add_argument("--S-opt", type=int, default=70, help="the S read from the fitted curve (sample_saturation.md)")
+    ap.add_argument("--col4", default="thr99", choices=["thr99", "sopt"],
+                    help="4th column: the full mean thresholded at its own 99%% source area (thr99) or the mean at S_opt (sopt)")
     a = ap.parse_args(argv)
+    a.out = a.out or os.path.join(REPO, "results", "ml_cfm", "calib", "final", f"models_val_{a.col4}.png")
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -78,8 +81,15 @@ def main(argv=None):
     ext = [xe[0], xe[-1], xe[0], xe[-1]]
     surf = dict(water=st["water"] > 0.5, array=arr)
     share = lambda f: 100 * D.raster_array_share(f, arr)
+    if a.col4 == "thr99":
+        from ml_cfm import tailthresh as TT
+        cfm_t, _ = TT.threshold_stack(cfm, 0.99)
+        Ft = F
+        col4 = (f"CFM + tau {a.tau}, {S_all} samples, cut at its own 99% source area", cfm_t)
+    else:
+        col4 = (f"CFM + tau {a.tau}, S = {S_opt} from the fitted curve", cfm_t)
     cols = [("Kljun", kl), ("FNO ensemble (5 seeds)", fno), (f"CFM + tau {a.tau}, all {S_all} samples (5 seeds)", cfm),
-            (f"CFM + tau {a.tau}, S = {S_opt} from the fitted curve", cfm_t), ("LES target", les)]
+            col4, ("LES target", les)]
     fig, axes = plt.subplots(len(rows), 5, figsize=(21, 4.15 * len(rows)), squeeze=False)
     for r, i in enumerate(rows):
         wd = float(split.wdir_deg[i])
@@ -102,7 +112,7 @@ def main(argv=None):
     cb = fig.colorbar(im, cax=cax)
     cb.set_label("footprint [m$^{-2}$], one log scale for every panel", fontsize=8)
     cb.ax.tick_params(labelsize=7)
-    fig.suptitle(f"Val: Kljun / FNO / CFM + tau ({S_all} samples) / CFM + tau (S = {S_opt}) / LES on the full 3660 m domain; global scale, floor {a.floor:g} x peak. "
+    fig.suptitle(f"Val: Kljun / FNO / CFM + tau ({S_all} samples) / {'same, 99% source-area cut' if a.col4 == 'thr99' else f'CFM + tau (S = {S_opt})'} / LES on the full 3660 m domain; global scale, floor {a.floor:g} x peak. "
                  "Green = array, cyan = water, dotted = last real cell, arrow = mean flow", fontsize=9)
     fig.savefig(a.out, dpi=100)
     print("wrote", a.out, "cases", [split.meta["run_id"][i] for i in rows])
