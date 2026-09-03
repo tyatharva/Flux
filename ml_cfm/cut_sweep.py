@@ -158,3 +158,69 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+def grid(case_ids=(0, 3), out=os.path.join(FIG, "cuts_grid.png")):
+    """One figure: rows = the four variants of the sweep table, columns = cuts + LES, for the
+    cases picked from cases() by index."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import LogNorm
+    import fig_corpus_pairs as FCP
+    split = D.load_split("val")
+    st = D.load_statics()
+    arr = st["array"] > 0.5
+    valid = split.valid_mask.astype(np.float32)
+    rows = [cases(split)[k] for k in case_ids]
+    seeds = sorted(glob.glob(os.path.join(REPO, "results", "ml_cfm", "final", "seed?")))
+    rng = np.random.default_rng(0)
+    T_seed = {}
+    for sd in seeds:
+        with np.load(os.path.join(sd, "samples_val.npz")) as z:
+            T0, s_out = z["samples_T"][:, rows].astype(np.float32), z["s_out"].astype(np.float32)[rows]
+        T1 = [np.load(p)["samples_T"][:, rows].astype(np.float32) for p in sorted(glob.glob(os.path.join(sd, "samples_val_extra*.npz")))]
+        T_seed[os.path.basename(sd)] = np.concatenate([T0] + T1)
+    phys = lambda T: (s_out[None, :, None, None] * np.sinh(np.clip(T, -20, 20)) * valid[None, None]).astype(np.float32)
+    temp = lambda T: (lambda m: m + TAU * (T - m))(T.mean(0, keepdims=True))
+    sub = lambda T, k: T[rng.choice(T.shape[0], k, replace=False)]
+    with open(os.path.join(OUT, "cut_sweep.json")) as fh:
+        best = json.load(fh)["best_seed"]
+    S_per = min(t.shape[0] for t in T_seed.values())
+    variants = {"pool5_S800": phys(temp(np.concatenate([T_seed[n][:S_per] for n in T_seed]))).mean(0),
+                "pool5_S70": phys(temp(np.concatenate([sub(T_seed[n], 14) for n in T_seed]))).mean(0),
+                f"{best}_S160": phys(temp(T_seed[best])).mean(0),
+                f"{best}_S70": phys(temp(sub(T_seed[best], 70))).mean(0)}
+    xc, xe = FCP.axes_m()
+    ext = [xe[0], xe[-1], xe[0], xe[-1]]
+    surf = dict(water=st["water"] > 0.5, array=arr)
+    share = lambda f: 100 * D.raster_array_share(f, arr)
+    les = split.target[rows]
+    vmax = float(max(les.max(), max(v.max() for v in variants.values())))
+    norm = LogNorm(vmin=vmax * 1e-4, vmax=vmax)
+    ncol = len(FRACS) + 1
+    fig, axes = plt.subplots(len(rows) * len(variants), ncol, figsize=(3.2 * ncol, 3.3 * len(rows) * len(variants)), squeeze=False)
+    r = 0
+    for ci, i in enumerate(rows):
+        wd = float(split.wdir_deg[i])
+        for vname, mean in variants.items():
+            for c, f in enumerate(FRACS):
+                fld = mean[ci] if f is None else TT.threshold_sa(mean[ci], f)[0]
+                ax = axes[r][c]
+                im = FCP.raster(ax, fld, norm, "magma", ext, mask_below=norm.vmin)
+                FCP.draw_frame(ax, surf, fg="w"); FCP.draw_wind(ax, wd)
+                ax.set_title(("no cut" if f is None else f"{100*f:.1f}% cut") + f"  share {share(fld):.1f}%", fontsize=7)
+                ax.tick_params(labelsize=5)
+                if c == 0:
+                    ax.set_ylabel(f"{split.meta['run_id'][i]} {split.octant[i]}\n{vname}", fontsize=7.5)
+            ax = axes[r][ncol - 1]
+            FCP.raster(ax, les[ci], norm, "magma", ext, mask_below=norm.vmin)
+            FCP.draw_frame(ax, surf, fg="w"); FCP.draw_wind(ax, wd)
+            ax.set_title(f"LES target  share {share(les[ci]):.1f}%", fontsize=7); ax.tick_params(labelsize=5)
+            r += 1
+    fig.subplots_adjust(left=0.04, right=0.94, top=0.96, bottom=0.02, wspace=0.1, hspace=0.3)
+    cax = fig.add_axes([0.95, 0.2, 0.01, 0.6])
+    fig.colorbar(im, cax=cax).ax.tick_params(labelsize=6)
+    fig.suptitle(f"The cut-sweep table as images: rows = variant (CFM + tau {TAU}), columns = cut; one log scale, floor 1e-4 x peak", fontsize=9)
+    fig.savefig(out, dpi=95)
+    print("wrote", out)
