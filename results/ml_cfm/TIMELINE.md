@@ -26,3 +26,4 @@
 - 2026-09-02T23:54:03Z sample-count study launched (128 extra samples per seed, Euler 16)
 - 2026-09-03T00:22:55Z sample-count study done: asymptote 0.471, S_sat 21 [2, 64] pooled, S = 70 chosen from the fit
 - 2026-09-03T20:37:53Z frozen recipe evaluated on val (ml_cfm/final_recipe.py): CFM 0.476 / FNO 0.545 vs Kljun
+- 2026-09-04 report_metrics: losses stated, composite + log-MSE / sliced W1 / KL / MS-SSIM on val, floor from the two-window pair -> results/ml_cfm/final_recipe/metrics_val.{md,json}; gate PASS (31 checks)

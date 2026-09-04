@@ -154,6 +154,26 @@ def main():
     check("threshold: gaussian keeps 99% and removes < 1.1%", TT.threshold_sa(g_ := np.exp(-((np.arange(128)[:, None] - 64) ** 2
           + (np.arange(128)[None] - 64) ** 2) / 200.0))[1]["mass_removed_frac"] < 0.011)
 
+    # 10. the reporting field metrics: identities on synthetic fields
+    from ml_cfm import report_metrics as RM
+    v = RM._interior()
+    xc = (np.arange(128) - 64) * 30.0
+    X, Y = np.meshgrid(xc, xc)
+    g0 = np.exp(-((X - 300) ** 2 + Y ** 2) / (2 * 150.0 ** 2)) * v; g0 *= 1e-5 / g0.max()
+    g1 = np.exp(-((X - 600) ** 2 + Y ** 2) / (2 * 150.0 ** 2)) * v; g1 *= 1e-5 / g1.max()
+    same = RM.field_metrics(g0, g0, v, X, Y)
+    check("field metrics: identical fields give log-MSE 0, W1 0, MS-SSIM 1, KL = the eps-smoothing bias (< 0.01 nats)",
+          same["log_mse"] == 0 and same["sw1_m"] == 0 and 0 <= same["kl_nats"] < 0.01 and abs(same["ms_ssim"] - 1) < 1e-9,
+          f"KL bias {same['kl_nats']:.4f}")
+    w1 = RM.sliced_w1(g1, g0, v, X, Y)
+    check("field metrics: sliced W1 of a 300 m shift is 300 * 2/pi (mean |cos| over directions)", abs(w1 - 300 * 2 / np.pi) < 6, f"{w1:.1f} m")
+    check("field metrics: KL(P||Q) >= 0 and asymmetric on distinct fields",
+          RM.kl_nats(g0, g1, v) > 0 and RM.kl_nats(g0, g1, v) != RM.kl_nats(g1, g0, v))
+    check("field metrics: log-MSE is scale-blind on the log grid, W1 is amplitude-blind",
+          abs(RM.log_mse(2 * g0, 2 * g0, v)) == 0 and abs(RM.sliced_w1(3 * g1, g0, v, X, Y) - w1) < 1e-9)
+    check("report_metrics refuses the test split", subprocess.run([sys.executable, "-m", "ml_cfm.report_metrics", "--split", "test"],
+          cwd=REPO, capture_output=True).returncode != 0)
+
     # 7. ml/ and the FNO's final results are untouched
     frozen = ["ml/", "results/ml/final/", "results/ml_cfm/final/", "results/ml_cfm/phase1/", "results/ml_cfm/eval/"]
     diff = subprocess.check_output(["git", "diff", "--stat", "--"] + frozen, cwd=REPO, text=True).strip()
