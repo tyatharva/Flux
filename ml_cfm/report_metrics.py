@@ -127,15 +127,12 @@ def recipe_fields(split, valid):
     return {"Kljun": split.kljun, "FNO": fno, "CFM": cfm}, les, samples
 
 
-def pair_floor(arr, v, X, Y):
-    """The two-window pair (a train record), both windows positive-only, w1 scored against w0."""
-    ws, keep, _, _ = TT._load_pair()
-    w0, w1 = (np.maximum(w["target"], 0) for w in ws)
-    wd = float(ws[0]["meta"]["wdir_deg"])
-    asym = 1.0 - D.Z_RECEPTOR / float(ws[0]["scalars"][0])
-    prod = M.pair_errors(w1, w0, wd, arr, asym)
+def perfect_row(les, wd, arr, asym, v, X, Y):
+    """The LES scored against itself on one record: the perfect value of every column, computed
+    rather than written down so the identities are checked on a real field."""
+    prod = M.pair_errors(les, les, wd, arr, asym)
     out = {k: float(prod[k]) for k in RMSE_KEYS + ("overlap80",)}
-    out.update(field_metrics(w1, w0, v, X, Y))
+    out.update(field_metrics(les, les, v, X, Y))
     return out
 
 
@@ -169,9 +166,9 @@ def main(argv=None):
         rows = [field_metrics(f[i], les[i], v, X, Y) for i in range(split.n)]
         fm[name] = {k: np.array([r[k] for r in rows]) for k in FIELD_KEYS if k != "overlap80"}
         fm[name]["overlap80"] = sc[name]["overlap80"]
-    floor = pair_floor(arr, v, X, Y)
+    perfect = perfect_row(les[0], float(split.wdir_deg[0]), arr, float(split.asymptote[0]), v, X, Y)
 
-    out = dict(split=a.split, recipe=FR.RECIPE, losses=LOSSES, eps_m2=EPS, n_proj=N_PROJ, floor_pair=floor, groups={})
+    out = dict(split=a.split, recipe=FR.RECIPE, losses=LOSSES, eps_m2=EPS, n_proj=N_PROJ, perfect=perfect, groups={})
     L = [f"# Reporting metrics on {a.split} (frozen recipe, {split.n} records)", "",
          "## Training losses", ""] + [f"- **{k}**: {s}" for k, s in LOSSES.items()] + [""]
     for g, m in groups.items():
@@ -189,8 +186,8 @@ def main(argv=None):
             r, e = og["rmse"][name], og["mean"][name]
             L.append(f"| {name} | {r['peak_x']:.1f} | {r['centroid']:.1f} | {r['integral']:.3f} | {e['overlap80']:.3f} | {e['rel_l2']:.3f} | "
                      f"{e['sw1_m']:.1f} | {e['js_dist']:.3f} | {e['ms_ssim']:.3f} |")
-        L.append(f"| two-window floor (n = 1) | {floor['peak_x']:.1f} | {floor['centroid']:.1f} | {floor['integral']:.3f} | {floor['overlap80']:.3f} | "
-                 f"{floor['rel_l2']:.3f} | {floor['sw1_m']:.1f} | {floor['js_dist']:.3f} | {floor['ms_ssim']:.3f} |")
+        L.append(f"| LES (perfect) | {perfect['peak_x']:.1f} | {perfect['centroid']:.1f} | {perfect['integral']:.3f} | {perfect['overlap80']:.3f} | "
+                 f"{perfect['rel_l2']:.3f} | {perfect['sw1_m']:.1f} | {perfect['js_dist']:.3f} | {perfect['ms_ssim']:.3f} |")
         L.append("")
     L += ["Direction groups (" + ", ".join(f"{g.split('_', 1)[1]} n={out['groups'][g]['n']}" for g in GROUPS if g != "all") +
           ") are in the JSON and the per-record .npz, for the wind-rose graphs; sectors are 90 degrees centred on N/E/S/W, octants 45 degrees. "
@@ -200,7 +197,7 @@ def main(argv=None):
           f"sliced W1 = mean over {N_PROJ} directions of the 1-D Wasserstein-1 between the unit-mass positive parts [m] (0 = identical); "
           "JS distance = sqrt of the Jensen-Shannon divergence in bits between the unit-mass positive parts (0 = identical, 1 = disjoint); "
           f"MS-SSIM = 5-scale SSIM on the log10 grid with floor ε = {EPS:.0e} m⁻² (1 = identical). "
-          "The floor row is window 1 vs window 0 of the one two-window case (a train record, n = 1), processed identically: one error, not an RMSE."]
+          "The LES row is the LES target scored against itself: the perfect value of every column."]
     os.makedirs(a.outdir, exist_ok=True)
     with open(os.path.join(a.outdir, f"metrics_{a.split}.md"), "w") as fh:
         fh.write("\n".join(L) + "\n")
