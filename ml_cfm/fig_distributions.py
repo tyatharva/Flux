@@ -24,6 +24,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--split", default="val")
     ap.add_argument("--out", default=None)
+    ap.add_argument("--dpi", type=int, default=600)
     a = ap.parse_args(argv)
     out = a.out or os.path.join(FR.OUT, f"distributions_{a.split}.png")
     import matplotlib
@@ -32,38 +33,33 @@ def main(argv=None):
     z = np.load(os.path.join(FR.OUT, f"metrics_{a.split}_per_record.npz"))
     n = len(z["run_id"])
     plt.rcParams.update({"font.family": "DejaVu Sans"})
-    fig, axes = plt.subplots(2, 4, figsize=(18, 8))
+    fig, axes = plt.subplots(2, 4, figsize=(18, 8.4))
     names = ("Kljun", "FNO", "CFM")
     for ax, (key, label, how, perfect) in zip(axes.ravel(), FS.PANELS):
-        xlabel = label.replace(" RMSE", "")
+        xlabel = label.replace(" RMSE", "").replace(" error", "")
         allv = np.concatenate([z[f"{n}__{key}"][np.isfinite(z[f"{n}__{key}"])] for n in names])
         for name in names:
             d = np.sort(z[f"{name}__{key}"][np.isfinite(z[f"{name}__{key}"])])
             y = np.arange(1, len(d) + 1) / len(d)
-            ax.step(d, y, where="post", color=FS.COL[name], lw=2.0, label=f"{name}  ({'RMSE' if how == 'rmse' else 'mean'} {FS.stat(d, how):.3g})")
-            ax.plot([np.median(d)], [0.5], marker="o", ms=8, color=FS.COL[name], mec="k", mew=0.6, zorder=5)
+            ax.step(d, y, where="post", color=FS.COL[name], lw=2.2, label=f"{name}  ({'RMSE' if how == 'rmse' else 'mean'} {FS.stat(d, how):.3g})")
+            ax.plot([np.median(d)], [0.5], marker="o", ms=9, color=FS.COL[name], mec="k", mew=0.6, zorder=5)
         ax.axhline(0.5, color="#999999", lw=0.7, ls=":")
-        ax.set_ylim(0, 1); ax.set_ylabel("fraction of records ≤ x", fontsize=9.5)
+        ax.set_ylim(0, 1); ax.set_ylabel("Fraction of records ≤ x", fontsize=11)
         if key == "peak_x":
             ax.set_xlim(-5, 185); ax.set_xticks([0, 30, 60, 90, 120, 150, 180]); ax.tick_params(axis="x", labelsize=8.5)
             ax.axvline(perfect, color="k", lw=0.8, ls="--")
-            xlabel += "  (30 m steps; cut at 180 m)"
+            xlabel += "  (30 m steps)"
         else:
             lo, hi = np.percentile(allv, [5, 95])
             ax.set_xlim(lo, hi)
             if lo <= perfect <= hi:
                 ax.axvline(perfect, color="k", lw=0.8, ls="--")
-            else:
-                xlabel += f"  (perfect = {perfect}, off the {'left' if perfect < lo else 'right'} edge)"
-        ax.set_xlabel(xlabel, fontsize=9)
-        ax.tick_params(labelsize=8.5); ax.grid(alpha=0.3, lw=0.5)
-        ax.legend(fontsize=8.5, frameon=False, loc="lower right")
-    year = {"val": "validation year 2024", "test": "test year 2025"}.get(a.split, a.split)
-    fig.suptitle(f"Every record's score, {year} (n = {n}): cumulative distributions per model; dot = median; dashed = perfect where it is in range; "
-                 "every axis is cut to the central 90% of records", fontsize=11.5, y=0.99)
-    fig.tight_layout(rect=(0, 0, 1, 0.96))
+        ax.set_xlabel(xlabel, fontsize=11)
+        ax.tick_params(labelsize=10); ax.grid(alpha=0.3, lw=0.5)
+        ax.legend(fontsize=10, frameon=False, loc="lower right")
+    fig.tight_layout()
     os.makedirs(os.path.dirname(out), exist_ok=True)
-    fig.savefig(out, dpi=130)
+    fig.savefig(out, dpi=a.dpi)
     print("wrote", out)
     return 0
 

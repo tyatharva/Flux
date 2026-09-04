@@ -34,6 +34,7 @@ def main(argv=None):
     ap.add_argument("--case", default=None, help="run_id; default = the strongest-array N record")
     ap.add_argument("--out", default=None)
     ap.add_argument("--exclude", nargs="*", default=[], help="run_ids not to pick")
+    ap.add_argument("--dpi", type=int, default=600)
     a = ap.parse_args(argv)
     if a.split == "test" and not a.allow_test:
         raise SystemExit("refusing the test split without --allow-test")
@@ -65,7 +66,7 @@ def main(argv=None):
 
     plt.rcParams.update({"font.family": "DejaVu Sans", "pdf.fonttype": 42})
     fig, axes = plt.subplots(1, 2, figsize=(16, 7.4), gridspec_kw=dict(width_ratios=[1, 1.15]))
-    plt.subplots_adjust(left=0.03, right=0.985, top=0.86, bottom=0.11, wspace=0.10)
+    plt.subplots_adjust(left=0.03, right=0.985, top=0.92, bottom=0.11, wspace=0.10)
     # (b) the 80% source-area outline of each sample, with the LES's and the CFM mean's
     ax = axes[0]
     ax.set_facecolor("white")
@@ -78,29 +79,25 @@ def main(argv=None):
     ax.plot(0, 0, marker="*", ms=11, mfc="w", mec="k", mew=0.8, zorder=7)
     ax.set_xlim(-half, half); ax.set_ylim(-half, half); ax.set_aspect("equal", adjustable="box")
     ax.set_xticks([]); ax.set_yticks([])
-    ax.text(0.03, 0.965, "a", transform=ax.transAxes, fontsize=16, fontweight="bold", va="top", ha="left", zorder=8)
     ax.legend(handles=[Line2D([], [], color=FS.COL["cfm"], lw=0.9, alpha=0.6, label="80% source area of each of the 80 samples"),
                        Line2D([], [], color="#ff1493", lw=2.8, label="80% source area of the CFM mean"),
                        Line2D([], [], color=FS.COL["les"], lw=2.6, label="80% source area of the LES target")],
-              fontsize=9.5, loc="lower right", framealpha=0.9, edgecolor="none")
-    ax.set_title("The 80% source area: every sample, the mean, the LES", fontsize=12.5, pad=10)
+              fontsize=10.5, loc="lower right", framealpha=0.9, edgecolor="none")
+    ax.set_title(f"{dt} UTC, wind from {wd:.0f}° ({split.octant[i]}): 80% source areas", fontsize=12, pad=10)
     # (b) crosswind-integrated footprint with bands
     ax = axes[1]
     prof = np.stack([FCP.crosswind_integrated(s, wd)[1] for s in S]) * 1e3
     s_ = FCP.crosswind_integrated(S[0], wd)[0]
     p5, p25, p50, p75, p95 = np.percentile(prof, [5, 25, 50, 75, 95], axis=0)
-    FS.crosswind_panel(ax, [("les", tgt, "LES target"), ("fno", fno, "FNO"), ("kljun", kl, "Kljun")], wd, letter="b",
-                       legend=False, bands=(s_, p5, p25, p50, p75, p95))
+    FS.crosswind_panel(ax, [("les", tgt, "LES target"), ("fno", fno, "FNO"), ("kljun", kl, "Kljun")], wd, letter=None,
+                       legend=False, bands=(s_, p5, p25, p50, p75, p95), tick_size=10, label_size=11.5)
     ax.plot(s_, FCP.crosswind_integrated(mean, wd)[1] * 1e3, color="#ff1493", lw=1.8, label="CFM mean")
     ax.set_ylim(bottom=0)
-    ax.legend(fontsize=9, frameon=False, loc="upper right")
-    ax.set_title("Crosswind-integrated footprint with the sample bands", fontsize=12.5, pad=10)
-    ax.set_xlabel("upwind distance from the tower [m]", fontsize=10); ax.set_ylabel(r"$f_y$  [10$^{-3}$ m$^{-1}$]", fontsize=10)
-    year = {"val": "validation year 2024", "test": "test year 2025"}.get(a.split, a.split)
-    fig.suptitle(f"The CFM's 80 samples for one case: {dt} UTC, wind from {wd:.0f}° ({split.octant[i]}), {year}. "
-                 "Each sample is one plausible LES footprint; their spread is the model's own error bar.", fontsize=12, y=0.97)
+    ax.legend(fontsize=10.5, frameon=False, loc="upper right")
+    ax.set_title("Crosswind-integrated footprint with the 90% band of the 80 samples", fontsize=12, pad=10)
+    ax.set_xlabel("Upwind distance from the tower [m]", fontsize=11.5); ax.set_ylabel(r"$f_y$  [10$^{-3}$ m$^{-1}$]", fontsize=11.5)
     os.makedirs(os.path.dirname(out), exist_ok=True)
-    fig.savefig(out, dpi=130)
+    fig.savefig(out, dpi=a.dpi)
     print("wrote", out, str(split.meta["run_id"][i]))
     return 0
 

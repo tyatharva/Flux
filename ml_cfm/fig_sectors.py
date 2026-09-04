@@ -19,9 +19,10 @@ from ml_cfm import final_recipe as FR         # noqa: E402
 from ml_cfm import report_metrics as RM       # noqa: E402
 
 COL = dict(Kljun="#c0392b", FNO="#2e8b57", CFM="#7b3fa0")
-PANELS = (("peak_x", "peak distance RMSE [m]", "rmse", 0), ("centroid", "centroid RMSE [m]", "rmse", 0), ("integral", "integral RMSE", "rmse", 0),
-          ("overlap80", "overlap80 (Jaccard)", "mean", 1), ("rel_l2", "rel. L2", "mean", 0), ("sw1_m", "sliced W1 [m]", "mean", 0),
-          ("js_dist", "JS distance [bits]", "mean", 0), ("ms_ssim", "MS-SSIM (log grid)", "mean", 1))
+PANELS = (("peak_x", "Peak distance RMSE [m]", "rmse", 0), ("centroid", "Centroid RMSE [m]", "rmse", 0), ("integral", "Integral RMSE", "rmse", 0),
+          ("overlap80", "80% source-area overlap (Jaccard)", "mean", 1), ("rel_l2", "Relative L2 error", "mean", 0),
+          ("sw1_m", "Sliced Wasserstein-1 distance [m]", "mean", 0), ("js_dist", "Jensen–Shannon distance [bits]", "mean", 0),
+          ("ms_ssim", "MS-SSIM on the log grid", "mean", 1))
 
 
 def stat(x, how):
@@ -42,6 +43,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--split", default="val")
     ap.add_argument("--out", default=None)
+    ap.add_argument("--dpi", type=int, default=600)
     a = ap.parse_args(argv)
     out = a.out or os.path.join(FR.OUT, f"sectors_{a.split}.png")
     import matplotlib
@@ -51,8 +53,8 @@ def main(argv=None):
     masks = sector_masks(z["wdir_deg"])
     rng = np.random.default_rng(0)
     plt.rcParams.update({"font.family": "DejaVu Sans", "pdf.fonttype": 42})
-    fig, axes = plt.subplots(2, 4, figsize=(19, 8.6))
-    plt.subplots_adjust(left=0.045, right=0.985, top=0.86, bottom=0.09, wspace=0.28, hspace=0.42)
+    fig, axes = plt.subplots(2, 4, figsize=(18, 8.6))
+    plt.subplots_adjust(left=0.05, right=0.985, top=0.875, bottom=0.10, wspace=0.30, hspace=0.45)
     for ax, (key, label, how, perfect) in zip(axes.ravel(), PANELS):
         for k in range(4):
             if k % 2 == 0:
@@ -62,10 +64,10 @@ def main(argv=None):
             for k, (c, m) in enumerate(masks.items()):
                 v, l, h = boot(z[f"{name}__{key}"][m], how, rng)
                 xs.append(k + (j - 1) * 0.24); ys.append(v); lo.append(v - l); hi.append(h - v)
-            ax.errorbar(xs, ys, yerr=[lo, hi], fmt="o", ms=7, color=COL[name], ecolor=COL[name], elinewidth=1.6, capsize=4, capthick=1.4,
+            ax.errorbar(xs, ys, yerr=[lo, hi], fmt="o", ms=8, color=COL[name], ecolor=COL[name], elinewidth=1.8, capsize=4.5, capthick=1.6,
                         mec="white", mew=0.8, label=name, zorder=3)
-        ax.set_xticks(range(4)); ax.set_xticklabels([f"{c}\nn = {int(m.sum())}" for c, m in masks.items()], fontsize=10)
-        ax.set_title(f"{label}   (perfect = {perfect})", fontsize=12, pad=8); ax.grid(axis="y", alpha=0.3, lw=0.6); ax.tick_params(axis="y", labelsize=9)
+        ax.set_xticks(range(4)); ax.set_xticklabels([f"{c}\nn = {int(m.sum())}" for c, m in masks.items()], fontsize=11)
+        ax.set_title(f"{label}\n(perfect = {perfect})", fontsize=12.5, pad=8); ax.grid(axis="y", alpha=0.3, lw=0.6); ax.tick_params(axis="y", labelsize=10)
         ax.set_xlim(-0.6, 3.6)
         if perfect == 1:
             ax.set_ylim(top=1.0 + 0.02 * (1.0 - ax.get_ylim()[0]))
@@ -74,12 +76,9 @@ def main(argv=None):
         for sp in ("top", "right"):
             ax.spines[sp].set_visible(False)
     h, l = axes[0, 0].get_legend_handles_labels()
-    fig.legend(h, l, loc="upper center", ncol=3, fontsize=11, frameon=False, bbox_to_anchor=(0.5, 0.935))
-    year = {"val": "validation year 2024", "test": "test year 2025"}.get(a.split, a.split)
-    fig.suptitle(f"Metrics by wind sector, {year}: 90° sectors centred on N, E, S, W.  RMSE over the sector's records for the three errors, "
-                 "mean for the five scores; whiskers = 95% record-bootstrap interval.", fontsize=12.5, y=0.985)
+    fig.legend(h, l, loc="upper center", ncol=3, fontsize=13, frameon=False, bbox_to_anchor=(0.5, 0.995), markerscale=1.2)
     os.makedirs(os.path.dirname(out), exist_ok=True)
-    fig.savefig(out, dpi=130)
+    fig.savefig(out, dpi=a.dpi)
     print("wrote", out)
     return 0
 

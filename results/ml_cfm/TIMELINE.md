@@ -40,3 +40,4 @@
 - 2026-09-04 test figures: showcase pinned (--cases 053115 020906 091422 042016), table shades ties, no colourbar text; generative case_2025031921 (--prefer-cfm-profile)
 - 2026-09-04 showcase test row 3 -> case_2025110421 (CFM leads 7/8); --prefer-cfm-profile removed, generative pinned with --case case_2025031921
 - 2026-09-04 showcase: cases pinned per split (PINNED), 18 x 12 in at 300 dpi with print point sizes, crosswind unit in the column title, bigger legend
+- 2026-09-04 poster set: the five final figures at 600 dpi (showcase 18x12 in), scientific labels, no figure titles; 22 superseded figures deleted (eval/final's six kept: frozen run)

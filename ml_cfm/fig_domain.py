@@ -80,6 +80,7 @@ def main(argv=None):
     ap.add_argument("--out", default=os.path.join(REPO, "results", "ml_cfm", "final_recipe", "domain.png"))
     ap.add_argument("--zoom", type=int, default=16)
     ap.add_argument("--zoom-inset", type=int, default=19)
+    ap.add_argument("--dpi", type=int, default=600)
     a = ap.parse_args(argv)
     import matplotlib
     matplotlib.use("Agg")
@@ -169,7 +170,7 @@ def main(argv=None):
         ax.add_patch(Rectangle((dx0 - spread + offx, dy0 - spread + offy), (dx1 - dx0) + 2 * spread, (dy1 - dy0) + 2 * spread,
                                fc="black", ec="none", alpha=0.07, zorder=9))
     os.makedirs(os.path.dirname(a.out), exist_ok=True)
-    fig.savefig(a.out, dpi=150)
+    fig.savefig(a.out, dpi=a.dpi)
     print("wrote", a.out)
     return 0
 

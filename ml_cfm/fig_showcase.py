@@ -56,7 +56,7 @@ def main(argv=None):
     ap.add_argument("--exclude", nargs="*", default=[], help="run_ids not to pick")
     ap.add_argument("--cases", nargs="*", default=None, help="explicit run_ids, one per row; default = PINNED[split], else the picker")
     ap.add_argument("--size", nargs=2, type=float, default=(18.0, 12.0), help="figure width and height [in]")
-    ap.add_argument("--dpi", type=int, default=300)
+    ap.add_argument("--dpi", type=int, default=600)
     a = ap.parse_args(argv)
     if a.split == "test" and not a.allow_test:
         raise SystemExit("refusing the test split without --allow-test")

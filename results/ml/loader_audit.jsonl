@@ -397,3 +397,8 @@
 {"utc": "2026-09-04T21:46:18Z", "file": "corpus/corpus_cone.h5", "split": "test", "n": 294, "rows_min": 997, "rows_max": 1290, "allow_test": true, "seconds": 0.08, "caller": "fig_showcase.py"}
 {"utc": "2026-09-04T21:46:36Z", "file": "corpus/corpus_cone.h5", "split": "test", "n": 0, "allow_test": false, "refused": true}
 {"utc": "2026-09-04T21:46:36Z", "file": "corpus/corpus_cone.h5", "split": "val", "n": 235, "rows_min": 762, "rows_max": 996, "allow_test": false, "seconds": 0.07, "caller": "test_cfm.py"}
+{"utc": "2026-09-04T22:06:20Z", "file": "corpus/corpus_cone.h5", "split": "test", "n": 294, "rows_min": 997, "rows_max": 1290, "allow_test": true, "seconds": 0.07, "caller": "fig_generative.py"}
+{"utc": "2026-09-04T22:06:20Z", "file": "corpus/corpus_cone.h5", "split": "test", "n": 294, "rows_min": 997, "rows_max": 1290, "allow_test": true, "seconds": 0.07, "caller": "fig_showcase.py"}
+{"utc": "2026-09-04T22:07:02Z", "file": "corpus/corpus_cone.h5", "split": "test", "n": 294, "rows_min": 997, "rows_max": 1290, "allow_test": true, "seconds": 0.07, "caller": "fig_generative.py"}
+{"utc": "2026-09-04T22:07:27Z", "file": "corpus/corpus_cone.h5", "split": "test", "n": 0, "allow_test": false, "refused": true}
+{"utc": "2026-09-04T22:07:27Z", "file": "corpus/corpus_cone.h5", "split": "val", "n": 235, "rows_min": 762, "rows_max": 996, "allow_test": false, "seconds": 0.07, "caller": "test_cfm.py"}
