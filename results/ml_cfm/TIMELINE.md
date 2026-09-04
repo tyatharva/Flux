@@ -27,3 +27,4 @@
 - 2026-09-03T00:22:55Z sample-count study done: asymptote 0.471, S_sat 21 [2, 64] pooled, S = 70 chosen from the fit
 - 2026-09-03T20:37:53Z frozen recipe evaluated on val (ml_cfm/final_recipe.py): CFM 0.476 / FNO 0.545 vs Kljun
 - 2026-09-04 report_metrics: losses stated, composite + log-MSE / sliced W1 / KL / MS-SSIM on val, floor from the two-window pair -> results/ml_cfm/final_recipe/metrics_val.{md,json}; gate PASS (31 checks)
+- 2026-09-04 report_metrics v2: agreement composite (4 bounded ratios, no array share), rel L2 / W1 / KL / MS-SSIM, CRPS tau=1 vs 1.19; gate PASS

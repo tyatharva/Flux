@@ -162,15 +162,24 @@ def main():
     g0 = np.exp(-((X - 300) ** 2 + Y ** 2) / (2 * 150.0 ** 2)) * v; g0 *= 1e-5 / g0.max()
     g1 = np.exp(-((X - 600) ** 2 + Y ** 2) / (2 * 150.0 ** 2)) * v; g1 *= 1e-5 / g1.max()
     same = RM.field_metrics(g0, g0, v, X, Y)
-    check("field metrics: identical fields give log-MSE 0, W1 0, MS-SSIM 1, KL = the eps-smoothing bias (< 0.01 nats)",
-          same["log_mse"] == 0 and same["sw1_m"] == 0 and 0 <= same["kl_nats"] < 0.01 and abs(same["ms_ssim"] - 1) < 1e-9,
+    check("field metrics: identical fields give rel L2 0, W1 0, MS-SSIM 1, KL = the eps-smoothing bias (< 0.01 nats)",
+          same["rel_l2"] == 0 and same["sw1_m"] == 0 and 0 <= same["kl_nats"] < 0.01 and abs(same["ms_ssim"] - 1) < 1e-9,
           f"KL bias {same['kl_nats']:.4f}")
     w1 = RM.sliced_w1(g1, g0, v, X, Y)
     check("field metrics: sliced W1 of a 300 m shift is 300 * 2/pi (mean |cos| over directions)", abs(w1 - 300 * 2 / np.pi) < 6, f"{w1:.1f} m")
     check("field metrics: KL(P||Q) >= 0 and asymmetric on distinct fields",
           RM.kl_nats(g0, g1, v) > 0 and RM.kl_nats(g0, g1, v) != RM.kl_nats(g1, g0, v))
-    check("field metrics: log-MSE is scale-blind on the log grid, W1 is amplitude-blind",
-          abs(RM.log_mse(2 * g0, 2 * g0, v)) == 0 and abs(RM.sliced_w1(3 * g1, g0, v, X, Y) - w1) < 1e-9)
+    check("field metrics: W1 is amplitude-blind", abs(RM.sliced_w1(3 * g1, g0, v, X, Y) - w1) < 1e-9)
+    sm = dict(abs_peak_x=np.array([100., 50., 0.]), abs_centroid_e=np.array([0., 100., 0.]), abs_centroid_n=np.array([100., 0., 0.]),
+              overlap80=np.array([1., 0.5, 1.]), abs_integral=np.array([0.9, 1.8, 0.]))
+    sl = dict(peak_x=np.array([100., 100., 0.]), centroid_e=np.array([0., -100., 0.]), centroid_n=np.array([100., 0., 0.]),
+              overlap80=None, integral=np.array([0.9, 0.9, 0.]))
+    comp, t = RM.agreement(sm, sl)
+    check("agreement: identical record scores 1 on every term; 0/0 scores 1",
+          comp[0] == 1 and comp[2] == 1 and all(t[k][0] == 1 for k in RM.TERM_KEYS))
+    check("agreement: half the peak, opposite centroid, half overlap, double integral -> 0.5 / 0 / 0.5 / 0.5",
+          np.allclose([t[k][1] for k in RM.TERM_KEYS], [0.5, 0.0, 0.5, 0.5]) and abs(comp[1] - 0.375) < 1e-12)
+    check("agreement: every term in [0, 1]", all((0 <= t[k]).all() and (t[k] <= 1).all() for k in RM.TERM_KEYS))
     check("report_metrics refuses the test split", subprocess.run([sys.executable, "-m", "ml_cfm.report_metrics", "--split", "test"],
           cwd=REPO, capture_output=True).returncode != 0)
 
