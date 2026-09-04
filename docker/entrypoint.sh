@@ -71,7 +71,7 @@ COMMANDS
                      reattached: the run never depends on anyone watching.
                        --out /out   --once   --interval 2
 
-  seed <job_dir>     One seed, this GPU (honours CUDA_VISIBLE_DEVICES). jobs/run_seed.sh.
+  seed <job_dir>     One seed, this GPU (honours CUDA_VISIBLE_DEVICES). bin/run_seed.sh.
   accept <job_dir>   The acceptance battery alone. bin/seed_accept.sh.
   verify             Self-check: SASS in the binary vs the visible GPUs, and a 200-step run.
   provenance         Print IMAGE_PROVENANCE.txt and exit.
@@ -100,7 +100,7 @@ case "$CMD" in
   run_seeds)          banner; exec python3 "${FLUX_ROOT}/bin/run_seeds.py" "$@" ;;
   run_corpus)         banner; exec python3 "${FLUX_ROOT}/bin/run_corpus_machine.py" "$@" ;;
   corpus_progress)    exec python3 "${FLUX_ROOT}/bin/corpus_progress.py" "$@" ;;
-  seed)               banner; exec "${FLUX_ROOT}/jobs/run_seed.sh" "$@" ;;
+  seed)               banner; exec "${FLUX_ROOT}/bin/run_seed.sh" "$@" ;;
   accept)             banner; exec "${FLUX_ROOT}/bin/seed_accept.sh" "$@" ;;
   verify)             banner; exec "${FLUX_ROOT}/docker/verify_image.sh" "$@" ;;
   shell|bash)         exec bash "$@" ;;

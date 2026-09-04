@@ -32,7 +32,7 @@ REGIME COMES FROM THE PRESCRIBED SURFACE FLUX, not from a z/L estimate. It is th
 condition both sides were actually built from, so no u* estimate enters the choice at all --
 and a u* estimate is precisely what there is no honest way to get before the LES has run.
 
-SEEDS ARE MATCHED ON WHAT THEY ACHIEVED, NOT ON WHAT THEY WERE ASKED FOR. jobs/run_seed.sh
+SEEDS ARE MATCHED ON WHAT THEY ACHIEVED, NOT ON WHAT THEY WERE ASKED FOR. bin/run_seed.sh
 writes the measured z_i, u*, U and direction into manifest["achieved"]. PROJECT_BRIEF.md already
 requires this for direction ("Achieved direction is not forcing direction"); the same
 argument applies to depth, and a seed that entrained past its target simply IS a different
@@ -44,7 +44,7 @@ where a case LANDS in input space without making it wrong. Seed spacing is a COV
 question, not a correctness one -- which is why the 30-minute adjustment study can follow
 the pipeline rather than gate it.
 
-usage: pick_seed.py results/forcing/<case>.json [--index jobs/index.json]
+usage: pick_seed.py results/forcing/<case>.json [--index seeds/index.json]
                     [--library jobs] [--json FILE]
 """
 from __future__ import annotations
@@ -166,7 +166,7 @@ def load_library(index_path, library_dir, available_only=False,
             # minute adjustment is not there to absorb and would not announce.
             #
             # AND THE VERDICT IS READ FROM THE GATE'S OWN JSON, NOT ONLY FROM THE
-            # MANIFEST. jobs/run_seed.sh stamps `achieved` into the manifest as its LAST
+            # MANIFEST. bin/run_seed.sh stamps `achieved` into the manifest as its LAST
             # step, so a job that died after the gate and before the stamp leaves a
             # manifest with no verdict at all -- and testing only `achieved.pass is False`
             # then reads a FAILED seed as an unjudged one and ranks it. Observed on
@@ -478,7 +478,7 @@ def seed_state(s, zm, meas=None):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("forcing")
-    ap.add_argument("--index", default="jobs/index.json")
+    ap.add_argument("--index", default="seeds/index.json")
     ap.add_argument("--library", default="jobs")
     ap.add_argument("--zm", type=float, default=10.0)
     ap.add_argument("--json", default=None)

@@ -34,7 +34,7 @@ RUN THIS ON THE HOST. It launches containers, and a container cannot launch a si
 The host python has numpy and netCDF4; this deliberately needs no scipy.
 
     python3 bin/test_toolkit_parity.py \
-        --job jobs30/seed_nbl-deep_a015 --n 200 \
+        --job seeds/seed_nbl-deep_a015 --n 200 \
         --old-image flux-fasteddy:cuda118 --old-tree /path/to/an/11.8-built/FastEddy-tree \
         --new-image flux-seeds:latest
 
@@ -123,7 +123,7 @@ def cmp_dumps(p, q):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--job", default="jobs30/seed_nbl-deep_a015",
+    ap.add_argument("--job", default="seeds/seed_nbl-deep_a015",
                     help="job directory whose seed.in supplies the configuration")
     ap.add_argument("--n", type=int, default=200, help="steps per run")
     ap.add_argument("--old-image", default="flux-fasteddy:cuda118")

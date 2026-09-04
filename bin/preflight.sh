@@ -56,7 +56,7 @@ else
   echo "        the analysis runs on. Build the image before trusting this pass."
 fi
 
-for f in bin/*.sh docker/*.sh jobs/*.sh; do
+for f in bin/*.sh docker/*.sh fasteddy/*.sh; do
   [ -e "$f" ] || continue
   bash -n "$f" || { echo "  SHELL $f"; bad=1; }
 done
@@ -68,5 +68,5 @@ for f in bin/hrrr_sounding.py bin/sounding_to_forcing.py bin/make_seed_jobs.py  
   [ -e "$f" ] || continue
   out=$(python3 "$f" --help 2>&1) || { echo "  ENTRY $f: $(echo "$out" | tail -3)"; bad=1; }
 done
-[ $bad -eq 0 ] && echo "preflight OK: $(ls bin/*.py lpdm/*.py | wc -l) python, $(ls bin/*.sh docker/*.sh jobs/*.sh 2>/dev/null | wc -l) shell"
+[ $bad -eq 0 ] && echo "preflight OK: $(ls bin/*.py lpdm/*.py | wc -l) python, $(ls bin/*.sh docker/*.sh fasteddy/*.sh 2>/dev/null | wc -l) shell"
 exit $bad

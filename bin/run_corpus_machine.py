@@ -537,7 +537,7 @@ def write_manifest(path, a, machine_months, results, gpus, host, commit, expecte
                  "grid_dir": os.environ.get("GRID", "data/grid30_raised"),
                  "sim_h": 1.25, "adj_s": 1800, "window_s": 2700, "tback_s": 900,
                  "rel_s": 1800, "n_windows": 1},
-        "seed_library": {"dir": "jobs30", "n_seeds": 30,
+        "seed_library": {"dir": "seeds", "n_seeds": 30,
                          "selection": "the WHOLE library (ALLOW_DRIFTING=any)"},
         "expected_cases": expected,
         "counts": counts, "n_days": len(days),
@@ -578,7 +578,7 @@ def preflight_case_inputs(say):
         (os.path.join(grid, "htFlux.npy"), "the case surface (htFlux)"),
         (os.path.join(grid, "topo.npy"), "the case surface (topography)"),
         ("third_party/FFP/calc_footprint_FFP.py", "the official Kljun FFP"),
-        ("jobs30/index.json", "the seed library index"),
+        ("seeds/index.json", "the seed library index"),
     ]
     missing = [(p, w) for p, w in need
                if not os.path.exists(os.path.join(ROOT, p))

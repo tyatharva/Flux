@@ -47,7 +47,7 @@ TOLERANCE." The sweep is now two phases: SCREEN every candidate once, then CONFI
 within a few percent of the best by repeating it, rank on the MEDIAN, and keep the incumbent
 1x2x64 unless the challenger beats it by more than the measured noise.
 
-    python3 bin/threadblock_sweep.py --template jobs30/seed_nbl-deep_a015/seed.in \\
+    python3 bin/threadblock_sweep.py --template seeds/seed_nbl-deep_a015/seed.in \\
         --steps 200 --json results/threadblock_sweep.json
 """
 from __future__ import annotations

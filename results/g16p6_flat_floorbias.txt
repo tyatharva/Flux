@@ -1,6 +1,0 @@
-  closure profiles at the receptor:
-  new        factor  1.000 at the receptor, max   1.29 at z=   39 m; sigma_w^2 0.1962 -> 0.1962; 0 FLOOR-INDUCED turnover(s) below z=86 m (worst +0.00%)
-  legacy     factor  1.000 at the receptor, max   2.47 at z=   39 m; sigma_w^2 0.1962 -> 0.1962; 9 FLOOR-INDUCED turnover(s) below z=80 m (worst -5.11%)  [LEGACY TAPER]
-  none       (no floor: sgs_most off)
-
-  ARRAY SHARE: legacy 29.67%  vs  new 30.10%  -> the retired closure was worth -0.42 points (-1.4% relative)

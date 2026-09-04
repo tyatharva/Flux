@@ -19,7 +19,7 @@ Reported and not assumed:
   k0/k1              the accuracy-CFL check; ~9 means dt past the boundary
   artifact size      against 73.3 MB
 
-usage: seed_report.py jobs/seed_sbl_a030 [--wall-seconds N] [--out FILE]
+usage: seed_report.py seeds/seed_sbl_a030 [--wall-seconds N] [--out FILE]
 """
 from __future__ import annotations
 
@@ -41,7 +41,7 @@ def main():
     a = ap.parse_args()
 
     ret = os.path.join(a.job, "return")
-    # THE RETURN MANIFEST IS THE ONE WITH THE ANSWER. jobs/run_seed.sh stamps `achieved`
+    # THE RETURN MANIFEST IS THE ONE WITH THE ANSWER. bin/run_seed.sh stamps `achieved`
     # into return/manifest.json, not into the job's own; reading the job manifest reported
     # "the manifest carries no `achieved` block" on a run that had measured every one of
     # those numbers and written them down. Prefer the return copy, fall back to the job's.

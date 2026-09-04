@@ -2,7 +2,7 @@
 # Gate C2: does a returned seed restart BIT-FOR-BIT?
 #
 #   usage: bin/c2_restart_check.sh <restart.nc> <step> [template.in]
-#          bin/c2_restart_check.sh jobs/seed_x/return/seed_restart.nc 20520
+#          bin/c2_restart_check.sh seeds/seed_x/return/seed_restart.nc 20520
 #
 # THE TWO TRAPS THIS TEST IS MADE OF, and getting either backwards silently turns a
 # zero-timestep echo into a full integration:

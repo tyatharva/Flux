@@ -1,5 +1,0 @@
-  epoch   0 train 0.00027 val 0.00028 (ref 0.00028) best 0.00028@0 lr 2.04e-04 12s
-  epoch  20 train 0.00012 val 0.00012 (ref 0.00012) best 0.00012@19 lr 8.92e-04 100s
-  epoch  40 train 0.00011 val 0.00012 (ref 0.00012) best 0.00012@37 lr 5.31e-04 190s
-  early stop at epoch 57: no val improvement for 20 epochs
-  done local_conv3x3: best epoch 37 val 0.00012 ref 0.00012 composite 0.603 (north 0.731) gap x1.15 271s

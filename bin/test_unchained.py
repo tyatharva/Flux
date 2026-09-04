@@ -26,7 +26,7 @@ this needs (it deliberately has no scipy dependency for that reason).
 
     python3 bin/test_unchained.py --n 1000
 
-MEASURED 2026-08-26, N = 1000 (2000 steps), jobs/seed_nbl-shallow_a000:
+MEASURED 2026-08-26, N = 1000 (2000 steps), seeds/seed_nbl-shallow_a000:
 
     field   |A-B| max        |A-C| max       A-B / A-C
     u       7.114e-04       6.580e-04         1.08
@@ -38,7 +38,7 @@ PASS. The chain is worth 0.89-1.08x the reproducibility floor -- on three of fou
 SMALLER than simply re-running the same case. Chained results therefore carry over to
 unchained production unchanged.
 
-usage: test_unchained.py [--job jobs/seed_nbl-shallow_a000] [--n 1000]
+usage: test_unchained.py [--job seeds/seed_nbl-shallow_a000] [--n 1000]
 """
 from __future__ import annotations
 
@@ -87,7 +87,7 @@ def cmp_dumps(p, q):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--job", default="jobs/seed_nbl-shallow_a000")
+    ap.add_argument("--job", default="seeds/seed_nbl-shallow_a000")
     ap.add_argument("--n", type=int, default=1000, help="steps per half")
     ap.add_argument("--work", default="runs/unchain_test")
     a = ap.parse_args()

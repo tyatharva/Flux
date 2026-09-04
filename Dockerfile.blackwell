@@ -71,7 +71,7 @@
 # toolkit change or an architecture change. The claim this image makes is the
 # one that matters and the one that was measured, against that same floor:
 #
-#     bin/test_toolkit_parity.py, 200 steps, jobs30/seed_nbl-deep_a015, one GPU
+#     bin/test_toolkit_parity.py, 200 steps, seeds/seed_nbl-deep_a015, one GPU
 #     |11.8 - 13.0| against |11.8 - 11.8| :  u 0.97x  v 1.03x  w 1.05x  th 1.12x
 #
 # The toolkit change is worth no more than re-running the same case. Seeds are
@@ -416,38 +416,35 @@ RUN set -eux; \
 # asserts that it worked, because a stale dump baked into the image would make
 # every rented machine skip the LES and return a two-month-old restart.
 # THE ASSERTION SEARCHES THE WHOLE TREE, NOT ONE GLOB LEVEL. Its first version globbed
-# `/flux/jobs30/*/{output,return,FE_*}` and passed while 560 MB of FE_SMOKE dumps sat in
-# `/flux/jobs/<seed>/smoke_aside/` -- excluded, it was assumed, by `jobs/*/FE_*`, which
-# does not cross a second `/`. A guard that only looks where the pattern already looks
+# `<library>/*/{output,return,FE_*}` and passed while 560 MB of FE_SMOKE dumps sat one
+# level deeper, in `<seed>/smoke_aside/` -- excluded, it was assumed, by a `*/FE_*` pattern,
+# which does not cross a second `/`. A guard that only looks where the pattern already looks
 # cannot catch the pattern being wrong. `find` over everything is the check.
 RUN set -eux; \
-    # THE ONLY BULK ALLOWED UNDER jobs30 IS THE SEED LIBRARY ITSELF, AND IT IS COUNTED.
+    # THE ONLY BULK ALLOWED UNDER seeds IS THE SEED LIBRARY ITSELF, AND IT IS COUNTED.
     # This assertion is the one that caught 560 MB of stray FE_SMOKE dumps, so relaxing it
     # for the 2.1 GB library must not blunt it: `*.nc` is allowed at exactly one path, and
     # anything else of any size at any depth is still fatal.
-    STRAY=$(find /flux/jobs /flux/jobs30 \( -name 'FE_*' -o \( -name '*.nc' \
-              -not -path '/flux/jobs30/*/return/seed_restart.nc' \) \) 2>/dev/null | head -20); \
+    STRAY=$(find /flux/seeds \( -name 'FE_*' -o \( -name '*.nc' \
+              -not -path '/flux/seeds/*/return/seed_restart.nc' \) \) 2>/dev/null | head -20); \
     [ -z "$STRAY" ] || { echo "FATAL: baked job dirs carry run artifacts; fix .dockerignore"; \
                          echo "$STRAY"; exit 1; }; \
-    BIG=$(du -sm /flux/jobs 2>/dev/null | awk '$1 > 20 {print}'); \
-    [ -z "$BIG" ] || { echo "FATAL: /flux/jobs is over 20 MB, so something bulky is baked in:"; \
-                       echo "$BIG"; exit 1; }; \
-    test "$(ls -d /flux/jobs30/seed_* | wc -l)" = 30 || { echo "FATAL: expected 30 seed jobs"; exit 1; }; \
+    test "$(ls -d /flux/seeds/seed_* | wc -l)" = 30 || { echo "FATAL: expected 30 seed jobs"; exit 1; }; \
     # THE LIBRARY, ASSERTED AS AN ARTIFACT AND NOT AS A DIRECTORY LISTING. A corpus case
     # picks its seed per case, so a library that is 29 of 30 -- or 30 restarts one of which
     # is truncated -- produces plausible cases for 29 days and an unexplained failure on
     # the thirtieth, on a rented box, hours in. Every restart is the same size by
     # construction (one grid, one dump), so the size is checkable, not just the count.
-    NR=$(ls /flux/jobs30/seed_*/return/seed_restart.nc 2>/dev/null | wc -l); \
+    NR=$(ls /flux/seeds/seed_*/return/seed_restart.nc 2>/dev/null | wc -l); \
     test "$NR" = 30 || { echo "FATAL: $NR seed restarts baked in, expected 30. A corpus"; \
                          echo "       case picks its seed per case; a partial library is"; \
                          echo "       an unexplained failure hours into a rental."; exit 1; }; \
-    SZ=$(stat -c%s /flux/jobs30/seed_*/return/seed_restart.nc | sort -u); \
+    SZ=$(stat -c%s /flux/seeds/seed_*/return/seed_restart.nc | sort -u); \
     test "$(echo "$SZ" | wc -l)" = 1 || { echo "FATAL: seed restarts differ in size, so at"; \
                                           echo "       least one is truncated:"; \
                                           echo "$SZ"; exit 1; }; \
     for f in manifest.json stationarity.json; do \
-      N=$(ls /flux/jobs30/seed_*/return/$f 2>/dev/null | wc -l); \
+      N=$(ls /flux/seeds/seed_*/return/$f 2>/dev/null | wc -l); \
       test "$N" = 30 || { echo "FATAL: $N of 30 seeds carry return/$f; bin/pick_seed.py"; \
                           echo "       reads both to rank a seed and would silently fall"; \
                           echo "       back to the index for the ones missing it."; exit 1; }; \
@@ -456,25 +453,25 @@ RUN set -eux; \
     # file level (a `!` re-include does not work under the classic builder) and a deny
     # list cannot see a file type nobody has added yet. 30 x 73.3 MB is 2.20 GB; anything
     # past 2.4 GB means something new is riding along.
-    JM=$(du -sm /flux/jobs30 | cut -f1); \
-    [ "$JM" -le 2400 ] || { echo "FATAL: /flux/jobs30 is ${JM} MB, over the 2400 MB ceiling."; \
+    JM=$(du -sm /flux/seeds | cut -f1); \
+    [ "$JM" -le 2400 ] || { echo "FATAL: /flux/seeds is ${JM} MB, over the 2400 MB ceiling."; \
                             echo "       The seed library is 30 x 73.3 MB = 2200 MB; something"; \
                             echo "       else is being baked in. .dockerignore excludes"; \
                             echo "       return/ FILE BY FILE, so a new artifact type is not"; \
                             echo "       covered until it is named."; \
-                            du -sm /flux/jobs30/* | sort -rn | head -5; exit 1; }; \
+                            du -sm /flux/seeds/* | sort -rn | head -5; exit 1; }; \
     echo "seed library baked in: 30 restarts at $SZ bytes each, ${JM} MB total"; \
-    # AND A CEILING ON THE WHOLE TREE, not just on jobs30. The per-directory ceiling above
-    # cannot see a directory nobody has named: `vast-seeds/` -- the seed library exactly as
-    # it came back off the rented box, a 2.1 GB duplicate of what jobs30 now holds -- was
-    # baked into a build and passed every check, because every check named a path. The
-    # payload is the 2.10 GB library plus ~60 MB of code, grids and vendored FFP.
+    # AND A CEILING ON THE WHOLE TREE, not just on seeds. The per-directory ceiling above
+    # cannot see a directory nobody has named: a 2.1 GB duplicate of the library, sitting in
+    # a second directory exactly as it came back off the rented box, was once baked into a
+    # build and passed every check, because every check named a path. The payload is the
+    # 2.10 GB library plus ~60 MB of code, grids and vendored FFP.
     FM=$(du -sm /flux | cut -f1); \
     [ "$FM" -le 2400 ] || { echo "FATAL: /flux is ${FM} MB, over the 2400 MB ceiling."; \
                             echo "       Expected ~2160: the 2098 MB seed library plus code."; \
                             echo "       Something bulky is in the build context:"; \
                             du -sm /flux/* | sort -rn | head -8; exit 1; }; \
-    python3 -c "import json;d=json.load(open('/flux/jobs30/index.json'));assert d['n_jobs']==30, d['n_jobs'];print('30 seed jobs, index.json consistent')"
+    python3 -c "import json;d=json.load(open('/flux/seeds/index.json'));assert d['n_jobs']==30, d['n_jobs'];print('30 seed jobs, index.json consistent')"
 
 # === THE CASE PATH'S INPUTS, ASSERTED. THIS BLOCK EXISTS BECAUSE THEY WERE NOT. ==========
 # `.dockerignore` excluded `runs` -- 96 GB of output/ and window/ dumps -- and took the .in

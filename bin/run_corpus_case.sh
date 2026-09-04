@@ -13,7 +13,7 @@
 #          -- ADJ_S + WINDOW_S = 4500 s = 1.25 sim-h is the class length at the 30 m
 #             production geometry, and the footprint is the LAST 30 MINUTES of it.
 #          SKIP_LES=1     stop after stage 4, for a dry run with no GPU
-#          SEED_LIB=jobs30  where the spun-up seed library lives
+#          SEED_LIB=seeds  where the spun-up seed library lives
 #          SEED_ANY=1     rank seeds with no returned artifact too (planning only)
 #          ALLOW_INDETERMINATE=0  require ESTABLISHED stationarity (default 1;
 #                         no seed in the library can supply it -- see stage 4)
@@ -75,7 +75,7 @@ ZTARGET="${ZTARGET:-28.5}"
 EXACT_AGL="${EXACT_AGL:-1}"
 # GRID GEOMETRY, so one driver serves both configurations. The seventh pass runs
 #   GRID=data/grid24_raised ZTARGET=28.5 TEMPLATE=runs/g24_base/base.in DX=24
-#   ZCEILING=3000 DEFORM=0.346601 ZI_MAX_ABS=1250 SEED_LIB=jobs24
+#   ZCEILING=3000 DEFORM=0.346601 ZI_MAX_ABS=1250 SEED_LIB=seeds
 # and every one of those has to travel together: a 24 m case built against the 16 m
 # template would carry the wrong d_zeta and the wrong dt and would still run.
 TEMPLATE="${TEMPLATE:-runs/g30_base/base.in}"
@@ -166,7 +166,7 @@ PICK=results/pick/$TAG.json
 # being compared against a spun seed's MEASURED one. With a complete library the flag is a
 # no-op. SEED_ANY=1 restores the full-library ranking for planning.
 ./docker/pyrun.sh bin/pick_seed.py "$FRC" --json "$PICK" --zm "$ZTARGET" \
-    --library "${SEED_LIB:-jobs30}" --index "${SEED_LIB:-jobs30}/index.json" \
+    --library "${SEED_LIB:-seeds}" --index "${SEED_LIB:-seeds}/index.json" \
     $([ "${SEED_ANY:-0}" = "1" ] || echo --available-only) \
     $([ "${ALLOW_INDETERMINATE:-1}" = "1" ] && echo --allow-indeterminate) \
     --allow-drifting "$(case "${ALLOW_DRIFTING:-any}" in
@@ -235,9 +235,9 @@ PICK=results/pick/$TAG.json
 [ -s "$PICK" ] || die "stage 4 wrote no pick json"
 read -r JOB ROT < <(python3 -c "
 import json; c=json.load(open('$PICK'))['chosen']; print(c['job'], c['rot'])")
-SEED="${SEED_LIB:-jobs30}/$JOB/return/seed_restart.nc"
+SEED="${SEED_LIB:-seeds}/$JOB/return/seed_restart.nc"
 [ "${SKIP_LES:-0}" = "1" ] && { echo "  SKIP_LES=1: stopping after stage 4"; exit 0; }
-[ -f "$SEED" ] || die "seed $SEED has not been spun up yet; run jobs/run_seed.sh $JOB"
+[ -f "$SEED" ] || die "seed $SEED has not been spun up yet; run bin/run_seed.sh $JOB"
 
 # ---- 5. rotate the flow, inject the static surface -------------------------------
 say "$TAG  stage 5: seed $JOB rot $ROT -> restart"
@@ -344,7 +344,7 @@ echo "  each window is $W_NT steps = $NW_EXPECT dumps; consecutive windows are o
 if [ "${STUB_LES:-0}" = "1" ]; then
   say "$TAG  stages 6+7 STUBBED (STUB_LES=1) -- no GPU, no LES, no LPDM"
   echo "  the geometry this case is running on:"
-  echo "    GRID=$GRID  ZTARGET=$ZTARGET  DX=$DX  TEMPLATE=$TEMPLATE  SEED_LIB=${SEED_LIB:-jobs30}"
+  echo "    GRID=$GRID  ZTARGET=$ZTARGET  DX=$DX  TEMPLATE=$TEMPLATE  SEED_LIB=${SEED_LIB:-seeds}"
   echo "    ADJ_S=$ADJ_S  WINDOW_S=$WINDOW_S  TBACK=$TBACK  N_WINDOWS=$N_WINDOWS"
   echo "    a case is $(python3 -c "print(f'{($ADJ_S+$WINDOW_S)/3600:.4f}')") sim-h; the"\
 " footprint is its last $(python3 -c "print(int($WINDOW_S-$TBACK))") s"

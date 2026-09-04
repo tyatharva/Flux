@@ -22,7 +22,7 @@ set -uo pipefail
 ROOT="${FLUX_ROOT:-/flux}"; cd "$ROOT"
 FE="${FE_BIN:-$ROOT/FastEddy-model-5.0.1/SRC/FEMAIN/FastEddy}"
 STEPS="${1:-200}"
-JOB="${VERIFY_JOB:-$ROOT/jobs30/seed_nbl-deep_a015}"
+JOB="${VERIFY_JOB:-$ROOT/seeds/seed_nbl-deep_a015}"
 W="${FLUX_OUT:-/out}/verify"
 fail=0
 note(){ echo "  $*"; }

@@ -145,8 +145,12 @@ def main():
 
     # 8. the audit
     lines = D.audit_lines()
+    # The test split was read exactly once, for the frozen evaluation of 2026-09-04 (see
+    # docs/emulator/results.md). Every such read must carry allow_test; an unaudited one fails.
     loaded_test = [l for l in lines if l.get("split") == "test" and l.get("n", 0) > 0]
-    check(len(loaded_test) == 0, f"audit log: {len(lines)} lines, none loaded the test split")
+    unaudited = [l for l in loaded_test if not l.get("allow_test")]
+    check(len(unaudited) == 0, f"audit log: {len(lines)} lines; {len(loaded_test)} test-split "
+                               f"loads, {len(unaudited)} of them without allow_test")
 
     name = "test_ml_data"
     print(f"{name}: {'FAIL' if fails else 'PASS'} ({len(fails)} failures, "

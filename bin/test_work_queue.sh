@@ -11,7 +11,7 @@
 # line of the orchestration -- the queue, the per-GPU assignment, the failure path, the
 # accounting -- with no GPU at all.
 #
-# WHAT IS STUBBED AND WHAT IS NOT. `--stub` runs the REAL jobs/run_seed.sh with
+# WHAT IS STUBBED AND WHAT IS NOT. `--stub` runs the REAL bin/run_seed.sh with
 # STUB_SEED=1: manifest parsing, the SEED_CEILING_H arithmetic, the preflight, the return/
 # staging and the orchestrator's whole record-keeping all run. Only FastEddy, the
 # stationarity gate and the acceptance battery are replaced. Every artifact is stamped
@@ -52,7 +52,7 @@ docker run --rm -v "$OUT":/out "$IMAGE" bash -c 'rm -rf /out/* /out/.[!.]* 2>/de
 
 JOBS=$(python3 -c "
 import json
-d=json.load(open('jobs30/index.json'))['jobs'][:$NJOBS]
+d=json.load(open('seeds/index.json'))['jobs'][:$NJOBS]
 print(','.join(j['job'] for j in d))")
 
 docker run --rm -v "$OUT":/out "$IMAGE" run_seeds \

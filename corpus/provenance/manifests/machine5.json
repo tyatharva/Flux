@@ -1,0 +1,4032 @@
+{
+ "format": "flux-corpus-machine-manifest/1",
+ "generated_by": "bin/run_corpus_machine.py",
+ "machine": 5,
+ "n_machines": 8,
+ "months": [
+  "2021-02",
+  "2022-09",
+  "2023-03",
+  "2023-06",
+  "2023-12",
+  "2025-07",
+  "2025-10",
+  "2026-04"
+ ],
+ "months_split": {
+  "2021-02": "train",
+  "2022-09": "train",
+  "2023-03": "train",
+  "2023-06": "train",
+  "2023-12": "train",
+  "2025-07": "test",
+  "2025-10": "test",
+  "2026-04": "train"
+ },
+ "git_commit": "7de9dee2a01d",
+ "image": null,
+ "stub": false,
+ "host": "eed981c4113c",
+ "gpus": [
+  {
+   "index": 0,
+   "name": "NVIDIA GeForce RTX 5090",
+   "cc": "12.0",
+   "vram_mib": 32607,
+   "uuid": "GPU-8cff8cdc-89d0-aecd-7564-6accbb4d3702"
+  },
+  {
+   "index": 1,
+   "name": "NVIDIA GeForce RTX 5090",
+   "cc": "12.0",
+   "vram_mib": 32607,
+   "uuid": "GPU-b78c1c69-405f-d25c-da95-fd656c854624"
+  },
+  {
+   "index": 2,
+   "name": "NVIDIA GeForce RTX 5090",
+   "cc": "12.0",
+   "vram_mib": 32607,
+   "uuid": "GPU-bb3ec6cc-6c70-5885-ce5a-da4541a8734a"
+  },
+  {
+   "index": 3,
+   "name": "NVIDIA GeForce RTX 5090",
+   "cc": "12.0",
+   "vram_mib": 32607,
+   "uuid": "GPU-ff11c5b2-cb4f-3116-7453-47baec23f1cf"
+  },
+  {
+   "index": 4,
+   "name": "NVIDIA GeForce RTX 5090",
+   "cc": "12.0",
+   "vram_mib": 32607,
+   "uuid": "GPU-49f0980a-dbf7-a4f6-d9f9-a6c0a2c20a1f"
+  },
+  {
+   "index": 5,
+   "name": "NVIDIA GeForce RTX 5090",
+   "cc": "12.0",
+   "vram_mib": 32607,
+   "uuid": "GPU-e08eb503-d0fc-3cf1-909b-301caf74eb95"
+  },
+  {
+   "index": 6,
+   "name": "NVIDIA GeForce RTX 5090",
+   "cc": "12.0",
+   "vram_mib": 32607,
+   "uuid": "GPU-deb80c9d-dc7b-8525-98bb-2b9e1cdbfc88"
+  },
+  {
+   "index": 7,
+   "name": "NVIDIA GeForce RTX 5090",
+   "cc": "12.0",
+   "vram_mib": 32607,
+   "uuid": "GPU-91486f21-f336-a6ea-8315-ad1f4b8bd81b"
+  }
+ ],
+ "n_gpus_used": 8,
+ "grid": {
+  "config": "122^3 @ 30 m",
+  "dx_m": 30.0,
+  "domain_m": 3660.0,
+  "receptor_z_m": 30.0,
+  "n": 122,
+  "pad": 3,
+  "n_padded": 128,
+  "grid_dir": "data/grid30_raised",
+  "sim_h": 1.25,
+  "adj_s": 1800,
+  "window_s": 2700,
+  "tback_s": 900,
+  "rel_s": 1800,
+  "n_windows": 1
+ },
+ "seed_library": {
+  "dir": "jobs30",
+  "n_seeds": 30,
+  "selection": "the WHOLE library (ALLOW_DRIFTING=any)"
+ },
+ "expected_cases": null,
+ "counts": {
+  "case": 201,
+  "missing": 41
+ },
+ "n_days": 242,
+ "days": {
+  "2021-02-01": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1456.197,
+   "tag": "case_2021020119",
+   "timestamp": "2021-02-01T19:00",
+   "bytes": 37185
+  },
+  "2021-02-02": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1371.828,
+   "tag": "case_2021020219",
+   "timestamp": "2021-02-02T19:00",
+   "bytes": 34953
+  },
+  "2021-02-03": {
+   "status": "missing",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 95.807,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2021-02-04": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1428.691,
+   "tag": "case_2021020419",
+   "timestamp": "2021-02-04T19:00",
+   "bytes": 33808
+  },
+  "2021-02-05": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1373.154,
+   "tag": "case_2021020518",
+   "timestamp": "2021-02-05T18:00",
+   "bytes": 37036
+  },
+  "2021-02-06": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1394.766,
+   "tag": "case_2021020622",
+   "timestamp": "2021-02-06T22:00",
+   "bytes": 31718
+  },
+  "2021-02-07": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1430.388,
+   "tag": "case_2021020720",
+   "timestamp": "2021-02-07T20:00",
+   "bytes": 37957
+  },
+  "2021-02-08": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1416.517,
+   "tag": "case_2021020822",
+   "timestamp": "2021-02-08T22:00",
+   "bytes": 34592
+  },
+  "2021-02-09": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1405.139,
+   "tag": "case_2021020922",
+   "timestamp": "2021-02-09T22:00",
+   "bytes": 31046
+  },
+  "2021-02-10": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1365.608,
+   "tag": "case_2021021021",
+   "timestamp": "2021-02-10T21:00",
+   "bytes": 37196
+  },
+  "2021-02-11": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1437.968,
+   "tag": "case_2021021120",
+   "timestamp": "2021-02-11T20:00",
+   "bytes": 41494
+  },
+  "2021-02-12": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1409.282,
+   "tag": "case_2021021217",
+   "timestamp": "2021-02-12T17:00",
+   "bytes": 39426
+  },
+  "2021-02-13": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1361.725,
+   "tag": "case_2021021319",
+   "timestamp": "2021-02-13T19:00",
+   "bytes": 40803
+  },
+  "2021-02-14": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1368.577,
+   "tag": "case_2021021418",
+   "timestamp": "2021-02-14T18:00",
+   "bytes": 40454
+  },
+  "2021-02-15": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1364.42,
+   "tag": "case_2021021519",
+   "timestamp": "2021-02-15T19:00",
+   "bytes": 44783
+  },
+  "2021-02-16": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1438.924,
+   "tag": "case_2021021617",
+   "timestamp": "2021-02-16T17:00",
+   "bytes": 45152
+  },
+  "2021-02-17": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1402.881,
+   "tag": "case_2021021721",
+   "timestamp": "2021-02-17T21:00",
+   "bytes": 42146
+  },
+  "2021-02-18": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1406.321,
+   "tag": "case_2021021820",
+   "timestamp": "2021-02-18T20:00",
+   "bytes": 35348
+  },
+  "2021-02-19": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1477.104,
+   "tag": "case_2021021922",
+   "timestamp": "2021-02-19T22:00",
+   "bytes": 31579
+  },
+  "2021-02-20": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1409.994,
+   "tag": "case_2021022020",
+   "timestamp": "2021-02-20T20:00",
+   "bytes": 37591
+  },
+  "2021-02-21": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1436.904,
+   "tag": "case_2021022119",
+   "timestamp": "2021-02-21T19:00",
+   "bytes": 37710
+  },
+  "2021-02-22": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1457.358,
+   "tag": "case_2021022216",
+   "timestamp": "2021-02-22T16:00",
+   "bytes": 34089
+  },
+  "2021-02-23": {
+   "status": "missing",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 130.185,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2021-02-24": {
+   "status": "missing",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 112.14,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2021-02-25": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1470.265,
+   "tag": "case_2021022516",
+   "timestamp": "2021-02-25T16:00",
+   "bytes": 31304
+  },
+  "2021-02-26": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1451.286,
+   "tag": "case_2021022619",
+   "timestamp": "2021-02-26T19:00",
+   "bytes": 35508
+  },
+  "2021-02-27": {
+   "status": "missing",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 95.802,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2021-02-28": {
+   "status": "missing",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 91.077,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2022-09-01": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1389.452,
+   "tag": "case_2022090122",
+   "timestamp": "2022-09-01T22:00",
+   "bytes": 37626
+  },
+  "2022-09-02": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1444.732,
+   "tag": "case_2022090218",
+   "timestamp": "2022-09-02T18:00",
+   "bytes": 45017
+  },
+  "2022-09-03": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1384.082,
+   "tag": "case_2022090315",
+   "timestamp": "2022-09-03T15:00",
+   "bytes": 36573
+  },
+  "2022-09-04": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1400.452,
+   "tag": "case_2022090419",
+   "timestamp": "2022-09-04T19:00",
+   "bytes": 44745
+  },
+  "2022-09-05": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1382.903,
+   "tag": "case_2022090520",
+   "timestamp": "2022-09-05T20:00",
+   "bytes": 39188
+  },
+  "2022-09-06": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1439.208,
+   "tag": "case_2022090621",
+   "timestamp": "2022-09-06T21:00",
+   "bytes": 38243
+  },
+  "2022-09-07": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1403.929,
+   "tag": "case_2022090722",
+   "timestamp": "2022-09-07T22:00",
+   "bytes": 35875
+  },
+  "2022-09-08": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1430.226,
+   "tag": "case_2022090822",
+   "timestamp": "2022-09-08T22:00",
+   "bytes": 38077
+  },
+  "2022-09-09": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1430.756,
+   "tag": "case_2022090919",
+   "timestamp": "2022-09-09T19:00",
+   "bytes": 46783
+  },
+  "2022-09-10": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1407.333,
+   "tag": "case_2022091018",
+   "timestamp": "2022-09-10T18:00",
+   "bytes": 45274
+  },
+  "2022-09-11": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1396.066,
+   "tag": "case_2022091102",
+   "timestamp": "2022-09-11T02:00",
+   "bytes": 36585
+  },
+  "2022-09-12": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1361.955,
+   "tag": "case_2022091221",
+   "timestamp": "2022-09-12T21:00",
+   "bytes": 41609
+  },
+  "2022-09-13": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1396.544,
+   "tag": "case_2022091318",
+   "timestamp": "2022-09-13T18:00",
+   "bytes": 44915
+  },
+  "2022-09-14": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1391.694,
+   "tag": "case_2022091420",
+   "timestamp": "2022-09-14T20:00",
+   "bytes": 39293
+  },
+  "2022-09-15": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1396.069,
+   "tag": "case_2022091515",
+   "timestamp": "2022-09-15T15:00",
+   "bytes": 43160
+  },
+  "2022-09-16": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1434.242,
+   "tag": "case_2022091619",
+   "timestamp": "2022-09-16T19:00",
+   "bytes": 40440
+  },
+  "2022-09-17": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1425.761,
+   "tag": "case_2022091718",
+   "timestamp": "2022-09-17T18:00",
+   "bytes": 43034
+  },
+  "2022-09-18": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1473.035,
+   "tag": "case_2022091820",
+   "timestamp": "2022-09-18T20:00",
+   "bytes": 35740
+  },
+  "2022-09-19": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1456.445,
+   "tag": "case_2022091919",
+   "timestamp": "2022-09-19T19:00",
+   "bytes": 43780
+  },
+  "2022-09-20": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1419.802,
+   "tag": "case_2022092017",
+   "timestamp": "2022-09-20T17:00",
+   "bytes": 44144
+  },
+  "2022-09-21": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1387.721,
+   "tag": "case_2022092118",
+   "timestamp": "2022-09-21T18:00",
+   "bytes": 41447
+  },
+  "2022-09-22": {
+   "status": "missing",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 95.947,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2022-09-23": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1432.548,
+   "tag": "case_2022092319",
+   "timestamp": "2022-09-23T19:00",
+   "bytes": 39018
+  },
+  "2022-09-24": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1383.645,
+   "tag": "case_2022092411",
+   "timestamp": "2022-09-24T11:00",
+   "bytes": 34561
+  },
+  "2022-09-25": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1411.466,
+   "tag": "case_2022092509",
+   "timestamp": "2022-09-25T09:00",
+   "bytes": 32870
+  },
+  "2022-09-26": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1436.785,
+   "tag": "case_2022092617",
+   "timestamp": "2022-09-26T17:00",
+   "bytes": 38471
+  },
+  "2022-09-27": {
+   "status": "missing",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 94.595,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2022-09-28": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1427.418,
+   "tag": "case_2022092817",
+   "timestamp": "2022-09-28T17:00",
+   "bytes": 42003
+  },
+  "2022-09-29": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1427.024,
+   "tag": "case_2022092922",
+   "timestamp": "2022-09-29T22:00",
+   "bytes": 33168
+  },
+  "2022-09-30": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1385.403,
+   "tag": "case_2022093018",
+   "timestamp": "2022-09-30T18:00",
+   "bytes": 43944
+  },
+  "2023-03-01": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1392.474,
+   "tag": "case_2023030117",
+   "timestamp": "2023-03-01T17:00",
+   "bytes": 37751
+  },
+  "2023-03-02": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1380.473,
+   "tag": "case_2023030207",
+   "timestamp": "2023-03-02T07:00",
+   "bytes": 32327
+  },
+  "2023-03-03": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1393.498,
+   "tag": "case_2023030305",
+   "timestamp": "2023-03-03T05:00",
+   "bytes": 36348
+  },
+  "2023-03-04": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1436.735,
+   "tag": "case_2023030420",
+   "timestamp": "2023-03-04T20:00",
+   "bytes": 36397
+  },
+  "2023-03-05": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1420.47,
+   "tag": "case_2023030521",
+   "timestamp": "2023-03-05T21:00",
+   "bytes": 37752
+  },
+  "2023-03-06": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1389.273,
+   "tag": "case_2023030615",
+   "timestamp": "2023-03-06T15:00",
+   "bytes": 37132
+  },
+  "2023-03-07": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1388.691,
+   "tag": "case_2023030708",
+   "timestamp": "2023-03-07T08:00",
+   "bytes": 32835
+  },
+  "2023-03-08": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1392.943,
+   "tag": "case_2023030820",
+   "timestamp": "2023-03-08T20:00",
+   "bytes": 50510
+  },
+  "2023-03-09": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1365.801,
+   "tag": "case_2023030916",
+   "timestamp": "2023-03-09T16:00",
+   "bytes": 44875
+  },
+  "2023-03-10": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1378.685,
+   "tag": "case_2023031015",
+   "timestamp": "2023-03-10T15:00",
+   "bytes": 35034
+  },
+  "2023-03-11": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1418.496,
+   "tag": "case_2023031119",
+   "timestamp": "2023-03-11T19:00",
+   "bytes": 42442
+  },
+  "2023-03-12": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1453.385,
+   "tag": "case_2023031220",
+   "timestamp": "2023-03-12T20:00",
+   "bytes": 38266
+  },
+  "2023-03-13": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1376.789,
+   "tag": "case_2023031317",
+   "timestamp": "2023-03-13T17:00",
+   "bytes": 36931
+  },
+  "2023-03-14": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1413.306,
+   "tag": "case_2023031421",
+   "timestamp": "2023-03-14T21:00",
+   "bytes": 34780
+  },
+  "2023-03-15": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1397.925,
+   "tag": "case_2023031517",
+   "timestamp": "2023-03-15T17:00",
+   "bytes": 41155
+  },
+  "2023-03-16": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1379.907,
+   "tag": "case_2023031618",
+   "timestamp": "2023-03-16T18:00",
+   "bytes": 38600
+  },
+  "2023-03-17": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1373.344,
+   "tag": "case_2023031717",
+   "timestamp": "2023-03-17T17:00",
+   "bytes": 46315
+  },
+  "2023-03-18": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1389.128,
+   "tag": "case_2023031808",
+   "timestamp": "2023-03-18T08:00",
+   "bytes": 34644
+  },
+  "2023-03-19": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1385.012,
+   "tag": "case_2023031919",
+   "timestamp": "2023-03-19T19:00",
+   "bytes": 43447
+  },
+  "2023-03-20": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1383.431,
+   "tag": "case_2023032015",
+   "timestamp": "2023-03-20T15:00",
+   "bytes": 40739
+  },
+  "2023-03-21": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1464.389,
+   "tag": "case_2023032114",
+   "timestamp": "2023-03-21T14:00",
+   "bytes": 34627
+  },
+  "2023-03-22": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1360.615,
+   "tag": "case_2023032219",
+   "timestamp": "2023-03-22T19:00",
+   "bytes": 37434
+  },
+  "2023-03-23": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1383.766,
+   "tag": "case_2023032316",
+   "timestamp": "2023-03-23T16:00",
+   "bytes": 40349
+  },
+  "2023-03-24": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1350.681,
+   "tag": "case_2023032422",
+   "timestamp": "2023-03-24T22:00",
+   "bytes": 41043
+  },
+  "2023-03-25": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1440.445,
+   "tag": "case_2023032519",
+   "timestamp": "2023-03-25T19:00",
+   "bytes": 32969
+  },
+  "2023-03-26": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1391.805,
+   "tag": "case_2023032620",
+   "timestamp": "2023-03-26T20:00",
+   "bytes": 38461
+  },
+  "2023-03-27": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1440.291,
+   "tag": "case_2023032721",
+   "timestamp": "2023-03-27T21:00",
+   "bytes": 39707
+  },
+  "2023-03-28": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1442.462,
+   "tag": "case_2023032819",
+   "timestamp": "2023-03-28T19:00",
+   "bytes": 47922
+  },
+  "2023-03-29": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1395.927,
+   "tag": "case_2023032916",
+   "timestamp": "2023-03-29T16:00",
+   "bytes": 48184
+  },
+  "2023-03-30": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1354.991,
+   "tag": "case_2023033020",
+   "timestamp": "2023-03-30T20:00",
+   "bytes": 41301
+  },
+  "2023-03-31": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1468.421,
+   "tag": "case_2023033123",
+   "timestamp": "2023-03-31T23:00",
+   "bytes": 37137
+  },
+  "2023-06-01": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1450.338,
+   "tag": "case_2023060121",
+   "timestamp": "2023-06-01T21:00",
+   "bytes": 44715
+  },
+  "2023-06-02": {
+   "status": "missing",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 94.464,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2023-06-03": {
+   "status": "missing",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 96.457,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2023-06-04": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1419.0,
+   "tag": "case_2023060423",
+   "timestamp": "2023-06-04T23:00",
+   "bytes": 39754
+  },
+  "2023-06-05": {
+   "status": "missing",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 92.499,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2023-06-06": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1445.415,
+   "tag": "case_2023060617",
+   "timestamp": "2023-06-06T17:00",
+   "bytes": 49344
+  },
+  "2023-06-07": {
+   "status": "missing",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 92.475,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2023-06-08": {
+   "status": "missing",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 91.352,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2023-06-09": {
+   "status": "missing",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 95.476,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2023-06-10": {
+   "status": "missing",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 94.977,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2023-06-11": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1382.329,
+   "tag": "case_2023061108",
+   "timestamp": "2023-06-11T08:00",
+   "bytes": 37098
+  },
+  "2023-06-12": {
+   "status": "missing",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 93.085,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2023-06-13": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1426.715,
+   "tag": "case_2023061317",
+   "timestamp": "2023-06-13T17:00",
+   "bytes": 43630
+  },
+  "2023-06-14": {
+   "status": "missing",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 96.148,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2023-06-15": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1403.341,
+   "tag": "case_2023061520",
+   "timestamp": "2023-06-15T20:00",
+   "bytes": 45696
+  },
+  "2023-06-16": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1381.162,
+   "tag": "case_2023061621",
+   "timestamp": "2023-06-16T21:00",
+   "bytes": 53154
+  },
+  "2023-06-17": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1390.652,
+   "tag": "case_2023061700",
+   "timestamp": "2023-06-17T00:00",
+   "bytes": 36052
+  },
+  "2023-06-18": {
+   "status": "missing",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 93.619,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2023-06-19": {
+   "status": "missing",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 88.165,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2023-06-20": {
+   "status": "missing",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 90.384,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2023-06-21": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1421.512,
+   "tag": "case_2023062100",
+   "timestamp": "2023-06-21T00:00",
+   "bytes": 37419
+  },
+  "2023-06-22": {
+   "status": "missing",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 95.479,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2023-06-23": {
+   "status": "missing",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 94.058,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2023-06-24": {
+   "status": "missing",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 92.279,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2023-06-25": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1369.094,
+   "tag": "case_2023062511",
+   "timestamp": "2023-06-25T11:00",
+   "bytes": 33086
+  },
+  "2023-06-26": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1364.939,
+   "tag": "case_2023062619",
+   "timestamp": "2023-06-26T19:00",
+   "bytes": 33950
+  },
+  "2023-06-27": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1401.389,
+   "tag": "case_2023062717",
+   "timestamp": "2023-06-27T17:00",
+   "bytes": 48100
+  },
+  "2023-06-28": {
+   "status": "missing",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 93.98,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2023-06-29": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1460.499,
+   "tag": "case_2023062913",
+   "timestamp": "2023-06-29T13:00",
+   "bytes": 41663
+  },
+  "2023-06-30": {
+   "status": "missing",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 116.872,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2023-12-01": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1435.998,
+   "tag": "case_2023120116",
+   "timestamp": "2023-12-01T16:00",
+   "bytes": 34150
+  },
+  "2023-12-02": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1467.259,
+   "tag": "case_2023120216",
+   "timestamp": "2023-12-02T16:00",
+   "bytes": 39281
+  },
+  "2023-12-03": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1375.625,
+   "tag": "case_2023120321",
+   "timestamp": "2023-12-03T21:00",
+   "bytes": 31887
+  },
+  "2023-12-04": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1399.933,
+   "tag": "case_2023120418",
+   "timestamp": "2023-12-04T18:00",
+   "bytes": 32606
+  },
+  "2023-12-05": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1376.771,
+   "tag": "case_2023120520",
+   "timestamp": "2023-12-05T20:00",
+   "bytes": 38258
+  },
+  "2023-12-06": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1420.864,
+   "tag": "case_2023120614",
+   "timestamp": "2023-12-06T14:00",
+   "bytes": 31501
+  },
+  "2023-12-07": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1411.422,
+   "tag": "case_2023120718",
+   "timestamp": "2023-12-07T18:00",
+   "bytes": 42202
+  },
+  "2023-12-08": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1415.164,
+   "tag": "case_2023120818",
+   "timestamp": "2023-12-08T18:00",
+   "bytes": 38845
+  },
+  "2023-12-09": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1401.818,
+   "tag": "case_2023120919",
+   "timestamp": "2023-12-09T19:00",
+   "bytes": 34691
+  },
+  "2023-12-10": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1413.685,
+   "tag": "case_2023121005",
+   "timestamp": "2023-12-10T05:00",
+   "bytes": 31204
+  },
+  "2023-12-11": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1363.132,
+   "tag": "case_2023121101",
+   "timestamp": "2023-12-11T01:00",
+   "bytes": 39859
+  },
+  "2023-12-12": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1419.604,
+   "tag": "case_2023121221",
+   "timestamp": "2023-12-12T21:00",
+   "bytes": 29488
+  },
+  "2023-12-13": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1398.649,
+   "tag": "case_2023121320",
+   "timestamp": "2023-12-13T20:00",
+   "bytes": 39380
+  },
+  "2023-12-14": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1424.83,
+   "tag": "case_2023121418",
+   "timestamp": "2023-12-14T18:00",
+   "bytes": 39950
+  },
+  "2023-12-15": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1392.274,
+   "tag": "case_2023121519",
+   "timestamp": "2023-12-15T19:00",
+   "bytes": 39234
+  },
+  "2023-12-16": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1447.335,
+   "tag": "case_2023121620",
+   "timestamp": "2023-12-16T20:00",
+   "bytes": 36519
+  },
+  "2023-12-17": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1399.858,
+   "tag": "case_2023121717",
+   "timestamp": "2023-12-17T17:00",
+   "bytes": 37258
+  },
+  "2023-12-18": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1410.421,
+   "tag": "case_2023121822",
+   "timestamp": "2023-12-18T22:00",
+   "bytes": 31936
+  },
+  "2023-12-19": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1397.726,
+   "tag": "case_2023121916",
+   "timestamp": "2023-12-19T16:00",
+   "bytes": 39481
+  },
+  "2023-12-20": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1413.921,
+   "tag": "case_2023122019",
+   "timestamp": "2023-12-20T19:00",
+   "bytes": 43472
+  },
+  "2023-12-21": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1427.219,
+   "tag": "case_2023122120",
+   "timestamp": "2023-12-21T20:00",
+   "bytes": 33570
+  },
+  "2023-12-22": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1455.936,
+   "tag": "case_2023122219",
+   "timestamp": "2023-12-22T19:00",
+   "bytes": 33454
+  },
+  "2023-12-23": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1423.91,
+   "tag": "case_2023122320",
+   "timestamp": "2023-12-23T20:00",
+   "bytes": 35527
+  },
+  "2023-12-24": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1366.231,
+   "tag": "case_2023122415",
+   "timestamp": "2023-12-24T15:00",
+   "bytes": 32967
+  },
+  "2023-12-25": {
+   "status": "missing",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 94.33,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2023-12-26": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1362.816,
+   "tag": "case_2023122617",
+   "timestamp": "2023-12-26T17:00",
+   "bytes": 38408
+  },
+  "2023-12-27": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1591.289,
+   "tag": "case_2023122720",
+   "timestamp": "2023-12-27T20:00",
+   "bytes": 38919
+  },
+  "2023-12-28": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1600.087,
+   "tag": "case_2023122816",
+   "timestamp": "2023-12-28T16:00",
+   "bytes": 34536
+  },
+  "2023-12-29": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1441.791,
+   "tag": "case_2023122920",
+   "timestamp": "2023-12-29T20:00",
+   "bytes": 39193
+  },
+  "2023-12-30": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1421.122,
+   "tag": "case_2023123021",
+   "timestamp": "2023-12-30T21:00",
+   "bytes": 35368
+  },
+  "2023-12-31": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1450.69,
+   "tag": "case_2023123106",
+   "timestamp": "2023-12-31T06:00",
+   "bytes": 30196
+  },
+  "2025-07-01": {
+   "status": "missing",
+   "split": "test",
+   "gpu": 5,
+   "wall_s": 115.033,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2025-07-02": {
+   "status": "missing",
+   "split": "test",
+   "gpu": 5,
+   "wall_s": 89.462,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2025-07-03": {
+   "status": "missing",
+   "split": "test",
+   "gpu": 5,
+   "wall_s": 92.433,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2025-07-04": {
+   "status": "missing",
+   "split": "test",
+   "gpu": 4,
+   "wall_s": 90.805,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2025-07-05": {
+   "status": "missing",
+   "split": "test",
+   "gpu": 5,
+   "wall_s": 91.428,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2025-07-06": {
+   "status": "case",
+   "split": "test",
+   "gpu": 4,
+   "wall_s": 1392.562,
+   "tag": "case_2025070620",
+   "timestamp": "2025-07-06T20:00",
+   "bytes": 52593
+  },
+  "2025-07-07": {
+   "status": "missing",
+   "split": "test",
+   "gpu": 5,
+   "wall_s": 92.604,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2025-07-08": {
+   "status": "case",
+   "split": "test",
+   "gpu": 0,
+   "wall_s": 1478.19,
+   "tag": "case_2025070822",
+   "timestamp": "2025-07-08T22:00",
+   "bytes": 34997
+  },
+  "2025-07-09": {
+   "status": "case",
+   "split": "test",
+   "gpu": 5,
+   "wall_s": 1429.231,
+   "tag": "case_2025070917",
+   "timestamp": "2025-07-09T17:00",
+   "bytes": 43117
+  },
+  "2025-07-10": {
+   "status": "case",
+   "split": "test",
+   "gpu": 7,
+   "wall_s": 1445.509,
+   "tag": "case_2025071020",
+   "timestamp": "2025-07-10T20:00",
+   "bytes": 45454
+  },
+  "2025-07-11": {
+   "status": "case",
+   "split": "test",
+   "gpu": 6,
+   "wall_s": 1356.685,
+   "tag": "case_2025071118",
+   "timestamp": "2025-07-11T18:00",
+   "bytes": 41818
+  },
+  "2025-07-12": {
+   "status": "case",
+   "split": "test",
+   "gpu": 1,
+   "wall_s": 1418.464,
+   "tag": "case_2025071204",
+   "timestamp": "2025-07-12T04:00",
+   "bytes": 32318
+  },
+  "2025-07-13": {
+   "status": "case",
+   "split": "test",
+   "gpu": 3,
+   "wall_s": 1432.21,
+   "tag": "case_2025071316",
+   "timestamp": "2025-07-13T16:00",
+   "bytes": 44547
+  },
+  "2025-07-14": {
+   "status": "case",
+   "split": "test",
+   "gpu": 2,
+   "wall_s": 1431.244,
+   "tag": "case_2025071418",
+   "timestamp": "2025-07-14T18:00",
+   "bytes": 48510
+  },
+  "2025-07-15": {
+   "status": "missing",
+   "split": "test",
+   "gpu": 4,
+   "wall_s": 91.467,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2025-07-16": {
+   "status": "case",
+   "split": "test",
+   "gpu": 4,
+   "wall_s": 1438.279,
+   "tag": "case_2025071620",
+   "timestamp": "2025-07-16T20:00",
+   "bytes": 53806
+  },
+  "2025-07-17": {
+   "status": "case",
+   "split": "test",
+   "gpu": 0,
+   "wall_s": 1410.33,
+   "tag": "case_2025071703",
+   "timestamp": "2025-07-17T03:00",
+   "bytes": 36248
+  },
+  "2025-07-18": {
+   "status": "case",
+   "split": "test",
+   "gpu": 5,
+   "wall_s": 1389.584,
+   "tag": "case_2025071822",
+   "timestamp": "2025-07-18T22:00",
+   "bytes": 44561
+  },
+  "2025-07-19": {
+   "status": "case",
+   "split": "test",
+   "gpu": 6,
+   "wall_s": 1473.841,
+   "tag": "case_2025071920",
+   "timestamp": "2025-07-19T20:00",
+   "bytes": 43261
+  },
+  "2025-07-20": {
+   "status": "case",
+   "split": "test",
+   "gpu": 7,
+   "wall_s": 1397.236,
+   "tag": "case_2025072019",
+   "timestamp": "2025-07-20T19:00",
+   "bytes": 47453
+  },
+  "2025-07-21": {
+   "status": "case",
+   "split": "test",
+   "gpu": 1,
+   "wall_s": 1394.383,
+   "tag": "case_2025072122",
+   "timestamp": "2025-07-21T22:00",
+   "bytes": 39306
+  },
+  "2025-07-22": {
+   "status": "case",
+   "split": "test",
+   "gpu": 3,
+   "wall_s": 1417.488,
+   "tag": "case_2025072219",
+   "timestamp": "2025-07-22T19:00",
+   "bytes": 45977
+  },
+  "2025-07-23": {
+   "status": "case",
+   "split": "test",
+   "gpu": 2,
+   "wall_s": 1445.57,
+   "tag": "case_2025072313",
+   "timestamp": "2025-07-23T13:00",
+   "bytes": 30458
+  },
+  "2025-07-24": {
+   "status": "case",
+   "split": "test",
+   "gpu": 4,
+   "wall_s": 1392.616,
+   "tag": "case_2025072417",
+   "timestamp": "2025-07-24T17:00",
+   "bytes": 38879
+  },
+  "2025-07-25": {
+   "status": "case",
+   "split": "test",
+   "gpu": 0,
+   "wall_s": 1454.915,
+   "tag": "case_2025072519",
+   "timestamp": "2025-07-25T19:00",
+   "bytes": 49277
+  },
+  "2025-07-26": {
+   "status": "case",
+   "split": "test",
+   "gpu": 5,
+   "wall_s": 1420.834,
+   "tag": "case_2025072621",
+   "timestamp": "2025-07-26T21:00",
+   "bytes": 42988
+  },
+  "2025-07-27": {
+   "status": "case",
+   "split": "test",
+   "gpu": 7,
+   "wall_s": 1385.155,
+   "tag": "case_2025072717",
+   "timestamp": "2025-07-27T17:00",
+   "bytes": 46284
+  },
+  "2025-07-28": {
+   "status": "missing",
+   "split": "test",
+   "gpu": 6,
+   "wall_s": 103.135,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2025-07-29": {
+   "status": "case",
+   "split": "test",
+   "gpu": 6,
+   "wall_s": 1410.589,
+   "tag": "case_2025072919",
+   "timestamp": "2025-07-29T19:00",
+   "bytes": 46959
+  },
+  "2025-07-30": {
+   "status": "case",
+   "split": "test",
+   "gpu": 1,
+   "wall_s": 1426.995,
+   "tag": "case_2025073022",
+   "timestamp": "2025-07-30T22:00",
+   "bytes": 36767
+  },
+  "2025-07-31": {
+   "status": "missing",
+   "split": "test",
+   "gpu": 3,
+   "wall_s": 93.362,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2025-10-01": {
+   "status": "case",
+   "split": "test",
+   "gpu": 3,
+   "wall_s": 1477.979,
+   "tag": "case_2025100120",
+   "timestamp": "2025-10-01T20:00",
+   "bytes": 45891
+  },
+  "2025-10-02": {
+   "status": "case",
+   "split": "test",
+   "gpu": 2,
+   "wall_s": 1463.669,
+   "tag": "case_2025100215",
+   "timestamp": "2025-10-02T15:00",
+   "bytes": 42608
+  },
+  "2025-10-03": {
+   "status": "missing",
+   "split": "test",
+   "gpu": 4,
+   "wall_s": 93.096,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2025-10-04": {
+   "status": "missing",
+   "split": "test",
+   "gpu": 5,
+   "wall_s": 91.582,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2025-10-05": {
+   "status": "missing",
+   "split": "test",
+   "gpu": 4,
+   "wall_s": 94.158,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2025-10-06": {
+   "status": "case",
+   "split": "test",
+   "gpu": 0,
+   "wall_s": 1416.148,
+   "tag": "case_2025100622",
+   "timestamp": "2025-10-06T22:00",
+   "bytes": 40527
+  },
+  "2025-10-07": {
+   "status": "case",
+   "split": "test",
+   "gpu": 5,
+   "wall_s": 1455.022,
+   "tag": "case_2025100702",
+   "timestamp": "2025-10-07T02:00",
+   "bytes": 30605
+  },
+  "2025-10-08": {
+   "status": "case",
+   "split": "test",
+   "gpu": 4,
+   "wall_s": 1417.476,
+   "tag": "case_2025100820",
+   "timestamp": "2025-10-08T20:00",
+   "bytes": 50812
+  },
+  "2025-10-09": {
+   "status": "case",
+   "split": "test",
+   "gpu": 7,
+   "wall_s": 1407.062,
+   "tag": "case_2025100917",
+   "timestamp": "2025-10-09T17:00",
+   "bytes": 45175
+  },
+  "2025-10-10": {
+   "status": "case",
+   "split": "test",
+   "gpu": 6,
+   "wall_s": 1427.193,
+   "tag": "case_2025101022",
+   "timestamp": "2025-10-10T22:00",
+   "bytes": 31109
+  },
+  "2025-10-11": {
+   "status": "case",
+   "split": "test",
+   "gpu": 1,
+   "wall_s": 1428.814,
+   "tag": "case_2025101121",
+   "timestamp": "2025-10-11T21:00",
+   "bytes": 46243
+  },
+  "2025-10-12": {
+   "status": "case",
+   "split": "test",
+   "gpu": 3,
+   "wall_s": 1362.341,
+   "tag": "case_2025101222",
+   "timestamp": "2025-10-12T22:00",
+   "bytes": 34317
+  },
+  "2025-10-13": {
+   "status": "case",
+   "split": "test",
+   "gpu": 2,
+   "wall_s": 1434.272,
+   "tag": "case_2025101317",
+   "timestamp": "2025-10-13T17:00",
+   "bytes": 41071
+  },
+  "2025-10-14": {
+   "status": "case",
+   "split": "test",
+   "gpu": 0,
+   "wall_s": 1373.565,
+   "tag": "case_2025101420",
+   "timestamp": "2025-10-14T20:00",
+   "bytes": 39975
+  },
+  "2025-10-15": {
+   "status": "case",
+   "split": "test",
+   "gpu": 4,
+   "wall_s": 1374.29,
+   "tag": "case_2025101516",
+   "timestamp": "2025-10-15T16:00",
+   "bytes": 43943
+  },
+  "2025-10-16": {
+   "status": "case",
+   "split": "test",
+   "gpu": 5,
+   "wall_s": 1425.682,
+   "tag": "case_2025101617",
+   "timestamp": "2025-10-16T17:00",
+   "bytes": 42706
+  },
+  "2025-10-17": {
+   "status": "case",
+   "split": "test",
+   "gpu": 7,
+   "wall_s": 1452.302,
+   "tag": "case_2025101714",
+   "timestamp": "2025-10-17T14:00",
+   "bytes": 34085
+  },
+  "2025-10-18": {
+   "status": "missing",
+   "split": "test",
+   "gpu": 6,
+   "wall_s": 92.385,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2025-10-19": {
+   "status": "missing",
+   "split": "test",
+   "gpu": 1,
+   "wall_s": 92.681,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2025-10-20": {
+   "status": "case",
+   "split": "test",
+   "gpu": 6,
+   "wall_s": 1403.304,
+   "tag": "case_2025102020",
+   "timestamp": "2025-10-20T20:00",
+   "bytes": 45322
+  },
+  "2025-10-21": {
+   "status": "case",
+   "split": "test",
+   "gpu": 1,
+   "wall_s": 1367.996,
+   "tag": "case_2025102119",
+   "timestamp": "2025-10-21T19:00",
+   "bytes": 39455
+  },
+  "2025-10-22": {
+   "status": "case",
+   "split": "test",
+   "gpu": 3,
+   "wall_s": 1364.22,
+   "tag": "case_2025102214",
+   "timestamp": "2025-10-22T14:00",
+   "bytes": 30976
+  },
+  "2025-10-23": {
+   "status": "case",
+   "split": "test",
+   "gpu": 2,
+   "wall_s": 1433.045,
+   "tag": "case_2025102322",
+   "timestamp": "2025-10-23T22:00",
+   "bytes": 33754
+  },
+  "2025-10-24": {
+   "status": "case",
+   "split": "test",
+   "gpu": 0,
+   "wall_s": 1382.107,
+   "tag": "case_2025102419",
+   "timestamp": "2025-10-24T19:00",
+   "bytes": 43018
+  },
+  "2025-10-25": {
+   "status": "case",
+   "split": "test",
+   "gpu": 4,
+   "wall_s": 1386.502,
+   "tag": "case_2025102516",
+   "timestamp": "2025-10-25T16:00",
+   "bytes": 45327
+  },
+  "2025-10-26": {
+   "status": "case",
+   "split": "test",
+   "gpu": 5,
+   "wall_s": 1393.451,
+   "tag": "case_2025102618",
+   "timestamp": "2025-10-26T18:00",
+   "bytes": 47333
+  },
+  "2025-10-27": {
+   "status": "case",
+   "split": "test",
+   "gpu": 7,
+   "wall_s": 1401.31,
+   "tag": "case_2025102722",
+   "timestamp": "2025-10-27T22:00",
+   "bytes": 30757
+  },
+  "2025-10-28": {
+   "status": "case",
+   "split": "test",
+   "gpu": 6,
+   "wall_s": 1407.611,
+   "tag": "case_2025102820",
+   "timestamp": "2025-10-28T20:00",
+   "bytes": 45354
+  },
+  "2025-10-29": {
+   "status": "case",
+   "split": "test",
+   "gpu": 1,
+   "wall_s": 1459.535,
+   "tag": "case_2025102921",
+   "timestamp": "2025-10-29T21:00",
+   "bytes": 40370
+  },
+  "2025-10-30": {
+   "status": "case",
+   "split": "test",
+   "gpu": 3,
+   "wall_s": 1445.755,
+   "tag": "case_2025103020",
+   "timestamp": "2025-10-30T20:00",
+   "bytes": 36305
+  },
+  "2025-10-31": {
+   "status": "case",
+   "split": "test",
+   "gpu": 2,
+   "wall_s": 1499.24,
+   "tag": "case_2025103120",
+   "timestamp": "2025-10-31T20:00",
+   "bytes": 33199
+  },
+  "2026-04-01": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1434.36,
+   "tag": "case_2026040112",
+   "timestamp": "2026-04-01T12:00",
+   "bytes": 37139
+  },
+  "2026-04-02": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1406.883,
+   "tag": "case_2026040219",
+   "timestamp": "2026-04-02T19:00",
+   "bytes": 38185
+  },
+  "2026-04-03": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1399.449,
+   "tag": "case_2026040308",
+   "timestamp": "2026-04-03T08:00",
+   "bytes": 32450
+  },
+  "2026-04-04": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1395.953,
+   "tag": "case_2026040405",
+   "timestamp": "2026-04-04T05:00",
+   "bytes": 34687
+  },
+  "2026-04-05": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1396.285,
+   "tag": "case_2026040515",
+   "timestamp": "2026-04-05T15:00",
+   "bytes": 40733
+  },
+  "2026-04-06": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1437.204,
+   "tag": "case_2026040614",
+   "timestamp": "2026-04-06T14:00",
+   "bytes": 31228
+  },
+  "2026-04-07": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1375.221,
+   "tag": "case_2026040707",
+   "timestamp": "2026-04-07T07:00",
+   "bytes": 35454
+  },
+  "2026-04-08": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1414.603,
+   "tag": "case_2026040814",
+   "timestamp": "2026-04-08T14:00",
+   "bytes": 38533
+  },
+  "2026-04-09": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1376.341,
+   "tag": "case_2026040916",
+   "timestamp": "2026-04-09T16:00",
+   "bytes": 43155
+  },
+  "2026-04-10": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1380.189,
+   "tag": "case_2026041008",
+   "timestamp": "2026-04-10T08:00",
+   "bytes": 37667
+  },
+  "2026-04-11": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1380.713,
+   "tag": "case_2026041122",
+   "timestamp": "2026-04-11T22:00",
+   "bytes": 48103
+  },
+  "2026-04-12": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1422.802,
+   "tag": "case_2026041222",
+   "timestamp": "2026-04-12T22:00",
+   "bytes": 34353
+  },
+  "2026-04-13": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1373.922,
+   "tag": "case_2026041320",
+   "timestamp": "2026-04-13T20:00",
+   "bytes": 33843
+  },
+  "2026-04-14": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1397.295,
+   "tag": "case_2026041419",
+   "timestamp": "2026-04-14T19:00",
+   "bytes": 40568
+  },
+  "2026-04-15": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1391.169,
+   "tag": "case_2026041516",
+   "timestamp": "2026-04-15T16:00",
+   "bytes": 39061
+  },
+  "2026-04-16": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1441.88,
+   "tag": "case_2026041619",
+   "timestamp": "2026-04-16T19:00",
+   "bytes": 38989
+  },
+  "2026-04-17": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1441.878,
+   "tag": "case_2026041718",
+   "timestamp": "2026-04-17T18:00",
+   "bytes": 40736
+  },
+  "2026-04-18": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1427.966,
+   "tag": "case_2026041805",
+   "timestamp": "2026-04-18T05:00",
+   "bytes": 33090
+  },
+  "2026-04-19": {
+   "status": "missing",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 89.811,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2026-04-20": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1388.451,
+   "tag": "case_2026042021",
+   "timestamp": "2026-04-20T21:00",
+   "bytes": 38581
+  },
+  "2026-04-21": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1444.119,
+   "tag": "case_2026042119",
+   "timestamp": "2026-04-21T19:00",
+   "bytes": 48260
+  },
+  "2026-04-22": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1388.593,
+   "tag": "case_2026042222",
+   "timestamp": "2026-04-22T22:00",
+   "bytes": 42680
+  },
+  "2026-04-23": {
+   "status": "missing",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 91.098,
+   "reason": "the pool of 24 hours was exhausted with no acceptance (0 missing from HRRR, 24 screened out)"
+  },
+  "2026-04-24": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1424.449,
+   "tag": "case_2026042407",
+   "timestamp": "2026-04-24T07:00",
+   "bytes": 32163
+  },
+  "2026-04-25": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1401.509,
+   "tag": "case_2026042518",
+   "timestamp": "2026-04-25T18:00",
+   "bytes": 46609
+  },
+  "2026-04-26": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1379.202,
+   "tag": "case_2026042616",
+   "timestamp": "2026-04-26T16:00",
+   "bytes": 46830
+  },
+  "2026-04-27": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1397.085,
+   "tag": "case_2026042717",
+   "timestamp": "2026-04-27T17:00",
+   "bytes": 36947
+  },
+  "2026-04-28": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1395.003,
+   "tag": "case_2026042812",
+   "timestamp": "2026-04-28T12:00",
+   "bytes": 27805
+  },
+  "2026-04-29": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1366.243,
+   "tag": "case_2026042914",
+   "timestamp": "2026-04-29T14:00",
+   "bytes": 40155
+  },
+  "2026-04-30": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1469.846,
+   "tag": "case_2026043018",
+   "timestamp": "2026-04-30T18:00",
+   "bytes": 44235
+  }
+ },
+ "cases": {
+  "case_2021020119": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1456.197,
+   "tag": "case_2021020119",
+   "timestamp": "2021-02-01T19:00",
+   "bytes": 37185
+  },
+  "case_2021020219": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1371.828,
+   "tag": "case_2021020219",
+   "timestamp": "2021-02-02T19:00",
+   "bytes": 34953
+  },
+  "case_2021020419": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1428.691,
+   "tag": "case_2021020419",
+   "timestamp": "2021-02-04T19:00",
+   "bytes": 33808
+  },
+  "case_2021020518": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1373.154,
+   "tag": "case_2021020518",
+   "timestamp": "2021-02-05T18:00",
+   "bytes": 37036
+  },
+  "case_2021020622": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1394.766,
+   "tag": "case_2021020622",
+   "timestamp": "2021-02-06T22:00",
+   "bytes": 31718
+  },
+  "case_2021020720": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1430.388,
+   "tag": "case_2021020720",
+   "timestamp": "2021-02-07T20:00",
+   "bytes": 37957
+  },
+  "case_2021020822": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1416.517,
+   "tag": "case_2021020822",
+   "timestamp": "2021-02-08T22:00",
+   "bytes": 34592
+  },
+  "case_2021020922": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1405.139,
+   "tag": "case_2021020922",
+   "timestamp": "2021-02-09T22:00",
+   "bytes": 31046
+  },
+  "case_2021021021": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1365.608,
+   "tag": "case_2021021021",
+   "timestamp": "2021-02-10T21:00",
+   "bytes": 37196
+  },
+  "case_2021021120": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1437.968,
+   "tag": "case_2021021120",
+   "timestamp": "2021-02-11T20:00",
+   "bytes": 41494
+  },
+  "case_2021021217": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1409.282,
+   "tag": "case_2021021217",
+   "timestamp": "2021-02-12T17:00",
+   "bytes": 39426
+  },
+  "case_2021021319": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1361.725,
+   "tag": "case_2021021319",
+   "timestamp": "2021-02-13T19:00",
+   "bytes": 40803
+  },
+  "case_2021021418": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1368.577,
+   "tag": "case_2021021418",
+   "timestamp": "2021-02-14T18:00",
+   "bytes": 40454
+  },
+  "case_2021021519": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1364.42,
+   "tag": "case_2021021519",
+   "timestamp": "2021-02-15T19:00",
+   "bytes": 44783
+  },
+  "case_2021021617": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1438.924,
+   "tag": "case_2021021617",
+   "timestamp": "2021-02-16T17:00",
+   "bytes": 45152
+  },
+  "case_2021021721": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1402.881,
+   "tag": "case_2021021721",
+   "timestamp": "2021-02-17T21:00",
+   "bytes": 42146
+  },
+  "case_2021021820": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1406.321,
+   "tag": "case_2021021820",
+   "timestamp": "2021-02-18T20:00",
+   "bytes": 35348
+  },
+  "case_2021021922": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1477.104,
+   "tag": "case_2021021922",
+   "timestamp": "2021-02-19T22:00",
+   "bytes": 31579
+  },
+  "case_2021022020": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1409.994,
+   "tag": "case_2021022020",
+   "timestamp": "2021-02-20T20:00",
+   "bytes": 37591
+  },
+  "case_2021022119": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1436.904,
+   "tag": "case_2021022119",
+   "timestamp": "2021-02-21T19:00",
+   "bytes": 37710
+  },
+  "case_2021022216": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1457.358,
+   "tag": "case_2021022216",
+   "timestamp": "2021-02-22T16:00",
+   "bytes": 34089
+  },
+  "case_2021022516": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1470.265,
+   "tag": "case_2021022516",
+   "timestamp": "2021-02-25T16:00",
+   "bytes": 31304
+  },
+  "case_2021022619": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1451.286,
+   "tag": "case_2021022619",
+   "timestamp": "2021-02-26T19:00",
+   "bytes": 35508
+  },
+  "case_2022090122": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1389.452,
+   "tag": "case_2022090122",
+   "timestamp": "2022-09-01T22:00",
+   "bytes": 37626
+  },
+  "case_2022090218": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1444.732,
+   "tag": "case_2022090218",
+   "timestamp": "2022-09-02T18:00",
+   "bytes": 45017
+  },
+  "case_2022090315": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1384.082,
+   "tag": "case_2022090315",
+   "timestamp": "2022-09-03T15:00",
+   "bytes": 36573
+  },
+  "case_2022090419": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1400.452,
+   "tag": "case_2022090419",
+   "timestamp": "2022-09-04T19:00",
+   "bytes": 44745
+  },
+  "case_2022090520": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1382.903,
+   "tag": "case_2022090520",
+   "timestamp": "2022-09-05T20:00",
+   "bytes": 39188
+  },
+  "case_2022090621": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1439.208,
+   "tag": "case_2022090621",
+   "timestamp": "2022-09-06T21:00",
+   "bytes": 38243
+  },
+  "case_2022090722": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1403.929,
+   "tag": "case_2022090722",
+   "timestamp": "2022-09-07T22:00",
+   "bytes": 35875
+  },
+  "case_2022090822": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1430.226,
+   "tag": "case_2022090822",
+   "timestamp": "2022-09-08T22:00",
+   "bytes": 38077
+  },
+  "case_2022090919": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1430.756,
+   "tag": "case_2022090919",
+   "timestamp": "2022-09-09T19:00",
+   "bytes": 46783
+  },
+  "case_2022091018": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1407.333,
+   "tag": "case_2022091018",
+   "timestamp": "2022-09-10T18:00",
+   "bytes": 45274
+  },
+  "case_2022091102": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1396.066,
+   "tag": "case_2022091102",
+   "timestamp": "2022-09-11T02:00",
+   "bytes": 36585
+  },
+  "case_2022091221": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1361.955,
+   "tag": "case_2022091221",
+   "timestamp": "2022-09-12T21:00",
+   "bytes": 41609
+  },
+  "case_2022091318": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1396.544,
+   "tag": "case_2022091318",
+   "timestamp": "2022-09-13T18:00",
+   "bytes": 44915
+  },
+  "case_2022091420": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1391.694,
+   "tag": "case_2022091420",
+   "timestamp": "2022-09-14T20:00",
+   "bytes": 39293
+  },
+  "case_2022091515": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1396.069,
+   "tag": "case_2022091515",
+   "timestamp": "2022-09-15T15:00",
+   "bytes": 43160
+  },
+  "case_2022091619": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1434.242,
+   "tag": "case_2022091619",
+   "timestamp": "2022-09-16T19:00",
+   "bytes": 40440
+  },
+  "case_2022091718": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1425.761,
+   "tag": "case_2022091718",
+   "timestamp": "2022-09-17T18:00",
+   "bytes": 43034
+  },
+  "case_2022091820": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1473.035,
+   "tag": "case_2022091820",
+   "timestamp": "2022-09-18T20:00",
+   "bytes": 35740
+  },
+  "case_2022091919": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1456.445,
+   "tag": "case_2022091919",
+   "timestamp": "2022-09-19T19:00",
+   "bytes": 43780
+  },
+  "case_2022092017": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1419.802,
+   "tag": "case_2022092017",
+   "timestamp": "2022-09-20T17:00",
+   "bytes": 44144
+  },
+  "case_2022092118": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1387.721,
+   "tag": "case_2022092118",
+   "timestamp": "2022-09-21T18:00",
+   "bytes": 41447
+  },
+  "case_2022092319": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1432.548,
+   "tag": "case_2022092319",
+   "timestamp": "2022-09-23T19:00",
+   "bytes": 39018
+  },
+  "case_2022092411": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1383.645,
+   "tag": "case_2022092411",
+   "timestamp": "2022-09-24T11:00",
+   "bytes": 34561
+  },
+  "case_2022092509": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1411.466,
+   "tag": "case_2022092509",
+   "timestamp": "2022-09-25T09:00",
+   "bytes": 32870
+  },
+  "case_2022092617": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1436.785,
+   "tag": "case_2022092617",
+   "timestamp": "2022-09-26T17:00",
+   "bytes": 38471
+  },
+  "case_2022092817": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1427.418,
+   "tag": "case_2022092817",
+   "timestamp": "2022-09-28T17:00",
+   "bytes": 42003
+  },
+  "case_2022092922": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1427.024,
+   "tag": "case_2022092922",
+   "timestamp": "2022-09-29T22:00",
+   "bytes": 33168
+  },
+  "case_2022093018": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1385.403,
+   "tag": "case_2022093018",
+   "timestamp": "2022-09-30T18:00",
+   "bytes": 43944
+  },
+  "case_2023030117": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1392.474,
+   "tag": "case_2023030117",
+   "timestamp": "2023-03-01T17:00",
+   "bytes": 37751
+  },
+  "case_2023030207": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1380.473,
+   "tag": "case_2023030207",
+   "timestamp": "2023-03-02T07:00",
+   "bytes": 32327
+  },
+  "case_2023030305": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1393.498,
+   "tag": "case_2023030305",
+   "timestamp": "2023-03-03T05:00",
+   "bytes": 36348
+  },
+  "case_2023030420": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1436.735,
+   "tag": "case_2023030420",
+   "timestamp": "2023-03-04T20:00",
+   "bytes": 36397
+  },
+  "case_2023030521": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1420.47,
+   "tag": "case_2023030521",
+   "timestamp": "2023-03-05T21:00",
+   "bytes": 37752
+  },
+  "case_2023030615": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1389.273,
+   "tag": "case_2023030615",
+   "timestamp": "2023-03-06T15:00",
+   "bytes": 37132
+  },
+  "case_2023030708": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1388.691,
+   "tag": "case_2023030708",
+   "timestamp": "2023-03-07T08:00",
+   "bytes": 32835
+  },
+  "case_2023030820": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1392.943,
+   "tag": "case_2023030820",
+   "timestamp": "2023-03-08T20:00",
+   "bytes": 50510
+  },
+  "case_2023030916": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1365.801,
+   "tag": "case_2023030916",
+   "timestamp": "2023-03-09T16:00",
+   "bytes": 44875
+  },
+  "case_2023031015": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1378.685,
+   "tag": "case_2023031015",
+   "timestamp": "2023-03-10T15:00",
+   "bytes": 35034
+  },
+  "case_2023031119": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1418.496,
+   "tag": "case_2023031119",
+   "timestamp": "2023-03-11T19:00",
+   "bytes": 42442
+  },
+  "case_2023031220": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1453.385,
+   "tag": "case_2023031220",
+   "timestamp": "2023-03-12T20:00",
+   "bytes": 38266
+  },
+  "case_2023031317": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1376.789,
+   "tag": "case_2023031317",
+   "timestamp": "2023-03-13T17:00",
+   "bytes": 36931
+  },
+  "case_2023031421": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1413.306,
+   "tag": "case_2023031421",
+   "timestamp": "2023-03-14T21:00",
+   "bytes": 34780
+  },
+  "case_2023031517": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1397.925,
+   "tag": "case_2023031517",
+   "timestamp": "2023-03-15T17:00",
+   "bytes": 41155
+  },
+  "case_2023031618": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1379.907,
+   "tag": "case_2023031618",
+   "timestamp": "2023-03-16T18:00",
+   "bytes": 38600
+  },
+  "case_2023031717": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1373.344,
+   "tag": "case_2023031717",
+   "timestamp": "2023-03-17T17:00",
+   "bytes": 46315
+  },
+  "case_2023031808": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1389.128,
+   "tag": "case_2023031808",
+   "timestamp": "2023-03-18T08:00",
+   "bytes": 34644
+  },
+  "case_2023031919": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1385.012,
+   "tag": "case_2023031919",
+   "timestamp": "2023-03-19T19:00",
+   "bytes": 43447
+  },
+  "case_2023032015": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1383.431,
+   "tag": "case_2023032015",
+   "timestamp": "2023-03-20T15:00",
+   "bytes": 40739
+  },
+  "case_2023032114": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1464.389,
+   "tag": "case_2023032114",
+   "timestamp": "2023-03-21T14:00",
+   "bytes": 34627
+  },
+  "case_2023032219": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1360.615,
+   "tag": "case_2023032219",
+   "timestamp": "2023-03-22T19:00",
+   "bytes": 37434
+  },
+  "case_2023032316": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1383.766,
+   "tag": "case_2023032316",
+   "timestamp": "2023-03-23T16:00",
+   "bytes": 40349
+  },
+  "case_2023032422": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1350.681,
+   "tag": "case_2023032422",
+   "timestamp": "2023-03-24T22:00",
+   "bytes": 41043
+  },
+  "case_2023032519": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1440.445,
+   "tag": "case_2023032519",
+   "timestamp": "2023-03-25T19:00",
+   "bytes": 32969
+  },
+  "case_2023032620": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1391.805,
+   "tag": "case_2023032620",
+   "timestamp": "2023-03-26T20:00",
+   "bytes": 38461
+  },
+  "case_2023032721": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1440.291,
+   "tag": "case_2023032721",
+   "timestamp": "2023-03-27T21:00",
+   "bytes": 39707
+  },
+  "case_2023032819": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1442.462,
+   "tag": "case_2023032819",
+   "timestamp": "2023-03-28T19:00",
+   "bytes": 47922
+  },
+  "case_2023032916": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1395.927,
+   "tag": "case_2023032916",
+   "timestamp": "2023-03-29T16:00",
+   "bytes": 48184
+  },
+  "case_2023033020": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1354.991,
+   "tag": "case_2023033020",
+   "timestamp": "2023-03-30T20:00",
+   "bytes": 41301
+  },
+  "case_2023033123": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1468.421,
+   "tag": "case_2023033123",
+   "timestamp": "2023-03-31T23:00",
+   "bytes": 37137
+  },
+  "case_2023060121": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1450.338,
+   "tag": "case_2023060121",
+   "timestamp": "2023-06-01T21:00",
+   "bytes": 44715
+  },
+  "case_2023060423": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1419.0,
+   "tag": "case_2023060423",
+   "timestamp": "2023-06-04T23:00",
+   "bytes": 39754
+  },
+  "case_2023060617": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1445.415,
+   "tag": "case_2023060617",
+   "timestamp": "2023-06-06T17:00",
+   "bytes": 49344
+  },
+  "case_2023061108": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1382.329,
+   "tag": "case_2023061108",
+   "timestamp": "2023-06-11T08:00",
+   "bytes": 37098
+  },
+  "case_2023061317": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1426.715,
+   "tag": "case_2023061317",
+   "timestamp": "2023-06-13T17:00",
+   "bytes": 43630
+  },
+  "case_2023061520": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1403.341,
+   "tag": "case_2023061520",
+   "timestamp": "2023-06-15T20:00",
+   "bytes": 45696
+  },
+  "case_2023061621": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1381.162,
+   "tag": "case_2023061621",
+   "timestamp": "2023-06-16T21:00",
+   "bytes": 53154
+  },
+  "case_2023061700": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1390.652,
+   "tag": "case_2023061700",
+   "timestamp": "2023-06-17T00:00",
+   "bytes": 36052
+  },
+  "case_2023062100": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1421.512,
+   "tag": "case_2023062100",
+   "timestamp": "2023-06-21T00:00",
+   "bytes": 37419
+  },
+  "case_2023062511": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1369.094,
+   "tag": "case_2023062511",
+   "timestamp": "2023-06-25T11:00",
+   "bytes": 33086
+  },
+  "case_2023062619": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1364.939,
+   "tag": "case_2023062619",
+   "timestamp": "2023-06-26T19:00",
+   "bytes": 33950
+  },
+  "case_2023062717": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1401.389,
+   "tag": "case_2023062717",
+   "timestamp": "2023-06-27T17:00",
+   "bytes": 48100
+  },
+  "case_2023062913": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1460.499,
+   "tag": "case_2023062913",
+   "timestamp": "2023-06-29T13:00",
+   "bytes": 41663
+  },
+  "case_2023120116": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1435.998,
+   "tag": "case_2023120116",
+   "timestamp": "2023-12-01T16:00",
+   "bytes": 34150
+  },
+  "case_2023120216": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1467.259,
+   "tag": "case_2023120216",
+   "timestamp": "2023-12-02T16:00",
+   "bytes": 39281
+  },
+  "case_2023120321": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1375.625,
+   "tag": "case_2023120321",
+   "timestamp": "2023-12-03T21:00",
+   "bytes": 31887
+  },
+  "case_2023120418": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1399.933,
+   "tag": "case_2023120418",
+   "timestamp": "2023-12-04T18:00",
+   "bytes": 32606
+  },
+  "case_2023120520": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1376.771,
+   "tag": "case_2023120520",
+   "timestamp": "2023-12-05T20:00",
+   "bytes": 38258
+  },
+  "case_2023120614": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1420.864,
+   "tag": "case_2023120614",
+   "timestamp": "2023-12-06T14:00",
+   "bytes": 31501
+  },
+  "case_2023120718": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1411.422,
+   "tag": "case_2023120718",
+   "timestamp": "2023-12-07T18:00",
+   "bytes": 42202
+  },
+  "case_2023120818": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1415.164,
+   "tag": "case_2023120818",
+   "timestamp": "2023-12-08T18:00",
+   "bytes": 38845
+  },
+  "case_2023120919": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1401.818,
+   "tag": "case_2023120919",
+   "timestamp": "2023-12-09T19:00",
+   "bytes": 34691
+  },
+  "case_2023121005": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1413.685,
+   "tag": "case_2023121005",
+   "timestamp": "2023-12-10T05:00",
+   "bytes": 31204
+  },
+  "case_2023121101": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1363.132,
+   "tag": "case_2023121101",
+   "timestamp": "2023-12-11T01:00",
+   "bytes": 39859
+  },
+  "case_2023121221": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1419.604,
+   "tag": "case_2023121221",
+   "timestamp": "2023-12-12T21:00",
+   "bytes": 29488
+  },
+  "case_2023121320": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1398.649,
+   "tag": "case_2023121320",
+   "timestamp": "2023-12-13T20:00",
+   "bytes": 39380
+  },
+  "case_2023121418": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1424.83,
+   "tag": "case_2023121418",
+   "timestamp": "2023-12-14T18:00",
+   "bytes": 39950
+  },
+  "case_2023121519": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1392.274,
+   "tag": "case_2023121519",
+   "timestamp": "2023-12-15T19:00",
+   "bytes": 39234
+  },
+  "case_2023121620": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1447.335,
+   "tag": "case_2023121620",
+   "timestamp": "2023-12-16T20:00",
+   "bytes": 36519
+  },
+  "case_2023121717": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1399.858,
+   "tag": "case_2023121717",
+   "timestamp": "2023-12-17T17:00",
+   "bytes": 37258
+  },
+  "case_2023121822": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1410.421,
+   "tag": "case_2023121822",
+   "timestamp": "2023-12-18T22:00",
+   "bytes": 31936
+  },
+  "case_2023121916": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1397.726,
+   "tag": "case_2023121916",
+   "timestamp": "2023-12-19T16:00",
+   "bytes": 39481
+  },
+  "case_2023122019": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1413.921,
+   "tag": "case_2023122019",
+   "timestamp": "2023-12-20T19:00",
+   "bytes": 43472
+  },
+  "case_2023122120": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1427.219,
+   "tag": "case_2023122120",
+   "timestamp": "2023-12-21T20:00",
+   "bytes": 33570
+  },
+  "case_2023122219": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1455.936,
+   "tag": "case_2023122219",
+   "timestamp": "2023-12-22T19:00",
+   "bytes": 33454
+  },
+  "case_2023122320": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1423.91,
+   "tag": "case_2023122320",
+   "timestamp": "2023-12-23T20:00",
+   "bytes": 35527
+  },
+  "case_2023122415": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1366.231,
+   "tag": "case_2023122415",
+   "timestamp": "2023-12-24T15:00",
+   "bytes": 32967
+  },
+  "case_2023122617": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1362.816,
+   "tag": "case_2023122617",
+   "timestamp": "2023-12-26T17:00",
+   "bytes": 38408
+  },
+  "case_2023122720": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1591.289,
+   "tag": "case_2023122720",
+   "timestamp": "2023-12-27T20:00",
+   "bytes": 38919
+  },
+  "case_2023122816": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1600.087,
+   "tag": "case_2023122816",
+   "timestamp": "2023-12-28T16:00",
+   "bytes": 34536
+  },
+  "case_2023122920": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1441.791,
+   "tag": "case_2023122920",
+   "timestamp": "2023-12-29T20:00",
+   "bytes": 39193
+  },
+  "case_2023123021": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1421.122,
+   "tag": "case_2023123021",
+   "timestamp": "2023-12-30T21:00",
+   "bytes": 35368
+  },
+  "case_2023123106": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1450.69,
+   "tag": "case_2023123106",
+   "timestamp": "2023-12-31T06:00",
+   "bytes": 30196
+  },
+  "case_2025070620": {
+   "status": "case",
+   "split": "test",
+   "gpu": 4,
+   "wall_s": 1392.562,
+   "tag": "case_2025070620",
+   "timestamp": "2025-07-06T20:00",
+   "bytes": 52593
+  },
+  "case_2025070822": {
+   "status": "case",
+   "split": "test",
+   "gpu": 0,
+   "wall_s": 1478.19,
+   "tag": "case_2025070822",
+   "timestamp": "2025-07-08T22:00",
+   "bytes": 34997
+  },
+  "case_2025070917": {
+   "status": "case",
+   "split": "test",
+   "gpu": 5,
+   "wall_s": 1429.231,
+   "tag": "case_2025070917",
+   "timestamp": "2025-07-09T17:00",
+   "bytes": 43117
+  },
+  "case_2025071020": {
+   "status": "case",
+   "split": "test",
+   "gpu": 7,
+   "wall_s": 1445.509,
+   "tag": "case_2025071020",
+   "timestamp": "2025-07-10T20:00",
+   "bytes": 45454
+  },
+  "case_2025071118": {
+   "status": "case",
+   "split": "test",
+   "gpu": 6,
+   "wall_s": 1356.685,
+   "tag": "case_2025071118",
+   "timestamp": "2025-07-11T18:00",
+   "bytes": 41818
+  },
+  "case_2025071204": {
+   "status": "case",
+   "split": "test",
+   "gpu": 1,
+   "wall_s": 1418.464,
+   "tag": "case_2025071204",
+   "timestamp": "2025-07-12T04:00",
+   "bytes": 32318
+  },
+  "case_2025071316": {
+   "status": "case",
+   "split": "test",
+   "gpu": 3,
+   "wall_s": 1432.21,
+   "tag": "case_2025071316",
+   "timestamp": "2025-07-13T16:00",
+   "bytes": 44547
+  },
+  "case_2025071418": {
+   "status": "case",
+   "split": "test",
+   "gpu": 2,
+   "wall_s": 1431.244,
+   "tag": "case_2025071418",
+   "timestamp": "2025-07-14T18:00",
+   "bytes": 48510
+  },
+  "case_2025071620": {
+   "status": "case",
+   "split": "test",
+   "gpu": 4,
+   "wall_s": 1438.279,
+   "tag": "case_2025071620",
+   "timestamp": "2025-07-16T20:00",
+   "bytes": 53806
+  },
+  "case_2025071703": {
+   "status": "case",
+   "split": "test",
+   "gpu": 0,
+   "wall_s": 1410.33,
+   "tag": "case_2025071703",
+   "timestamp": "2025-07-17T03:00",
+   "bytes": 36248
+  },
+  "case_2025071822": {
+   "status": "case",
+   "split": "test",
+   "gpu": 5,
+   "wall_s": 1389.584,
+   "tag": "case_2025071822",
+   "timestamp": "2025-07-18T22:00",
+   "bytes": 44561
+  },
+  "case_2025071920": {
+   "status": "case",
+   "split": "test",
+   "gpu": 6,
+   "wall_s": 1473.841,
+   "tag": "case_2025071920",
+   "timestamp": "2025-07-19T20:00",
+   "bytes": 43261
+  },
+  "case_2025072019": {
+   "status": "case",
+   "split": "test",
+   "gpu": 7,
+   "wall_s": 1397.236,
+   "tag": "case_2025072019",
+   "timestamp": "2025-07-20T19:00",
+   "bytes": 47453
+  },
+  "case_2025072122": {
+   "status": "case",
+   "split": "test",
+   "gpu": 1,
+   "wall_s": 1394.383,
+   "tag": "case_2025072122",
+   "timestamp": "2025-07-21T22:00",
+   "bytes": 39306
+  },
+  "case_2025072219": {
+   "status": "case",
+   "split": "test",
+   "gpu": 3,
+   "wall_s": 1417.488,
+   "tag": "case_2025072219",
+   "timestamp": "2025-07-22T19:00",
+   "bytes": 45977
+  },
+  "case_2025072313": {
+   "status": "case",
+   "split": "test",
+   "gpu": 2,
+   "wall_s": 1445.57,
+   "tag": "case_2025072313",
+   "timestamp": "2025-07-23T13:00",
+   "bytes": 30458
+  },
+  "case_2025072417": {
+   "status": "case",
+   "split": "test",
+   "gpu": 4,
+   "wall_s": 1392.616,
+   "tag": "case_2025072417",
+   "timestamp": "2025-07-24T17:00",
+   "bytes": 38879
+  },
+  "case_2025072519": {
+   "status": "case",
+   "split": "test",
+   "gpu": 0,
+   "wall_s": 1454.915,
+   "tag": "case_2025072519",
+   "timestamp": "2025-07-25T19:00",
+   "bytes": 49277
+  },
+  "case_2025072621": {
+   "status": "case",
+   "split": "test",
+   "gpu": 5,
+   "wall_s": 1420.834,
+   "tag": "case_2025072621",
+   "timestamp": "2025-07-26T21:00",
+   "bytes": 42988
+  },
+  "case_2025072717": {
+   "status": "case",
+   "split": "test",
+   "gpu": 7,
+   "wall_s": 1385.155,
+   "tag": "case_2025072717",
+   "timestamp": "2025-07-27T17:00",
+   "bytes": 46284
+  },
+  "case_2025072919": {
+   "status": "case",
+   "split": "test",
+   "gpu": 6,
+   "wall_s": 1410.589,
+   "tag": "case_2025072919",
+   "timestamp": "2025-07-29T19:00",
+   "bytes": 46959
+  },
+  "case_2025073022": {
+   "status": "case",
+   "split": "test",
+   "gpu": 1,
+   "wall_s": 1426.995,
+   "tag": "case_2025073022",
+   "timestamp": "2025-07-30T22:00",
+   "bytes": 36767
+  },
+  "case_2025100120": {
+   "status": "case",
+   "split": "test",
+   "gpu": 3,
+   "wall_s": 1477.979,
+   "tag": "case_2025100120",
+   "timestamp": "2025-10-01T20:00",
+   "bytes": 45891
+  },
+  "case_2025100215": {
+   "status": "case",
+   "split": "test",
+   "gpu": 2,
+   "wall_s": 1463.669,
+   "tag": "case_2025100215",
+   "timestamp": "2025-10-02T15:00",
+   "bytes": 42608
+  },
+  "case_2025100622": {
+   "status": "case",
+   "split": "test",
+   "gpu": 0,
+   "wall_s": 1416.148,
+   "tag": "case_2025100622",
+   "timestamp": "2025-10-06T22:00",
+   "bytes": 40527
+  },
+  "case_2025100702": {
+   "status": "case",
+   "split": "test",
+   "gpu": 5,
+   "wall_s": 1455.022,
+   "tag": "case_2025100702",
+   "timestamp": "2025-10-07T02:00",
+   "bytes": 30605
+  },
+  "case_2025100820": {
+   "status": "case",
+   "split": "test",
+   "gpu": 4,
+   "wall_s": 1417.476,
+   "tag": "case_2025100820",
+   "timestamp": "2025-10-08T20:00",
+   "bytes": 50812
+  },
+  "case_2025100917": {
+   "status": "case",
+   "split": "test",
+   "gpu": 7,
+   "wall_s": 1407.062,
+   "tag": "case_2025100917",
+   "timestamp": "2025-10-09T17:00",
+   "bytes": 45175
+  },
+  "case_2025101022": {
+   "status": "case",
+   "split": "test",
+   "gpu": 6,
+   "wall_s": 1427.193,
+   "tag": "case_2025101022",
+   "timestamp": "2025-10-10T22:00",
+   "bytes": 31109
+  },
+  "case_2025101121": {
+   "status": "case",
+   "split": "test",
+   "gpu": 1,
+   "wall_s": 1428.814,
+   "tag": "case_2025101121",
+   "timestamp": "2025-10-11T21:00",
+   "bytes": 46243
+  },
+  "case_2025101222": {
+   "status": "case",
+   "split": "test",
+   "gpu": 3,
+   "wall_s": 1362.341,
+   "tag": "case_2025101222",
+   "timestamp": "2025-10-12T22:00",
+   "bytes": 34317
+  },
+  "case_2025101317": {
+   "status": "case",
+   "split": "test",
+   "gpu": 2,
+   "wall_s": 1434.272,
+   "tag": "case_2025101317",
+   "timestamp": "2025-10-13T17:00",
+   "bytes": 41071
+  },
+  "case_2025101420": {
+   "status": "case",
+   "split": "test",
+   "gpu": 0,
+   "wall_s": 1373.565,
+   "tag": "case_2025101420",
+   "timestamp": "2025-10-14T20:00",
+   "bytes": 39975
+  },
+  "case_2025101516": {
+   "status": "case",
+   "split": "test",
+   "gpu": 4,
+   "wall_s": 1374.29,
+   "tag": "case_2025101516",
+   "timestamp": "2025-10-15T16:00",
+   "bytes": 43943
+  },
+  "case_2025101617": {
+   "status": "case",
+   "split": "test",
+   "gpu": 5,
+   "wall_s": 1425.682,
+   "tag": "case_2025101617",
+   "timestamp": "2025-10-16T17:00",
+   "bytes": 42706
+  },
+  "case_2025101714": {
+   "status": "case",
+   "split": "test",
+   "gpu": 7,
+   "wall_s": 1452.302,
+   "tag": "case_2025101714",
+   "timestamp": "2025-10-17T14:00",
+   "bytes": 34085
+  },
+  "case_2025102020": {
+   "status": "case",
+   "split": "test",
+   "gpu": 6,
+   "wall_s": 1403.304,
+   "tag": "case_2025102020",
+   "timestamp": "2025-10-20T20:00",
+   "bytes": 45322
+  },
+  "case_2025102119": {
+   "status": "case",
+   "split": "test",
+   "gpu": 1,
+   "wall_s": 1367.996,
+   "tag": "case_2025102119",
+   "timestamp": "2025-10-21T19:00",
+   "bytes": 39455
+  },
+  "case_2025102214": {
+   "status": "case",
+   "split": "test",
+   "gpu": 3,
+   "wall_s": 1364.22,
+   "tag": "case_2025102214",
+   "timestamp": "2025-10-22T14:00",
+   "bytes": 30976
+  },
+  "case_2025102322": {
+   "status": "case",
+   "split": "test",
+   "gpu": 2,
+   "wall_s": 1433.045,
+   "tag": "case_2025102322",
+   "timestamp": "2025-10-23T22:00",
+   "bytes": 33754
+  },
+  "case_2025102419": {
+   "status": "case",
+   "split": "test",
+   "gpu": 0,
+   "wall_s": 1382.107,
+   "tag": "case_2025102419",
+   "timestamp": "2025-10-24T19:00",
+   "bytes": 43018
+  },
+  "case_2025102516": {
+   "status": "case",
+   "split": "test",
+   "gpu": 4,
+   "wall_s": 1386.502,
+   "tag": "case_2025102516",
+   "timestamp": "2025-10-25T16:00",
+   "bytes": 45327
+  },
+  "case_2025102618": {
+   "status": "case",
+   "split": "test",
+   "gpu": 5,
+   "wall_s": 1393.451,
+   "tag": "case_2025102618",
+   "timestamp": "2025-10-26T18:00",
+   "bytes": 47333
+  },
+  "case_2025102722": {
+   "status": "case",
+   "split": "test",
+   "gpu": 7,
+   "wall_s": 1401.31,
+   "tag": "case_2025102722",
+   "timestamp": "2025-10-27T22:00",
+   "bytes": 30757
+  },
+  "case_2025102820": {
+   "status": "case",
+   "split": "test",
+   "gpu": 6,
+   "wall_s": 1407.611,
+   "tag": "case_2025102820",
+   "timestamp": "2025-10-28T20:00",
+   "bytes": 45354
+  },
+  "case_2025102921": {
+   "status": "case",
+   "split": "test",
+   "gpu": 1,
+   "wall_s": 1459.535,
+   "tag": "case_2025102921",
+   "timestamp": "2025-10-29T21:00",
+   "bytes": 40370
+  },
+  "case_2025103020": {
+   "status": "case",
+   "split": "test",
+   "gpu": 3,
+   "wall_s": 1445.755,
+   "tag": "case_2025103020",
+   "timestamp": "2025-10-30T20:00",
+   "bytes": 36305
+  },
+  "case_2025103120": {
+   "status": "case",
+   "split": "test",
+   "gpu": 2,
+   "wall_s": 1499.24,
+   "tag": "case_2025103120",
+   "timestamp": "2025-10-31T20:00",
+   "bytes": 33199
+  },
+  "case_2026040112": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1434.36,
+   "tag": "case_2026040112",
+   "timestamp": "2026-04-01T12:00",
+   "bytes": 37139
+  },
+  "case_2026040219": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1406.883,
+   "tag": "case_2026040219",
+   "timestamp": "2026-04-02T19:00",
+   "bytes": 38185
+  },
+  "case_2026040308": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1399.449,
+   "tag": "case_2026040308",
+   "timestamp": "2026-04-03T08:00",
+   "bytes": 32450
+  },
+  "case_2026040405": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1395.953,
+   "tag": "case_2026040405",
+   "timestamp": "2026-04-04T05:00",
+   "bytes": 34687
+  },
+  "case_2026040515": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1396.285,
+   "tag": "case_2026040515",
+   "timestamp": "2026-04-05T15:00",
+   "bytes": 40733
+  },
+  "case_2026040614": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1437.204,
+   "tag": "case_2026040614",
+   "timestamp": "2026-04-06T14:00",
+   "bytes": 31228
+  },
+  "case_2026040707": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1375.221,
+   "tag": "case_2026040707",
+   "timestamp": "2026-04-07T07:00",
+   "bytes": 35454
+  },
+  "case_2026040814": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1414.603,
+   "tag": "case_2026040814",
+   "timestamp": "2026-04-08T14:00",
+   "bytes": 38533
+  },
+  "case_2026040916": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1376.341,
+   "tag": "case_2026040916",
+   "timestamp": "2026-04-09T16:00",
+   "bytes": 43155
+  },
+  "case_2026041008": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1380.189,
+   "tag": "case_2026041008",
+   "timestamp": "2026-04-10T08:00",
+   "bytes": 37667
+  },
+  "case_2026041122": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1380.713,
+   "tag": "case_2026041122",
+   "timestamp": "2026-04-11T22:00",
+   "bytes": 48103
+  },
+  "case_2026041222": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1422.802,
+   "tag": "case_2026041222",
+   "timestamp": "2026-04-12T22:00",
+   "bytes": 34353
+  },
+  "case_2026041320": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1373.922,
+   "tag": "case_2026041320",
+   "timestamp": "2026-04-13T20:00",
+   "bytes": 33843
+  },
+  "case_2026041419": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1397.295,
+   "tag": "case_2026041419",
+   "timestamp": "2026-04-14T19:00",
+   "bytes": 40568
+  },
+  "case_2026041516": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1391.169,
+   "tag": "case_2026041516",
+   "timestamp": "2026-04-15T16:00",
+   "bytes": 39061
+  },
+  "case_2026041619": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1441.88,
+   "tag": "case_2026041619",
+   "timestamp": "2026-04-16T19:00",
+   "bytes": 38989
+  },
+  "case_2026041718": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1441.878,
+   "tag": "case_2026041718",
+   "timestamp": "2026-04-17T18:00",
+   "bytes": 40736
+  },
+  "case_2026041805": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1427.966,
+   "tag": "case_2026041805",
+   "timestamp": "2026-04-18T05:00",
+   "bytes": 33090
+  },
+  "case_2026042021": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1388.451,
+   "tag": "case_2026042021",
+   "timestamp": "2026-04-20T21:00",
+   "bytes": 38581
+  },
+  "case_2026042119": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1444.119,
+   "tag": "case_2026042119",
+   "timestamp": "2026-04-21T19:00",
+   "bytes": 48260
+  },
+  "case_2026042222": {
+   "status": "case",
+   "split": "train",
+   "gpu": 6,
+   "wall_s": 1388.593,
+   "tag": "case_2026042222",
+   "timestamp": "2026-04-22T22:00",
+   "bytes": 42680
+  },
+  "case_2026042407": {
+   "status": "case",
+   "split": "train",
+   "gpu": 1,
+   "wall_s": 1424.449,
+   "tag": "case_2026042407",
+   "timestamp": "2026-04-24T07:00",
+   "bytes": 32163
+  },
+  "case_2026042518": {
+   "status": "case",
+   "split": "train",
+   "gpu": 3,
+   "wall_s": 1401.509,
+   "tag": "case_2026042518",
+   "timestamp": "2026-04-25T18:00",
+   "bytes": 46609
+  },
+  "case_2026042616": {
+   "status": "case",
+   "split": "train",
+   "gpu": 2,
+   "wall_s": 1379.202,
+   "tag": "case_2026042616",
+   "timestamp": "2026-04-26T16:00",
+   "bytes": 46830
+  },
+  "case_2026042717": {
+   "status": "case",
+   "split": "train",
+   "gpu": 0,
+   "wall_s": 1397.085,
+   "tag": "case_2026042717",
+   "timestamp": "2026-04-27T17:00",
+   "bytes": 36947
+  },
+  "case_2026042812": {
+   "status": "case",
+   "split": "train",
+   "gpu": 4,
+   "wall_s": 1395.003,
+   "tag": "case_2026042812",
+   "timestamp": "2026-04-28T12:00",
+   "bytes": 27805
+  },
+  "case_2026042914": {
+   "status": "case",
+   "split": "train",
+   "gpu": 5,
+   "wall_s": 1366.243,
+   "tag": "case_2026042914",
+   "timestamp": "2026-04-29T14:00",
+   "bytes": 40155
+  },
+  "case_2026043018": {
+   "status": "case",
+   "split": "train",
+   "gpu": 7,
+   "wall_s": 1469.846,
+   "tag": "case_2026043018",
+   "timestamp": "2026-04-30T18:00",
+   "bytes": 44235
+  }
+ },
+ "host_memory": {
+  "cgroup_peak_gb": 101.69,
+  "mem_total_gb": 472.2,
+  "mem_available_min_gb": 359.8,
+  "swap_used_peak_gb": 0.0
+ },
+ "elapsed_h": 10.227
+}

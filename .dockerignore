@@ -33,7 +33,7 @@
 # under the classic builder -- but only if EVERY parent directory is itself re-included by
 # name. `runs` + `!runs/g30_base` + `!runs/g30_base/base.in` restores the file (verified in
 # a built image); `runs/**` + `!runs/*/base.in` does NOT, because the glob never restores
-# the intermediate directory. The earlier jobs30 case was the second shape.
+# the intermediate directory. The earlier seeds case was the second shape.
 runs
 !runs/g30_base
 !runs/g30_base/base.in
@@ -43,39 +43,13 @@ figures
 pairs
 pairs_npz
 pairs_npz_retired
-jobs24
-
-# jobs/ IS THE RETIRED 16 m LIBRARY AND ONLY ITS TWO SCRIPTS ARE NEEDED.
-# jobs/run_seed.sh and jobs/seed_watch.sh drive production; the eighteen 16 m job
-# DIRECTORIES under it are not read by anything the image runs (bin/run_seeds.py defaults
-# --jobs-dir to jobs30).
-#
-# AND EXCLUDING THEM BY ARTIFACT PATTERN DID NOT WORK, MEASURED: `jobs/*/FE_*` is a
-# ONE-LEVEL pattern -- `*` does not cross `/` -- and four of those directories keep their
-# dumps one level deeper, in `jobs/<seed>/smoke_aside/FE_SMOKE.{0,20520}`. Eight files at
-# 73,271,565 bytes: **560 MB inside the image**, on a layer docs/DEPLOY.md tells the operator to
-# push to a registry, against an intended payload of ~59 MB. The Dockerfile assertion meant
-# to catch exactly this globbed only /flux/jobs30/*/ and passed.
-jobs/seed_*
-jobs30/*/output
-jobs30/*/window
-
-# --- RETURNED ARTIFACTS FROM A FINISHED RUN --------------------------------
-# vast-seeds/ is the seed library exactly as it came back off the rented box, and it is a
-# 2.1 GB DUPLICATE of what jobs30/*/return/ now holds. It was baked into one build --
-# /flux came to 4.2 GB of which half was this -- and the jobs30 size ceiling did not see it
-# because the ceiling named one directory. A per-directory ceiling cannot catch a NEW
-# directory; the Dockerfile now bounds the whole /flux tree as well.
-vast-seeds
 corpus-out
-jobs30/*/FE_*
-jobs30/*/*.log
 
-# --- BUT THE SEED LIBRARY ITSELF IS BAKED IN, AND ONLY THE THREE FILES A CASE NEEDS ---
-# A corpus case restarts from a seed chosen PER CASE by bin/pick_seed.py, which reads
-# every seed's manifest.json (for `achieved`) and stationarity.json (for the gate state)
-# before deciding -- so the whole library has to be present, not a subset, and which seed
-# a case wants is not knowable in advance.
+# --- THE SEED LIBRARY IS BAKED IN, AND ONLY THE THREE FILES A CASE NEEDS ------------------
+# A corpus case restarts from a seed chosen PER CASE by bin/pick_seed.py, which reads every
+# seed's manifest.json (for `achieved`) and stationarity.json (for the gate state) before
+# deciding -- so the whole library has to be present, not a subset, and which seed a case
+# wants is not knowable in advance.
 #
 # BAKED IN RATHER THAN MOUNTED, deliberately. The library is 2.1 GB of restarts and it is
 # IMMUTABLE: it is the output of a finished run, versioned by the same commit as the code
@@ -85,20 +59,30 @@ jobs30/*/*.log
 # the seeds together, `docker pull` is the only transfer, and a machine cannot start with
 # the wrong library because there is nowhere else for it to come from.
 #
-# The rest of return/ -- run.log, seed.log, acceptance.txt, budget.json, rotation_check,
-# turb_alive, direction_drift -- is evidence about how the seed was made and no case reads
-# any of it. Those stay out; docs/results/SEED_LIBRARY_RESULT.md is where that evidence lives.
-# AND THE EXCLUSION IS AT FILE LEVEL, NOT DIRECTORY LEVEL. `jobs30/*/return` followed by
-# `!jobs30/*/return/seed_restart.nc` is the obvious way to write this and it DOES NOT WORK:
-# MEASURED on this docker (classic builder, DOCKER_BUILDKIT=0), a `!` cannot re-include a
-# file whose parent directory is excluded -- the walker never descends. The build failed on
-# its own "30 seed restarts" assertion, which is the assertion earning its place.
-jobs30/*/return/*.log
-jobs30/*/return/*.txt
-jobs30/*/return/budget.json
-jobs30/*/return/rotation_check.json
-jobs30/*/return/seed_report.json
-jobs30/*/return/turb_alive.json
+# The restarts are not in git (they live on Hugging Face, see docs/getting-started/data.md);
+# bin/fetch_assets.sh puts them at seeds/*/return/seed_restart.nc before the image is built.
+#
+# The rest of return/ -- acceptance.txt, budget.json, rotation_check, turb_alive,
+# direction_drift, seed_report -- is evidence about how the seed was made and no case reads
+# any of it. Those stay out. AND THE EXCLUSION IS AT FILE LEVEL, NOT DIRECTORY LEVEL:
+# `seeds/*/return` followed by `!seeds/*/return/seed_restart.nc` DOES NOT WORK -- MEASURED
+# on this docker (classic builder, DOCKER_BUILDKIT=0), a `!` cannot re-include a file whose
+# parent directory is excluded, because the walker never descends. The build failed on its
+# own "30 seed restarts" assertion, which is the assertion earning its place.
+#
+# Patterns are ONE LEVEL: `*` does not cross `/`. An earlier library kept smoke dumps one
+# level deeper (`<seed>/smoke_aside/FE_SMOKE.*`) and 560 MB rode into an image that way; the
+# Dockerfile's `find` over the whole tree is what catches a pattern being wrong.
+seeds/*/output
+seeds/*/window
+seeds/*/FE_*
+seeds/*/*.log
+seeds/*/return/*.log
+seeds/*/return/*.txt
+seeds/*/return/budget.json
+seeds/*/return/rotation_check.json
+seeds/*/return/seed_report.json
+seeds/*/return/turb_alive.json
 
 # --- data: the small model grids stay, the archives go ----------------------
 data/raw

@@ -289,7 +289,7 @@ def render(rows, cases=()):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--library", default="jobs")
+    ap.add_argument("--library", default="seeds")
     ap.add_argument("--out", default="results/direction_drift.txt")
     ap.add_argument("--json", default=None)
     a = ap.parse_args()

@@ -383,7 +383,7 @@ def main():
                 **{k: v for k, v in bs.items()},
                 "U_g": round(float(ug), 6), "V_g": round(float(vg), 6),
                 "z_Ug": 10000.0, "z_Vg": 10000.0, "Ug_grad": 0.0, "Vg_grad": 0.0,
-                # The .in carries the TARGET flux; jobs/run_seed.sh forces it to 0 for
+                # The .in carries the TARGET flux; bin/run_seed.sh forces it to 0 for
                 # (retired) the warm-up that once ran the first segment neutral so
                 # cooling starts. See the docstring: a cold-started stable rung collapses.
                 "surflayer_wth": wth, "surflayer_z0": round(z0, 6),
@@ -459,7 +459,7 @@ def main():
                                    "turbulence realisations; do not diff two of them.",
             }
             # === DO NOT CLOBBER A RUN THAT HAS ALREADY HAPPENED =====================
-            # jobs/run_seed.sh stamps the measured state into manifest["achieved"] as its
+            # bin/run_seed.sh stamps the measured state into manifest["achieved"] as its
             # last step, and bin/pick_seed.py matches every corpus case on that block.
             # Rewriting the library -- which is exactly what a base-angle change does --
             # would silently replace the measured direction, depth and drift rate of every
@@ -469,7 +469,7 @@ def main():
             # Same shape as every other failure in this project that produced a plausible
             # wrong number rather than an error.
             # THE COMPLETED RUN'S RECORD IS return/manifest.json, NOT this one. The job
-            # manifest is the INPUT spec; jobs/run_seed.sh copies it to return/ at the end
+            # manifest is the INPUT spec; bin/run_seed.sh copies it to return/ at the end
             # and stamps the measured `achieved` block there, and that is the file
             # bin/pick_seed.py reads. A first version of this guard tested the job
             # manifest for `achieved` -- which it never carries -- so it never fired.

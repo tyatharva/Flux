@@ -1,4 +1,0 @@
-  epoch   0 train 0.00027 val 0.00028 (ref 0.00028) best 0.00028@0 lr 2.04e-04 12s
-  epoch  20 train 0.00027 val 0.00028 (ref 0.00028) best 0.00028@8 lr 8.92e-04 95s
-  early stop at epoch 28: no val improvement for 20 epochs
-  done int1_asym: best epoch 8 val 0.00028 ref 0.00028 composite 1.090 (north 1.001) gap x1.02 134s

@@ -23,7 +23,7 @@
 # NO DEPENDENCE ON THIS MACHINE'S PATHS. The repo root comes from this script's location,
 # the seed library and the grids come from inside it, and the staging tmpfs is discovered.
 # The only requirements on a bare rented box are: this repo, the flux-fasteddy:cuda118
-# image, an NVIDIA GPU, and jobs30/*/return/seed_restart.nc for the seeds it will use.
+# image, an NVIDIA GPU, and seeds/*/return/seed_restart.nc for the seeds it will use.
 #
 # IT CARRIES THE FULL 30 m PRODUCTION CONFIGURATION ITSELF. run_corpus_case.sh now DEFAULTS
 # to that geometry as well (changed 2026-08-31), so this block is agreement rather than
@@ -71,7 +71,7 @@ echo "########## $TAG  ($TS)  split=$SPLIT ##########"
 # ---- THE 30 m PRODUCTION CONFIGURATION, in full -----------------------------------------
 export GRID=data/grid30_raised ZTARGET=28.5 EXACT_AGL=1
 export TEMPLATE=runs/g30_base/base.in DX=30 ZCEILING=3000 DEFORM=0.346601 ZI_MAX_ABS=1250
-export SEED_LIB=jobs30
+export SEED_LIB=seeds
 export N_WINDOWS=1 ADJ_S=1800 WINDOW_S=2700 TBACK=900 REL_S=1800
 export ALLOW_INDETERMINATE=1 ALLOW_DRIFTING=any   # the WHOLE library, 2026-08-31
 export RING=1 RING_SELECTOR=1          # stage only: no window netCDF, ~19 GB never written

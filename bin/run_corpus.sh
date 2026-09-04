@@ -34,7 +34,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; export FLUX_ROOT="$ROOT
 #   dt = 5/162 s (CFL_3d 1.3502, 10.0% below the measured 1.50-1.55 accuracy boundary).
 : "${GRID:=data/grid30_raised}"; : "${ZTARGET:=28.5}"; : "${EXACT_AGL:=1}"
 : "${TEMPLATE:=runs/g30_base/base.in}"; : "${DX:=30}"; : "${ZCEILING:=3000}"
-: "${DEFORM:=0.346601}"; : "${ZI_MAX_ABS:=1250}"; : "${SEED_LIB:=jobs30}"
+: "${DEFORM:=0.346601}"; : "${ZI_MAX_ABS:=1250}"; : "${SEED_LIB:=seeds}"
 # ONE WINDOW PER CASE: 1800 s adjustment + 2700 s window (900 s t_back + 1800 s releases)
 # = 4500 s = 1.25 sim-h, the footprint being the LAST 30 MINUTES and stamped at the case's
 # own timestamp T. See the schedule comment in run_corpus_case.sh for why the second window

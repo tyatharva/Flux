@@ -1,5 +1,0 @@
-  epoch   0 train 0.00154 val 0.00156 (ref 0.00028) best 0.00156@0 lr 2.04e-04 12s
-  epoch  20 train 0.00071 val 0.00075 (ref 0.00013) best 0.00075@20 lr 8.92e-04 99s
-  epoch  40 train 0.00059 val 0.00078 (ref 0.00013) best 0.00075@24 lr 5.31e-04 180s
-  early stop at epoch 44: no val improvement for 20 epochs
-  done knee0.3: best epoch 24 val 0.00075 ref 0.00012 composite 0.710 (north 0.850) gap x1.10 202s

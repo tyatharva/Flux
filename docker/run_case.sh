@@ -34,7 +34,7 @@
 # FIRST -- gpuAssert (fecuda_Device_cu.h:28-36) prints
 #     GPUassert: no CUDA-capable device is detected ../FECUDA/fecuda_Device.cu 55
 # and exits 100, so the exit(0) branch is unreachable on this stack. bin/run_seeds.py and
-# jobs/run_seed.sh still assert the device exists before spending anything, because failing
+# bin/run_seed.sh still assert the device exists before spending anything, because failing
 # at the preflight beats failing after the container has started -- but they are not
 # guarding against silence.
 set -uo pipefail
@@ -218,7 +218,7 @@ if [ "$NATIVE" = "1" ]; then
   rm -f "${CASE_ABS}/.fe.pid"
   trap 'rm -f "${CASE_ABS}/.fe.pid"' EXIT INT TERM
   # THE RUN GETS ITS OWN PROCESS GROUP, AND ITS PID IS WRITTEN DOWN.
-  # jobs/seed_watch.sh has to be able to stop THIS run and no other. On the host it did
+  # bin/seed_watch.sh has to be able to stop THIS run and no other. On the host it did
   # that with `docker stop` on a container filtered by IMAGE, which natively would mean
   # "kill all sixteen seeds on this box". setsid puts mpirun and its FastEddy child in one
   # group whose PGID is mpirun's PID, so a single `kill -- -PGID` reaches exactly this run.
@@ -238,7 +238,7 @@ if [ "$NATIVE" = "1" ]; then
   # THE PID FILE CARRIES THE PROCESS START TIME, NOT JUST THE PID.
   # A container that is killed mid-seed leaves this file behind, and a FRESH container's
   # PID namespace starts at 1 -- so a stale low pid is very likely to name a live,
-  # UNRELATED process on resume. jobs/seed_watch.sh would then latch onto it, find `kill
+  # UNRELATED process on resume. bin/seed_watch.sh would then latch onto it, find `kill
   # -0` succeeds, and on INBAND send `kill -TERM -- -<that pgid>` at something that is not
   # this run: plausibly the orchestrator, or another worker's FastEddy. Field 22 of
   # /proc/<pid>/stat is starttime in clock ticks since boot, which no later pid reuses.

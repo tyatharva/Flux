@@ -6,12 +6,12 @@
 WHAT THIS IS FOR. The seed library is 30 flat spin-ups -- 5 rungs x 6 base angles -- whose
 only purpose is to delete each corpus case's spin-up: ~29 GPU-h that buys back ~900. They
 are embarrassingly parallel and share nothing, so they are exactly the thing to rent 16
-GPUs for. What did not exist until now is anything that fans them out: jobs/run_seed.sh
+GPUs for. What did not exist until now is anything that fans them out: bin/run_seed.sh
 runs ONE seed, on whatever GPU the driver happens to expose, and exits.
 
 30 SEEDS OVER 16 GPUs IS HANDLED INTERNALLY, WITH A WORK QUEUE, AND NOT WITH TWO PASSES.
 A pass model would idle 15 cards through the tail of pass 1 waiting for the slowest seed,
-and the spread here is real: jobs/seed_watch.sh stops a seed the moment its
+and the spread here is real: bin/seed_watch.sh stops a seed the moment its
 oscillation-immune limits enter band, and a convective rung turns over on z_i/w* ~ 350 s
 against a neutral rung's h/u* ~ 1500 s. A queue starts the 17th seed on whichever card
 finishes first. `--pass` is still accepted, and means something different and useful:
@@ -357,7 +357,7 @@ def run_one(job, gpu, a, workroot, outroot, tb):
     try:
         src = os.path.join(a.jobs_dir, name)
         # A STALE WORKING DIRECTORY IS THE ORCHESTRATOR'S OWN, AND IT HAS TO DECIDE.
-        # jobs/run_seed.sh refuses a PARTIAL run outright rather than wiping it -- correct,
+        # bin/run_seed.sh refuses a PARTIAL run outright rather than wiping it -- correct,
         # because on a workstation that directory may be hours of GPU a person staged and
         # wants to look at. Here it cannot be: <out>/work/<job> is scratch this script
         # created, so a partial run in it is an interrupted attempt of THIS command and
@@ -369,7 +369,7 @@ def run_one(job, gpu, a, workroot, outroot, tb):
         done_accept = os.path.join(wd, "return", "acceptance.txt")
         restart_over = False
         # "COMPLETE" MEANS THE DELIVERABLE IS COMPLETE, NOT THAT THE LES FINISHED.
-        # jobs/run_seed.sh writes seed_restart.nc and THEN this script runs the acceptance
+        # bin/run_seed.sh writes seed_restart.nc and THEN this script runs the acceptance
         # battery and copies return/ to the mount -- so a box interrupted between those two
         # leaves a restart on disk with no battery, no Gate C2, no rotation check and
         # nothing in <out>/seeds. Skipping on the restart alone would report that seed
@@ -504,14 +504,14 @@ def run_one(job, gpu, a, workroot, outroot, tb):
             f"{', accelerator ' + env['SEED_ACCEL_S'] + ' s' if 'SEED_ACCEL_S' in env else ''})")
         with open(os.path.join(wd, "run_seed.stdout"), "w") as f:
             # start_new_session, SO A TIMEOUT CAN ACTUALLY REACH THE RUN.
-            # subprocess's own timeout kills only the direct child, jobs/run_seed.sh --
+            # subprocess's own timeout kills only the direct child, bin/run_seed.sh --
             # and docker/run_case.sh deliberately launches the LES under `setsid`, in its
             # OWN session, so mpirun and FastEddy survive. On a 16-GPU box that orphan then
             # holds the card: the next seed's per-GPU mutex sees a FastEddy with the same
             # CUDA_VISIBLE_DEVICES, refuses, and EVERY subsequent seed routed to that GPU
             # fails for a reason that has nothing to do with it. One wedged seed would take
             # a sixteenth of the machine out for the rest of the run.
-            rc = _run_group([os.path.join(ROOT, "jobs/run_seed.sh"), wd]
+            rc = _run_group([os.path.join(ROOT, "bin/run_seed.sh"), wd]
                             + (["--restart-over"] if restart_over else []),
                             cwd=ROOT, env=env, out=f, timeout=a.job_timeout, wd=wd)
         rec["run_seed_rc"] = rc
@@ -547,8 +547,8 @@ def run_one(job, gpu, a, workroot, outroot, tb):
         rec["sim_h"] = round(step * dt / 3600.0, 4) if step else None
         # BOTH LOGS. A neutral rung runs the Steinfeld accelerator FIRST -- 3000 s of
         # burn-in at surflayer_wth = +0.05, which this script enables for every neutral
-        # seed -- and jobs/run_seed.sh writes it to return/accel.log, a SEPARATE file.
-        # MEASURED on jobs30/seed_nbl-deep_a015: accel.log carries 1451.7 GPU-seconds
+        # seed -- and bin/run_seed.sh writes it to return/accel.log, a SEPARATE file.
+        # MEASURED on seeds/seed_nbl-deep_a015: accel.log carries 1451.7 GPU-seconds
         # (0.403 GPU-h) against run.log's 5042.7. Counting only run.log under-reports a
         # neutral seed by ~29% and the 30-seed library by ~4.8 GPU-h -- and "measured
         # GPU-h per seed" is one of the numbers this whole run exists to produce.
@@ -633,7 +633,7 @@ def main():
                          "LIBRARY ACROSS MACHINES. 30-over-16 on ONE machine needs no pass: "
                          "it is a work queue.")
     ap.add_argument("--out", default=os.environ.get("FLUX_OUT", "/out"))
-    ap.add_argument("--jobs-dir", default=os.path.join(ROOT, "jobs30"))
+    ap.add_argument("--jobs-dir", default=os.path.join(ROOT, "seeds"))
     ap.add_argument("--only", default="", help="comma-separated job names, for a smoke test")
     ap.add_argument("--ceiling-h", type=float, default=2.0, help="simulated-hour hard ceiling")
     ap.add_argument("--no-early-stop", dest="early_stop", action="store_false")
@@ -651,7 +651,7 @@ def main():
     ap.add_argument("--accept-timeout", type=int, default=3600)
     # ---- SCHEDULER SELF-TEST ONLY. Both refuse to be useful for anything else. ----
     ap.add_argument("--stub", action="store_true",
-                    help="SCHEDULER TEST: run jobs/run_seed.sh with STUB_SEED=1 -- no LES, "
+                    help="SCHEDULER TEST: run bin/run_seed.sh with STUB_SEED=1 -- no LES, "
                          "no gate, no battery. Every artifact is stamped stub:true and can "
                          "never be counted as an accepted seed.")
     ap.add_argument("--stub-seconds", type=float, default=2.0,
@@ -950,7 +950,7 @@ def main():
             if st != "OK":
                 say(f"    {j}: k0/k1 {st} -- this established NOTHING about dt")
         say("  A run whose k0/k1 FAILS never gets this far: docker/k0k1_check.py exits 1,")
-        say("  check_run.sh fails the run and jobs/run_seed.sh dies before a seed exists.")
+        say("  check_run.sh fails the run and bin/run_seed.sh dies before a seed exists.")
     # ---- HOST MEMORY. The number the next rental is sized on. --------------------
     gb = lambda b: (b or 0) / 1024**3
     say(f"\n  HOST MEMORY under {len(use)}-way load:")

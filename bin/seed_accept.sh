@@ -7,7 +7,7 @@
 # held to different standards. Every item below is run for every seed, and an item that
 # cannot run says so rather than being absent.
 #
-#   usage: bin/seed_accept.sh jobs/seed_nbl-deep_a000 [--wall-seconds N]
+#   usage: bin/seed_accept.sh seeds/seed_nbl-deep_a000 [--wall-seconds N]
 #
 # ASSERT ON THE ARTIFACT, NOT THE EXIT STATUS (docs/FASTEDDY_TRAPS.md 12). Every step here is
 # piped into tee or grep, so $? belongs to the last element of the pipe. Verdicts are
@@ -27,19 +27,19 @@ import json;m=json.load(open('$JOB/manifest.json'));r=m['run'];g=m.get('gate',{}
 print(m['job'],r['dt'],r['steps_total'],m['target']['wth_virtual'],r['outFileBase'],
       m['regime'],g.get('zm',10.0),m.get('grid',{}).get('dx',16.0))")
 # THE FINAL DUMP IS NOT NECESSARILY AT Nt. Seeds run open-ended with Nt as a CEILING and
-# jobs/seed_watch.sh stops them when the oscillation-immune limits enter band, so the
+# bin/seed_watch.sh stops them when the oscillation-immune limits enter band, so the
 # battery has to score whatever the run actually ended on. Scoring "$OUTBASE.$TOTAL"
 # would simply not exist -- which at least fails loudly -- but the same assumption in a
 # glob would have scored an earlier dump and said nothing.
 LAST=$(ls -1 "$JOB/output/$OUTBASE".[0-9]* 2>/dev/null | sort -t. -k2 -n | tail -1)
 [ -n "$LAST" ] && [ -f "$LAST" ] || { echo "FATAL: no dump in $JOB/output" >&2; exit 1; }
 STOPPED_AT=${LAST##*.}
-# THE CEILING THE RUN ACTUALLY HAD IS NOT ALWAYS THE MANIFEST'S. Every jobs30 manifest
+# THE CEILING THE RUN ACTUALLY HAD IS NOT ALWAYS THE MANIFEST'S. Every seeds manifest
 # carries steps_total = 349920 (3.0 sim-h), and SEED_CEILING_H -- 2.0 h by default since
-# 2026-08-30 -- is applied inside jobs/run_seed.sh and never written back. Reporting
+# 2026-08-30 -- is applied inside bin/run_seed.sh and never written back. Reporting
 # "1.92 of 3.00 simulated hours" against a ceiling the run never had reads as a run that
 # stopped two-thirds of the way through something, which is the opposite of what happened.
-# READ IT FROM THE ARTIFACT jobs/run_seed.sh STAMPED, and fall back to the environment
+# READ IT FROM THE ARTIFACT bin/run_seed.sh STAMPED, and fall back to the environment
 # only if it is absent (an older return/ predating the stamp). An env-only version was
 # right exactly when the operator's shell happened to carry the variable the run was made
 # under -- which is not a property of the run.
@@ -142,7 +142,7 @@ else
   # The template is the seed's own .in, and the scratch directory is per-seed -- see
   # bin/c2_restart_check.sh for why a fixed one cannot survive concurrency.
   # THE STEP IS THE ONE THE RUN STOPPED AT, NOT THE MANIFEST'S CEILING. It was $TOTAL --
-  # the manifest's steps_total, 349920 for every job in jobs30 -- while SEED_CEILING_H and
+  # the manifest's steps_total, 349920 for every job in seeds -- while SEED_CEILING_H and
   # the early-stop watcher routinely end a run hundreds of thousands of steps earlier. The
   # result was not WRONG (c2_restart_check names the copy FE_RST.$STEP and sets Nt to the
   # same value, so traps 4 and 6 stay consistent with each other whatever the number), but
@@ -164,7 +164,7 @@ say "7. rotation check (static; every corpus case is picked on this convention)"
 
 # ---- 8. direction: backing, drift, and the projection ----------------------------
 say "8. Ekman backing and direction drift"
-# THE LIBRARY IS AN ARGUMENT, NOT A DEFAULT. direction_drift.py defaults to jobs/, which
+# THE LIBRARY IS AN ARGUMENT, NOT A DEFAULT. direction_drift.py defaults to seeds/, which
 # is the retired 16 m library; scoring a 24 m seed against 16 m seeds' drift rates would
 # pool two different grids into one "library mean" and report it without complaint.
 # REPO-RELATIVE, because the container mounts the repo at /work and an absolute HOST path

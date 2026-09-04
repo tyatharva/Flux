@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use this software or the corpus, please cite it as below."
+title: "Flux: an LES-trained flux-footprint emulator for the Kegonsa Solar Array eddy-covariance tower"
+type: software
+authors:
+  - family-names: Tyagi
+    given-names: Atharva
+repository-code: "https://github.com/tyatharva/Flux"
+license: Apache-2.0
+version: "1.0.0"
+date-released: "2026-09-04"
+keywords:
+  - flux footprint
+  - eddy covariance
+  - large-eddy simulation
+  - Lagrangian particle dispersion
+  - Fourier neural operator
+  - flow matching
+  - FastEddy
+abstract: >-
+  A site-calibrated emulator that predicts two-dimensional flux footprints for one
+  eddy-covariance tower from the six scalar inputs of the Kljun et al. (2015)
+  parameterisation. Training targets come from 1366 large-eddy simulations (FastEddy)
+  with a backward Lagrangian particle model; the emulator is a Fourier neural operator
+  predicting a residual on Kljun, with a flow-matching variant for sample spread.

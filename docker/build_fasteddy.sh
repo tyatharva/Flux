@@ -72,7 +72,7 @@ cuobjdump --list-ptx "${BIN}" 2>&1 | head -5
 # second one means the first cannot simply be fixed by adding a -gencode:
 #
 #   1. -arch=sm_89 is shorthand for -gencode arch=compute_89,code=sm_89. It embeds a cubin
-#      and NO PTX. jobs/run_seed.sh used to reassure the operator that a newer architecture
+#      and NO PTX. bin/run_seed.sh used to reassure the operator that a newer architecture
 #      would "JIT from PTX, slower but correct" -- that was false for every binary this
 #      script has ever produced.
 #   2. MEASURED: nvcc -dlink DROPS every PTX image from the fatbin, silently. FastEddy is

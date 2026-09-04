@@ -58,6 +58,8 @@ data/case_grids/
 data/smokelib/
 results/corpus/
 results/pick/
+# ...except the production surface, which every corpus case reads (184 kB, tracked)
+!data/grid30_raised/*
 
 # --- generated per-case run directories: the corpus makes ~1825 of them ---
 # The .in files under runs/ are tracked for the retired passes, which are the record.
@@ -70,29 +72,30 @@ runs/c2_roundtrip/
 runs/g16_b6cbl/
 
 # Seed-job scratch: the segment .in files the driver writes, and smoke-test copies.
-# A job bundle is seed.in + manifest.json + run_seed.sh and nothing else.
-jobs/*/smoke.in
-jobs/*/seg*.in
-# run.in is generated per invocation by jobs/run_seed.sh (Nt, inPath/inFile and
+# A job bundle is seed.in + manifest.json and nothing else.
+seeds/*/smoke.in
+seeds/*/seg*.in
+# run.in is generated per invocation by bin/run_seed.sh (Nt, inPath/inFile and
 # surflayer_wth substituted into seed.in); seed.in is the tracked source of truth.
-jobs/*/run.in
-jobs/*/return/
-
-# retired stable seed jobs -- kept on disk as evidence, archived under results/
-jobs/seed_sbl_*/
-jobs/seed_sbl-weak_*/
+seeds/*/run.in
+seeds/*/output/
+seeds/*/window/
+# the 30 seed restarts (70 MB each) live on Hugging Face; the verdicts beside them are tracked
+seeds/*/return/seed_restart.nc
+seeds/*/return/*.log
 runs/dryrun_test/
 runs/skiptest/
 runs/unchain_test/
 
-# the generated corpus: ~100 MB of .npz plus corpus_raw.h5 and corpus_cone.h5.
-# Data, not source.
-# The safety copy is ~/Desktop/corpus; the record of what produced it is the image tag
-# in corpus/README.md.
-corpus/
+# the generated corpus: the two .h5 files, the 1366 source .npz and the run logs live on
+# Hugging Face (see docs/getting-started/data.md); the index, flags, provenance and README
+# are tracked here beside them.
+corpus/*.h5
+corpus/pairs_npz/
+corpus/logs/
 
-# --- ML emulator: checkpoints, the Optuna study database and per-record caches are
-# regenerable from ml/ + corpus/; the tracked record is results/ml/*.{json,tsv,md,png} ---
+# --- ML emulator: checkpoints (on Hugging Face), the Optuna study database and per-record
+# caches are regenerable from ml/ + corpus/; the tracked record is results/ml/*.{json,tsv,md,png} ---
 results/ml/ckpt/
 results/ml/**/*.pt
 results/ml/*.db

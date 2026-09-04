@@ -248,7 +248,7 @@ def score(s, xp, x90, score_h):
     # returned an unscoreable verdict built on step 0 rather than saying so.
     #
     # Refuse rather than clamp. Clamping would silently score a different window than the
-    # one asked for, and the caller -- jobs/run_seed.sh -- is what should choose the width
+    # one asked for, and the caller -- bin/run_seed.sh -- is what should choose the width
     # against the run it actually got.
     if bool(sel[0]) and float(t[0]) < 1e-9:
         raise ValueError(
@@ -474,7 +474,7 @@ def main():
     s = series(paths, a.dt, a.k)
     xp, x90 = kljun_geometry(s, a.zm, a.wth)
     # A REFUSED SCORING WINDOW IS A NAMED FATAL, NOT A TRACEBACK. The gate's stdout is
-    # tee'd by jobs/run_seed.sh and its verdict is read back out of the JSON, so a traceback
+    # tee'd by bin/run_seed.sh and its verdict is read back out of the JSON, so a traceback
     # here surfaces to the driver only as "the gate wrote no JSON" -- true, and silent about
     # why. Say why, and exit non-zero (docs/FASTEDDY_TRAPS.md 12).
     try:

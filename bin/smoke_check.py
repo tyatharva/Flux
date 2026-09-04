@@ -23,7 +23,7 @@ before committing 3.1 h of GPU per job to it:
                   parameter does not stop FastEddy, it silently uses the compiled-in
                   default (docs/FASTEDDY_TRAPS.md 13).
 
-usage: smoke_check.py <dump> [--manifest jobs/<job>/manifest.json] [--log FILE]
+usage: smoke_check.py <dump> [--manifest seeds/<job>/manifest.json] [--log FILE]
 """
 from __future__ import annotations
 

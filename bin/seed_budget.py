@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """When WOULD this seed have been done? The library budget, measured retrospectively.
 
-WHY THIS EXISTS RATHER THAN THE LIVE WATCHER ALONE. `jobs/seed_watch.sh` stops a run as
+WHY THIS EXISTS RATHER THAN THE LIVE WATCHER ALONE. `bin/seed_watch.sh` stops a run as
 soon as the oscillation-immune limits are in band, and its scoring window has to be a
 trailing FRACTION of the elapsed time (you cannot score two hours of a run that is one hour
 old). With the trailing-half rule and a 3.0 simulated-hour ceiling the widest window it can
@@ -26,7 +26,7 @@ Two things it can say, and they are different results:
   * none of them -> the rung needs more than the ceiling, and the honest report is the
     margin at the ceiling rather than a stop time.
 
-usage: seed_budget.py jobs24/seed_nbl-deep_a000 [--width 2.0] [--step 0.25]
+usage: seed_budget.py seeds/seed_nbl-deep_a000 [--width 2.0] [--step 0.25]
 """
 from __future__ import annotations
 
