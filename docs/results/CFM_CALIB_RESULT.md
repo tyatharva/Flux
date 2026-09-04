@@ -313,7 +313,31 @@ cover50/90 0.58/0.91 (all), 0.52/0.90 (north), 0.43/0.79 (in view; z sd 1.46), s
   thresholded run while their composites are inside the seed range; both numbers are
   reported and the composite is the production one.
 
-**The test split was never read.** `ml.data.load_split` refuses it without `allow_test=True`;
-`grep -rnI allow_test ml_cfm/` shows only the `--allow-test` options of `ml_cfm/evaluate.py` and
-`ml_cfm/final_recipe.py` (the latter refuses any split but val; `ml_cfm/calibrate.py` has no such option);
-`results/ml/loader_audit.jsonl` holds no `test` read with `n > 0`.
+**The test split was read once, on 2026-09-04, on the user's instruction, after the recipe and the
+metric set were frozen on val.** `ml_cfm/test_predictions.py --allow-test` wrote the FNO prediction
+of each seed and 20 fresh CFM samples per seed (Euler 16, the sampler as trained, RNG seed 0) to
+`results/ml_cfm/test/` (gitignored, 181 MB; `SHA256SUMS.txt` is committed); it refuses to overwrite.
+The four `test` reads in `results/ml/loader_audit.jsonl` are that script, `report_metrics.py`,
+`fig_showcase.py` and `fig_generative.py`, each with `allow_test: true`. Nothing was changed after
+seeing the numbers.
+
+## 8. Test (year 2025, 294 records) — `results/ml_cfm/final_recipe/metrics_test.md`
+
+Kljun raw; FNO = mean of seeds 0–3, cut at its own 99.5% source area; CFM = physical mean of 80
+samples (4 seeds x 20, tau = 1), cut likewise; LES positive-only. Errors as RMSE over records,
+scores as means.
+
+| model | peak RMSE [m] | centroid RMSE [m] | integral RMSE | overlap80 | rel. L2 | W1 [m] | JS dist [bits] | MS-SSIM |
+|---|---|---|---|---|---|---|---|---|
+| Kljun | 104.0 | 129.3 | 0.240 | 0.548 | 0.565 | 75.0 | 0.359 | 0.937 |
+| FNO | 33.1 | 92.8 | 0.184 | 0.604 | 0.365 | 53.5 | 0.292 | 0.937 |
+| CFM | 30.6 | 69.3 | 0.190 | 0.604 | 0.359 | 40.9 | 0.286 | 0.941 |
+| LES (perfect) | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 1 |
+
+Val, for the record (235 records): Kljun 118.4 / 130.1 / 0.258 / 0.548 / 0.578 / 75.3 / 0.362 / 0.937;
+FNO 47.1 / 86.7 / 0.190 / 0.607 / 0.362 / 50.8 / 0.290 / 0.937; CFM 48.8 / 68.8 / 0.197 / 0.607 / 0.358 /
+40.6 / 0.287 / 0.939. Every test number is within the val bootstrap bands; the ordering is the same
+in every column. The CFM leads the FNO on centroid (69 vs 93 m) and W1 (41 vs 54 m) and ties on the
+rest; both emulators halve or better Kljun's peak, centroid and W1 errors. Sectors (90°, N/E/S/W,
+n = 43 / 38 / 95 / 118) and octants are in `metrics_test.json`; the figures are
+`showcase_test.png`, `generative_test.png`, `sectors_test.png`, `distributions_test.png`.

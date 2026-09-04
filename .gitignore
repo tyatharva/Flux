@@ -103,3 +103,4 @@ results/ml_cfm/**/samples_*.npz
 results/ml_cfm/cache/
 results/ml_cfm/*.db
 results/ml_cfm/.t0
+results/ml_cfm/test/*.npz
