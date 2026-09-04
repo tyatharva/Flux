@@ -75,12 +75,8 @@ def main(argv=None):
     ax.set_title("CFM footprint: the mean of 80 samples", fontsize=12.5, pad=10)
     # (b) the 80% source-area outline of each sample, with the LES's and the CFM mean's
     ax = axes[1]
-    ax.set_facecolor("#ececec")
-    topo = FS.model_terrain()
-    tl = np.arange(np.floor(np.nanmin(topo) / 5) * 5, np.nanmax(topo) + 5, 5)
-    ax.contourf(xc, xc, topo, levels=tl, cmap="terrain", alpha=0.45, zorder=1)
-    ax.contour(xc, xc, topo, levels=tl, colors="k", linewidths=0.25, alpha=0.35, zorder=1.5)
-    ax.contourf(xc, xc, (st["water"] > 0.5).astype(float), levels=[0.5, 1.5], colors=["#7fb8ff"], alpha=0.7, zorder=2)
+    ax.set_facecolor("white")
+    FS.background(ax, D.N * D.DX / 2)
     for s in S:
         ax.contour(xc, xc, s, levels=[level80(s)], colors=[FS.COL["cfm"]], linewidths=0.7, alpha=0.30, zorder=4)
     ax.contour(xc, xc, mean, levels=[level80(mean)], colors=[FS.COL["cfm"]], linewidths=2.6, zorder=6)

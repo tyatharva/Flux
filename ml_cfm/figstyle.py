@@ -55,8 +55,45 @@ def model_terrain():
     return _TOPO
 
 
-def footprint_panel(ax, f, vmax, statics, wdir_deg, letter=None, half=1830.0, cmap="turbo", terrain=True, alpha=0.9):
-    """The footprint as cells (no interpolation) on the turbo map over the model terrain,
+_IMG = None
+
+
+def imagery_on_grid(npx=1024, zoom=16):
+    """Esri World Imagery resampled onto the 128-cell LES frame (tower-relative metres, north
+    up), npx x npx RGB. Cached at data/raw/esri_les_grid.npy."""
+    global _IMG
+    if _IMG is None:
+        import os
+        cache = os.path.join(D.REPO, "data", "raw", f"esri_les_grid_{npx}_z{zoom}.npy")
+        if os.path.exists(cache):
+            _IMG = np.load(cache)
+            return _IMG
+        from pyproj import Transformer
+        from ml_cfm import fig_domain as FD
+        g = os.path.join(D.REPO, "data", "grid30_raised")
+        meta = np.load(os.path.join(g, "meta.npy"), allow_pickle=True).item()
+        tx, ty = float(meta["tower_x"]), float(meta["tower_y"])
+        half = D.N * D.DX / 2
+        u = (np.arange(npx) + 0.5) / npx * 2 * half - half
+        XX, YY = np.meshgrid(tx + u, ty + u)
+        mx, my = Transformer.from_crs("EPSG:3071", "EPSG:3857", always_xy=True).transform(XX, YY)
+        img, ext = FD.mosaic(mx.min() - 100, mx.max() + 100, my.min() - 100, my.max() + 100, zoom)
+        h, w = img.shape[:2]
+        col = np.clip(((mx - ext[0]) / (ext[1] - ext[0]) * w).astype(int), 0, w - 1)
+        row = np.clip(((ext[3] - my) / (ext[3] - ext[2]) * h).astype(int), 0, h - 1)
+        _IMG = img[row, col]
+        np.save(cache, _IMG)
+    return _IMG
+
+
+def background(ax, half, alpha=0.6):
+    """The imagery under a footprint panel, washed towards white by (1 - alpha)."""
+    img = imagery_on_grid()
+    ax.imshow(img, extent=[-half, half, -half, half], origin="lower", interpolation="bilinear", alpha=alpha, zorder=1)
+
+
+def footprint_panel(ax, f, vmax, statics, wdir_deg, letter=None, half=1830.0, cmap="turbo", terrain=True, alpha=0.92):
+    """The footprint as cells (no interpolation) on the turbo map over translucent Esri imagery,
     example_plot.py style: letter top-left, no ticks. Returns the mappable."""
     import fig_corpus_pairs as FCP
     from matplotlib.patches import Rectangle
@@ -65,16 +102,10 @@ def footprint_panel(ax, f, vmax, statics, wdir_deg, letter=None, half=1830.0, cm
     lv = levels(vmax)
     ff = np.asarray(f, np.float64)
     lf = np.ma.masked_less_equal(np.log10(np.maximum(ff, 10 ** lv[0])), lv[0])
-    ax.set_facecolor("#ececec")
+    ax.set_facecolor("white")
     if terrain:
-        topo = model_terrain()
-        tl = np.arange(np.floor(np.nanmin(topo) / 5) * 5, np.nanmax(topo) + 5, 5)
-        ax.contourf(xc, xc, topo, levels=tl, cmap="terrain", alpha=0.45, zorder=1)
-        ax.contour(xc, xc, topo, levels=tl, colors="k", linewidths=0.25, alpha=0.35, zorder=1.5)
+        background(ax, D.N * D.DX / 2)
     m = ax.pcolormesh(xe, xe, lf, cmap=cmap, vmin=lv[0], vmax=lv[-1], shading="flat", alpha=alpha, zorder=3)
-    water = statics["water"] > 0.5
-    ax.contourf(xc, xc, water.astype(float), levels=[0.5, 1.5], colors=["#7fb8ff"], alpha=0.7, zorder=2)
-    ax.contour(xc, xc, water, levels=[0.5], colors="#1f4e79", linewidths=0.8, zorder=4)
     x0, x1, y0, y1 = D.ARRAY_XY
     ax.add_patch(Rectangle((x0, y0), x1 - x0, y1 - y0, fill=False, ec="#ff00ff", lw=1.6, zorder=6))
     ax.plot(0, 0, marker="*", ms=11, mfc="w", mec="k", mew=0.8, zorder=7)

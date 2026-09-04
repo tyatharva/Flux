@@ -104,7 +104,7 @@ def main(argv=None):
     lv = FS.levels(vmax)
     ticks = np.arange(np.ceil(lv[0]), np.floor(lv[-1]) + 0.5)
     cb.set_ticks(ticks); cb.set_ticklabels([f"$10^{{{int(t)}}}$" for t in ticks])
-    cb.set_label("flux footprint  [m$^{-2}$]      star = tower,  magenta = solar array,  blue = Lake Kegonsa,  arrow = wind,  background = terrain (USGS 3DEP), 5 m steps", fontsize=13)
+    cb.set_label("flux footprint  [m$^{-2}$]      star = tower,  magenta = solar array,  arrow = wind,  background = Esri World Imagery", fontsize=13)
     cb.ax.tick_params(labelsize=11)
     os.makedirs(os.path.dirname(out), exist_ok=True)
     fig.savefig(out, dpi=130)

@@ -84,7 +84,7 @@ def main(argv=None):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    from matplotlib.patches import Polygon
+    from matplotlib.patches import Polygon, Rectangle
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
     from pyproj import Transformer
     import prep_stage6 as P6
@@ -152,19 +152,23 @@ def main(argv=None):
     ix0, ix1 = arr[:, 0].min() - ipad, arr[:, 0].max() + ipad
     iy0, iy1 = arr[:, 1].min() - ipad, arr[:, 1].max() + ipad
     iimg, iext = mosaic(ix0, ix1, iy0, iy1, a.zoom_inset)
-    axins = inset_axes(ax, width="30%", height="50%", loc="upper right", bbox_to_anchor=(-0.02, -0.09, 1, 1), bbox_transform=ax.transAxes, borderpad=0)
+    axins = inset_axes(ax, width="30%", height="50%", loc="upper right", bbox_to_anchor=(-0.005, -0.03, 1, 1), bbox_transform=ax.transAxes, borderpad=0)
     axins.imshow(iimg, extent=iext, origin="upper", interpolation="bilinear", zorder=1)
     axins.add_patch(Polygon(arr, closed=True, fill=False, ec="#ff00ff", lw=3.0, zorder=6))
     axins.plot(*tower, marker="*", ms=30, mfc=(1, 1, 1, 0.45), mec="k", mew=1.2, zorder=7)
     axins.set_xlim(ix0, ix1); axins.set_ylim(iy0, iy1); axins.set_aspect("equal"); axins.set_xticks([]); axins.set_yticks([])
     for sp in axins.spines.values():
-        sp.set_edgecolor("w"); sp.set_linewidth(4)
-    axins.set_title("INSET: the array at full imagery detail\nmagenta = array as parameterised (120 x 350 m)\nstar = tower as parameterised",
-                    fontsize=10.5, color="w", pad=6, bbox=dict(fc="black", alpha=0.55, ec="none", pad=4))
-    # the source box on the main map and two solid connectors
-    from matplotlib.patches import Rectangle
-    ax.add_patch(Rectangle((ix0, iy0), ix1 - ix0, iy1 - iy0, fill=False, ec="w", lw=2.5, zorder=8))
-    mark_inset(ax, axins, loc1=2, loc2=3, fc="none", ec="w", lw=2.0, ls="-", alpha=0.95, zorder=8)
+        sp.set_visible(False)
+    # a drop shadow under the inset: its screen box mapped into the main axes' data coordinates,
+    # drawn as stacked translucent rectangles offset down-right
+    fig.canvas.draw()
+    bb = axins.get_window_extent()
+    inv = ax.transData.inverted()
+    (dx0, dy0), (dx1, dy1) = inv.transform([[bb.x0, bb.y0], [bb.x1, bb.y1]])
+    axins.set_zorder(10)
+    for k in range(8, 0, -1):
+        off = 4.5 * k * (dx1 - dx0) / bb.width           # k * 4.5 screen px, in data units
+        ax.add_patch(Rectangle((dx0 + off, dy0 - off), dx1 - dx0, dy1 - dy0, fc="black", ec="none", alpha=0.09, zorder=9))
     os.makedirs(os.path.dirname(a.out), exist_ok=True)
     fig.savefig(a.out, dpi=150)
     print("wrote", a.out)
