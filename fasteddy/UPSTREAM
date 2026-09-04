@@ -1,0 +1,13 @@
+# The FastEddy this project builds: NCAR's release, unmodified, plus the patch series in
+# fasteddy/patches/ applied on top. fasteddy/fetch.sh reads this file.
+UPSTREAM_URL=https://github.com/NCAR/FastEddy-model.git
+UPSTREAM_TAG=v5.0.1
+UPSTREAM_SHA=e0cd2f3efcdff8ea543668228a983a95953478ca
+TARBALL_URL=https://github.com/NCAR/FastEddy-model/archive/refs/tags/v5.0.1.tar.gz
+# sha256 of the concatenated patch series, in file order. Recompute with:
+#   cat fasteddy/patches/*.patch | sha256sum
+SERIES_SHA256=1a212eb459484357eb65b2dcf89f3c62fb2b60546b532133bf8e939c922114dd
+# Every published image was built from the fork commit 0ce48d5dff06 (label
+# flux.fasteddy.revision). That tree is byte-identical to UPSTREAM_TAG + this series, minus
+# SRC/LPDM/CUDA, which now lives in this repository as lpdm/cuda/.
+FORK_EQUIVALENT_SHA=0ce48d5dff06be64d6817de36e1b4c43a9547b6b

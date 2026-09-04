@@ -1,0 +1,86 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Atharva Tyagi <tyagiatharva11@gmail.com>
+Date: Mon, 31 Aug 2026 02:14:30 -0400
+Subject: [PATCH] CUDA 13.0 removed four cudaDeviceProp members; guard the one
+ place we read them
+
+fecuda_logDeviceProperties is the only reader of clockRate, deviceOverlap,
+computeMode and kernelExecTimeoutEnabled in the whole model, and it only
+writes them to stdout -- no caller consumes a return value and none of them
+feeds a kernel launch configuration.
+
+All four were deprecated through CUDA 12.x and DELETED in 13.0, so the
+struct-member form is a hard compile error there:
+
+  fecuda_Device.cu(163): error: class "cudaDeviceProp" has no member "clockRate"
+
+All four survive as cudaDeviceGetAttribute() attributes, which is the migration
+NVIDIA documents, so the values printed are the same values -- a spelling
+change, not a behaviour change.
+
+Guarded on CUDART_VERSION rather than on a build flag so ONE tree compiles
+under both 11.8 -- the toolkit every published result in this project came from
+-- and 13.0, with byte-identical output. That is what makes the physics-parity
+measurement in FASTEDDY_TRAPS.md 23 possible at all: it needs the same source
+built by both toolkits.
+
+---
+ SRC/FECUDA/fecuda_Device.cu | 37 +++++++++++++++++++++++++++++++++----
+ 1 file changed, 33 insertions(+), 4 deletions(-)
+
+diff --git a/SRC/FECUDA/fecuda_Device.cu b/SRC/FECUDA/fecuda_Device.cu
+index 0f406d2..7d67db1 100644
+--- a/SRC/FECUDA/fecuda_Device.cu
++++ b/SRC/FECUDA/fecuda_Device.cu
+@@ -155,18 +155,47 @@ extern "C" int fecuda_DeviceSetBlocksPerGrid(int Nx, int Ny, int Nz){ //These ex
+ This routine logs (to stdout) the CudaDeviceProperties on a given architecture
+ */
+ void fecuda_logDeviceProperties(cudaDeviceProp dProps, int dNum){
++   /* CUDA 13.0 REMOVED FOUR DEPRECATED cudaDeviceProp MEMBERS, and this is the only
++    * place in FastEddy that reads any of them:
++    *
++    *    clockRate  deviceOverlap  computeMode  kernelExecTimeoutEnabled
++    *
++    * They were deprecated through 12.x and deleted in 13.0, so the struct-member form
++    * below is a hard compile error there ("class cudaDeviceProp has no member ...").
++    * All four survive as cudaDeviceGetAttribute() attributes, which is the migration
++    * NVIDIA documents, so the values printed are the SAME values -- this is a spelling
++    * change, not a behaviour change.
++    *
++    * NOTHING HERE IS ON THE PHYSICS PATH. fecuda_logDeviceProperties only writes to
++    * stdout; no caller consumes a return value and no field feeds a kernel launch
++    * configuration. The guard is on CUDART_VERSION rather than on a build flag so that
++    * ONE source tree still compiles under CUDA 11.8 -- the toolkit every published
++    * result in this project was produced with -- and under 13.0, byte-identical output
++    * from both. */
++#if CUDART_VERSION >= 13000
++   int dClockRate = 0, dOverlap = 0, dComputeMode = 0, dKernelTimeout = 0;
++   cudaDeviceGetAttribute(&dClockRate,     cudaDevAttrClockRate,         dNum);
++   cudaDeviceGetAttribute(&dOverlap,       cudaDevAttrGpuOverlap,        dNum);
++   cudaDeviceGetAttribute(&dComputeMode,   cudaDevAttrComputeMode,       dNum);
++   cudaDeviceGetAttribute(&dKernelTimeout, cudaDevAttrKernelExecTimeout, dNum);
++#else
++   int dClockRate     = dProps.clockRate;
++   int dOverlap       = dProps.deviceOverlap;
++   int dComputeMode   = dProps.computeMode;
++   int dKernelTimeout = dProps.kernelExecTimeoutEnabled;
++#endif
+    printf("Device Number:          %d\n", dNum);
+    printf("---------------------------------------------------------------------\n");
+    printf("\n__General__\n");
+    printf("   Name                               : %s\n",dProps.name);
+    printf("   Compute Capability                 : %d.%d\n",dProps.major,dProps.minor);
+-   printf("   Clock Rate                         : %d\n",dProps.clockRate);
++   printf("   Clock Rate                         : %d\n",dClockRate);
+    printf("   Number of multiprocessors          : %d\n",dProps.multiProcessorCount);
+    printf("   Max Threads/multiprocessor         : %d\n",dProps.maxThreadsPerMultiProcessor);
+-   printf("   Concurrent Copy/Execution          : %s\n",(dProps.deviceOverlap ? "Yes" : "No"));
++   printf("   Concurrent Copy/Execution          : %s\n",(dOverlap ? "Yes" : "No"));
+    printf("   Concurrent Kernels                 : %d\n",dProps.concurrentKernels);
+-   printf("   Compute Mode                       : %d\n",dProps.computeMode);
+-   printf("   Kernel Timeout Enabled             : %s\n",(dProps.kernelExecTimeoutEnabled ? "Yes" : "No"));
++   printf("   Compute Mode                       : %d\n",dComputeMode);
++   printf("   Kernel Timeout Enabled             : %s\n",(dKernelTimeout ? "Yes" : "No"));
+    printf("   Integrated                         : %s\n",(dProps.integrated ? "Yes" : "No"));
+    printf("   Host Memory Mapping                : %s\n",(dProps.canMapHostMemory ? "Yes" : "No"));
+    printf("\n__Configuration__\n");

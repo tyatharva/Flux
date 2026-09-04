@@ -1,0 +1,601 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Atharva Tyagi <tyagiatharva11@gmail.com>
+Date: Sun, 30 Aug 2026 11:18:31 -0400
+Subject: [PATCH] In-process LPDM hand-off: the LES stops writing its window to
+ a filesystem
+
+A footprint case saved every output-cadence snapshot of the fields the backward LPDM
+reads and then read them straight back. Nothing else consumed those files. At 122^3
+with a 5 s cadence a 2700 s window is 541 dumps of 18.4 MB = 9.4 GB, a two-window case
+is ~20 GB, and a ~2900-pair corpus writes and re-reads on the order of 14 TB. On a
+rented GPU whose scratch performance and quota cannot be measured in advance that was
+the largest unquantified risk in the corpus plan, and it bought nothing: the encode and
+the decode are pure overhead between two parts of the same computation.
+
+SRC/IO/io_lpdmonline.c stages each snapshot from ioBuffField at exactly the point the
+netCDF writer would consume it -- interior, halos trimmed, transposed to kji,
+rho-divided -- into a tmpfs directory that the consumer (lpdm/ringsrc.py) reads and
+pushes into the VRAM ring. Behind lpdmOnlineSelector, PARAM_OPTIONAL and defaulting to
+0, so every tutorial case and every existing .in runs bit-identically.
+
+Selector 2 stages AND writes. That is not a convenience: it is the only configuration
+in which the two paths are comparable, because comparing across two LES runs would
+difference two turbulence realisations, which on this project differ by 44% in the
+footprint integral. MEASURED that way, over 23 snapshots: u, v, w, theta, TKE_0,
+fricVel, z0m and invOblen agree EXACTLY, max |diff| 0.000e+00, and window_stats and
+FieldSet through both sources are bit-identical.
+
+A full ioLPDMfullFrq dump still writes everything even under selector 1. It is the
+only artifact a staged run leaves behind, and the htFlux/z0m read-back assertions,
+k0/k1 and turb_alive all score it -- suppressing its fields would delete the evidence
+that the run was the run that was asked for.
+
+WHY tmpfs FILES AND NOT CUDA IPC. lpdmDevicePushSnapshotHost takes HOST pointers by
+design: the wrap-pad, the fp16 cast and the eps/dsig2dz derivation are the device
+kernels already validated against the CPU path. A host hop is inherent to that API and
+costs ~4 ms of PCIe per 5 s of model time against ~2.5 s of compute for the same
+interval. IPC would buy that 4 ms and cost a new packing kernel on the critical path
+of a validated integrator. The ring is still in VRAM; only the route in is host memory.
+
+WHY WHOLE FILES AND NOT A LOCK-FREE RING. Correctness under a crash. A producer and a
+consumer sharing a ring must agree on recovery when either dies mid-window; a
+directory of whole files with a separate completion marker cannot be observed
+half-written, needs no atomics, and leaves the queue state visible to ls. Backpressure
+counts snap.*.ok in the directory rather than trusting a flag the consumer must clear,
+so a dead consumer stalls the LES loudly instead of filling tmpfs and dying on ENOSPC
+several hundred dumps later.
+
+A pause is not a restart -- no exit, no re-read, no IO-registered field overwritten --
+so the restart-read trap does not reach it. It exists because the sigma_w floor is
+built from WHOLE-WINDOW statistics, so the ensemble cannot be released until the last
+snapshot of the window is in the ring. That is also why the ring holds a full window
+and not t_back: a shorter ring forces integration at each release time, which forces
+the floor onto partial-window statistics -- an estimator change wearing a plumbing
+change's clothes.
+
+Two defects found by running it, both fixed here. lpdmOnlinePause1/2 used 0 as the
+"disabled" sentinel and 0 is a real step, so the first run paused at the very first
+output and waited for a resume nobody would write. And the queue-depth wait originally
+polled for a flag file that nothing created.
+---
+ SRC/FEMAIN/FastEddy.c  |  29 ++++
+ SRC/IO/io.c            |  29 ++++
+ SRC/IO/io.h            |  19 +++
+ SRC/IO/io_lpdmonline.c | 339 +++++++++++++++++++++++++++++++++++++++++
+ SRC/IO/io_netcdf.c     |  25 ++-
+ 5 files changed, 440 insertions(+), 1 deletion(-)
+ create mode 100644 SRC/IO/io_lpdmonline.c
+
+diff --git a/SRC/FEMAIN/FastEddy.c b/SRC/FEMAIN/FastEddy.c
+index e716dd7..8d5361e 100644
+--- a/SRC/FEMAIN/FastEddy.c
++++ b/SRC/FEMAIN/FastEddy.c
+@@ -163,6 +163,20 @@ int main(int argc, char **argv){
+ #endif
+   errorCode = timeInit();
+   MPI_Barrier(MPI_COMM_WORLD); 
++  /* IN-PROCESS LPDM HAND-OFF (fork). Allocates staging and publishes the snapshot format
++     to lpdmOnlineDir. A no-op unless lpdmOnlineSelector > 0, so every unmodified .in --
++     including every tutorial case -- reaches this line and passes straight through. It
++     goes AFTER timeInit because it needs the settled dt, and after the grid because it
++     needs Nx/Ny/Nz; both are the values the run will actually use rather than the ones
++     the .in requested, which is the distinction this project keeps paying for. */
++  errorCode = lpdmOnlineInit(Nx, Ny, Nz, dt);
++  if(errorCode != 0){
++    printf("FastEddy: lpdmOnlineInit failed; refusing to run a case whose LPDM hand-off "
++           "cannot be staged (it would complete and produce no target).\n");
++    fflush(stdout);
++    exit(errorCode);
++  }
++  MPI_Barrier(MPI_COMM_WORLD);
+ #ifdef DEBUG_INITIALIZATION 
+   printf("mpi_rank_world--%d/%d Dumping parameter check results!\n",mpi_rank_world, mpi_size_world);
+   fflush(stdout);
+@@ -462,6 +476,15 @@ int main(int argc, char **argv){
+          fflush(stdout);
+        } //if mpi_rank_world
+      } //end if (it%frqOutput == 0) ....   (We log summary info and dump outputs)
++     /* Hand a completed window to the LPDM and block until it has integrated. Placed
++        AFTER the output block so the pause step's own snapshot is already staged: the
++        sigma_w floor is built from whole-window statistics, so the last snapshot must be
++        in the ring before any release fires. A pause is not a restart -- no exit, no
++        re-read, no IO-registered field overwritten -- so FASTEDDY_TRAPS.md 17 does not
++        apply to it. */
++     if(lpdmOnlineSelector > 0){
++       lpdmOnlinePause(it);
++     }
+      //Dump tower data if appropriate
+      if((towerIOSelector > 0) && (it > simTime_itRestart)){
+        ioWriteBinaryTowerFileSingleBatch(it, NtBatch, Nz, simTimeBatch, towersData, towersSurfData, 
+@@ -573,6 +596,12 @@ int main(int argc, char **argv){
+   }
+ #endif
+   MPI_Barrier(MPI_COMM_WORLD); 
++  /* The final dump has been staged; release the last window and tell the consumer the run
++     is over, so it stops polling instead of timing out. */
++  if(lpdmOnlineSelector > 0){
++    lpdmOnlinePause(it);
++    lpdmOnlineFinish();
++  }
+   //Dump tower data if appropriate
+   if(towerIOSelector > 0){
+     ioWriteBinaryTowerFileSingleBatch(it, NtBatch, Nz, simTimeBatch, towersData, towersSurfData, towerIDs, rank_nTowers, towerInstanceSize, towerSurfInstanceSize);
+diff --git a/SRC/IO/io.c b/SRC/IO/io.c
+index 97287db..12b9238 100644
+--- a/SRC/IO/io.c
++++ b/SRC/IO/io.c
+@@ -36,6 +36,9 @@ size_t start2dTD[MAXDIMS];
+ // Include the netCDF-centric source code
+ #include <io_netcdf.c>
+ 
++// In-process hand-off of the LPDM fields (fork); replaces per-case window scratch
++#include <io_lpdmonline.c>
++
+ // Include the unformatted N-to-N binary-centric source code
+ #include <io_binary.c>
+ 
+@@ -44,6 +47,11 @@ size_t start2dTD[MAXDIMS];
+ int ioOutputMode;  /*0: N-to-1 gather and write to a netCDF file, 1: N-to-N writes of FastEddy binary files*/
+ int ioLPDMmode;    /*0 = upstream full output, 1 = lean 16-bit output for offline LPDM use*/
+ int ioLPDMfullFrq; /*0 = off; else write a full restartable dump every this many ABSOLUTE steps*/
++int lpdmOnlineSelector; /*0 = off, 1 = stage only, 2 = stage AND write netCDF (acceptance)*/
++char *lpdmOnlineDir;    /* staging directory for the in-process hand-off (tmpfs) */
++int lpdmOnlineQueue;    /* snapshots the consumer may lag before the LES blocks */
++int lpdmOnlinePause1;   /* absolute step to hand window 1 over at; 0 = none */
++int lpdmOnlinePause2;
+ char *outPath;     /* Directory Path where output files are to be written */
+ char *outFileBase; /* Base name of the output file series as in (outFileBase).element-in-series */
+ char *inPath;      /* Directory Path where input files are to be read from */
+@@ -93,6 +101,19 @@ int ioGetParams(){
+    errorCode = queryIntegerParameter("ioLPDMmode", &ioLPDMmode, 0, 1, PARAM_OPTIONAL);
+    ioLPDMfullFrq=0; //default = 0, i.e. no full dumps interleaved
+    errorCode = queryIntegerParameter("ioLPDMfullFrq", &ioLPDMfullFrq, 0, INT_MAX, PARAM_OPTIONAL);
++   /* IN-PROCESS LPDM HAND-OFF. All PARAM_OPTIONAL and all defaulting to off, so every
++      tutorial case and every existing .in in this project runs bit-identically. */
++   lpdmOnlineSelector=0;
++   errorCode = queryIntegerParameter("lpdmOnlineSelector", &lpdmOnlineSelector, 0, 2, PARAM_OPTIONAL);
++   lpdmOnlineQueue=4;
++   errorCode = queryIntegerParameter("lpdmOnlineQueue", &lpdmOnlineQueue, 1, 64, PARAM_OPTIONAL);
++   lpdmOnlinePause1=0;
++   errorCode = queryIntegerParameter("lpdmOnlinePause1", &lpdmOnlinePause1, 0, INT_MAX, PARAM_OPTIONAL);
++   lpdmOnlinePause2=0;
++   errorCode = queryIntegerParameter("lpdmOnlinePause2", &lpdmOnlinePause2, 0, INT_MAX, PARAM_OPTIONAL);
++   if(lpdmOnlineSelector > 0){
++     errorCode = queryPathParameter("lpdmOnlineDir", &lpdmOnlineDir, PARAM_MANDATORY);
++   }
+    errorCode = queryPathParameter("inPath", &inPath, PARAM_OPTIONAL);
+    errorCode = queryStringParameter("inFile", &inFile, PARAM_OPTIONAL);
+    errorCode = queryPathParameter("outPath", &outPath, PARAM_MANDATORY);
+@@ -136,6 +157,14 @@ int ioInit(){
+    MPI_Bcast(&ioLPDMmode, 1, MPI_INTEGER, 0, MPI_COMM_WORLD);
+    /*ioLPDMfullFrq*/
+    MPI_Bcast(&ioLPDMfullFrq, 1, MPI_INTEGER, 0, MPI_COMM_WORLD);
++   /* in-process LPDM hand-off. Only the four integers are broadcast: lpdmOnlineDir is
++      used on rank 0 only -- every staging call is already guarded on mpi_rank_world == 0
++      because ioBuffField is only valid there -- so broadcasting the string would create a
++      second copy that could disagree with the one actually used. */
++   MPI_Bcast(&lpdmOnlineSelector, 1, MPI_INTEGER, 0, MPI_COMM_WORLD);
++   MPI_Bcast(&lpdmOnlineQueue, 1, MPI_INTEGER, 0, MPI_COMM_WORLD);
++   MPI_Bcast(&lpdmOnlinePause1, 1, MPI_INTEGER, 0, MPI_COMM_WORLD);
++   MPI_Bcast(&lpdmOnlinePause2, 1, MPI_INTEGER, 0, MPI_COMM_WORLD);
+    /*inPath string*/
+    strLength = 0;
+    if(mpi_rank_world == 0){
+diff --git a/SRC/IO/io.h b/SRC/IO/io.h
+index f35df4a..c37de39 100644
+--- a/SRC/IO/io.h
++++ b/SRC/IO/io.h
+@@ -56,6 +56,25 @@ extern int ioLPDMfullFrq; /*0 = off. Otherwise: when ioLPDMmode = 1, any output
+                             Exists because lean output is deliberately not restartable
+                             (rho and pressure are absent), which would otherwise force a
+                             sampling window to be one single FastEddy invocation.*/
++/* IN-PROCESS LPDM HAND-OFF (fork).  See SRC/IO/io_lpdmonline.c for the rationale.
++ *   0 = off, upstream behaviour.
++ *   1 = stage the LPDM fields to lpdmOnlineDir and DO NOT write them to netCDF. This is
++ *       production: the ~20 GB of per-case window scratch never exists.
++ *   2 = stage AND write. One run then produces both paths from bit-identical buffers,
++ *       which is the only way to score the hand-off without comparing across two
++ *       turbulence realisations (measured on this project at 44% in the integral). */
++extern int lpdmOnlineSelector;
++extern char *lpdmOnlineDir;   /* staging directory; expected to be on tmpfs, i.e. RAM */
++extern int lpdmOnlineQueue;   /* snapshots the consumer may be behind before the LES blocks */
++extern int lpdmOnlinePause1;  /* absolute step at which to hand window 1 over and wait */
++extern int lpdmOnlinePause2;  /* and window 2; 0 disables */
++int lpdmOnlineWants(const char *n);
++int lpdmOnlineInit(int Nx, int Ny, int Nz, float dt);
++int lpdmOnlineStage(const char *n, const float *buf, long numElems);
++int lpdmOnlineFlush(int tstep);
++int lpdmOnlinePause(int tstep);
++int lpdmOnlineFinish(void);
++
+ extern char *outPath;     /* Directory Path where output files are to be written */
+ extern char *outFileBase; /* Base name of the output file series as in (outFileBase).element-in-series */ 
+ extern char *inPath;      /* Directory Path where input files are to be read from */
+diff --git a/SRC/IO/io_lpdmonline.c b/SRC/IO/io_lpdmonline.c
+new file mode 100644
+index 0000000..99cadd4
+--- /dev/null
++++ b/SRC/IO/io_lpdmonline.c
+@@ -0,0 +1,339 @@
++/* FastEddy(R) fork (kegonsa): SRC/IO/io_lpdmonline.c
++ *
++ * IN-PROCESS HAND-OFF OF LPDM FIELDS -- what this is for, and what it deliberately is not.
++ *
++ * A footprint case runs the LES, saves every output-cadence snapshot of the fields the
++ * backward LPDM reads, and then reads them straight back. Nothing else consumes those
++ * files. At 122^3 with a 5 s cadence a 2700 s window is 541 dumps of 18.4 MB = 9.4 GB, and
++ * a two-window case is ~20 GB -- so a ~2900-pair corpus writes and re-reads on the order of
++ * 29 TB. On a rented GPU whose scratch performance is unknown that is the single largest
++ * unquantified risk in the corpus plan, and it buys nothing: the encode and the decode are
++ * pure overhead between two parts of the same computation.
++ *
++ * This module removes the file. At each output step, instead of (or as well as) calling
++ * nc_put_vara, the already-gathered and already-rho-divided host buffer is staged and then
++ * handed to the consumer as ONE raw snapshot. The consumer -- lpdm/ringsrc.py -- pushes it
++ * into the LPDM's VRAM ring (SRC/LPDM/CUDA), where the validated integrator already runs.
++ *
++ * WHY A tmpfs DIRECTORY AND NOT CUDA IPC. The device ring's fill entry point,
++ * lpdmDevicePushSnapshotHost, takes HOST pointers by design: the wrap-pad, the fp16 cast
++ * and the eps/dsig2dz derivation are device-side kernels that were validated against the
++ * CPU path in replay mode. A host staging hop is therefore inherent to the validated API,
++ * and 36.5 MB per 5 s of simulated time is ~4 ms of PCIe against ~2.5 s of compute for the
++ * same interval -- unmeasurable. Choosing CUDA IPC instead would buy that 4 ms and cost a
++ * new device-to-device packing kernel on the critical path of an integrator this project
++ * has already validated. The RING IS STILL IN VRAM; only the route into it is host memory.
++ *
++ * WHY FILES RATHER THAN A SHARED-MEMORY RING WITH SEMAPHORES. Correctness under a crash.
++ * A producer and a consumer sharing a lock-free ring must agree on recovery when either
++ * dies mid-window; a directory of whole files with a separate completion marker cannot be
++ * observed half-written, needs no atomics, and leaves the queue state visible to `ls` when
++ * something goes wrong at 3 a.m. The directory is expected to be on tmpfs, so "file" here
++ * means RAM. Backpressure is the queue depth: the producer blocks while the consumer is
++ * behind, which is what bounds memory instead of hoping.
++ *
++ * THE THREE MODES ARE NOT A CONVENIENCE. lpdmOnlineSelector = 2 stages AND writes netCDF,
++ * so one run produces both paths from bit-identical buffers. That is the only way to score
++ * the hand-off against the file path without running the LES twice and comparing across
++ * two turbulence realisations -- which, measured on this project, differ by 44% in the
++ * footprint integral and would swamp any plumbing error.
++ */
++#include <sys/stat.h>
++#include <sys/types.h>
++#include <unistd.h>
++#include <errno.h>
++#include <time.h>
++#include <dirent.h>
++
++#define LPDM_ON_N3 5      /* 3-D fields, in the order the snapshot file stores them */
++#define LPDM_ON_N2 3      /* 2-D fields */
++#define LPDM_ON_NG 4      /* static geometry fields, written once */
++
++static const char *lpdmOn3[LPDM_ON_N3] = {"u","v","w","theta","TKE_0"};
++static const char *lpdmOn2[LPDM_ON_N2] = {"fricVel","z0m","invOblen"};
++static const char *lpdmOnG[LPDM_ON_NG] = {"xPos","yPos","zPos","topoPos"};
++
++static float *lpdmOnBuf3[LPDM_ON_N3];   /* staging, Nx*Ny*Nz each */
++static float *lpdmOnBuf2[LPDM_ON_N2];   /* staging, Nx*Ny each    */
++static float *lpdmOnBufG[LPDM_ON_NG];
++static int    lpdmOnHave3[LPDM_ON_N3];
++static int    lpdmOnHave2[LPDM_ON_N2];
++static int    lpdmOnHaveG[LPDM_ON_NG];
++static int    lpdmOnNx = 0, lpdmOnNy = 0, lpdmOnNz = 0;
++static int    lpdmOnGeomWritten = 0;
++static long   lpdmOnSnaps = 0;
++static double lpdmOnDt = 0.0;   /* captured at init; io_netcdf.c cannot see dt */
++
++/*----->>>>> static int lpdmOnlineIndex();
++ * Which staging slot does this variable name belong to? Returns the 3-D index, or
++ * -(1+i) for a 2-D one, or -100-i for geometry, or 0 for "not ours" (encoded so that a
++ * single call can classify; the callers below unpack it).
++ */
++static int lpdmOnlineSlot(const char *n, int *kind){
++   int i;
++   for(i = 0; i < LPDM_ON_N3; i++){ if(!strcmp(n, lpdmOn3[i])){ *kind = 3; return i; } }
++   for(i = 0; i < LPDM_ON_N2; i++){ if(!strcmp(n, lpdmOn2[i])){ *kind = 2; return i; } }
++   for(i = 0; i < LPDM_ON_NG; i++){ if(!strcmp(n, lpdmOnG[i])){ *kind = 1; return i; } }
++   *kind = 0;
++   return -1;
++}
++
++/*----->>>>> int lpdmOnlineWants();  is this variable staged for the in-process LPDM? */
++int lpdmOnlineWants(const char *n){
++   int kind;
++   if(lpdmOnlineSelector == 0){ return 0; }
++   lpdmOnlineSlot(n, &kind);
++   if(kind == 1){ return !lpdmOnGeomWritten; }   /* geometry once per run, like ioLPDMmode */
++   return (kind == 2) || (kind == 3);
++}
++
++/*----->>>>> int lpdmOnlineInit();   allocate staging and publish the format.
++ *
++ * The meta file is SELF-DESCRIBING on purpose. The consumer must not carry a hard-coded
++ * field order: this project's standing rule is that a constant duplicated on both sides of
++ * an interface is a constant that will eventually disagree, silently, and produce a
++ * plausible wrong number. Ordering, extents and element counts are all read from here.
++ */
++int lpdmOnlineInit(int Nx, int Ny, int Nz, float dt){
++   char path[MAXLEN*2];
++   FILE *f;
++   int i;
++   if(lpdmOnlineSelector == 0){ return 0; }
++   lpdmOnNx = Nx; lpdmOnNy = Ny; lpdmOnNz = Nz; lpdmOnDt = (double)dt;
++   if(mpi_rank_world != 0){ return 0; }
++   if(mkdir(lpdmOnlineDir, 0777) != 0 && errno != EEXIST){
++      printf("lpdmOnlineInit: cannot create %s (errno %d)\n", lpdmOnlineDir, errno);
++      fflush(stdout);
++      return 1;
++   }
++   for(i = 0; i < LPDM_ON_N3; i++){
++      lpdmOnBuf3[i] = (float *) malloc(((size_t)Nx*Ny*Nz)*sizeof(float));
++      if(lpdmOnBuf3[i] == NULL){ printf("lpdmOnlineInit: OOM 3d\n"); return 1; }
++      lpdmOnHave3[i] = 0;
++   }
++   for(i = 0; i < LPDM_ON_N2; i++){
++      lpdmOnBuf2[i] = (float *) malloc(((size_t)Nx*Ny)*sizeof(float));
++      if(lpdmOnBuf2[i] == NULL){ printf("lpdmOnlineInit: OOM 2d\n"); return 1; }
++      lpdmOnHave2[i] = 0;
++   }
++   for(i = 0; i < LPDM_ON_NG; i++){
++      size_t ne = (i == 3) ? (size_t)Nx*Ny : (size_t)Nx*Ny*Nz;
++      lpdmOnBufG[i] = (float *) malloc(ne*sizeof(float));
++      if(lpdmOnBufG[i] == NULL){ printf("lpdmOnlineInit: OOM geom\n"); return 1; }
++      lpdmOnHaveG[i] = 0;
++   }
++   sprintf(path, "%s/meta.txt", lpdmOnlineDir);
++   f = fopen(path, "w");
++   if(f == NULL){ printf("lpdmOnlineInit: cannot write %s\n", path); return 1; }
++   fprintf(f, "nx %d\nny %d\nnz %d\ndt %.10g\nfrqOutput %d\nselector %d\nqueue %d\n",
++           Nx, Ny, Nz, (double)dt, frqOutput, lpdmOnlineSelector, lpdmOnlineQueue);
++   fprintf(f, "fields3");
++   for(i = 0; i < LPDM_ON_N3; i++){ fprintf(f, " %s", lpdmOn3[i]); }
++   fprintf(f, "\nfields2");
++   for(i = 0; i < LPDM_ON_N2; i++){ fprintf(f, " %s", lpdmOn2[i]); }
++   fprintf(f, "\ngeom");
++   for(i = 0; i < LPDM_ON_NG; i++){ fprintf(f, " %s", lpdmOnG[i]); }
++   fprintf(f, "\n");
++   fclose(f);
++   printf("lpdmOnline: staging to %s, selector %d, queue depth %d, %d x %d x %d\n",
++          lpdmOnlineDir, lpdmOnlineSelector, lpdmOnlineQueue, Nx, Ny, Nz);
++   fflush(stdout);
++   return 0;
++}
++
++/*----->>>>> int lpdmOnlineStage();  copy one finished host buffer into its slot.
++ *
++ * `buf` is ioBuffField at the point the writer would hand it to nc_put_vara: interior
++ * only, halos trimmed, transposed to kji = k*Ny*Nx + j*Nx + i, and -- for u, v, w, theta
++ * and TKE_0 -- already divided by rho. Taking it HERE rather than from the device arrays
++ * is what makes the two paths comparable: selector 2 writes the netCDF file from this same
++ * buffer, so any disagreement downstream is the hand-off and cannot be the conversion.
++ */
++int lpdmOnlineStage(const char *n, const float *buf, long numElems){
++   int kind, i;
++   if(lpdmOnlineSelector == 0 || mpi_rank_world != 0){ return 0; }
++   i = lpdmOnlineSlot(n, &kind);
++   if(kind == 3){ memcpy(lpdmOnBuf3[i], buf, (size_t)numElems*sizeof(float)); lpdmOnHave3[i] = 1; }
++   else if(kind == 2){ memcpy(lpdmOnBuf2[i], buf, (size_t)numElems*sizeof(float)); lpdmOnHave2[i] = 1; }
++   else if(kind == 1){ memcpy(lpdmOnBufG[i], buf, (size_t)numElems*sizeof(float)); lpdmOnHaveG[i] = 1; }
++   else { return 0; }
++   return 1;
++}
++
++/*----->>>>> static void lpdmOnlineWait();  block while the consumer is more than
++ * lpdmOnlineQueue snapshots behind. THIS IS THE MEMORY BOUND. Without it the producer
++ * fills tmpfs at 36.5 MB per output step and the run dies on ENOSPC several hundred
++ * dumps in -- which is exactly the failure this module exists to remove, relocated.
++ */
++static void lpdmOnlineWait(void){
++   struct timespec ts;
++   long waited = 0;
++   int depth;
++   DIR *d;
++   struct dirent *e;
++   ts.tv_sec = 0; ts.tv_nsec = 2000000L;      /* 2 ms */
++   for(;;){
++      /* Depth is counted from the directory itself rather than from a flag the consumer
++         is trusted to set. A flag makes the LES's memory bound depend on the consumer
++         still being alive to clear it; counting means a dead consumer stalls the LES
++         loudly instead of letting it fill tmpfs and die on ENOSPC 500 dumps later. */
++      depth = 0;
++      d = opendir(lpdmOnlineDir);
++      if(d == NULL){ return; }               /* cannot see it: do not block the LES */
++      while((e = readdir(d)) != NULL){
++         size_t L = strlen(e->d_name);
++         if(L > 8 && strncmp(e->d_name, "snap.", 5) == 0
++                  && strcmp(e->d_name + L - 3, ".ok") == 0){ depth++; }
++      }
++      closedir(d);
++      if(depth < lpdmOnlineQueue){ return; }
++      nanosleep(&ts, NULL);
++      waited++;
++      if(waited % 15000 == 0){                /* every 30 s */
++         printf("lpdmOnline: BLOCKED -- %d snapshots unconsumed (queue depth %d). The "
++                "LPDM side is behind or dead; the LES is waiting, not hung.\n",
++                depth, lpdmOnlineQueue);
++         fflush(stdout);
++      }
++   }
++}
++
++/*----->>>>> int lpdmOnlineFlush();  write the staged snapshot as one raw file.
++ *
++ * The completion marker is a SEPARATE file written after the data file is closed, so a
++ * consumer polling the directory can never open a partially written snapshot. That is
++ * the whole synchronisation protocol; there is no other shared state.
++ */
++int lpdmOnlineFlush(int tstep){
++   char path[MAXLEN*2], tmp[MAXLEN*2];
++   FILE *f;
++   int i;
++   size_t ne3, ne2;
++   if(lpdmOnlineSelector == 0 || mpi_rank_world != 0){ return 0; }
++   ne3 = (size_t)lpdmOnNx*lpdmOnNy*lpdmOnNz;
++   ne2 = (size_t)lpdmOnNx*lpdmOnNy;
++
++   /* geometry, once, before the first snapshot the consumer will read */
++   if(!lpdmOnGeomWritten){
++      int all = 1;
++      for(i = 0; i < LPDM_ON_NG; i++){ all = all && lpdmOnHaveG[i]; }
++      if(all){
++         sprintf(path, "%s/geom.raw", lpdmOnlineDir);
++         f = fopen(path, "wb");
++         if(f == NULL){ printf("lpdmOnlineFlush: cannot write %s\n", path); return 1; }
++         for(i = 0; i < LPDM_ON_NG; i++){
++            fwrite(lpdmOnBufG[i], sizeof(float), (i == 3) ? ne2 : ne3, f);
++         }
++         fclose(f);
++         sprintf(path, "%s/geom.ok", lpdmOnlineDir);
++         f = fopen(path, "w"); if(f){ fclose(f); }
++         lpdmOnGeomWritten = 1;
++      }
++   }
++
++   /* every prognostic field must be present, or the snapshot is incomplete and the
++      consumer would silently interpolate stale data from the previous step */
++   for(i = 0; i < LPDM_ON_N3; i++){
++      if(!lpdmOnHave3[i]){
++         printf("lpdmOnlineFlush: step %d is missing 3-D field %s -- REFUSING to stage a "
++                "partial snapshot (the consumer cannot tell it apart from a good one)\n",
++                tstep, lpdmOn3[i]);
++         fflush(stdout);
++         return 1;
++      }
++   }
++   for(i = 0; i < LPDM_ON_N2; i++){
++      if(!lpdmOnHave2[i]){
++         printf("lpdmOnlineFlush: step %d is missing 2-D field %s -- REFUSING\n",
++                tstep, lpdmOn2[i]);
++         fflush(stdout);
++         return 1;
++      }
++   }
++
++   lpdmOnlineWait();
++
++   sprintf(tmp,  "%s/snap.%d.part", lpdmOnlineDir, tstep);
++   sprintf(path, "%s/snap.%d.raw",  lpdmOnlineDir, tstep);
++   f = fopen(tmp, "wb");
++   if(f == NULL){ printf("lpdmOnlineFlush: cannot write %s\n", tmp); return 1; }
++   {  double simTime = (double)tstep * lpdmOnDt;
++      fwrite(&simTime, sizeof(double), 1, f); }
++   for(i = 0; i < LPDM_ON_N3; i++){ fwrite(lpdmOnBuf3[i], sizeof(float), ne3, f); }
++   for(i = 0; i < LPDM_ON_N2; i++){ fwrite(lpdmOnBuf2[i], sizeof(float), ne2, f); }
++   fclose(f);
++   if(rename(tmp, path) != 0){
++      printf("lpdmOnlineFlush: rename %s -> %s failed (errno %d)\n", tmp, path, errno);
++      return 1;
++   }
++   sprintf(path, "%s/snap.%d.ok", lpdmOnlineDir, tstep);
++   f = fopen(path, "w"); if(f){ fclose(f); }
++
++   for(i = 0; i < LPDM_ON_N3; i++){ lpdmOnHave3[i] = 0; }
++   for(i = 0; i < LPDM_ON_N2; i++){ lpdmOnHave2[i] = 0; }
++   lpdmOnSnaps++;
++   return 0;
++}
++
++/*----->>>>> int lpdmOnlinePause();  hand the window to the consumer and wait.
++ *
++ * Called from the time loop, not from the writer. A pause is NOT a restart: the process
++ * does not exit, nothing is re-read, and no IO-registered field is overwritten -- which is
++ * what keeps FASTEDDY_TRAPS.md 17 out of this. It exists because the sigma_w floor is
++ * built from WHOLE-WINDOW statistics, so the ensemble cannot be released until the last
++ * snapshot of the window is in the ring.
++ */
++int lpdmOnlinePause(int tstep){
++   char path[MAXLEN*2], want[MAXLEN*2];
++   struct timespec ts;
++   FILE *f;
++   long waited = 0;
++   if(lpdmOnlineSelector == 0 || mpi_rank_world != 0){ return 0; }
++   /* 0 IS A REAL STEP, SO IT CANNOT BE THE "DISABLED" SENTINEL. It was, and the first
++      acceptance run duly paused at step 0 -- after ONE snapshot, before any window exists
++      -- and sat there waiting for a resume marker no consumer had any reason to write.
++      Nothing was wrong except that "off" and "pause at the very first output" were spelled
++      the same way. Guarding on > 0 costs nothing: a pause at step 0 can never be wanted,
++      because the ensemble it would release has no history behind it. */
++   if(!((lpdmOnlinePause1 > 0 && tstep == lpdmOnlinePause1) ||
++        (lpdmOnlinePause2 > 0 && tstep == lpdmOnlinePause2))){ return 0; }
++   ts.tv_sec = 0; ts.tv_nsec = 5000000L;      /* 5 ms */
++   sprintf(path, "%s/pause.%d", lpdmOnlineDir, tstep);
++   sprintf(want, "%s/resume.%d", lpdmOnlineDir, tstep);
++   f = fopen(path, "w");
++   if(f){ fprintf(f, "%ld\n", lpdmOnSnaps); fclose(f); }
++   printf("lpdmOnline: PAUSED at step %d after %ld snapshots; waiting for %s\n",
++          tstep, lpdmOnSnaps, want);
++   fflush(stdout);
++   while(access(want, F_OK) != 0){
++      nanosleep(&ts, NULL);
++      waited++;
++      if(waited % 120000 == 0){                /* every 10 minutes */
++         printf("lpdmOnline: still paused at step %d after %ld s\n",
++                tstep, waited/200);
++         fflush(stdout);
++      }
++   }
++   remove(path);
++   remove(want);
++   printf("lpdmOnline: RESUMED at step %d\n", tstep);
++   fflush(stdout);
++   return 0;
++}
++
++/*----->>>>> int lpdmOnlineFinish();  tell the consumer the run is over. */
++int lpdmOnlineFinish(void){
++   char path[MAXLEN*2];
++   FILE *f;
++   int i;
++   if(lpdmOnlineSelector == 0 || mpi_rank_world != 0){ return 0; }
++   sprintf(path, "%s/done", lpdmOnlineDir);
++   f = fopen(path, "w");
++   if(f){ fprintf(f, "%ld\n", lpdmOnSnaps); fclose(f); }
++   printf("lpdmOnline: finished, %ld snapshots staged\n", lpdmOnSnaps);
++   fflush(stdout);
++   for(i = 0; i < LPDM_ON_N3; i++){ if(lpdmOnBuf3[i]){ free(lpdmOnBuf3[i]); lpdmOnBuf3[i]=NULL; } }
++   for(i = 0; i < LPDM_ON_N2; i++){ if(lpdmOnBuf2[i]){ free(lpdmOnBuf2[i]); lpdmOnBuf2[i]=NULL; } }
++   for(i = 0; i < LPDM_ON_NG; i++){ if(lpdmOnBufG[i]){ free(lpdmOnBufG[i]); lpdmOnBufG[i]=NULL; } }
++   return 0;
++}
+diff --git a/SRC/IO/io_netcdf.c b/SRC/IO/io_netcdf.c
+index 5791a02..ddc9d20 100644
+--- a/SRC/IO/io_netcdf.c
++++ b/SRC/IO/io_netcdf.c
+@@ -676,6 +676,18 @@ int ioWriteNetCDFoutFileSingleTime(int tstep, int Nx, int Ny, int Nz, int Nh){
+    if(mpi_rank_world==0){
+      errorCode = ioCloseNetCDFfile(ncid);    
+    } //endif mpi_rank_world==0
++   /* Hand the staged snapshot over as ONE raw file. Done here rather than inside the
++      variable loop because a snapshot is only meaningful once every field of it is
++      present, and lpdmOnlineFlush REFUSES a partial one -- a consumer cannot distinguish
++      a snapshot missing w from a good one, and would interpolate the previous step's
++      field with nothing complaining. */
++   if(lpdmOnlineSelector > 0){
++     if(lpdmOnlineFlush(tstep) != 0){
++       printf("ioWriteNetCDFoutFileSingleTime: LPDM staging failed at step %d\n", tstep);
++       fflush(stdout);
++       return(IO_SUCCESS+1);
++     }
++   }
+    /* Count files written by THIS run. ioLPDMmode writes the static coordinate geometry
+       into file 0 only; every later file in the run omits it, because xPos/yPos/zPos are
+       rewritten byte-identically every dump and at this grid they cost more than the
+@@ -1021,7 +1033,18 @@ int ioPutNetCDFoutFileVars(int ncid, int Nx, int Ny, int Nz, int Nh){
+    fflush(stdout);
+ #endif
+          if (mpi_rank_world==0){
+-           if(lpdmSkipWrite(ptr->name)){
++           /* IN-PROCESS HAND-OFF. Staged from ioBuffField at exactly the point the netCDF
++              writer would consume it -- interior, halos trimmed, transposed to kji, and
++              rho-divided -- so selector 2 writes the file from the same bytes the ring
++              receives and any downstream disagreement is the hand-off and nothing else.
++              Staging does not by itself suppress the write; selector 1 does, below. */
++           if(lpdmOnlineWants(ptr->name)){
++             lpdmOnlineStage(ptr->name, ioBuffField, (long)numElems);
++           }
++           if((lpdmOnlineSelector == 1) && (!lpdmFullThisFile)
++              && lpdmOnlineWants(ptr->name)){
++             /* staged for the LPDM; the file it would have gone into does not exist */
++           }else if(lpdmSkipWrite(ptr->name)){
+              /* processed for its side effect on ioBuffFieldRho, but not written */
+            }else if((ioLPDMmode == 1) && (!lpdmFullThisFile) && lpdmIsPacked(ptr->name)){
+              /* CF packing over this file's actual range: value = scale*stored + offset.

@@ -85,7 +85,7 @@ def spectrum_2d(f, dx):
 def _geometry(paths):
     """z column and dx, from whichever dump in the series actually carries them.
 
-    Sampling windows are written in the fork's `ioLPDMmode`: lean, 16-bit, and holding
+    Sampling windows are written in the patched `ioLPDMmode`: lean, 16-bit, and holding
     ONLY the fields the LPDM reads. The coordinate geometry is written into the FIRST
     dump of a run and no other, so asking the last dump for `zPos` raises
     "IndexError: zPos not found in /" -- which is what this function exists to avoid.
@@ -98,7 +98,7 @@ def _geometry(paths):
                 x = np.squeeze(np.asarray(ds["xPos"][:], dtype=np.float64))
                 return z, float(x[0, 0, 1] - x[0, 0, 0])
     # Nothing in the series carries it, so fall back to the LOWEST-numbered dump in the
-    # same directory -- which for a sampling window is the full-form step-0 dump the fork
+    # same directory -- which for a sampling window is the full-form step-0 dump the patched IO
     # writes before lean output begins. This is what makes the diagnostic usable on a
     # window without the caller having to know how ioLPDMmode lays its output out.
     import glob as _glob

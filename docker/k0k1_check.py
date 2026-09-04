@@ -26,7 +26,7 @@ LIMIT = 1.0
 def _zpos(path):
     """Level heights, falling back to the first dump of the same run if this one is lean.
 
-    ioLPDMmode (the kegonsa fork) writes the static coordinate geometry into the FIRST
+    ioLPDMmode (fasteddy/patches 0001) writes the static coordinate geometry into the FIRST
     file a run produces and omits it from every later one, because xPos/yPos/zPos are
     rewritten byte-identically each dump and cost more than the packed prognostic fields
     they accompany. So a mid-window dump legitimately has no zPos, and this check must not

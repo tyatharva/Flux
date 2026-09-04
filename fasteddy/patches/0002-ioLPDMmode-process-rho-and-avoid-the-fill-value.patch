@@ -1,0 +1,134 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Atharva Tyagi <tyagiatharva11@gmail.com>
+Date: Wed, 19 Aug 2026 19:56:04 -0400
+Subject: [PATCH] Fix ioLPDMmode: rho must be processed, and the packed range
+ must avoid the fill value
+
+Two bugs, both found by testing the mode on real fields before using it.
+
+1. SKIPPING rho SILENTLY DESTROYED EVERY PROGNOSTIC FIELD.
+   NORHO is #defined at io_netcdf.c:486 with no matching #undef, so it is in force for the
+   writer as well as the reader. Under it, u, v, w, theta and TKE_0 are stored FLUX-
+   CONSERVATIVELY and the writer divides each by ioBuffFieldRho -- a buffer filled by a
+   memcpy when rho itself comes past in the variable list. Omitting rho therefore did not
+   merely drop a field: it divided all five prognostic fields by uninitialised memory.
+   Every value came out +/-inf, scale_factor was written as inf and add_offset as nan, and
+   nothing anywhere reported an error -- the run exited 0, printed no CORRUPTED, and the
+   k0/k1 accuracy check passed because `nan < 1.0` is false.
+
+   Split the one skip test into two: lpdmSkipProcess (rho is processed for its side effect
+   on ioBuffFieldRho) and lpdmSkipWrite (rho is still never written).
+
+2. THE FIELD MINIMUM LANDED ON THE DEFAULT FILL VALUE.
+   Packing across the full 16-bit range mapped each field's minimum onto -32767, which is
+   netCDF's default fill for NC_SHORT. Any reader with auto-masking enabled -- which is the
+   default in netCDF4-python -- then treats the slowest and coldest cells as MISSING. The
+   maxima were perfect and the minima read back as -32767, which is exactly the kind of
+   half-right output that survives a cursory check.
+
+   Pack into [-32000, +32000] instead. The fill value becomes unreachable by data and no
+   _FillValue attribute is needed, which is just as well because netCDF will not accept one
+   after the variable holds data. 64000 levels instead of 65534 is 2.3% coarser.
+
+Verified against the fp32 dump the test restarted from: endpoints reproduce exactly, and
+
+    field   max|err|    rms        rms / range
+    u       6.5e-05     3.7e-05    4.5e-06
+    w       2.5e-05     1.4e-05    4.5e-06
+    theta   1.5e-04     8.9e-05    4.6e-06
+
+1.4e-05 m/s of rms error on w against sigma_w ~ 0.36 m/s is 0.004% -- an order of magnitude
+better than IEEE fp16 over the same fields, because packing spends all 16 bits on the range
+that is actually present instead of on an exponent.
+
+Output: 42.7 MB per dump against 170 MB full, so a 30-min window at 5 s is 15.4 GB rather
+than 61 GB. Geometry appears in the first file of a run and is omitted thereafter.
+---
+ SRC/IO/io_netcdf.c | 40 ++++++++++++++++++++++++++++++++--------
+ 1 file changed, 32 insertions(+), 8 deletions(-)
+
+diff --git a/SRC/IO/io_netcdf.c b/SRC/IO/io_netcdf.c
+index b0a2fce..176809a 100644
+--- a/SRC/IO/io_netcdf.c
++++ b/SRC/IO/io_netcdf.c
+@@ -52,14 +52,30 @@ static int lpdmIsKept(const char *n){
+         ||(!strcmp(n,"fricVel"))||(!strcmp(n,"z0m"))||(!strcmp(n,"invOblen"))
+         ||(!strcmp(n,"time"));
+ }
+-/* Should this variable be written to THIS file? */
+-static int lpdmSkip(const char *n){
++/* Should this variable be WRITTEN to this file? */
++static int lpdmSkipWrite(const char *n){
+    if(ioLPDMmode == 0){ return 0; }
+    if(!lpdmIsKept(n)){ return 1; }
+    if(lpdmIsGeometry(n) && (lpdmFileCount > 0)){ return 1; }   /* geometry: first file only */
+    return 0;
+ }
+ 
++/* Should this variable be PROCESSED (gathered and un-flux-converted) at all?
++ *
++ * rho must be, even though it is never written. NORHO is #defined at io_netcdf.c:486 and
++ * has no matching #undef, so it is in force for the writer too: u, v, w, theta and TKE_0
++ * are stored FLUX-CONSERVATIVELY and the writer divides each by ioBuffFieldRho, a buffer
++ * that is populated by a memcpy when rho itself comes past in the variable list. Skipping
++ * rho therefore does not merely omit a field -- it divides all five prognostic fields by
++ * uninitialised memory, and they come out inf with no error anywhere. rho precedes them in
++ * the registry, so processing it and simply not writing it restores the conversion.
++ */
++static int lpdmSkipProcess(const char *n){
++   if(ioLPDMmode == 0){ return 0; }
++   if(!strcmp(n, "rho")){ return 0; }
++   return !lpdmIsKept(n);
++}
++
+ int dimids[MAXDIMS];
+ size_t count[MAXDIMS];
+ size_t start[MAXDIMS];
+@@ -741,7 +757,7 @@ int ioDefineNetCDFoutFileVars(int ncid){
+    /* For each entry in the ioVarsList, def the var */
+    ptr = getFirstVarFromList();
+    while(ptr != NULL){
+-      if(lpdmSkip(ptr->name)){ ptr = ptr->next; continue; }
++      if(lpdmSkipWrite(ptr->name)){ ptr = ptr->next; continue; }
+       /* define the variable */
+       if (!strcmp(ptr->type,"float")){ 
+          if((ioLPDMmode == 1) && lpdmIsPacked(ptr->name)){
+@@ -854,7 +870,7 @@ int ioPutNetCDFoutFileVars(int ncid, int Nx, int Ny, int Nz, int Nh){
+    /* For each entry in the ioVarsList, "put" the var */
+    ptr = getFirstVarFromList();
+    while(ptr != NULL){
+-      if(lpdmSkip(ptr->name)){ ptr = ptr->next; continue; }
++      if(lpdmSkipProcess(ptr->name)){ ptr = ptr->next; continue; }
+ //#define NORHO  //if defined, it was in ioGetNetCDFinFileVars up above
+ #ifdef NORHO
+    float * rhofield;
+@@ -984,17 +1000,25 @@ int ioPutNetCDFoutFileVars(int ncid, int Nx, int Ny, int Nz, int Nh){
+    fflush(stdout);
+ #endif
+          if (mpi_rank_world==0){
+-           if((ioLPDMmode == 1) && lpdmIsPacked(ptr->name)){
++           if(lpdmSkipWrite(ptr->name)){
++             /* processed for its side effect on ioBuffFieldRho, but not written */
++           }else if((ioLPDMmode == 1) && lpdmIsPacked(ptr->name)){
+              /* CF packing over this file's actual range: value = scale*stored + offset.
+-                65534 (not 65536) of the 16-bit range is used so both endpoints are
+-                representable and -32768 stays free as a fill value. */
++                The range is [-32000, +32000], NOT the full 16 bits, and that matters: the
++                DEFAULT netCDF fill value for NC_SHORT is -32767, so mapping a field's
++                minimum onto -32767 makes every reader with auto-masking on treat the
++                coldest/slowest cells as MISSING. Staying inside +/-32000 leaves the fill
++                value unreachable by data and needs no _FillValue attribute (which cannot
++                be added after the variable holds data anyway). The cost is 64000 levels
++                instead of 65534 -- 2.3% coarser, against a quantisation that is already
++                four orders of magnitude below the estimator's own noise. */
+              lpdmMin = ioBuffField[0];
+              lpdmMax = ioBuffField[0];
+              for(lpdmIdx = 1; lpdmIdx < (long long)numElems; lpdmIdx++){
+                if(ioBuffField[lpdmIdx] < lpdmMin){ lpdmMin = ioBuffField[lpdmIdx]; }
+                if(ioBuffField[lpdmIdx] > lpdmMax){ lpdmMax = ioBuffField[lpdmIdx]; }
+              }
+-             lpdmScale  = (lpdmMax - lpdmMin)/65534.0f;
++             lpdmScale  = (lpdmMax - lpdmMin)/64000.0f;
+              if(lpdmScale <= 0.0f){ lpdmScale = 1.0f; }  /* constant field */
+              lpdmOffset = 0.5f*(lpdmMax + lpdmMin);
+              lpdmPackBuff = (short *) malloc(((size_t)numElems)*sizeof(short));

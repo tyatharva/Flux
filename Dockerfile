@@ -1,7 +1,7 @@
 # FastEddy v5.0.1 toolchain image — Kegonsa Solar Array flux footprint project
 #
 # Contains ONLY the toolchain. FastEddy source is NOT copied in; it is compiled
-# inside the bind-mounted host tree (see docker/build_fasteddy.sh) so the fork's
+# inside the bind-mounted host tree (see docker/build_fasteddy.sh) so the patched tree's
 # git working tree stays authoritative and source edits never rebuild the image.
 #
 # Dependency set follows inst.txt's FastEddy block. Two deviations from it, both

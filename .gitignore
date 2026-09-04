@@ -1,6 +1,8 @@
-# --- FastEddy model source: separate repository (fork of NCAR/FastEddy-model) ---
-# Pinned by FASTEDDY_VERSION.txt. Never vendored into this repo.
+# --- FastEddy source: NCAR v5.0.1 + fasteddy/patches, fetched by fasteddy/fetch.sh ---
+# Pinned by fasteddy/UPSTREAM and verified against fasteddy/MANIFEST.sha256. Not vendored.
 FastEddy-model-5.0.1/
+# --- compiled GPU LPDM (docker/build_lpdm.sh builds it from lpdm/cuda/) ---
+lib/
 
 # --- Large binary input data: never committed. Provenance in data/README.md ---
 *.zip

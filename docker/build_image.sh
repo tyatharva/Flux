@@ -11,25 +11,27 @@
 # banner every run prints comes from IMAGE_PROVENANCE.txt inside the image rather than
 # from the tag, so a mislabelled pull is still self-identifying.
 #
-# BOTH REPOSITORIES ARE PINNED. This one and the FastEddy fork, which is a separate git
-# repo (gitignored here). A dirty tree is refused unless FLUX_ALLOW_DIRTY=1, because an
-# image tagged with a commit whose tree it does not contain is worse than an untagged one.
+# BOTH INPUTS ARE PINNED. This repository by its commit, and FastEddy by fasteddy/UPSTREAM
+# (NCAR v5.0.1 + the patch series, which the image fetches and verifies itself). A dirty
+# tree is refused unless FLUX_ALLOW_DIRTY=1, because an image tagged with a commit whose
+# tree it does not contain is worse than an untagged one.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; cd "$ROOT"
-FE_DIR="${FE_DIR:-$ROOT/FastEddy-model-5.0.1}"
 NAME="${IMAGE_NAME:-flux-seeds}"
 
 dirty(){ [ -n "$(git -C "$1" status --porcelain 2>/dev/null)" ] && echo "-dirty" || echo ""; }
 SHA="$(git -C "$ROOT" rev-parse --short=12 HEAD)$(dirty "$ROOT")"
-FESHA="$(git -C "$FE_DIR" rev-parse --short=12 HEAD)$(dirty "$FE_DIR")"
+# FastEddy's identity is the pinned release plus the patch series, both recorded in
+# fasteddy/UPSTREAM; the image fetches and verifies that tree itself (fasteddy/fetch.sh).
+. "$ROOT/fasteddy/UPSTREAM"
+FESHA="${UPSTREAM_TAG}-p$(cat "$ROOT"/fasteddy/patches/*.patch | sha256sum | cut -c1-12)"
 BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-case "$SHA$FESHA" in
+case "$SHA" in
   *dirty*)
     if [ "${FLUX_ALLOW_DIRTY:-0}" != "1" ]; then
       echo "REFUSED: uncommitted changes." >&2
-      [ -n "$(dirty "$ROOT")" ]   && git -C "$ROOT"   status --short | sed 's/^/  flux     /' >&2
-      [ -n "$(dirty "$FE_DIR")" ] && git -C "$FE_DIR" status --short | sed 's/^/  fasteddy /' >&2
+      git -C "$ROOT" status --short | sed 's/^/  flux     /' >&2
       echo "  The tag would name a commit whose tree the image does not contain." >&2
       echo "  Commit, or set FLUX_ALLOW_DIRTY=1 to build a '-dirty' tag anyway." >&2
       exit 1
@@ -40,7 +42,7 @@ esac
 TAG="${NAME}:${SHA}-fe${FESHA}"
 echo "=== building ${TAG} ==="
 echo "  flux     ${SHA}"
-echo "  fasteddy ${FESHA}"
+echo "  fasteddy ${FESHA}  (NCAR ${UPSTREAM_TAG} ${UPSTREAM_SHA:0:12} + $(ls "$ROOT"/fasteddy/patches | wc -l) patches)"
 echo "  date     ${BUILD_DATE}"
 echo "  context  $(du -sh --exclude=.git --exclude=runs --exclude=data/hrrr --exclude=data/raw . 2>/dev/null | cut -f1) (before .dockerignore)"
 

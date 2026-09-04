@@ -7,7 +7,7 @@
 # Every line here is a PRE-EXISTING UPSTREAM printf format mismatch. Nothing is suppressed
 # -- upstream's own -Wall is on and these are what it says. They are recorded rather than
 # fixed because fixing them would put this fork's diff into files it otherwise does not
-# touch (FASTEDDY_VERSION.txt), for a set of diagnostics with no runtime effect on a 64-bit
+# touch (fasteddy/README.md), for a set of diagnostics with no runtime effect on a 64-bit
 # host: %u and %d against size_t print the low 32 bits of a value that is a device
 # capability, and the zero-length format strings write an empty name.
 #

@@ -260,7 +260,7 @@ class WindowAccumulator:
         # THE SURFACE FLUX IS DERIVED PER CELL FOR EVERY DUMP, AND THE BRANCH THAT
         # USED htFlux WHEN IT HAPPENED TO BE PRESENT IS GONE.
         #
-        # It read "htFlux is not written by the fork's ioLPDMmode, so fall back to
+        # It read "htFlux is not written by the patched ioLPDMmode, so fall back to
         # invOblen", and that premise was stale: ioLPDMfullFrq writes a FULL dump at
         # every multiple of its setting, and a full dump carries htFlux. So a lean
         # window silently mixed TWO estimators -- measured on case_2023052519, 2 of 12

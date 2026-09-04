@@ -1,0 +1,151 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Atharva Tyagi <tyagiatharva11@gmail.com>
+Date: Thu, 20 Aug 2026 14:36:02 -0400
+Subject: [PATCH] ioLPDMfullFrq: interleave a restartable full dump into lean
+ LPDM output
+
+Lean ioLPDMmode output is not restartable by construction -- rho and pressure are
+absent -- which forced a whole sampling window to be one FastEddy invocation. At the
+24 m production grid a (30 min + t_back) window is 51+ minutes of wall time, past the
+45-minute per-run ceiling this project works under, and there was no way to break it.
+
+ioLPDMfullFrq = N writes any output whose ABSOLUTE timestep is a multiple of N in full
+upstream form -- every registered variable, fp32, coordinate geometry included -- while
+every other dump stays lean and packed. Setting it to the segment length therefore puts
+a restartable dump at each end of a chain link.
+
+Verified: the interleaved full dump has the same variable set and the same dtypes as a
+mode-0 dump and differs from an independent mode-0 run only at the ~1e-4 nondeterminism
+floor (u 3.4e-5, w 3.4e-4 relative); a second segment restarts from it cleanly.
+
+The flag is per-file and is computed from tstep on every rank before both the define
+and the put pass, so ranks cannot disagree. Default 0 = unchanged behaviour.
+---
+ SRC/IO/io.c        |  5 +++++
+ SRC/IO/io.h        |  7 +++++++
+ SRC/IO/io_netcdf.c | 29 +++++++++++++++++++++++++----
+ 3 files changed, 37 insertions(+), 4 deletions(-)
+
+diff --git a/SRC/IO/io.c b/SRC/IO/io.c
+index b10681a..97287db 100644
+--- a/SRC/IO/io.c
++++ b/SRC/IO/io.c
+@@ -43,6 +43,7 @@ size_t start2dTD[MAXDIMS];
+ /* Parameters */
+ int ioOutputMode;  /*0: N-to-1 gather and write to a netCDF file, 1: N-to-N writes of FastEddy binary files*/
+ int ioLPDMmode;    /*0 = upstream full output, 1 = lean 16-bit output for offline LPDM use*/
++int ioLPDMfullFrq; /*0 = off; else write a full restartable dump every this many ABSOLUTE steps*/
+ char *outPath;     /* Directory Path where output files are to be written */
+ char *outFileBase; /* Base name of the output file series as in (outFileBase).element-in-series */
+ char *inPath;      /* Directory Path where input files are to be read from */
+@@ -90,6 +91,8 @@ int ioGetParams(){
+    errorCode = queryIntegerParameter("ioOutputMode", &ioOutputMode, 0, 1, PARAM_OPTIONAL);
+    ioLPDMmode=0; //default = 0, i.e. upstream behaviour
+    errorCode = queryIntegerParameter("ioLPDMmode", &ioLPDMmode, 0, 1, PARAM_OPTIONAL);
++   ioLPDMfullFrq=0; //default = 0, i.e. no full dumps interleaved
++   errorCode = queryIntegerParameter("ioLPDMfullFrq", &ioLPDMfullFrq, 0, INT_MAX, PARAM_OPTIONAL);
+    errorCode = queryPathParameter("inPath", &inPath, PARAM_OPTIONAL);
+    errorCode = queryStringParameter("inFile", &inFile, PARAM_OPTIONAL);
+    errorCode = queryPathParameter("outPath", &outPath, PARAM_MANDATORY);
+@@ -131,6 +134,8 @@ int ioInit(){
+    MPI_Bcast(&ioOutputMode, 1, MPI_INTEGER, 0, MPI_COMM_WORLD);
+    /*ioLPDMmode*/
+    MPI_Bcast(&ioLPDMmode, 1, MPI_INTEGER, 0, MPI_COMM_WORLD);
++   /*ioLPDMfullFrq*/
++   MPI_Bcast(&ioLPDMfullFrq, 1, MPI_INTEGER, 0, MPI_COMM_WORLD);
+    /*inPath string*/
+    strLength = 0;
+    if(mpi_rank_world == 0){
+diff --git a/SRC/IO/io.h b/SRC/IO/io.h
+index 105ff43..f35df4a 100644
+--- a/SRC/IO/io.h
++++ b/SRC/IO/io.h
+@@ -49,6 +49,13 @@ extern int ioLPDMmode;    /*0 = upstream: write every registered variable at ful
+                             fields a backward LPDM reads, store the 3-D prognostic ones as
+                             CF-packed 16-bit integers, and write the static coordinate
+                             geometry in the first file of the run only. Default 0.*/
++extern int ioLPDMfullFrq; /*0 = off. Otherwise: when ioLPDMmode = 1, any output whose
++                            ABSOLUTE timestep is a multiple of this value is written in
++                            full upstream form (every registered variable, fp32) instead
++                            of the lean packed form, so it can be restarted from.
++                            Exists because lean output is deliberately not restartable
++                            (rho and pressure are absent), which would otherwise force a
++                            sampling window to be one single FastEddy invocation.*/
+ extern char *outPath;     /* Directory Path where output files are to be written */
+ extern char *outFileBase; /* Base name of the output file series as in (outFileBase).element-in-series */ 
+ extern char *inPath;      /* Directory Path where input files are to be read from */
+diff --git a/SRC/IO/io_netcdf.c b/SRC/IO/io_netcdf.c
+index 176809a..5791a02 100644
+--- a/SRC/IO/io_netcdf.c
++++ b/SRC/IO/io_netcdf.c
+@@ -36,6 +36,20 @@
+  */
+ static int lpdmFileCount = 0;   /* files written by THIS run; geometry goes in file 0 */
+ 
++/* Set per output file. When non-zero, THIS file is written in full upstream form even
++ * though ioLPDMmode is on -- every registered variable, fp32, geometry included -- so that
++ * it can be restarted from.
++ *
++ * Why this exists. Lean output is not restartable by construction: rho and pressure are
++ * absent. Without an escape hatch a sampling window has to be a single FastEddy
++ * invocation, which at this grid puts a (30 min + t_back) window at 51+ minutes of wall
++ * time and past our 45-minute per-run ceiling. Interleaving one full dump lets the window
++ * be chained in segments while every intermediate dump stays lean.
++ *
++ * The cost is one full dump per chain link: 181 MB against 42.7 MB, i.e. a few tenths of
++ * a percent of a 300-dump window. */
++static int lpdmFullThisFile = 0;
++
+ /* 3-D prognostic fields the LPDM reads; these get packed to 16-bit. */
+ static int lpdmIsPacked(const char *n){
+    return (!strcmp(n,"u"))||(!strcmp(n,"v"))||(!strcmp(n,"w"))
+@@ -54,7 +68,7 @@ static int lpdmIsKept(const char *n){
+ }
+ /* Should this variable be WRITTEN to this file? */
+ static int lpdmSkipWrite(const char *n){
+-   if(ioLPDMmode == 0){ return 0; }
++   if((ioLPDMmode == 0) || lpdmFullThisFile){ return 0; }
+    if(!lpdmIsKept(n)){ return 1; }
+    if(lpdmIsGeometry(n) && (lpdmFileCount > 0)){ return 1; }   /* geometry: first file only */
+    return 0;
+@@ -71,7 +85,7 @@ static int lpdmSkipWrite(const char *n){
+  * the registry, so processing it and simply not writing it restores the conversion.
+  */
+ static int lpdmSkipProcess(const char *n){
+-   if(ioLPDMmode == 0){ return 0; }
++   if((ioLPDMmode == 0) || lpdmFullThisFile){ return 0; }
+    if(!strcmp(n, "rho")){ return 0; }
+    return !lpdmIsKept(n);
+ }
+@@ -620,6 +634,13 @@ int ioWriteNetCDFoutFileSingleTime(int tstep, int Nx, int Ny, int Nz, int Nh){
+    printf("mpi_rank_world--%d/%d Beginning ioWriteNetCDFoutFileSingleTime...\n",mpi_rank_world,mpi_size_world);
+    fflush(stdout);
+ #endif
++   /* Decide, for THIS file only, whether it is a full restartable dump. Computed from
++      the ABSOLUTE timestep on every rank -- both ioDefineNetCDFoutFileVars (rank 0) and
++      ioPutNetCDFoutFileVars (all ranks) consult it below, so it must be set before either
++      and must agree across ranks. tstep and ioLPDMfullFrq are already identical
++      everywhere, so no extra communication is needed. */
++   lpdmFullThisFile = ((ioLPDMmode != 0) && (ioLPDMfullFrq > 0)
++                       && ((tstep % ioLPDMfullFrq) == 0));
+    /* build the subString tag */
+    sprintf(outSubString, ".%d",tstep);
+    /* concatenate the fileName components */
+@@ -760,7 +781,7 @@ int ioDefineNetCDFoutFileVars(int ncid){
+       if(lpdmSkipWrite(ptr->name)){ ptr = ptr->next; continue; }
+       /* define the variable */
+       if (!strcmp(ptr->type,"float")){ 
+-         if((ioLPDMmode == 1) && lpdmIsPacked(ptr->name)){
++         if((ioLPDMmode == 1) && (!lpdmFullThisFile) && lpdmIsPacked(ptr->name)){
+             /* CF-packed 16-bit; scale_factor/add_offset are attached at write time,
+                once the field's range for this file is known. */
+             if ((errorCode = nc_def_var(ncid, ptr->name, NC_SHORT, ptr->nDims, ptr->dimids, &ptr->ncvarid))){
+@@ -1002,7 +1023,7 @@ int ioPutNetCDFoutFileVars(int ncid, int Nx, int Ny, int Nz, int Nh){
+          if (mpi_rank_world==0){
+            if(lpdmSkipWrite(ptr->name)){
+              /* processed for its side effect on ioBuffFieldRho, but not written */
+-           }else if((ioLPDMmode == 1) && lpdmIsPacked(ptr->name)){
++           }else if((ioLPDMmode == 1) && (!lpdmFullThisFile) && lpdmIsPacked(ptr->name)){
+              /* CF packing over this file's actual range: value = scale*stored + offset.
+                 The range is [-32000, +32000], NOT the full 16 bits, and that matters: the
+                 DEFAULT netCDF fill value for NC_SHORT is -32767, so mapping a field's

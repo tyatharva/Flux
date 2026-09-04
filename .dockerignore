@@ -110,12 +110,11 @@ data/case_grids
 results/**/*.npz
 results/**/*.nc
 
-# --- the FastEddy fork's own artifacts and non-inputs -----------------------
-FastEddy-model-5.0.1/.git
-FastEddy-model-5.0.1/**/*.o
-FastEddy-model-5.0.1/SRC/FEMAIN/FastEddy
-FastEddy-model-5.0.1/tutorials
-FastEddy-model-5.0.1/docs
+# --- FastEddy: NOT taken from the host. The image runs fasteddy/fetch.sh itself, which
+# fetches NCAR v5.0.1, applies fasteddy/patches/ and verifies fasteddy/MANIFEST.sha256, so
+# the tree inside the image is pinned by files that ARE in git rather than by whatever
+# checkout happens to be on the build host.
+FastEddy-model-5.0.1
 
 # --- prebuilt binaries: the image compiles its own --------------------------
 lib/liblpdm.so

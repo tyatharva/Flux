@@ -1,0 +1,240 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Atharva Tyagi <tyagiatharva11@gmail.com>
+Date: Wed, 19 Aug 2026 14:52:39 -0400
+Subject: [PATCH] ioLPDMmode: lean 16-bit output for offline Lagrangian
+ dispersion
+
+A 30-min sampling window at 5 s cadence is 451 dumps. At 186x186x122 that is 77 GB of
+full fp32 output per window, of which a backward LPDM reads five 3-D fields and four 2-D
+ones. Accumulating that across a wind-direction corpus is the binding storage constraint,
+and upstream exposes no way to select output fields or reduce their precision -- the only
+five IO parameters are ioOutputMode, inFile, outFileBase, frqOutput and towerIOSelector,
+and binary mode walks the same variable list as netCDF.
+
+Adds ONE optional parameter, ioLPDMmode, defaulting to 0 = upstream behaviour, so the
+diff is inert unless asked for. With ioLPDMmode = 1:
+
+  - only u, v, w, theta, TKE_0, fricVel, z0m, invOblen and the coordinate geometry are
+    written; everything else is skipped
+  - the five 3-D prognostic fields are stored as CF-packed 16-bit integers, with
+    scale_factor and add_offset computed from each field's range in each file. CF packing
+    rather than IEEE half: it is self-describing, every CF-aware reader unpacks it with no
+    code change, and a uniform absolute resolution suits a velocity field that crosses
+    zero better than a floating-point one does
+  - xPos/yPos/zPos/topoPos/lat/lon go into the FIRST file a run produces and are omitted
+    thereafter. They are rewritten byte-identically every dump, and at this grid they cost
+    more than the packed prognostic fields they accompany
+
+77 GB per window becomes about 19 GB.
+
+Packing resolution is range/65534, uniform. For w over a typical window that is ~1e-4 m/s
+against sigma_w ~ 0.36 m/s -- four orders of magnitude below the Monte-Carlo noise of the
+dispersion estimator that consumes it, which is the standard the precision has to meet.
+65534 rather than 65536 so both endpoints are representable and -32768 stays free.
+
+THE RESULTING FILES ARE NOT RESTARTABLE, by construction: rho and pressure are absent.
+Restart from a full dump written with ioLPDMmode = 0. The parameter help says so.
+---
+ SRC/IO/io.c        |  5 +++
+ SRC/IO/io.h        |  5 +++
+ SRC/IO/io_netcdf.c | 95 +++++++++++++++++++++++++++++++++++++++++++++-
+ 3 files changed, 103 insertions(+), 2 deletions(-)
+
+diff --git a/SRC/IO/io.c b/SRC/IO/io.c
+index 98ebc06..b10681a 100644
+--- a/SRC/IO/io.c
++++ b/SRC/IO/io.c
+@@ -42,6 +42,7 @@ size_t start2dTD[MAXDIMS];
+ /*######################------------------- IO module variable definitions ---------------------#################*/
+ /* Parameters */
+ int ioOutputMode;  /*0: N-to-1 gather and write to a netCDF file, 1: N-to-N writes of FastEddy binary files*/
++int ioLPDMmode;    /*0 = upstream full output, 1 = lean 16-bit output for offline LPDM use*/
+ char *outPath;     /* Directory Path where output files are to be written */
+ char *outFileBase; /* Base name of the output file series as in (outFileBase).element-in-series */
+ char *inPath;      /* Directory Path where input files are to be read from */
+@@ -87,6 +88,8 @@ int ioGetParams(){
+    /*query for each IO parameter */
+    ioOutputMode=0; //default  = 0
+    errorCode = queryIntegerParameter("ioOutputMode", &ioOutputMode, 0, 1, PARAM_OPTIONAL);
++   ioLPDMmode=0; //default = 0, i.e. upstream behaviour
++   errorCode = queryIntegerParameter("ioLPDMmode", &ioLPDMmode, 0, 1, PARAM_OPTIONAL);
+    errorCode = queryPathParameter("inPath", &inPath, PARAM_OPTIONAL);
+    errorCode = queryStringParameter("inFile", &inFile, PARAM_OPTIONAL);
+    errorCode = queryPathParameter("outPath", &outPath, PARAM_MANDATORY);
+@@ -126,6 +129,8 @@ int ioInit(){
+    /*Broadcast the parameters across mpi_ranks*/
+    /*ioOutputMode*/
+    MPI_Bcast(&ioOutputMode, 1, MPI_INTEGER, 0, MPI_COMM_WORLD);
++   /*ioLPDMmode*/
++   MPI_Bcast(&ioLPDMmode, 1, MPI_INTEGER, 0, MPI_COMM_WORLD);
+    /*inPath string*/
+    strLength = 0;
+    if(mpi_rank_world == 0){
+diff --git a/SRC/IO/io.h b/SRC/IO/io.h
+index acaf5fd..105ff43 100644
+--- a/SRC/IO/io.h
++++ b/SRC/IO/io.h
+@@ -44,6 +44,11 @@ typedef struct _ioProfiles_t {     // Structure of Arrays (SOA)
+ /*######################------------------- IO module variable declarations ---------------------#################*/
+ /* Parameters */
+ extern int ioOutputMode;  /*0: N-to-1 gather and write to a netCDF file, 1: N-to-N writes of FastEddy binary files*/
++extern int ioLPDMmode;    /*0 = upstream: write every registered variable at full fp32.
++                            1 = lean output for offline Lagrangian dispersion: write ONLY the
++                            fields a backward LPDM reads, store the 3-D prognostic ones as
++                            CF-packed 16-bit integers, and write the static coordinate
++                            geometry in the first file of the run only. Default 0.*/
+ extern char *outPath;     /* Directory Path where output files are to be written */
+ extern char *outFileBase; /* Base name of the output file series as in (outFileBase).element-in-series */ 
+ extern char *inPath;      /* Directory Path where input files are to be read from */
+diff --git a/SRC/IO/io_netcdf.c b/SRC/IO/io_netcdf.c
+index 5c2ade7..b0a2fce 100644
+--- a/SRC/IO/io_netcdf.c
++++ b/SRC/IO/io_netcdf.c
+@@ -15,8 +15,51 @@
+ */
+ 
+ #include <stdlib.h>
++#include <math.h>       /* lroundf(), for ioLPDMmode 16-bit packing */
+ 
+ #define MAXLEN 256
++
++/*----->>>>> LPDM-lean output (ioLPDMmode = 1) --------------------------------------------
++ * A 30-min sampling window at 5 s cadence is 451 dumps. At this project's grid that is
++ * 77 GB of full fp32 output per window, of which an offline backward Lagrangian model
++ * reads five 3-D fields and four 2-D ones. This mode writes only those, packs the 3-D
++ * prognostics into CF-convention 16-bit integers (scale_factor / add_offset, so any
++ * CF-aware reader unpacks them with no code change), and writes the static coordinate
++ * geometry only in the first file a run produces. 77 GB becomes about 19 GB.
++ *
++ * 16-bit packing over the per-file range gives a uniform absolute resolution of
++ * range/65534 -- for w that is ~1e-4 m/s against sigma_w ~ 0.36, four orders of magnitude
++ * below the Monte-Carlo noise of the dispersion estimator itself.
++ *
++ * THESE FILES ARE NOT RESTARTABLE: rho and pressure are absent by construction. Restart
++ * from a full dump written with ioLPDMmode = 0.
++ */
++static int lpdmFileCount = 0;   /* files written by THIS run; geometry goes in file 0 */
++
++/* 3-D prognostic fields the LPDM reads; these get packed to 16-bit. */
++static int lpdmIsPacked(const char *n){
++   return (!strcmp(n,"u"))||(!strcmp(n,"v"))||(!strcmp(n,"w"))
++        ||(!strcmp(n,"theta"))||(!strcmp(n,"TKE_0"));
++}
++/* Static geometry: needed once per run, identical in every dump thereafter. */
++static int lpdmIsGeometry(const char *n){
++   return (!strcmp(n,"xPos"))||(!strcmp(n,"yPos"))||(!strcmp(n,"zPos"))
++        ||(!strcmp(n,"topoPos"))||(!strcmp(n,"lat"))||(!strcmp(n,"lon"));
++}
++/* Everything the LPDM reads, whether packed or not. */
++static int lpdmIsKept(const char *n){
++   return lpdmIsPacked(n) || lpdmIsGeometry(n)
++        ||(!strcmp(n,"fricVel"))||(!strcmp(n,"z0m"))||(!strcmp(n,"invOblen"))
++        ||(!strcmp(n,"time"));
++}
++/* Should this variable be written to THIS file? */
++static int lpdmSkip(const char *n){
++   if(ioLPDMmode == 0){ return 0; }
++   if(!lpdmIsKept(n)){ return 1; }
++   if(lpdmIsGeometry(n) && (lpdmFileCount > 0)){ return 1; }   /* geometry: first file only */
++   return 0;
++}
++
+ int dimids[MAXDIMS];
+ size_t count[MAXDIMS];
+ size_t start[MAXDIMS];
+@@ -596,6 +639,11 @@ int ioWriteNetCDFoutFileSingleTime(int tstep, int Nx, int Ny, int Nz, int Nh){
+    if(mpi_rank_world==0){
+      errorCode = ioCloseNetCDFfile(ncid);    
+    } //endif mpi_rank_world==0
++   /* Count files written by THIS run. ioLPDMmode writes the static coordinate geometry
++      into file 0 only; every later file in the run omits it, because xPos/yPos/zPos are
++      rewritten byte-identically every dump and at this grid they cost more than the
++      packed prognostic fields they accompany. */
++   lpdmFileCount++;
+ 
+    return(errorCode);
+ } //end ioWriteNetCDFoutFileSingleTime 
+@@ -672,6 +720,7 @@ int ioDefineNetCDFoutFileDims(int ncid, int Nx, int Ny, int Nz, int Nh){
+    return(errorCode);
+ } //end ioDefineNetCDFoutFileDims()
+ 
++
+ /*----->>>>> int ioDefineNetCDFoutFileVars();    ---------------------------------------------------------------------
+  * Used to complete the sequence of variable definitions involved in "define mode" for a NetCDF file to be written.
+ */
+@@ -692,9 +741,16 @@ int ioDefineNetCDFoutFileVars(int ncid){
+    /* For each entry in the ioVarsList, def the var */
+    ptr = getFirstVarFromList();
+    while(ptr != NULL){
++      if(lpdmSkip(ptr->name)){ ptr = ptr->next; continue; }
+       /* define the variable */
+       if (!strcmp(ptr->type,"float")){ 
+-         if ((errorCode = nc_def_var(ncid, ptr->name, NC_FLOAT, ptr->nDims, ptr->dimids, &ptr->ncvarid))){
++         if((ioLPDMmode == 1) && lpdmIsPacked(ptr->name)){
++            /* CF-packed 16-bit; scale_factor/add_offset are attached at write time,
++               once the field's range for this file is known. */
++            if ((errorCode = nc_def_var(ncid, ptr->name, NC_SHORT, ptr->nDims, ptr->dimids, &ptr->ncvarid))){
++               ERR(errorCode);
++            }
++         }else if ((errorCode = nc_def_var(ncid, ptr->name, NC_FLOAT, ptr->nDims, ptr->dimids, &ptr->ncvarid))){
+             ERR(errorCode);
+          }
+       }else if (!strcmp(ptr->type,"int")){
+@@ -787,6 +843,9 @@ int ioPutNetCDFoutFileVars(int ncid, int Nx, int Ny, int Nz, int Nh){
+    int rhoDivideSwitch = 0;
+    int verbose_log = 0;
+    int *intField;
++   short *lpdmPackBuff = NULL;   /* 16-bit staging buffer for ioLPDMmode = 1 */
++   float lpdmMin, lpdmMax, lpdmScale, lpdmOffset;
++   long long lpdmIdx;
+ 
+ #ifdef GAD_EXT
+    void* memsetReturnVal;
+@@ -795,6 +854,7 @@ int ioPutNetCDFoutFileVars(int ncid, int Nx, int Ny, int Nz, int Nh){
+    /* For each entry in the ioVarsList, "put" the var */
+    ptr = getFirstVarFromList();
+    while(ptr != NULL){
++      if(lpdmSkip(ptr->name)){ ptr = ptr->next; continue; }
+ //#define NORHO  //if defined, it was in ioGetNetCDFinFileVars up above
+ #ifdef NORHO
+    float * rhofield;
+@@ -924,7 +984,38 @@ int ioPutNetCDFoutFileVars(int ncid, int Nx, int Ny, int Nz, int Nh){
+    fflush(stdout);
+ #endif
+          if (mpi_rank_world==0){
+-           if ((errorCode = nc_put_vara_float(ncid, ptr->ncvarid, start, countPtr, ioBuffField))){
++           if((ioLPDMmode == 1) && lpdmIsPacked(ptr->name)){
++             /* CF packing over this file's actual range: value = scale*stored + offset.
++                65534 (not 65536) of the 16-bit range is used so both endpoints are
++                representable and -32768 stays free as a fill value. */
++             lpdmMin = ioBuffField[0];
++             lpdmMax = ioBuffField[0];
++             for(lpdmIdx = 1; lpdmIdx < (long long)numElems; lpdmIdx++){
++               if(ioBuffField[lpdmIdx] < lpdmMin){ lpdmMin = ioBuffField[lpdmIdx]; }
++               if(ioBuffField[lpdmIdx] > lpdmMax){ lpdmMax = ioBuffField[lpdmIdx]; }
++             }
++             lpdmScale  = (lpdmMax - lpdmMin)/65534.0f;
++             if(lpdmScale <= 0.0f){ lpdmScale = 1.0f; }  /* constant field */
++             lpdmOffset = 0.5f*(lpdmMax + lpdmMin);
++             lpdmPackBuff = (short *) malloc(((size_t)numElems)*sizeof(short));
++             if(lpdmPackBuff == NULL){
++               printf("ioPutNetCDFoutFileVars: out of memory packing %s\n",ptr->name);
++               fflush(stdout);
++               return(IO_SUCCESS+1);
++             }
++             for(lpdmIdx = 0; lpdmIdx < (long long)numElems; lpdmIdx++){
++               lpdmPackBuff[lpdmIdx] =
++                 (short) lroundf((ioBuffField[lpdmIdx] - lpdmOffset)/lpdmScale);
++             }
++             if((errorCode = nc_put_att_float(ncid, ptr->ncvarid, "scale_factor", NC_FLOAT, 1, &lpdmScale))){ ERR(errorCode); }
++             if((errorCode = nc_put_att_float(ncid, ptr->ncvarid, "add_offset", NC_FLOAT, 1, &lpdmOffset))){ ERR(errorCode); }
++             if ((errorCode = nc_put_vara_short(ncid, ptr->ncvarid, start, countPtr, lpdmPackBuff))){
++                ERR(errorCode);
++                printf("ioPutNetCDFoutFileVars: Error writing packed field = %s\n",ptr->name);
++             }
++             free(lpdmPackBuff);
++             lpdmPackBuff = NULL;
++           }else if ((errorCode = nc_put_vara_float(ncid, ptr->ncvarid, start, countPtr, ioBuffField))){
+               ERR(errorCode);
+               printf("ioPutNetCDFoutFileVars: Error writing field = %s\n",ptr->name);
+            }

@@ -1,0 +1,87 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Atharva Tyagi <tyagiatharva11@gmail.com>
+Date: Fri, 21 Aug 2026 21:56:07 -0400
+Subject: [PATCH] lsf_horMnSubTerms=1 crashes with moisture off: guard two
+ unallocated pointers
+
+Running a DRY LES with subsidence on -- lsfSelector=1 and lsf_horMnSubTerms=1,
+moistureSelector=0 -- dies on the first timestep with
+
+    GPUassert: an illegal memory access was encountered
+               ../TIME_INTEGRATION/CUDA/cuda_timeIntDevice.cu 135
+
+Two unguarded moisture accesses, both in the subsidence path:
+
+1. cuda_lsfSlabMeans() launches the qv slab-mean kernel unconditionally
+   (over &moistScalars_d[0]), but cuda_moistureDeviceSetup() only allocates
+   moistScalars_d inside `if (moistureSelector > 0)` (cuda_moistureDevice.cu:41).
+   With moisture off that pointer is an unassigned global, so the launch reads
+   through null on the device.
+
+2. cudaDevice_lsfRHS writes Frhs_qv[ijk] unconditionally inside the
+   `lsf_horMnSubTerms_d == 1` branch. Frhs_qv points into moistScalarsFrhs_d,
+   allocated under the same guard, so it is the same bug on the write side.
+
+Both are now guarded by moistureSelector / moistureSelector_d. lsf_numPhiVars
+stays 5 and the qv profile slot stays zeroed by the existing memset, so the
+rho/u/v/theta subsidence terms are bit-for-bit unchanged and a moist run is
+unaffected.
+
+Same class as the NORHO bug in 692a3cd: a pointer used outside the condition
+that allocates it. The consequence differs only in luck -- that one found zeroed
+heap and produced inf, this one finds null and traps.
+
+Verified: 400 steps and 20,000 steps dry with subsidence on now complete with no
+CORRUPTED report, all fields finite, k0/k1 = 0.807.
+---
+ .../CUDA/cuda_largeScaleForcingsDevice.cu     | 30 ++++++++++++++-----
+ 1 file changed, 22 insertions(+), 8 deletions(-)
+
+diff --git a/SRC/HYDRO_CORE/CUDA/cuda_largeScaleForcingsDevice.cu b/SRC/HYDRO_CORE/CUDA/cuda_largeScaleForcingsDevice.cu
+index c0eb479..b64a34d 100644
+--- a/SRC/HYDRO_CORE/CUDA/cuda_largeScaleForcingsDevice.cu
++++ b/SRC/HYDRO_CORE/CUDA/cuda_largeScaleForcingsDevice.cu
+@@ -123,11 +123,21 @@ extern "C" int cuda_lsfSlabMeans(){
+                                                               &lsf_slabMeanPhiProfiles_d[iFldProf*fldProfStride]);
+    }//end for iFldProf
+    //Blank out the temporary storage and atmonic result
+-   iFldProf=lsf_numPhiVars-1; //qv
+-   iFld=0;
+-   cuda_singleRankHorizSlabMeans<<<grid_red, tBlock_red>>>(&hydroFlds_d[RHO_INDX*fldStride],
+-                                                           &moistScalars_d[iFld*fldStride],lsf_meanPhiBlock_d,
+-                                                           &lsf_slabMeanPhiProfiles_d[iFldProf*fldProfStride]);
++   /* KEGONSA FIX: this qv slab-mean was UNGUARDED upstream, and moistScalars_d is only
++    * allocated when moistureSelector > 0 (cuda_moistureDevice.cu:41). Running dry with
++    * lsf_horMnSubTerms = 1 therefore launched a kernel over a null device pointer and
++    * died with "an illegal memory access was encountered" at the first timestep. The
++    * profile slot stays zeroed by the memset above, and the matching read in
++    * cudaDevice_lsfRHS is guarded the same way, so subsidence on rho/u/v/theta is
++    * unaffected. Same class of bug as the NORHO one (fork commit 692a3cd): a pointer
++    * used outside the condition that allocates it. */
++   if(moistureSelector > 0){
++     iFldProf=lsf_numPhiVars-1; //qv
++     iFld=0;
++     cuda_singleRankHorizSlabMeans<<<grid_red, tBlock_red>>>(&hydroFlds_d[RHO_INDX*fldStride],
++                                                             &moistScalars_d[iFld*fldStride],lsf_meanPhiBlock_d,
++                                                             &lsf_slabMeanPhiProfiles_d[iFldProf*fldProfStride]);
++   }
+ #ifdef DEBUG
+    if(mpi_rank_world==0){
+      printf("lsf_horMnSubTerms for phi-fields complete.\n");
+@@ -244,9 +254,13 @@ __device__ void cudaDevice_lsfRHS(float temp_freq_fac, float* rho,
+                                                -lsf_slabMeanPhiProfiles_d[3*fldProfStride+k-1]/lsf_slabMeanPhiProfiles_d[0*fldProfStride+k-1])
+                                               /(zPos_d[ijkp1]-zPos_d[ijkm1]);
+       /*qv*/
+-      Frhs_qv[ijk] = Frhs_qv[ijk]-f_lsf_w*rho[ijk]*(lsf_slabMeanPhiProfiles_d[4*fldProfStride+k+1]/lsf_slabMeanPhiProfiles_d[0*fldProfStride+k+1]
+-                                          -lsf_slabMeanPhiProfiles_d[4*fldProfStride+k-1]/lsf_slabMeanPhiProfiles_d[0*fldProfStride+k-1])
+-                                         /(zPos_d[ijkp1]-zPos_d[ijkm1]);
++      /* KEGONSA FIX: guarded, for the same reason as the slab-mean launch above --
++       * Frhs_qv points into moistScalarsFrhs_d, which is unallocated when running dry. */
++      if(moistureSelector_d > 0){
++        Frhs_qv[ijk] = Frhs_qv[ijk]-f_lsf_w*rho[ijk]*(lsf_slabMeanPhiProfiles_d[4*fldProfStride+k+1]/lsf_slabMeanPhiProfiles_d[0*fldProfStride+k+1]
++                                            -lsf_slabMeanPhiProfiles_d[4*fldProfStride+k-1]/lsf_slabMeanPhiProfiles_d[0*fldProfStride+k-1])
++                                           /(zPos_d[ijkp1]-zPos_d[ijkm1]);
++      }
+     }
+ 
+   }

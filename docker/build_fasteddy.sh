@@ -12,8 +12,8 @@
 #   Makefile:48  TEST_LDFLAGS   = -L.                      # no CUDA/NetCDF/MPI lib paths
 #
 # All three are plain `=` assignments, so make command-line overrides win. That
-# lets us fix the build WITHOUT editing the fork, keeping its diff against
-# upstream v5.0.1 empty (see FASTEDDY_VERSION.txt).
+# lets us fix the build WITHOUT editing FastEddy's Makefile, so the project's
+# patch series (fasteddy/patches/, see fasteddy/README.md) touches source only.
 #
 # Note we do NOT add -O2 to host code, even though the Makefile sets no -O flag
 # at all (nvcc still defaults device code to -O3). Matching NCAR's build exactly
@@ -22,6 +22,9 @@
 set -euo pipefail
 
 FE_DIR="${FE_DIR:-/work/FastEddy-model-5.0.1}"
+[ -f "${FE_DIR}/SRC/FEMAIN/Makefile" ] \
+  || { echo "FATAL: no FastEddy source at ${FE_DIR}. Run fasteddy/fetch.sh first (it fetches"; \
+       echo "       NCAR v5.0.1 and applies fasteddy/patches/)." >&2; exit 1; }
 CUDA_HOME="${CUDA_HOME:-/usr/local/cuda}"
 MPI_ROOT="${MPI_ROOT:-/opt/openmpi}"
 NETCDF_ROOT="${NETCDF_ROOT:-/usr}"

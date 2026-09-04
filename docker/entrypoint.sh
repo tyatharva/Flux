@@ -15,7 +15,7 @@ cd "${FLUX_ROOT}"
 
 banner(){
   echo "=============================================================================="
-  echo " Flux seed generator -- FastEddy v5.0.1 (kegonsa fork) + Kegonsa LPDM pipeline"
+  echo " Flux seed generator -- FastEddy v5.0.1 + fasteddy/patches + Kegonsa LPDM pipeline"
   [ -f "${FLUX_ROOT}/IMAGE_PROVENANCE.txt" ] && sed 's/^/ /' "${FLUX_ROOT}/IMAGE_PROVENANCE.txt"
   if command -v nvidia-smi >/dev/null 2>&1; then
     echo " visible GPUs:"

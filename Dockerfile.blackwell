@@ -1,4 +1,4 @@
-# FastEddy v5.0.1 (kegonsa fork) — PORTABLE SEED IMAGE, CUDA 13.0, Blackwell-capable
+# FastEddy v5.0.1 + fasteddy/patches — PORTABLE SEED IMAGE, CUDA 13.0, Blackwell-capable
 # =============================================================================
 # Kegonsa Solar Array flux-footprint project. Built to be pulled onto a rented
 # multi-GPU box and run with ONE command, with no clone, no build and no chance
@@ -21,7 +21,7 @@
 # 11.8's newest PTX is compute_90, so an 11.8 binary cannot even JIT onto
 # sm_120. It fails at cuModuleLoad, before any physics.
 #
-# PROJECT_BRIEF.md's "CUDA 11.8 (do not upgrade)" was written when sm_89 was the only
+# The old brief's "CUDA 11.8 (do not upgrade)" was written when sm_89 was the only
 # target that mattered and 11.8 was the FIRST release that had it -- a floor,
 # not a ceiling. That pin is superseded HERE and only here. What the upgrade
 # changed, and what it measurably did not, is docs/FASTEDDY_TRAPS.md 23.
@@ -67,7 +67,7 @@
 #
 # BITWISE REPRODUCIBILITY DOES NOT SURVIVE THIS, AND IS NOT MEANT TO.
 # FastEddy is not bitwise reproducible run-to-run on ONE GPU (~1e-4 relative in
-# velocity after 200 steps -- PROJECT_BRIEF.md), so it certainly is not across a
+# velocity after 200 steps -- docs/reference/fasteddy-traps.md), so it certainly is not across a
 # toolkit change or an architecture change. The claim this image makes is the
 # one that matters and the one that was measured, against that same floor:
 #
@@ -260,13 +260,20 @@ ARG BUILD_DATE=unknown
 WORKDIR /flux
 COPY . /flux/
 
+# FastEddy is fetched HERE, not copied from the build host. fasteddy/fetch.sh clones NCAR's
+# v5.0.1 tag, asserts its SHA, applies fasteddy/patches/ and verifies every source file
+# against fasteddy/MANIFEST.sha256 -- so the tree the image compiles is pinned by files that
+# are in git, and a stray edit in a host checkout cannot ride into a tagged image.
+# (.dockerignore excludes FastEddy-model-5.0.1 from the context for the same reason.)
+RUN set -eux; /flux/fasteddy/fetch.sh; test -f /flux/FastEddy-model-5.0.1/SRC/FEMAIN/Makefile
+
 # ---------------------------------------------------------------------------
 # FastEddy, compiled into the image.
 #
-# The fork's Makefile is written for NCAR's Casper/Derecho module environment,
+# FastEddy's Makefile is written for NCAR's Casper/Derecho module environment,
 # where the `ncarcompilers` wrapper injects every include and library path. Off
 # it, three lines are wrong -- and all three are plain `=` assignments, so make
-# command-line overrides win and THE FORK'S MAKEFILE IS NOT EDITED:
+# command-line overrides win and THE MAKEFILE IS NOT PATCHED:
 #
 #   Makefile:39  ARCH_CU_FLAGS  = -arch=sm_80                  # A100 only
 #   Makefile:46  OTHER_INCLUDES = -I${NCAR_ROOT_MPI}/include    # -> "-I/include"
@@ -349,10 +356,10 @@ RUN set -eux; \
     ! grep -qiE '^(nvcc|ptxas) warning' /flux/build_fasteddy.log \
       || { echo "FATAL: nvcc/ptxas emitted a warning"; exit 1; }
 
-# The GPU-resident LPDM as a shared library. One translation unit, two
-# front-ends: the same .cu is linked into FastEddy for production and built
-# here for the acceptance suite, so both paths exercise the same integrator.
-# Not on a seed's path; built because this image is also the analysis image.
+# The GPU-resident LPDM as a shared library, from lpdm/cuda/ in this repository
+# (it is not part of FastEddy and not linked into it). Validated against the CPU
+# integrator by bin/test_gpu_lpdm.py; not on a seed's or a corpus case's path.
+# Built because this image is also the analysis image.
 # WHOLE-PROGRAM here (no -dc), so unlike FastEddy this one CAN carry PTX -- and
 # ${LPDM_PTX} asks for it, which is what makes the -dlink finding reproducible
 # FROM THE IMAGE: cuobjdump --list-ptx on liblpdm.so lists compute_80 and
@@ -362,13 +369,13 @@ RUN set -eux; \
 RUN set -eux; \
     mkdir -p /flux/lib; \
     nvcc -O3 ${FE_STD} ${FE_GENCODE} ${LPDM_PTX} -Xcompiler -fPIC -shared \
-         -I /flux/FastEddy-model-5.0.1/SRC/LPDM/CUDA \
-         /flux/FastEddy-model-5.0.1/SRC/LPDM/CUDA/cuda_lpdmDevice.cu \
+         -I /flux/lpdm/cuda \
+         /flux/lpdm/cuda/cuda_lpdmDevice.cu \
          -o /flux/lib/liblpdm.so 2>&1 | tee /flux/build_lpdm.log; \
     test -s /flux/lib/liblpdm.so
 
 # ---------------------------------------------------------------------------
-# ASSERT ON THE ARTIFACT, NOT ON THE FLAGS. PROJECT_BRIEF.md's most expensive standing
+# ASSERT ON THE ARTIFACT, NOT ON THE FLAGS. The project's most expensive standing
 # rule, and this project has paid for it four separate times. `-gencode ...
 # code=sm_120` on the command line is a REQUEST; what the binary carries is the
 # answer. cuobjdump reads the fatbin out of the ELF, so the build fails HERE if
@@ -521,7 +528,7 @@ RUN set -eux; \
     cat /flux/IMAGE_PROVENANCE.txt
 
 LABEL org.opencontainers.image.title="Flux FastEddy seed generator" \
-      org.opencontainers.image.description="FastEddy v5.0.1 (kegonsa fork) + Kegonsa flux-footprint pipeline; CUDA 13.0; real SASS sm_75..sm_120" \
+      org.opencontainers.image.description="FastEddy v5.0.1 + fasteddy/patches + the Kegonsa flux-footprint pipeline; CUDA 13.0; real SASS sm_75..sm_120" \
       org.opencontainers.image.revision="${GIT_COMMIT}" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       flux.fasteddy.revision="${GIT_COMMIT_FE}" \
