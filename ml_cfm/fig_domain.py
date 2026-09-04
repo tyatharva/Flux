@@ -140,7 +140,7 @@ def main(argv=None):
     sx, sy = bx0 + 120, by0 + 120
     ax.plot([sx, sx + 1000 * k], [sy, sy], color="w", lw=4, zorder=8); ax.plot([sx, sx + 1000 * k], [sy, sy], color="k", lw=1.5, zorder=9)
     ax.text(sx + 500 * k, sy + 45, "1 km", color="w", ha="center", fontsize=11, weight="bold", zorder=9)
-    ax.annotate("N", xy=(bx1 - 160, by0 + 620), xytext=(bx1 - 160, by0 + 300), color="w", ha="center", fontsize=16, weight="bold",
+    ax.annotate("N", xy=(bx0 + 160, by1 - 120), xytext=(bx0 + 160, by1 - 440), color="w", ha="center", fontsize=16, weight="bold",
                 arrowprops=dict(arrowstyle="-|>", color="w", lw=2.5), zorder=9)
     ax.text(bx1 - 40, by0 + 40, "Basemap: Esri World Imagery (Esri, Maxar, Earthstar Geographics, and the GIS User Community)",
             color="w", fontsize=8, ha="right", va="bottom", zorder=9, bbox=dict(fc="black", alpha=0.45, ec="none", pad=3))
