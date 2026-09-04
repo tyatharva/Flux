@@ -41,3 +41,4 @@
 - 2026-09-04 showcase test row 3 -> case_2025110421 (CFM leads 7/8); --prefer-cfm-profile removed, generative pinned with --case case_2025031921
 - 2026-09-04 showcase: cases pinned per split (PINNED), 18 x 12 in at 300 dpi with print point sizes, crosswind unit in the column title, bigger legend
 - 2026-09-04 poster set: the five final figures at 600 dpi (showcase 18x12 in), scientific labels, no figure titles; 22 superseded figures deleted (eval/final's six kept: frozen run)
+- 2026-09-04 the six figures of the first CFM run (eval/final) removed on request; only the five poster figures remain under results/ml_cfm
