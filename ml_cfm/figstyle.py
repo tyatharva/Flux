@@ -126,9 +126,10 @@ def table_panel(ax, values, letter=None, fontsize=11):
     cells, colours = [], []
     for key, label, fmt, hi in TABLE_ROWS:
         v = np.asarray(values[key], float)
-        best = int(np.nanargmax(v) if hi else np.nanargmin(v))
-        cells.append([label] + [fmt.format(x) for x in v])
-        colours.append(["#f7f7f7"] + ["#cfe8cf" if j == best else "white" for j in range(3)])
+        txt = [fmt.format(x) for x in v]
+        best = fmt.format(np.nanmax(v) if hi else np.nanmin(v))     # ties at the printed precision all shade
+        cells.append([label] + txt)
+        colours.append(["#f7f7f7"] + ["#cfe8cf" if t == best else "white" for t in txt])
     tb = ax.table(cellText=cells, colLabels=["", "Kljun", "FNO", "CFM"], cellColours=colours,
                   loc="center", cellLoc="center", colWidths=[0.44, 0.185, 0.185, 0.185], bbox=[0.0, 0.0, 1.0, 1.0])
     tb.auto_set_font_size(False); tb.set_fontsize(fontsize)

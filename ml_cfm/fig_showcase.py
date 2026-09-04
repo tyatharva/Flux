@@ -51,6 +51,7 @@ def main(argv=None):
     ap.add_argument("--allow-test", action="store_true")
     ap.add_argument("--out", default=None)
     ap.add_argument("--exclude", nargs="*", default=[], help="run_ids not to pick")
+    ap.add_argument("--cases", nargs="*", default=None, help="explicit run_ids, one per row, overriding the picker")
     a = ap.parse_args(argv)
     if a.split == "test" and not a.allow_test:
         raise SystemExit("refusing the test split without --allow-test")
@@ -68,7 +69,11 @@ def main(argv=None):
     X, Y = np.meshgrid(xc0, xc0)
     fields, les, _ = RM.recipe_fields(split, valid)
     kl, fno, cfm = fields["Kljun"], fields["FNO"], fields["CFM"]
-    rows = pick_cases(split, a.exclude)
+    if a.cases:
+        ids = split.meta["run_id"].astype(str)
+        rows = [int(np.where(ids == c)[0][0]) for c in a.cases]
+    else:
+        rows = pick_cases(split, a.exclude)
     sc = M.score_fields({k: f[rows] for k, f in fields.items()}, les[rows], split.wdir_deg[rows], arr, split.asymptote[rows])
     fm = {k: [RM.field_metrics(f[i], les[i], v, X, Y) for i in rows] for k, f in fields.items()}
     vmax = float(max(les[rows].max(), kl[rows].max(), cfm[rows].max(), fno[rows].max()))
@@ -106,7 +111,6 @@ def main(argv=None):
     lv = FS.levels(vmax)
     ticks = np.arange(np.ceil(lv[0]), np.floor(lv[-1]) + 0.5)
     cb.set_ticks(ticks); cb.set_ticklabels([f"$10^{{{int(t)}}}$" for t in ticks])
-    cb.set_label("flux footprint  [m$^{-2}$]      star = tower,  magenta = solar array,  background = Esri World Imagery", fontsize=13)
     cb.ax.tick_params(labelsize=11)
     os.makedirs(os.path.dirname(out), exist_ok=True)
     fig.savefig(out, dpi=130)
