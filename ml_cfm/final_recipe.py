@@ -45,11 +45,36 @@ GROUPS = ("all", "north_N_NE_NW", "array_in_view_gt5pct", "not_north")
 KEYS = M.METRIC_KEYS + M.SHAPE_KEYS + M.IMAGE_KEYS + ("x80",)
 
 
+TEST_DIR = os.path.join(REPO, "results", "ml_cfm", "test")   # the test-split artifacts live here, never under final/
+
+
+def sample_path(seed, split_name):
+    """Stored CFM samples for a seed on a split: val under final/, test under results/ml_cfm/test/."""
+    if split_name == "val":
+        return os.path.join(REPO, "results", "ml_cfm", "final", seed, "samples_val.npz")
+    return os.path.join(TEST_DIR, f"{seed}_samples_{split_name}.npz")
+
+
+def fno_path(seed, split_name):
+    if split_name == "val":
+        return os.path.join(REPO, "results", "ml", "final", seed, "pred_val.npz")
+    return os.path.join(TEST_DIR, f"fno_{seed}_pred_{split_name}.npz")
+
+
+def fno_mean(split, seeds):
+    out = []
+    for sd in seeds:
+        with np.load(fno_path(sd, split.name)) as z:
+            assert np.array_equal(z["run_id"], split.meta["run_id"])
+            out.append(z["fno"].astype(np.float32))
+    return np.mean(out, axis=0).astype(np.float32)
+
+
 def cfm_samples(split, seeds, k, tau, valid):
     """(k*len(seeds), n, H, W) m^-2, the first k stored samples per seed, tau-scaled per seed."""
     out = []
     for sd in seeds:
-        with np.load(os.path.join(REPO, "results", "ml_cfm", "final", sd, "samples_val.npz")) as z:
+        with np.load(sample_path(sd, split.name)) as z:
             assert np.array_equal(z["run_id"], split.meta["run_id"])
             T = z["samples_T"][:k].astype(np.float32)
             s_out = z["s_out"].astype(np.float32)

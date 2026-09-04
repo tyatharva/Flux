@@ -30,3 +30,4 @@
 - 2026-09-04 report_metrics v2: agreement composite (4 bounded ratios, no array share), rel L2 / W1 / KL / MS-SSIM, CRPS tau=1 vs 1.19; gate PASS
 - 2026-09-04 recipe tau -> 1.0 (decision); report_metrics v3: production errors + rel L2 / W1 / KL / MS-SSIM, all + 8 octants (octants to JSON/npz for graphs); no composite, no CRPS; gate PASS
 - 2026-09-04 report_metrics v4: RMSE for peak/centroid/integral, means for overlap80 / rel L2 / W1 / JS distance / MS-SSIM; groups all + 4 cardinal sectors + 8 octants (only all printed); gate PASS
+- 2026-09-04 figures on val: showcase v2 (4 cases, per-case metrics table, no band), generative, sectors, distributions; test_predictions.py written (not run); gate PASS

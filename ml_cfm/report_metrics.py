@@ -120,8 +120,7 @@ def recipe_fields(split, valid):
     R = FR.RECIPE
     samples = FR.cfm_samples(split, R["cfm_seeds"], R["samples_per_seed"], R["tau"], valid)
     cfm, _ = TT.threshold_stack(samples.mean(0), R["cut_frac"])
-    fno_raw = np.mean([np.load(os.path.join(REPO, "results", "ml", "final", sd, f"pred_{split.name}.npz"))["fno"]
-                       for sd in R["fno_seeds"]], axis=0).astype(np.float32)
+    fno_raw = FR.fno_mean(split, R["fno_seeds"])
     fno, _ = TT.threshold_stack(fno_raw, R["cut_frac"])
     les = np.maximum(split.target, 0).astype(np.float32)
     return {"Kljun": split.kljun, "FNO": fno, "CFM": cfm}, les, samples
@@ -144,7 +143,7 @@ def main(argv=None):
     a = ap.parse_args(argv)
     if a.split == "test" and not a.allow_test:
         raise SystemExit("refusing the test split without --allow-test")
-    split = D.load_split(a.split)
+    split = D.load_split(a.split, allow_test=a.allow_test)
     st = D.load_statics()
     arr = st["array"] > 0.5
     valid = split.valid_mask.astype(np.float32)
