@@ -80,7 +80,8 @@ def main(argv=None):
     ap.add_argument("--out", default=os.path.join(REPO, "results", "ml_cfm", "final_recipe", "domain.png"))
     ap.add_argument("--zoom", type=int, default=16)
     ap.add_argument("--zoom-inset", type=int, default=19)
-    ap.add_argument("--dpi", type=int, default=600)
+    ap.add_argument("--dpi", type=int, default=300)
+    ap.add_argument("--size", type=float, default=15.0, help="figure side [in]")
     a = ap.parse_args(argv)
     import matplotlib
     matplotlib.use("Agg")
@@ -125,7 +126,7 @@ def main(argv=None):
     img, ext = mosaic(bx0, bx1, by0, by1, a.zoom)
 
     plt.rcParams.update({"font.family": "DejaVu Sans", "pdf.fonttype": 42})
-    fig, ax = plt.subplots(figsize=(13, 13))
+    fig, ax = plt.subplots(figsize=(a.size, a.size))
     plt.subplots_adjust(left=0.02, right=0.98, top=0.98, bottom=0.02)
     ax.imshow(img, extent=ext, origin="upper", interpolation="bilinear", zorder=1)
     lev = np.arange(np.floor(np.nanmin(topo) / 5) * 5, np.nanmax(topo) + 5, 5)
