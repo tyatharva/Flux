@@ -1,9 +1,9 @@
 """The reporting metrics, on the frozen recipe (ml_cfm/final_recipe.py): the training losses
-(stated); the four production quantities (peak distance, centroid, 80% source-area overlap,
-integral) as per-record errors against the LES; and the field metrics rel. L2, sliced
-Wasserstein-1, KL(LES || model) and MS-SSIM on the log grid. Every number beside its two-window
-realisation floor. Printed for the whole split; the eight wind-rose octants go to the JSON and
-the per-record .npz for the graphs.
+(stated); peak distance, centroid and integral as RMSE over records against the LES; the 80%
+source-area overlap (Jaccard), rel. L2, sliced Wasserstein-1, Jensen-Shannon distance and
+MS-SSIM on the log grid as means over records. Every number beside its two-window realisation
+floor. Printed for the whole split; the four cardinal 90-degree sectors and the eight octants
+go to the JSON and the per-record .npz for the graphs.
 
     python -m ml_cfm.report_metrics [--split val]
 
@@ -25,17 +25,17 @@ for _p in (REPO, os.path.join(REPO, "bin")):
 
 from ml import data as D                      # noqa: E402
 from ml import metrics as M                   # noqa: E402
-from ml import evaluate as E                  # noqa: E402
 from ml_cfm import tailthresh as TT           # noqa: E402
 from ml_cfm import final_recipe as FR         # noqa: E402
 
 EPS = 1e-9            # m^-2: the log floor. ~4e-5 of the median LES peak (2.6e-5), 1.5 decades under the 99.5% cut level
 N_PROJ = 64           # sliced-Wasserstein projections
 MS_WEIGHTS = (0.0448, 0.2856, 0.3001, 0.2363, 0.1333)   # Wang et al. 2003
-GROUPS = ("all",) + tuple("oct_" + o for o in D.OCTANTS)
+CARDINAL = (("N", 0.0), ("E", 90.0), ("S", 180.0), ("W", 270.0))     # 90-degree sectors centred on each
+GROUPS = ("all",) + tuple("sector_" + c for c, _ in CARDINAL) + tuple("oct_" + o for o in D.OCTANTS)
 PRINT_GROUPS = ("all",)
-FIELD_KEYS = ("rel_l2", "sw1_m", "kl_nats", "ms_ssim")
-PROD_KEYS = ("peak_x", "centroid", "overlap80", "integral")
+FIELD_KEYS = ("overlap80", "rel_l2", "sw1_m", "js_dist", "ms_ssim")   # per-record scores, mean over records
+RMSE_KEYS = ("peak_x", "centroid", "integral")                         # per-record errors, RMSE over records
 
 LOSSES = {
     "FNO": "masked MSE + 0.03 x masked MAE, both in asinh space (global target scale) over the 122^2 interior, "
@@ -56,12 +56,14 @@ def log_field(f):
     return np.log10(np.maximum(np.asarray(f, np.float64), 0) + EPS)
 
 
-def kl_nats(ref, f, v):
-    """KL(P_ref || Q_f) in nats over the interior; both positive parts, Q smoothed by EPS."""
-    p = np.maximum(np.asarray(ref, np.float64), 0)[v]; p = p / p.sum()
-    q = np.maximum(np.asarray(f, np.float64), 0)[v] + EPS; q = q / q.sum()
-    m = p > 0
-    return float((p[m] * np.log(p[m] / q[m])).sum())
+def js_distance(f, ref, v):
+    """Jensen-Shannon distance in bits, sqrt(JS divergence), between the unit-mass positive parts
+    over the interior: 0 = identical, 1 = no shared support. Symmetric; no smoothing needed."""
+    p = np.maximum(np.asarray(f, np.float64), 0)[v]; p = p / p.sum()
+    q = np.maximum(np.asarray(ref, np.float64), 0)[v]; q = q / q.sum()
+    m = 0.5 * (p + q)
+    kl = lambda a: float((a[a > 0] * np.log2(a[a > 0] / m[a > 0])).sum())
+    return float(np.sqrt(max(0.5 * kl(p) + 0.5 * kl(q), 0.0)))
 
 
 _PROJ = None
@@ -110,7 +112,7 @@ def ms_ssim(f, ref, v):
 
 
 def field_metrics(f, ref, v, X, Y):
-    return dict(rel_l2=M.image_metrics(f, ref)["rel_l2"], sw1_m=sliced_w1(f, ref, v, X, Y), kl_nats=kl_nats(ref, f, v),
+    return dict(rel_l2=M.image_metrics(f, ref)["rel_l2"], sw1_m=sliced_w1(f, ref, v, X, Y), js_dist=js_distance(f, ref, v),
                 ms_ssim=ms_ssim(f, ref, v))
 
 
@@ -132,7 +134,7 @@ def pair_floor(arr, v, X, Y):
     wd = float(ws[0]["meta"]["wdir_deg"])
     asym = 1.0 - D.Z_RECEPTOR / float(ws[0]["scalars"][0])
     prod = M.pair_errors(w1, w0, wd, arr, asym)
-    out = {k: float(prod[k]) for k in PROD_KEYS}
+    out = {k: float(prod[k]) for k in RMSE_KEYS + ("overlap80",)}
     out.update(field_metrics(w1, w0, v, X, Y))
     return out
 
@@ -152,9 +154,12 @@ def main(argv=None):
     v = _interior()
     xc = (np.arange(D.N) - D.IJ_RECEPTOR) * D.DX
     X, Y = np.meshgrid(xc, xc)
-    tr = D.load_split("train")
-    groups = {g: np.array(m) for g, m in E.breakouts(split, np.isin(split.seed_key, list(set(tr.seed_key)))).items() if g in GROUPS}
-    del tr
+    oc = split.octant.astype(str)
+    groups = {"all": np.ones(split.n, bool)}
+    for c, deg in CARDINAL:
+        groups["sector_" + c] = np.abs((split.wdir_deg - deg + 180) % 360 - 180) <= 45
+    for o in D.OCTANTS:
+        groups["oct_" + o] = oc == o
 
     fields, les, samples = recipe_fields(split, valid)
     sc = M.score_fields(fields, les, split.wdir_deg, arr, split.asymptote)
@@ -162,40 +167,40 @@ def main(argv=None):
     fm = {}
     for name, f in fields.items():
         rows = [field_metrics(f[i], les[i], v, X, Y) for i in range(split.n)]
-        fm[name] = {k: np.array([r[k] for r in rows]) for k in FIELD_KEYS}
+        fm[name] = {k: np.array([r[k] for r in rows]) for k in FIELD_KEYS if k != "overlap80"}
+        fm[name]["overlap80"] = sc[name]["overlap80"]
     floor = pair_floor(arr, v, X, Y)
 
     out = dict(split=a.split, recipe=FR.RECIPE, losses=LOSSES, eps_m2=EPS, n_proj=N_PROJ, floor_pair=floor, groups={})
     L = [f"# Reporting metrics on {a.split} (frozen recipe, {split.n} records)", "",
          "## Training losses", ""] + [f"- **{k}**: {s}" for k, s in LOSSES.items()] + [""]
     for g, m in groups.items():
-        og = out["groups"][g] = dict(n=int(m.sum()), production={}, field={})
+        og = out["groups"][g] = dict(n=int(m.sum()), rmse={}, mean={}, median={})
         for name in fields:
-            og["production"][name] = {k: float(np.nanmedian(sc[name][k][m])) for k in PROD_KEYS}
-            og["field"][name] = {k: float(np.nanmedian(fm[name][k][m])) for k in FIELD_KEYS}
+            og["rmse"][name] = {k: float(np.sqrt(np.nanmean(sc[name][k][m] ** 2))) for k in RMSE_KEYS}
+            og["mean"][name] = {k: float(np.nanmean(fm[name][k][m])) for k in FIELD_KEYS}
+            og["median"][name] = {k: float(np.nanmedian(fm[name][k][m])) for k in FIELD_KEYS}
         if g not in PRINT_GROUPS:
             continue
-        L += [f"## {g} (n = {int(m.sum())}): medians over records", "",
-              "| model | peak distance error [m] | centroid error [m] | 80% source-area overlap (Jaccard) | integral error |", "|---|---|---|---|---|"]
+        L += [f"## {g} (n = {int(m.sum())})", "",
+              "| model | peak distance RMSE [m] | centroid RMSE [m] | integral RMSE | overlap80 (Jaccard) | rel. L2 | sliced W1 [m] | JS distance [bits] | MS-SSIM (log grid) |",
+              "|---|---|---|---|---|---|---|---|---|"]
         for name in fields:
-            t = og["production"][name]
-            L.append(f"| {name} | {t['peak_x']:.1f} | {t['centroid']:.1f} | {t['overlap80']:.3f} | {t['integral']:.3f} |")
-        L.append(f"| two-window floor | {floor['peak_x']:.1f} | {floor['centroid']:.1f} | {floor['overlap80']:.3f} | {floor['integral']:.3f} |")
-        L += ["", "| model | rel. L2 | sliced W1 [m] | KL(LES‖model) [nats] | MS-SSIM (log grid) |", "|---|---|---|---|---|"]
-        for name in fields:
-            med = og["field"][name]
-            L.append(f"| {name} | {med['rel_l2']:.3f} | {med['sw1_m']:.1f} | {med['kl_nats']:.3f} | {med['ms_ssim']:.3f} |")
-        L.append(f"| two-window floor | {floor['rel_l2']:.3f} | {floor['sw1_m']:.1f} | {floor['kl_nats']:.3f} | {floor['ms_ssim']:.3f} |")
+            r, e = og["rmse"][name], og["mean"][name]
+            L.append(f"| {name} | {r['peak_x']:.1f} | {r['centroid']:.1f} | {r['integral']:.3f} | {e['overlap80']:.3f} | {e['rel_l2']:.3f} | "
+                     f"{e['sw1_m']:.1f} | {e['js_dist']:.3f} | {e['ms_ssim']:.3f} |")
+        L.append(f"| two-window floor (n = 1) | {floor['peak_x']:.1f} | {floor['centroid']:.1f} | {floor['integral']:.3f} | {floor['overlap80']:.3f} | "
+                 f"{floor['rel_l2']:.3f} | {floor['sw1_m']:.1f} | {floor['js_dist']:.3f} | {floor['ms_ssim']:.3f} |")
         L.append("")
-    L += ["Octant groups (" + ", ".join(f"{g[4:]} n={out['groups'][g]['n']}" for g in GROUPS if g.startswith("oct_")) +
-          ") are in the JSON and the per-record .npz, for the wind-rose graphs. "
-          "Production errors: |model - LES| of the upwind peak distance and of the field integral, the distance between the two "
-          "mass centroids, and the Jaccard of the two 80% source areas (1 = identical). "
-          f"Field metrics on the 122² interior with log floor ε = {EPS:.0e} m⁻²: rel. L2 = ||model - LES|| / ||LES||; "
-          f"sliced W1 = mean over {N_PROJ} directions of the 1-D Wasserstein-1 between the unit-mass positive parts [m]; "
-          "KL = Σ P log(P/Q) with P = LES/ΣLES and Q = (model+ε)/Σ (0.008 nats smoothing bias at identical fields); "
-          "MS-SSIM = 5-scale SSIM on the log10 grid (1 = identical). "
-          "The floor row is window 1 vs window 0 of the one two-window case (a train record, n = 1), processed identically."]
+    L += ["Direction groups (" + ", ".join(f"{g.split('_', 1)[1]} n={out['groups'][g]['n']}" for g in GROUPS if g != "all") +
+          ") are in the JSON and the per-record .npz, for the wind-rose graphs; sectors are 90 degrees centred on N/E/S/W, octants 45 degrees. "
+          "Peak distance, centroid and integral: RMSE over records of the per-record error against the LES (|upwind peak distance difference|, "
+          "distance between the mass centroids, |integral difference|). The rest are means over records of per-record scores: "
+          "overlap80 = Jaccard of the two 80% source areas (1 = identical); rel. L2 = ||model - LES|| / ||LES|| on the 122² interior (0 = identical); "
+          f"sliced W1 = mean over {N_PROJ} directions of the 1-D Wasserstein-1 between the unit-mass positive parts [m] (0 = identical); "
+          "JS distance = sqrt of the Jensen-Shannon divergence in bits between the unit-mass positive parts (0 = identical, 1 = disjoint); "
+          f"MS-SSIM = 5-scale SSIM on the log10 grid with floor ε = {EPS:.0e} m⁻² (1 = identical). "
+          "The floor row is window 1 vs window 0 of the one two-window case (a train record, n = 1), processed identically: one error, not an RMSE."]
     os.makedirs(a.outdir, exist_ok=True)
     with open(os.path.join(a.outdir, f"metrics_{a.split}.md"), "w") as fh:
         fh.write("\n".join(L) + "\n")
@@ -203,8 +208,8 @@ def main(argv=None):
         json.dump(out, fh, indent=1, default=float)
     np.savez_compressed(os.path.join(a.outdir, f"metrics_{a.split}_per_record.npz"), run_id=split.meta["run_id"],
                         **{f"{n}__{k}": fm[n][k] for n in fm for k in FIELD_KEYS},
-                        octant=split.octant.astype(str),
-                        **{f"{n}__{k}": sc[n][k] for n in fields for k in PROD_KEYS})
+                        octant=split.octant.astype(str), wdir_deg=split.wdir_deg,
+                        **{f"{n}__{k}": sc[n][k] for n in fields for k in RMSE_KEYS})
     print("\n".join(L))
     return 0
 
