@@ -21,48 +21,76 @@ def levels(vmax):
     return np.linspace(top - DECADES, top, N_LEVELS)
 
 
-def footprint_panel(ax, f, vmax, statics, wdir_deg, letter=None, half=1830.0, cmap="turbo", labels="inside",
-                    contour=True):
-    """Filled log10 contours of f (m^-2) on the turbo map; returns the mappable."""
+_TOPO = None
+
+
+def model_terrain():
+    """USGS 3DEP terrain sampled at every cell centre of the 128 padded LES frame, metres ASL
+    (the model surface is the same DEM tapered at the wrap seams; the untapered one is drawn).
+    Cached at data/raw/dem_les_grid.npy."""
+    global _TOPO
+    if _TOPO is None:
+        import os
+        cache = os.path.join(D.REPO, "data", "raw", "dem_les_grid.npy")
+        if os.path.exists(cache):
+            _TOPO = np.load(cache)
+            return _TOPO
+        import rasterio
+        from pyproj import Transformer
+        g = os.path.join(D.REPO, "data", "grid30_raised")
+        meta = np.load(os.path.join(g, "meta.npy"), allow_pickle=True).item()
+        x0, y0, dx = float(meta["x0"]), float(meta["y0"]), float(meta["dx"])
+        ii = np.arange(D.N) - D.PAD
+        XX, YY = np.meshgrid(x0 + ii * dx, y0 + ii * dx)
+        lon, lat = Transformer.from_crs("EPSG:3071", "EPSG:4269", always_xy=True).transform(XX, YY)
+        with rasterio.open(os.path.join(D.REPO, "data", "raw", "output_USGS10m.tif")) as dem:
+            from rasterio.transform import rowcol
+            r, c = rowcol(dem.transform, lon.ravel(), lat.ravel())
+            r, c = np.asarray(r, int), np.asarray(c, int)
+            Z = dem.read(1)
+            t = Z[np.clip(r, 0, Z.shape[0] - 1), np.clip(c, 0, Z.shape[1] - 1)].astype(float).reshape(D.N, D.N)
+            t[t == dem.nodata] = np.nan
+        np.save(cache, t)
+        _TOPO = t
+    return _TOPO
+
+
+def footprint_panel(ax, f, vmax, statics, wdir_deg, letter=None, half=1830.0, cmap="turbo", terrain=True, alpha=0.9):
+    """The footprint as cells (no interpolation) on the turbo map over the model terrain,
+    example_plot.py style: letter top-left, no ticks. Returns the mappable."""
     import fig_corpus_pairs as FCP
     from matplotlib.patches import Rectangle
-    xc = D.cell_coords_m() if hasattr(D, "cell_coords_m") else (np.arange(D.N) - D.IJ_RECEPTOR) * D.DX
+    xc = (np.arange(D.N) - D.IJ_RECEPTOR) * D.DX
+    xe = np.concatenate([xc - D.DX / 2, [xc[-1] + D.DX / 2]])
     lv = levels(vmax)
     ff = np.asarray(f, np.float64)
     lf = np.ma.masked_less_equal(np.log10(np.maximum(ff, 10 ** lv[0])), lv[0])
     ax.set_facecolor("#ececec")
-    if contour:
-        m = ax.contourf(xc, xc, lf, levels=lv, cmap=cmap, extend="neither", zorder=2)
-    else:
-        m = ax.pcolormesh(xc, xc, np.ma.masked_less_equal(lf, lv[0]), cmap=cmap, vmin=lv[0], vmax=lv[-1], shading="nearest", zorder=2)
+    if terrain:
+        topo = model_terrain()
+        tl = np.arange(np.floor(np.nanmin(topo) / 5) * 5, np.nanmax(topo) + 5, 5)
+        ax.contourf(xc, xc, topo, levels=tl, cmap="terrain", alpha=0.45, zorder=1)
+        ax.contour(xc, xc, topo, levels=tl, colors="k", linewidths=0.25, alpha=0.35, zorder=1.5)
+    m = ax.pcolormesh(xe, xe, lf, cmap=cmap, vmin=lv[0], vmax=lv[-1], shading="flat", alpha=alpha, zorder=3)
     water = statics["water"] > 0.5
-    ax.contour(xc, xc, water, levels=[0.5], colors="#5fd0ff", linewidths=1.0, zorder=3)
+    ax.contourf(xc, xc, water.astype(float), levels=[0.5, 1.5], colors=["#7fb8ff"], alpha=0.7, zorder=2)
+    ax.contour(xc, xc, water, levels=[0.5], colors="#1f4e79", linewidths=0.8, zorder=4)
     x0, x1, y0, y1 = D.ARRAY_XY
-    ax.add_patch(Rectangle((x0, y0), x1 - x0, y1 - y0, fill=False, ec="#39ff14", lw=1.5, zorder=6))
-    ax.plot(0, 0, marker="*", ms=10, mfc="w", mec="k", mew=0.7, zorder=7)
+    ax.add_patch(Rectangle((x0, y0), x1 - x0, y1 - y0, fill=False, ec="#ff00ff", lw=1.6, zorder=6))
+    ax.plot(0, 0, marker="*", ms=11, mfc="w", mec="k", mew=0.8, zorder=7)
     FCP.draw_wind(ax, wdir_deg, colour="k")
     ax.set_xlim(-half, half); ax.set_ylim(-half, half); ax.set_aspect("equal", adjustable="box")
-    ticks = [-1000, 0, 1000]
-    ax.set_xticks(ticks); ax.set_yticks(ticks)
-    ax.set_xticklabels([f"{t/1000:+.0f} km" if t else "0" for t in ticks]); ax.set_yticklabels([f"{t/1000:+.0f} km" if t else "0" for t in ticks])
-    ax.grid(color="w", alpha=0.45, lw=0.5, zorder=4)
-    if labels == "inside":
-        ax.tick_params(axis="x", direction="in", labeltop=True, labelbottom=False, top=True, pad=-14, labelsize=8.5, length=3)
-        ax.tick_params(axis="y", direction="in", labelleft=True, pad=-30, labelsize=8.5, length=3)
-        for lab in ax.get_yticklabels():
-            lab.set_ha("left")
-    else:
-        ax.tick_params(labelsize=8.5, length=3)
+    ax.set_xticks([]); ax.set_yticks([])
     if letter:
-        ax.text(0.03, 0.965, letter, transform=ax.transAxes, fontsize=15, fontweight="bold", va="top", ha="left", zorder=8)
-    for s in ax.spines.values():
-        s.set_linewidth(0.9)
+        ax.text(0.03, 0.965, letter, transform=ax.transAxes, fontsize=16, fontweight="bold", va="top", ha="left", zorder=8)
+    for sp in ax.spines.values():
+        sp.set_linewidth(1.0)
     return m
 
 
 def table_panel(ax, values, letter=None, fontsize=11):
     """values: dict key -> (kljun, fno, cfm). Best of three shaded."""
-    ax.set_box_aspect(1); ax.axis("off")
+    ax.axis("off")
     cells, colours = [], []
     for key, label, fmt, hi in TABLE_ROWS:
         v = np.asarray(values[key], float)
@@ -79,7 +107,7 @@ def table_panel(ax, values, letter=None, fontsize=11):
         if ri == 0:
             cell.set_text_props(weight="bold"); cell.set_facecolor("#e3e3e3")
     if letter:
-        ax.text(0.03, 0.965, letter, transform=ax.transAxes, fontsize=15, fontweight="bold", va="top", ha="left", zorder=8,
+        ax.text(0.03, 0.965, letter, transform=ax.transAxes, fontsize=16, fontweight="bold", va="top", ha="left", zorder=8,
                 bbox=dict(fc="white", ec="none", pad=1))
     return tb
 
@@ -89,16 +117,14 @@ def crosswind_panel(ax, fields, wdir_deg, letter=None, legend=False, xlabel=True
     import fig_corpus_pairs as FCP
     if bands is not None:
         s_, p5, p25, p50, p75, p95 = bands
-        ax.fill_between(s_, p5, p95, color=COL["cfm"], alpha=0.15, lw=0, label="CFM: 90% of samples")
-        ax.fill_between(s_, p25, p75, color=COL["cfm"], alpha=0.30, lw=0, label="CFM: 50% of samples")
+        ax.fill_between(s_, p5, p95, color=COL["cfm"], alpha=0.22, lw=0, label="CFM: 90% of samples")
     for key, fld, lab in fields:
         s_, fy = FCP.crosswind_integrated(np.asarray(fld, np.float64), float(wdir_deg))
         ax.plot(s_, fy * 1e3, color=COL[key], lw=2.0 if key == "les" else 1.5, label=lab, zorder=5 if key == "les" else 4)
     ax.axhline(0, color="k", lw=0.5)
     ax.set_xlim(-50, 1500); ax.set_ylim(bottom=min(0, ax.get_ylim()[0]))
     ax.grid(alpha=0.3, lw=0.5)
-    ax.tick_params(labelsize=8.5, length=3)
-    ax.set_box_aspect(1)
+    ax.tick_params(labelsize=9, length=3)
     if xlabel:
         ax.set_xlabel("upwind distance from the tower [m]", fontsize=9.5)
     if ylabel:
@@ -106,4 +132,4 @@ def crosswind_panel(ax, fields, wdir_deg, letter=None, legend=False, xlabel=True
     if legend:
         ax.legend(fontsize=8.5, frameon=False, loc="upper right")
     if letter:
-        ax.text(0.03, 0.965, letter, transform=ax.transAxes, fontsize=15, fontweight="bold", va="top", ha="left", zorder=8)
+        ax.text(0.03, 0.965, letter, transform=ax.transAxes, fontsize=16, fontweight="bold", va="top", ha="left", zorder=8)

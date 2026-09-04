@@ -32,3 +32,4 @@
 - 2026-09-04 report_metrics v4: RMSE for peak/centroid/integral, means for overlap80 / rel L2 / W1 / JS distance / MS-SSIM; groups all + 4 cardinal sectors + 8 octants (only all printed); gate PASS
 - 2026-09-04 figures on val: showcase v2 (4 cases, per-case metrics table, no band), generative, sectors, distributions; test_predictions.py written (not run); gate PASS
 - 2026-09-04 figures v2 on val: showcase (turbo contourf, example_plot style, per-case table, bottom colourbar), generative (3 panels), sectors (+rose), distributions (ECDF), domain map on Esri imagery; gate PASS
+- 2026-09-04 figures v3 on val: showcase on USGS terrain, cells, equal boxes, detached colourbar; generative contour cloud + 90% band; rose zoomed per panel; ECDF log axes; domain inset over the lake with 3DEP contours; gate PASS

@@ -1,7 +1,7 @@
 """The domain figure: the 3.66 km LES domain on Esri World Imagery, the solar-array rectangle
-as parameterised, terrain contours of the model surface, and an inset over the array at full
-tile resolution with the parameterised rectangle and a translucent star at the parameterised
-tower position, so both can be compared with what the imagery shows.
+as parameterised, 5 m contours of the USGS 3DEP terrain, and an inset (placed over the lake) at
+full tile resolution over the array with the parameterised rectangle and a translucent star at
+the parameterised tower position, so both can be compared with what the imagery shows.
 
     python -m ml_cfm.fig_domain [--out results/ml_cfm/final_recipe/domain.png]
 
@@ -102,10 +102,21 @@ def main(argv=None):
     ax0, ax1, ay0, ay1 = D.ARRAY_XY
     arr = np.array([to_merc.transform(tx + ex, ty + ny_) for ex, ny_ in ((ax0, ay0), (ax1, ay0), (ax1, ay1), (ax0, ay1))])
     tower = np.array(to_merc.transform(tx, ty))
-    # terrain on the model grid, transformed cell by cell
-    ii = np.arange(nx)
-    XX, YY = np.meshgrid(x0 + ii * dx, y0 + ii * dx)
-    MX, MY = to_merc.transform(XX, YY)
+    # the real terrain: USGS 3DEP 1/3 arc-second (EPSG:4269), a window around the domain, to 3857
+    import rasterio
+    from rasterio.windows import from_bounds
+    to_ll = Transformer.from_crs("EPSG:3071", "EPSG:4269", always_xy=True)
+    ll_to_merc = Transformer.from_crs("EPSG:4269", "EPSG:3857", always_xy=True)
+    lons, lats = to_ll.transform([x0 - 400, x0 + nx * dx + 400], [y0 - 400, y0 + nx * dx + 400])
+    with rasterio.open(os.path.join(REPO, "data", "raw", "output_USGS10m.tif")) as dem:
+        win = from_bounds(lons[0], lats[0], lons[1], lats[1], dem.transform)
+        Z = dem.read(1, window=win).astype(float)
+        Z[Z == dem.nodata] = np.nan
+        wt = dem.window_transform(win)
+        cols, rows_ = np.meshgrid(np.arange(Z.shape[1]) + 0.5, np.arange(Z.shape[0]) + 0.5)
+        LON, LAT = wt * (cols, rows_)
+    MX, MY = ll_to_merc.transform(LON, LAT)
+    topo = Z
 
     pad = 250.0
     bx0, bx1 = dom[:, 0].min() - pad, dom[:, 0].max() + pad
@@ -116,12 +127,12 @@ def main(argv=None):
     fig, ax = plt.subplots(figsize=(13, 13))
     plt.subplots_adjust(left=0.02, right=0.98, top=0.98, bottom=0.02)
     ax.imshow(img, extent=ext, origin="upper", interpolation="bilinear", zorder=1)
-    lev = np.arange(np.floor(topo.min() / 5) * 5, topo.max() + 5, 5)
-    cs = ax.contour(MX, MY, topo, levels=lev, colors="w", linewidths=0.6, alpha=0.8, zorder=3)
-    ax.clabel(cs, fmt="%.0f m", fontsize=7, colors="w", inline=True, inline_spacing=2)
-    ax.add_patch(Polygon(dom, closed=True, fill=False, ec="#ffd400", lw=2.2, zorder=5))
-    ax.add_patch(Polygon(arr, closed=True, fill=False, ec="#39ff14", lw=2.0, zorder=6))
-    ax.plot(*tower, marker="*", ms=14, mfc="w", mec="k", mew=0.8, zorder=7)
+    lev = np.arange(np.floor(np.nanmin(topo) / 5) * 5, np.nanmax(topo) + 5, 5)
+    cs = ax.contour(MX, MY, topo, levels=lev, colors="w", linewidths=0.7, alpha=0.85, zorder=3)
+    ax.clabel(cs, fmt="%.0f m", fontsize=8, colors="w", inline=True, inline_spacing=2)
+    ax.add_patch(Polygon(dom, closed=True, fill=False, ec="#ffd400", lw=3.0, zorder=5))
+    ax.add_patch(Polygon(arr, closed=True, fill=False, ec="#ff00ff", lw=2.6, zorder=6))
+    ax.plot(*tower, marker="*", ms=16, mfc="w", mec="k", mew=0.9, zorder=7)
     ax.set_xlim(bx0, bx1); ax.set_ylim(by0, by1); ax.set_aspect("equal"); ax.set_xticks([]); ax.set_yticks([])
     # scale bar and north arrow (Web Mercator scale factor at this latitude)
     lat = P6.TOWER_LAT
@@ -129,28 +140,31 @@ def main(argv=None):
     sx, sy = bx0 + 120, by0 + 120
     ax.plot([sx, sx + 1000 * k], [sy, sy], color="w", lw=4, zorder=8); ax.plot([sx, sx + 1000 * k], [sy, sy], color="k", lw=1.5, zorder=9)
     ax.text(sx + 500 * k, sy + 45, "1 km", color="w", ha="center", fontsize=11, weight="bold", zorder=9)
-    ax.annotate("N", xy=(bx1 - 160, by1 - 120), xytext=(bx1 - 160, by1 - 420), color="w", ha="center", fontsize=14, weight="bold",
-                arrowprops=dict(arrowstyle="-|>", color="w", lw=2), zorder=9)
-    ax.text(bx0 + 40, by1 - 70, f"LES domain 3.66 x 3.66 km (yellow), 30 m cells; solar array as parameterised (green); tower (star), "
-            f"{P6.TOWER_LAT:.5f} N {abs(P6.TOWER_LON):.5f} W; contours: model terrain, 5 m", color="w", fontsize=9.5, va="top", zorder=9,
-            bbox=dict(fc="black", alpha=0.45, ec="none", pad=4))
+    ax.annotate("N", xy=(bx1 - 160, by0 + 620), xytext=(bx1 - 160, by0 + 300), color="w", ha="center", fontsize=16, weight="bold",
+                arrowprops=dict(arrowstyle="-|>", color="w", lw=2.5), zorder=9)
+    ax.text(bx0 + 40, by1 - 60, f"LES domain 3.66 x 3.66 km (yellow), 30 m cells.  Solar array as parameterised (magenta).\n"
+            f"Tower (star) {P6.TOWER_LAT:.5f} N, {abs(P6.TOWER_LON):.5f} W.  Contours: USGS 3DEP terrain, 5 m.", color="w", fontsize=11, va="top", zorder=9,
+            bbox=dict(fc="black", alpha=0.5, ec="none", pad=5))
     ax.text(bx1 - 40, by0 + 40, "Basemap: Esri World Imagery (Esri, Maxar, Earthstar Geographics, and the GIS User Community)",
             color="w", fontsize=8, ha="right", va="bottom", zorder=9, bbox=dict(fc="black", alpha=0.45, ec="none", pad=3))
-    # the inset over the array
+    # the inset over the array, placed over the lake (upper right)
     ipad = 60.0
     ix0, ix1 = arr[:, 0].min() - ipad, arr[:, 0].max() + ipad
     iy0, iy1 = arr[:, 1].min() - ipad, arr[:, 1].max() + ipad
     iimg, iext = mosaic(ix0, ix1, iy0, iy1, a.zoom_inset)
-    axins = inset_axes(ax, width="34%", height="52%", loc="lower left", bbox_to_anchor=(0.04, 0.09, 1, 1), bbox_transform=ax.transAxes, borderpad=0)
+    axins = inset_axes(ax, width="30%", height="50%", loc="upper right", bbox_to_anchor=(-0.02, -0.09, 1, 1), bbox_transform=ax.transAxes, borderpad=0)
     axins.imshow(iimg, extent=iext, origin="upper", interpolation="bilinear", zorder=1)
-    axins.add_patch(Polygon(arr, closed=True, fill=False, ec="#39ff14", lw=2.4, zorder=6))
-    axins.plot(*tower, marker="*", ms=26, mfc=(1, 1, 1, 0.45), mec="k", mew=1.0, zorder=7)
+    axins.add_patch(Polygon(arr, closed=True, fill=False, ec="#ff00ff", lw=3.0, zorder=6))
+    axins.plot(*tower, marker="*", ms=30, mfc=(1, 1, 1, 0.45), mec="k", mew=1.2, zorder=7)
     axins.set_xlim(ix0, ix1); axins.set_ylim(iy0, iy1); axins.set_aspect("equal"); axins.set_xticks([]); axins.set_yticks([])
-    for s in axins.spines.values():
-        s.set_edgecolor("#39ff14"); s.set_linewidth(2)
-    axins.text(0.03, 0.97, "array as parameterised: 120 x 350 m, tower 60 m from either side, 100 m from the south edge",
-               transform=axins.transAxes, color="w", fontsize=8, va="top", zorder=9, bbox=dict(fc="black", alpha=0.5, ec="none", pad=3), wrap=True)
-    mark_inset(ax, axins, loc1=2, loc2=3, fc="none", ec="#39ff14", lw=0.9, ls=":", alpha=0.8)
+    for sp in axins.spines.values():
+        sp.set_edgecolor("w"); sp.set_linewidth(4)
+    axins.set_title("INSET: the array at full imagery detail\nmagenta = array as parameterised (120 x 350 m)\nstar = tower as parameterised",
+                    fontsize=10.5, color="w", pad=6, bbox=dict(fc="black", alpha=0.55, ec="none", pad=4))
+    # the source box on the main map and two solid connectors
+    from matplotlib.patches import Rectangle
+    ax.add_patch(Rectangle((ix0, iy0), ix1 - ix0, iy1 - iy0, fill=False, ec="w", lw=2.5, zorder=8))
+    mark_inset(ax, axins, loc1=2, loc2=3, fc="none", ec="w", lw=2.0, ls="-", alpha=0.95, zorder=8)
     os.makedirs(os.path.dirname(a.out), exist_ok=True)
     fig.savefig(a.out, dpi=150)
     print("wrote", a.out)

@@ -49,7 +49,6 @@ def main(argv=None):
     ap.add_argument("--split", default="val")
     ap.add_argument("--allow-test", action="store_true")
     ap.add_argument("--out", default=None)
-    ap.add_argument("--pcolor", action="store_true", help="cells instead of filled contours")
     a = ap.parse_args(argv)
     if a.split == "test" and not a.allow_test:
         raise SystemExit("refusing the test split without --allow-test")
@@ -73,30 +72,39 @@ def main(argv=None):
     vmax = float(max(les[rows].max(), kl[rows].max(), cfm[rows].max(), fno[rows].max()))
 
     plt.rcParams.update({"font.family": "DejaVu Sans", "pdf.fonttype": 42})
-    nr = len(rows)
-    fig, axes = plt.subplots(nr, 6, figsize=(27, 4.3 * nr + 1.6))
-    plt.subplots_adjust(left=0.035, right=0.975, top=0.96, bottom=0.085, wspace=0.05, hspace=0.05)
+    nr, nc = len(rows), 6
+    box, gap, left, top_pad, bottom_pad = 4.2, 0.22, 1.05, 0.55, 1.35        # inches
+    W = left + nc * box + (nc - 1) * gap + 0.9
+    H = top_pad + nr * box + (nr - 1) * gap + bottom_pad
+    fig = plt.figure(figsize=(W, H))
+    axes = np.empty((nr, nc), object)
+    for r in range(nr):
+        for c in range(nc):
+            x = (left + c * (box + gap)) / W
+            y = (bottom_pad + (nr - 1 - r) * (box + gap)) / H
+            axes[r, c] = fig.add_axes([x, y, box / W, box / H])
     heads = ["Kljun et al. (2015)", "FNO emulator", "CFM emulator", "LES target", "Metrics for this case", "Crosswind-integrated footprint"]
     letters = iter(string.ascii_lowercase)
     for r, i in enumerate(rows):
         wd = float(split.wdir_deg[i])
         dt = str(split.meta["datetime"][i]).replace("T", " ")[:16]
         for c, fld in enumerate((kl[i], fno[i], cfm[i], les[i])):
-            m = FS.footprint_panel(axes[r, c], fld, vmax, st, wd, letter=next(letters), contour=not a.pcolor)
+            m = FS.footprint_panel(axes[r, c], fld, vmax, st, wd, letter=next(letters))
         vals = {key: [(sc[k][key][r] if key in sc[k] else fm[k][r][key]) for k in ("Kljun", "FNO", "CFM")] for key, _, _, _ in FS.TABLE_ROWS}
-        FS.table_panel(axes[r, 4], vals, letter=next(letters))
+        FS.table_panel(axes[r, 4], vals, letter=next(letters), fontsize=11.5)
         FS.crosswind_panel(axes[r, 5], [("les", les[i], "LES target"), ("kljun", kl[i], "Kljun"), ("fno", fno[i], "FNO"), ("cfm", cfm[i], "CFM")],
                            wd, letter=next(letters), legend=(r == 0), xlabel=(r == nr - 1), ylabel=True)
         axes[r, 5].yaxis.tick_right(); axes[r, 5].yaxis.set_label_position("right")
         axes[r, 0].annotate(f"{dt} UTC\nwind from {wd:.0f}° ({split.octant[i]}),  z/L = {split.zL[i]:.2f},  $z_i$ = {split.scalars[i, 0]:.0f} m",
-                            xy=(-0.03, 0.5), xycoords="axes fraction", ha="right", va="center", rotation=90, fontsize=12)
+                            xy=(-0.03, 0.5), xycoords="axes fraction", ha="right", va="center", rotation=90, fontsize=12.5)
     for ax, h in zip(axes[0], heads):
         ax.annotate(h, xy=(0.5, 1.03), xycoords="axes fraction", ha="center", va="bottom", fontsize=15)
-    cb = fig.colorbar(m, ax=axes[:, :4], orientation="horizontal", fraction=0.03, pad=0.012, aspect=70)
+    cax = fig.add_axes([left / W, 0.55 / H, (nc * box + (nc - 1) * gap) / W, 0.22 / H])
+    cb = fig.colorbar(m, cax=cax, orientation="horizontal")
     lv = FS.levels(vmax)
     ticks = np.arange(np.ceil(lv[0]), np.floor(lv[-1]) + 0.5)
     cb.set_ticks(ticks); cb.set_ticklabels([f"$10^{{{int(t)}}}$" for t in ticks])
-    cb.set_label("flux footprint  [m$^{-2}$]   (star = tower, green = solar array, cyan = shoreline, arrow = wind)", fontsize=13)
+    cb.set_label("flux footprint  [m$^{-2}$]      star = tower,  magenta = solar array,  blue = Lake Kegonsa,  arrow = wind,  background = terrain (USGS 3DEP), 5 m steps", fontsize=13)
     cb.ax.tick_params(labelsize=11)
     os.makedirs(os.path.dirname(out), exist_ok=True)
     fig.savefig(out, dpi=130)
