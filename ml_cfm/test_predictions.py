@@ -1,6 +1,6 @@
 """Write the test-split artifacts the frozen recipe needs: the FNO prediction of each seed and
 the CFM samples of each seed (samples_per_seed of the recipe, Euler 16, the sampler as trained).
-THE USER RUNS THIS, ONCE. It is the only script under ml_cfm/ that passes allow_test=True.
+THE USER RUNS THIS, ONCE. Like every script under ml_cfm/, it passes the --allow-test flag through and never sets it itself.
 
     python -m ml_cfm.test_predictions --allow-test
 
