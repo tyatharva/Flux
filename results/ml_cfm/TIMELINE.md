@@ -34,3 +34,4 @@
 - 2026-09-04 figures v2 on val: showcase (turbo contourf, example_plot style, per-case table, bottom colourbar), generative (3 panels), sectors (+rose), distributions (ECDF), domain map on Esri imagery; gate PASS
 - 2026-09-04 figures v3 on val: showcase on USGS terrain, cells, equal boxes, detached colourbar; generative contour cloud + 90% band; rose zoomed per panel; ECDF log axes; domain inset over the lake with 3DEP contours; gate PASS
 - 2026-09-04 figures v4 on val: Esri imagery under the showcase and generative panels, domain inset with a drop shadow and no connectors, sector dots refined (rose dropped), ECDFs cut to the central 90%; gate PASS
+- 2026-09-04 figures v5 on val: no wind arrow, full-saturation footprints; generative two panels with hot-pink mean contour; sectors without the perfect line; domain without caption, 3-side shadow; ECDF legends lower right; gate PASS

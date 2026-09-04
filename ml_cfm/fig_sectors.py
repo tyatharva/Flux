@@ -64,9 +64,8 @@ def main(argv=None):
                 xs.append(k + (j - 1) * 0.24); ys.append(v); lo.append(v - l); hi.append(h - v)
             ax.errorbar(xs, ys, yerr=[lo, hi], fmt="o", ms=7, color=COL[name], ecolor=COL[name], elinewidth=1.6, capsize=4, capthick=1.4,
                         mec="white", mew=0.8, label=name, zorder=3)
-        ax.axhline(perfect, color="k", lw=1.0, ls="--", zorder=2)
         ax.set_xticks(range(4)); ax.set_xticklabels([f"{c}\nn = {int(m.sum())}" for c, m in masks.items()], fontsize=10)
-        ax.set_title(label, fontsize=12, pad=8); ax.grid(axis="y", alpha=0.3, lw=0.6); ax.tick_params(axis="y", labelsize=9)
+        ax.set_title(f"{label}   (perfect = {perfect})", fontsize=12, pad=8); ax.grid(axis="y", alpha=0.3, lw=0.6); ax.tick_params(axis="y", labelsize=9)
         ax.set_xlim(-0.6, 3.6)
         if perfect == 1:
             ax.set_ylim(top=1.0 + 0.02 * (1.0 - ax.get_ylim()[0]))
@@ -75,8 +74,7 @@ def main(argv=None):
         for sp in ("top", "right"):
             ax.spines[sp].set_visible(False)
     h, l = axes[0, 0].get_legend_handles_labels()
-    fig.legend(h + [plt.Line2D([], [], color="k", ls="--", lw=1.0)], l + ["perfect (the LES scored against itself)"],
-               loc="upper center", ncol=4, fontsize=11, frameon=False, bbox_to_anchor=(0.5, 0.935))
+    fig.legend(h, l, loc="upper center", ncol=3, fontsize=11, frameon=False, bbox_to_anchor=(0.5, 0.935))
     year = {"val": "validation year 2024", "test": "test year 2025"}.get(a.split, a.split)
     fig.suptitle(f"Metrics by wind sector, {year}: 90° sectors centred on N, E, S, W.  RMSE over the sector's records for the three errors, "
                  "mean for the five scores; whiskers = 95% record-bootstrap interval.", fontsize=12.5, y=0.985)

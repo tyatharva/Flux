@@ -86,13 +86,13 @@ def imagery_on_grid(npx=1024, zoom=16):
     return _IMG
 
 
-def background(ax, half, alpha=0.6):
+def background(ax, half, alpha=0.5):
     """The imagery under a footprint panel, washed towards white by (1 - alpha)."""
     img = imagery_on_grid()
     ax.imshow(img, extent=[-half, half, -half, half], origin="lower", interpolation="bilinear", alpha=alpha, zorder=1)
 
 
-def footprint_panel(ax, f, vmax, statics, wdir_deg, letter=None, half=1830.0, cmap="turbo", terrain=True, alpha=0.92):
+def footprint_panel(ax, f, vmax, statics, wdir_deg, letter=None, half=1830.0, cmap="turbo", terrain=True, alpha=1.0, arrow=False):
     """The footprint as cells (no interpolation) on the turbo map over translucent Esri imagery,
     example_plot.py style: letter top-left, no ticks. Returns the mappable."""
     import fig_corpus_pairs as FCP
@@ -109,7 +109,8 @@ def footprint_panel(ax, f, vmax, statics, wdir_deg, letter=None, half=1830.0, cm
     x0, x1, y0, y1 = D.ARRAY_XY
     ax.add_patch(Rectangle((x0, y0), x1 - x0, y1 - y0, fill=False, ec="#ff00ff", lw=1.6, zorder=6))
     ax.plot(0, 0, marker="*", ms=11, mfc="w", mec="k", mew=0.8, zorder=7)
-    FCP.draw_wind(ax, wdir_deg, colour="k")
+    if arrow:
+        FCP.draw_wind(ax, wdir_deg, colour="k")
     ax.set_xlim(-half, half); ax.set_ylim(-half, half); ax.set_aspect("equal", adjustable="box")
     ax.set_xticks([]); ax.set_yticks([])
     if letter:

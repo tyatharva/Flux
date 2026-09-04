@@ -57,7 +57,7 @@ def main(argv=None):
                 xlabel += f"  (perfect = {perfect}, off the {'left' if perfect < lo else 'right'} edge)"
         ax.set_xlabel(xlabel, fontsize=9)
         ax.tick_params(labelsize=8.5); ax.grid(alpha=0.3, lw=0.5)
-        ax.legend(fontsize=8.5, frameon=False, loc="lower right" if perfect == 0 else "upper left")
+        ax.legend(fontsize=8.5, frameon=False, loc="lower right")
     year = {"val": "validation year 2024", "test": "test year 2025"}.get(a.split, a.split)
     fig.suptitle(f"Every record's score, {year} (n = {n}): cumulative distributions per model; dot = median; dashed = perfect where it is in range; "
                  "every axis is cut to the central 90% of records", fontsize=11.5, y=0.99)

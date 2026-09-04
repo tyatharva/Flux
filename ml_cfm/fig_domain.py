@@ -142,9 +142,6 @@ def main(argv=None):
     ax.text(sx + 500 * k, sy + 45, "1 km", color="w", ha="center", fontsize=11, weight="bold", zorder=9)
     ax.annotate("N", xy=(bx1 - 160, by0 + 620), xytext=(bx1 - 160, by0 + 300), color="w", ha="center", fontsize=16, weight="bold",
                 arrowprops=dict(arrowstyle="-|>", color="w", lw=2.5), zorder=9)
-    ax.text(bx0 + 40, by1 - 60, f"LES domain 3.66 x 3.66 km (yellow), 30 m cells.  Solar array as parameterised (magenta).\n"
-            f"Tower (star) {P6.TOWER_LAT:.5f} N, {abs(P6.TOWER_LON):.5f} W.  Contours: USGS 3DEP terrain, 5 m.", color="w", fontsize=11, va="top", zorder=9,
-            bbox=dict(fc="black", alpha=0.5, ec="none", pad=5))
     ax.text(bx1 - 40, by0 + 40, "Basemap: Esri World Imagery (Esri, Maxar, Earthstar Geographics, and the GIS User Community)",
             color="w", fontsize=8, ha="right", va="bottom", zorder=9, bbox=dict(fc="black", alpha=0.45, ec="none", pad=3))
     # the inset over the array, placed over the lake (upper right)
@@ -166,9 +163,11 @@ def main(argv=None):
     inv = ax.transData.inverted()
     (dx0, dy0), (dx1, dy1) = inv.transform([[bb.x0, bb.y0], [bb.x1, bb.y1]])
     axins.set_zorder(10)
-    for k in range(8, 0, -1):
-        off = 4.5 * k * (dx1 - dx0) / bb.width           # k * 4.5 screen px, in data units
-        ax.add_patch(Rectangle((dx0 + off, dy0 - off), dx1 - dx0, dy1 - dy0, fc="black", ec="none", alpha=0.09, zorder=9))
+    px = (dx1 - dx0) / bb.width                          # one screen pixel in data units
+    for k in range(12, 0, -1):                           # a soft shadow: spread on all sides, offset down and right
+        spread, offx, offy = 1.6 * k * px, 4.0 * px, -6.0 * px
+        ax.add_patch(Rectangle((dx0 - spread + offx, dy0 - spread + offy), (dx1 - dx0) + 2 * spread, (dy1 - dy0) + 2 * spread,
+                               fc="black", ec="none", alpha=0.07, zorder=9))
     os.makedirs(os.path.dirname(a.out), exist_ok=True)
     fig.savefig(a.out, dpi=150)
     print("wrote", a.out)
