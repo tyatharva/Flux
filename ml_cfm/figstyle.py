@@ -10,7 +10,7 @@ MODEL_COL = dict(Kljun="#c0392b", FNO="#2e8b57", CFM="#7b3fa0")
 DECADES = 4.0
 N_LEVELS = 33
 # (key, label, format, higher-is-better)
-TABLE_ROWS = (("peak_x", "peak error [m]", "{:.0f}", False), ("centroid", "centroid error [m]", "{:.0f}", False),
+TABLE_ROWS = (("peak_x", "peak error [m]", "{:.0f}", False), ("centroid", "centroid err. [m]", "{:.0f}", False),
               ("integral", "integral error", "{:.2f}", False), ("overlap80", "overlap80", "{:.2f}", True),
               ("rel_l2", "rel. L2", "{:.2f}", False), ("sw1_m", "sliced W1 [m]", "{:.0f}", False),
               ("js_dist", "JS distance", "{:.2f}", False), ("ms_ssim", "MS-SSIM", "{:.2f}", True))
@@ -92,7 +92,8 @@ def background(ax, half, alpha=0.5):
     ax.imshow(img, extent=[-half, half, -half, half], origin="lower", interpolation="bilinear", alpha=alpha, zorder=1)
 
 
-def footprint_panel(ax, f, vmax, statics, wdir_deg, letter=None, half=1830.0, cmap="turbo", terrain=True, alpha=1.0, arrow=False):
+def footprint_panel(ax, f, vmax, statics, wdir_deg, letter=None, half=1830.0, cmap="turbo", terrain=True, alpha=1.0, arrow=False,
+                    letter_size=16):
     """The footprint as cells (no interpolation) on the turbo map over translucent Esri imagery,
     example_plot.py style: letter top-left, no ticks. Returns the mappable."""
     import fig_corpus_pairs as FCP
@@ -114,13 +115,13 @@ def footprint_panel(ax, f, vmax, statics, wdir_deg, letter=None, half=1830.0, cm
     ax.set_xlim(-half, half); ax.set_ylim(-half, half); ax.set_aspect("equal", adjustable="box")
     ax.set_xticks([]); ax.set_yticks([])
     if letter:
-        ax.text(0.03, 0.965, letter, transform=ax.transAxes, fontsize=16, fontweight="bold", va="top", ha="left", zorder=8)
+        ax.text(0.03, 0.965, letter, transform=ax.transAxes, fontsize=letter_size, fontweight="bold", va="top", ha="left", zorder=8)
     for sp in ax.spines.values():
         sp.set_linewidth(1.0)
     return m
 
 
-def table_panel(ax, values, letter=None, fontsize=11):
+def table_panel(ax, values, letter=None, fontsize=11, letter_size=16):
     """values: dict key -> (kljun, fno, cfm). Best of three shaded."""
     ax.axis("off")
     cells, colours = [], []
@@ -131,7 +132,7 @@ def table_panel(ax, values, letter=None, fontsize=11):
         cells.append([label] + txt)
         colours.append(["#f7f7f7"] + ["#cfe8cf" if t == best else "white" for t in txt])
     tb = ax.table(cellText=cells, colLabels=["", "Kljun", "FNO", "CFM"], cellColours=colours,
-                  loc="center", cellLoc="center", colWidths=[0.44, 0.185, 0.185, 0.185], bbox=[0.0, 0.0, 1.0, 1.0])
+                  loc="center", cellLoc="center", colWidths=[0.49, 0.17, 0.17, 0.17], bbox=[0.0, 0.0, 1.0, 1.0])
     tb.auto_set_font_size(False); tb.set_fontsize(fontsize)
     for (ri, ci), cell in tb.get_celld().items():
         cell.set_edgecolor("#bbbbbb"); cell.set_linewidth(0.6)
@@ -140,12 +141,13 @@ def table_panel(ax, values, letter=None, fontsize=11):
         if ri == 0:
             cell.set_text_props(weight="bold"); cell.set_facecolor("#e3e3e3")
     if letter:
-        ax.text(0.03, 0.965, letter, transform=ax.transAxes, fontsize=16, fontweight="bold", va="top", ha="left", zorder=8,
+        ax.text(0.03, 0.965, letter, transform=ax.transAxes, fontsize=letter_size, fontweight="bold", va="top", ha="left", zorder=8,
                 bbox=dict(fc="white", ec="none", pad=1))
     return tb
 
 
-def crosswind_panel(ax, fields, wdir_deg, letter=None, legend=False, xlabel=True, ylabel=True, bands=None):
+def crosswind_panel(ax, fields, wdir_deg, letter=None, legend=False, xlabel=True, ylabel=True, bands=None,
+                    letter_size=16, tick_size=9, legend_size=8.5, label_size=9.5):
     """fields: list of (key, field, label) drawn in order; bands: (s, p5, p25, p50, p75, p95) in 1e-3 m^-1."""
     import fig_corpus_pairs as FCP
     if bands is not None:
@@ -157,12 +159,12 @@ def crosswind_panel(ax, fields, wdir_deg, letter=None, legend=False, xlabel=True
     ax.axhline(0, color="k", lw=0.5)
     ax.set_xlim(-50, 1500); ax.set_ylim(bottom=min(0, ax.get_ylim()[0]))
     ax.grid(alpha=0.3, lw=0.5)
-    ax.tick_params(labelsize=9, length=3)
+    ax.tick_params(labelsize=tick_size, length=3)
     if xlabel:
-        ax.set_xlabel("upwind distance from the tower [m]", fontsize=9.5)
+        ax.set_xlabel("upwind distance from the tower [m]", fontsize=label_size)
     if ylabel:
-        ax.set_ylabel(r"crosswind-integrated footprint $f_y$  [10$^{-3}$ m$^{-1}$]", fontsize=9.5)
+        ax.set_ylabel(r"crosswind-integrated footprint $f_y$  [10$^{-3}$ m$^{-1}$]", fontsize=label_size)
     if legend:
-        ax.legend(fontsize=8.5, frameon=False, loc="upper right")
+        ax.legend(fontsize=legend_size, frameon=False, loc="upper right", handlelength=2.2)
     if letter:
-        ax.text(0.03, 0.965, letter, transform=ax.transAxes, fontsize=16, fontweight="bold", va="top", ha="left", zorder=8)
+        ax.text(0.03, 0.965, letter, transform=ax.transAxes, fontsize=letter_size, fontweight="bold", va="top", ha="left", zorder=8)

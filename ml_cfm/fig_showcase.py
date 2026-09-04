@@ -24,6 +24,9 @@ from ml_cfm import report_metrics as RM       # noqa: E402
 from ml_cfm import figstyle as FS             # noqa: E402
 
 SECTORS = ("N", "W", "S", "E")
+# the cases the figure shows, pinned per split (picked by pick_cases and then adjusted on request)
+PINNED = {"val": ("case_2024050319", "case_2024021820", "case_2024103018", "case_2024122419"),
+          "test": ("case_2025053115", "case_2025020906", "case_2025110421", "case_2025042016")}
 
 
 def pick_cases(split, exclude=()):
@@ -51,7 +54,9 @@ def main(argv=None):
     ap.add_argument("--allow-test", action="store_true")
     ap.add_argument("--out", default=None)
     ap.add_argument("--exclude", nargs="*", default=[], help="run_ids not to pick")
-    ap.add_argument("--cases", nargs="*", default=None, help="explicit run_ids, one per row, overriding the picker")
+    ap.add_argument("--cases", nargs="*", default=None, help="explicit run_ids, one per row; default = PINNED[split], else the picker")
+    ap.add_argument("--size", nargs=2, type=float, default=(18.0, 12.0), help="figure width and height [in]")
+    ap.add_argument("--dpi", type=int, default=300)
     a = ap.parse_args(argv)
     if a.split == "test" and not a.allow_test:
         raise SystemExit("refusing the test split without --allow-test")
@@ -69,9 +74,10 @@ def main(argv=None):
     X, Y = np.meshgrid(xc0, xc0)
     fields, les, _ = RM.recipe_fields(split, valid)
     kl, fno, cfm = fields["Kljun"], fields["FNO"], fields["CFM"]
-    if a.cases:
+    cases = a.cases or PINNED.get(a.split)
+    if cases:
         ids = split.meta["run_id"].astype(str)
-        rows = [int(np.where(ids == c)[0][0]) for c in a.cases]
+        rows = [int(np.where(ids == c)[0][0]) for c in cases]
     else:
         rows = pick_cases(split, a.exclude)
     sc = M.score_fields({k: f[rows] for k, f in fields.items()}, les[rows], split.wdir_deg[rows], arr, split.asymptote[rows])
@@ -80,9 +86,18 @@ def main(argv=None):
 
     plt.rcParams.update({"font.family": "DejaVu Sans", "pdf.fonttype": 42})
     nr, nc = len(rows), 6
-    box, gap, left, top_pad, bottom_pad = 4.2, 0.22, 1.05, 0.55, 1.35        # inches
-    W = left + nc * box + (nc - 1) * gap + 0.9
-    H = top_pad + nr * box + (nr - 1) * gap + bottom_pad
+    W, H = a.size
+    # geometry: equal square boxes sized to fit the width, text scaled with the box
+    left_frac, right_frac, gap_frac = 0.045, 0.035, 0.012
+    top_pad, cbar_pad = 0.05 * H, 0.115 * H                    # column titles above, colour bar below
+    gap = W * gap_frac
+    box_w = (W * (1 - left_frac - right_frac) - (nc - 1) * gap) / nc
+    box_h = (H - top_pad - cbar_pad - (nr - 1) * gap) / nr
+    box = min(box_w, box_h)                                    # square boxes that fit both ways
+    left = (W - nc * box - (nc - 1) * gap) / 2 + 0.5 * (W * left_frac - W * right_frac)
+    bottom_pad = H - top_pad - nr * box - (nr - 1) * gap
+    k = W / 18.0                                               # font scale: point sizes set for an 18 in wide print
+    F = dict(head=12 * k, row=9 * k, letter=13 * k, table=8.5 * k, tick=8 * k, legend=9.5 * k, cbar=10 * k)
     fig = plt.figure(figsize=(W, H))
     axes = np.empty((nr, nc), object)
     for r in range(nr):
@@ -90,30 +105,34 @@ def main(argv=None):
             x = (left + c * (box + gap)) / W
             y = (bottom_pad + (nr - 1 - r) * (box + gap)) / H
             axes[r, c] = fig.add_axes([x, y, box / W, box / H])
-    heads = ["Kljun et al. (2015)", "FNO emulator", "CFM emulator", "LES target", "Metrics for this case", "Crosswind-integrated footprint"]
+    heads = ["Kljun et al. (2015)", "FNO emulator", "CFM emulator", "LES target", "Metrics",
+             "Crosswind-integrated $f_y$  [10$^{-3}$ m$^{-1}$]"]
     letters = iter(string.ascii_lowercase)
     for r, i in enumerate(rows):
         wd = float(split.wdir_deg[i])
         dt = str(split.meta["datetime"][i]).replace("T", " ")[:16]
         for c, fld in enumerate((kl[i], fno[i], cfm[i], les[i])):
-            m = FS.footprint_panel(axes[r, c], fld, vmax, st, wd, letter=next(letters))
-        vals = {key: [(sc[k][key][r] if key in sc[k] else fm[k][r][key]) for k in ("Kljun", "FNO", "CFM")] for key, _, _, _ in FS.TABLE_ROWS}
-        FS.table_panel(axes[r, 4], vals, letter=next(letters), fontsize=11.5)
+            m = FS.footprint_panel(axes[r, c], fld, vmax, st, wd, letter=next(letters), letter_size=F["letter"])
+        vals = {key: [(sc[k_][key][r] if key in sc[k_] else fm[k_][r][key]) for k_ in ("Kljun", "FNO", "CFM")] for key, _, _, _ in FS.TABLE_ROWS}
+        FS.table_panel(axes[r, 4], vals, letter=next(letters), fontsize=F["table"], letter_size=F["letter"])
         FS.crosswind_panel(axes[r, 5], [("les", les[i], "LES target"), ("kljun", kl[i], "Kljun"), ("fno", fno[i], "FNO"), ("cfm", cfm[i], "CFM")],
-                           wd, letter=next(letters), legend=(r == 0), xlabel=(r == nr - 1), ylabel=True)
-        axes[r, 5].yaxis.tick_right(); axes[r, 5].yaxis.set_label_position("right")
-        axes[r, 0].annotate(f"{dt} UTC\nwind from {wd:.0f}° ({split.octant[i]}),  z/L = {split.zL[i]:.2f},  $z_i$ = {split.scalars[i, 0]:.0f} m",
-                            xy=(-0.03, 0.5), xycoords="axes fraction", ha="right", va="center", rotation=90, fontsize=12.5)
+                           wd, letter=next(letters), legend=(r == 0), xlabel=(r == nr - 1), ylabel=False,
+                           letter_size=F["letter"], tick_size=F["tick"], legend_size=F["legend"], label_size=F["tick"] + 1)
+        axes[r, 5].yaxis.tick_right()
+        axes[r, 0].annotate(f"{dt} UTC\nwind from {wd:.0f}° ({split.octant[i]})\nz/L = {split.zL[i]:.2f},  $z_i$ = {split.scalars[i, 0]:.0f} m",
+                            xy=(-0.03, 0.5), xycoords="axes fraction", ha="right", va="center", rotation=90, fontsize=F["row"], linespacing=1.15)
     for ax, h in zip(axes[0], heads):
-        ax.annotate(h, xy=(0.5, 1.03), xycoords="axes fraction", ha="center", va="bottom", fontsize=15)
-    cax = fig.add_axes([left / W, 0.55 / H, (nc * box + (nc - 1) * gap) / W, 0.22 / H])
+        ax.annotate(h, xy=(0.5, 1.03), xycoords="axes fraction", ha="center", va="bottom", fontsize=F["head"])
+    cb_h = 0.12 * box
+    cax = fig.add_axes([left / W, (bottom_pad - 0.58 * cbar_pad) / H, (nc * box + (nc - 1) * gap) / W, cb_h / H])
     cb = fig.colorbar(m, cax=cax, orientation="horizontal")
     lv = FS.levels(vmax)
     ticks = np.arange(np.ceil(lv[0]), np.floor(lv[-1]) + 0.5)
     cb.set_ticks(ticks); cb.set_ticklabels([f"$10^{{{int(t)}}}$" for t in ticks])
-    cb.ax.tick_params(labelsize=11)
+    cb.set_label("flux footprint  [m$^{-2}$]", fontsize=F["cbar"], labelpad=2)
+    cb.ax.tick_params(labelsize=F["cbar"])
     os.makedirs(os.path.dirname(out), exist_ok=True)
-    fig.savefig(out, dpi=130)
+    fig.savefig(out, dpi=a.dpi)
     print("wrote", out, [str(split.meta["run_id"][i]) for i in rows])
     return 0
 
