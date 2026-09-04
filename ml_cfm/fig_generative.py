@@ -33,6 +33,7 @@ def main(argv=None):
     ap.add_argument("--allow-test", action="store_true")
     ap.add_argument("--case", default=None, help="run_id; default = the strongest-array N record")
     ap.add_argument("--out", default=None)
+    ap.add_argument("--exclude", nargs="*", default=[], help="run_ids not to pick")
     a = ap.parse_args(argv)
     if a.split == "test" and not a.allow_test:
         raise SystemExit("refusing the test split without --allow-test")
@@ -51,7 +52,8 @@ def main(argv=None):
     if a.case:
         i = int(np.where(split.meta["run_id"].astype(str) == a.case)[0][0])
     else:
-        north = np.where(split.octant.astype(str) == "N")[0]
+        ok = ~np.isin(split.meta["run_id"].astype(str), list(a.exclude))
+        north = np.where((split.octant.astype(str) == "N") & ok)[0]
         i = int(north[np.argmax(split.meta["array_share"][north])])
     wd = float(split.wdir_deg[i])
     S = samples[:, i]

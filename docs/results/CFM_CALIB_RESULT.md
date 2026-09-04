@@ -340,4 +340,4 @@ FNO 47.1 / 86.7 / 0.190 / 0.607 / 0.362 / 50.8 / 0.290 / 0.937; CFM 48.8 / 68.8 
 in every column. The CFM leads the FNO on centroid (69 vs 93 m) and W1 (41 vs 54 m) and ties on the
 rest; both emulators halve or better Kljun's peak, centroid and W1 errors. Sectors (90°, N/E/S/W,
 n = 43 / 38 / 95 / 118) and octants are in `metrics_test.json`; the figures are
-`showcase_test.png`, `generative_test.png`, `sectors_test.png`, `distributions_test.png`.
+`showcase_test.png` (cases 2025-05-31 15 N, 2025-02-09 06 NW, 2025-07-23 13 SW, 2025-04-20 16 E; the first pick per sector was set aside with `--exclude` on request), `generative_test.png` (2025-01-31 18, N), `sectors_test.png`, `distributions_test.png`.

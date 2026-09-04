@@ -26,15 +26,16 @@ from ml_cfm import figstyle as FS             # noqa: E402
 SECTORS = ("N", "W", "S", "E")
 
 
-def pick_cases(split):
+def pick_cases(split, exclude=()):
     """One record per cardinal sector, months all different: the strongest-array record for N,
-    the median-integral record otherwise."""
+    the median-integral record otherwise. `exclude`: run_ids not to use."""
     wd = split.wdir_deg
     months = np.array([str(d)[:7] for d in split.meta["datetime"]])
+    ok = ~np.isin(split.meta["run_id"].astype(str), list(exclude))
     sect = {c: np.abs((wd - deg + 180) % 360 - 180) <= 45 for c, deg in RM.CARDINAL}
     used, rows = set(), []
     for c in SECTORS:
-        idx = np.where(sect[c] & ~np.isin(months, list(used)))[0]
+        idx = np.where(sect[c] & ok & ~np.isin(months, list(used)))[0]
         if c == "N":
             i = idx[np.argmax(split.meta["array_share"][idx])]
         else:
@@ -49,6 +50,7 @@ def main(argv=None):
     ap.add_argument("--split", default="val")
     ap.add_argument("--allow-test", action="store_true")
     ap.add_argument("--out", default=None)
+    ap.add_argument("--exclude", nargs="*", default=[], help="run_ids not to pick")
     a = ap.parse_args(argv)
     if a.split == "test" and not a.allow_test:
         raise SystemExit("refusing the test split without --allow-test")
@@ -66,7 +68,7 @@ def main(argv=None):
     X, Y = np.meshgrid(xc0, xc0)
     fields, les, _ = RM.recipe_fields(split, valid)
     kl, fno, cfm = fields["Kljun"], fields["FNO"], fields["CFM"]
-    rows = pick_cases(split)
+    rows = pick_cases(split, a.exclude)
     sc = M.score_fields({k: f[rows] for k, f in fields.items()}, les[rows], split.wdir_deg[rows], arr, split.asymptote[rows])
     fm = {k: [RM.field_metrics(f[i], les[i], v, X, Y) for i in rows] for k, f in fields.items()}
     vmax = float(max(les[rows].max(), kl[rows].max(), cfm[rows].max(), fno[rows].max()))
