@@ -34,8 +34,6 @@ def main(argv=None):
     ap.add_argument("--case", default=None, help="run_id; default = the strongest-array N record")
     ap.add_argument("--out", default=None)
     ap.add_argument("--exclude", nargs="*", default=[], help="run_ids not to pick")
-    ap.add_argument("--prefer-cfm-profile", action="store_true",
-                    help="among N records with the array in view, pick the one where the CFM's crosswind profile beats the FNO's by the most")
     a = ap.parse_args(argv)
     if a.split == "test" and not a.allow_test:
         raise SystemExit("refusing the test split without --allow-test")
@@ -56,19 +54,7 @@ def main(argv=None):
     else:
         ok = ~np.isin(split.meta["run_id"].astype(str), list(a.exclude))
         north = np.where((split.octant.astype(str) == "N") & ok)[0]
-        if a.prefer_cfm_profile:
-            import seed_leakage as SL
-            cand = north[split.meta["array_share"][north] > 0.05]
-            gain = []
-            for j in cand:
-                w = float(split.wdir_deg[j])
-                fy_l = FCP.crosswind_integrated(les[j], w)[1]
-                d_f = SL.d_shape(FCP.crosswind_integrated(fields["FNO"][j], w)[1], fy_l)
-                d_c = SL.d_shape(FCP.crosswind_integrated(fields["CFM"][j], w)[1], fy_l)
-                gain.append(d_f - d_c)
-            i = int(cand[int(np.argmax(gain))])
-        else:
-            i = int(north[np.argmax(split.meta["array_share"][north])])
+        i = int(north[np.argmax(split.meta["array_share"][north])])
     wd = float(split.wdir_deg[i])
     S = samples[:, i]
     mean, kl, fno, tgt = fields["CFM"][i], fields["Kljun"][i], fields["FNO"][i], les[i]

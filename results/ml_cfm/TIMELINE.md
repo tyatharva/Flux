@@ -38,3 +38,4 @@
 - 2026-09-04 TEST RUN (user's go): test_predictions --allow-test (FNO preds + 20 CFM samples/seed, seeds 0-3, RNG 0), report_metrics + 4 figures on test; docs §8; 4 audited test reads, all allow_test
 - 2026-09-04 test figures re-picked with --exclude: showcase case_2025053115/020906/072313/042016, generative case_2025013118 (2 more audited test reads)
 - 2026-09-04 test figures: showcase pinned (--cases 053115 020906 091422 042016), table shades ties, no colourbar text; generative case_2025031921 (--prefer-cfm-profile)
+- 2026-09-04 showcase test row 3 -> case_2025110421 (CFM leads 7/8); --prefer-cfm-profile removed, generative pinned with --case case_2025031921
