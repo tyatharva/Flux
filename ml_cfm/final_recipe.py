@@ -3,7 +3,7 @@ to test when the user runs it:
 
   CFM   seeds 0-3 (seed 4 dropped as the worst on val), the first 20 stored samples per seed
         (80 pooled; the fitted saturation S_sat = 21, upper band 64, gives 70 -> 20 per seed),
-        spread scaled by tau = 1.19 around the per-record mean in asinh space, PHYSICAL-space
+        spread at tau = 1 (the sampler as trained; the 1.19 of 2026-09-03 was dropped on 2026-09-04), PHYSICAL-space
         mean, then the 99.5% source-area cut (cells below the level that keeps 99.5% of the
         positive mass -> 0; every negative cell goes with them).
   FNO   seeds 0-3 mean (seed 4 dropped as the worst on val), the same 99.5% cut.
@@ -37,9 +37,9 @@ from ml_cfm import tailthresh as TT           # noqa: E402
 from ml_cfm import crps as CR                 # noqa: E402
 from ml_cfm import evaluate as E2             # noqa: E402
 
-RECIPE = dict(cfm_seeds=("seed0", "seed1", "seed2", "seed3"), samples_per_seed=20, tau=1.19,
+RECIPE = dict(cfm_seeds=("seed0", "seed1", "seed2", "seed3"), samples_per_seed=20, tau=1.0,
               estimator="physical mean", cut_frac=0.995, fno_seeds=("seed0", "seed1", "seed2", "seed3"),
-              les="positive-only", kljun="raw", decided_on="val", date="2026-09-03")
+              les="positive-only", kljun="raw", decided_on="val", date="2026-09-04")
 OUT = os.path.join(REPO, "results", "ml_cfm", "final_recipe")
 GROUPS = ("all", "north_N_NE_NW", "array_in_view_gt5pct", "not_north")
 KEYS = M.METRIC_KEYS + M.SHAPE_KEYS + M.IMAGE_KEYS + ("x80",)
@@ -112,7 +112,7 @@ def main(argv=None):
         json.dump(out, fh, indent=1, default=float)
 
     L = [f"# The frozen recipe on {a.split} ({split.n} records)", "",
-         "CFM: seeds 0-3, 20 stored samples each (80), tau 1.19 on the spread, physical-space mean, 99.5% source-area cut. "
+         "CFM: seeds 0-3, 20 stored samples each (80), tau 1 (no spread scaling), physical-space mean, 99.5% source-area cut. "
          "FNO: seeds 0-3 mean, 99.5% cut. Kljun raw. LES positive-only (negatives -> 0).", "",
          f"Cut removed (val medians): CFM {out['cut']['cfm_mass_removed_median_pct']:.2f}% of |mass|, FNO {out['cut']['fno_mass_removed_median_pct']:.2f}%; "
          f"LES negative mass zeroed {out['cut']['les_negative_mass_zeroed_median_pct']:.2f}% (p95 {out['cut']['les_negative_mass_zeroed_p95_pct']:.2f}%).", "",
@@ -153,7 +153,7 @@ def main(argv=None):
     share = lambda f: 100 * D.raster_array_share(f, arr)
     vmax = float(max(les[rows].max(), split.kljun[rows].max(), cfm[rows].max(), fno[rows].max()))
     norm = LogNorm(vmin=vmax * 1e-4, vmax=vmax)
-    cols = [("Kljun", split.kljun), ("FNO, seeds 0-3, 99.5% cut", fno), ("CFM, seeds 0-3 x 20, tau 1.19, 99.5% cut", cfm), ("LES, positive-only", les)]
+    cols = [("Kljun", split.kljun), ("FNO, seeds 0-3, 99.5% cut", fno), ("CFM, seeds 0-3 x 20, tau 1, 99.5% cut", cfm), ("LES, positive-only", les)]
     fig, axes = plt.subplots(len(rows), 4, figsize=(17, 4.15 * len(rows)), squeeze=False)
     for r, i in enumerate(rows):
         wd = float(split.wdir_deg[i])

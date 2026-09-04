@@ -1,8 +1,9 @@
 """The reporting metrics, on the frozen recipe (ml_cfm/final_recipe.py): the training losses
-(stated); the agreement composite -- the mean of four bounded ratios (peak distance, centroid,
-80% source-area overlap, integral), each in [0, 1] with 1 = the LES; the field metrics
-rel. L2, sliced Wasserstein-1, KL(LES || model) and MS-SSIM on the log grid; and one CRPS line
-for the CFM at tau = 1 against tau = 1.19. Every number beside its two-window realisation floor.
+(stated); the four production quantities (peak distance, centroid, 80% source-area overlap,
+integral) as per-record errors against the LES; and the field metrics rel. L2, sliced
+Wasserstein-1, KL(LES || model) and MS-SSIM on the log grid. Every number beside its two-window
+realisation floor. Printed for the whole split; the eight wind-rose octants go to the JSON and
+the per-record .npz for the graphs.
 
     python -m ml_cfm.report_metrics [--split val]
 
@@ -31,9 +32,10 @@ from ml_cfm import final_recipe as FR         # noqa: E402
 EPS = 1e-9            # m^-2: the log floor. ~4e-5 of the median LES peak (2.6e-5), 1.5 decades under the 99.5% cut level
 N_PROJ = 64           # sliced-Wasserstein projections
 MS_WEIGHTS = (0.0448, 0.2856, 0.3001, 0.2363, 0.1333)   # Wang et al. 2003
-GROUPS = ("all", "north_N_NE_NW", "array_in_view_gt5pct")
+GROUPS = ("all",) + tuple("oct_" + o for o in D.OCTANTS)
+PRINT_GROUPS = ("all",)
 FIELD_KEYS = ("rel_l2", "sw1_m", "kl_nats", "ms_ssim")
-TERM_KEYS = ("peak_x", "centroid", "overlap80", "integral")
+PROD_KEYS = ("peak_x", "centroid", "overlap80", "integral")
 
 LOSSES = {
     "FNO": "masked MSE + 0.03 x masked MAE, both in asinh space (global target scale) over the 122^2 interior, "
@@ -112,39 +114,6 @@ def field_metrics(f, ref, v, X, Y):
                 ms_ssim=ms_ssim(f, ref, v))
 
 
-def agreement_terms(sc_model, sc_les):
-    """Per-record bounded ratios in [0, 1], 1 = the LES. peak and integral: min/max of the two
-    values; centroid: 1 - |c_m - c_L| / (|c_m| + |c_L|) (>= 0 by the triangle inequality);
-    overlap80: Jaccard of the two 80% source areas. A 0/0 scores 1."""
-    def minmax(a, b):
-        a, b = np.abs(np.asarray(a, float)), np.abs(np.asarray(b, float))
-        hi = np.maximum(a, b)
-        return np.where(hi > 0, np.minimum(a, b) / np.where(hi > 0, hi, 1), 1.0)
-    cm = np.stack([sc_model["abs_centroid_e"], sc_model["abs_centroid_n"]], 1)
-    cl = np.stack([sc_les["centroid_e"], sc_les["centroid_n"]], 1)
-    d = np.linalg.norm(cm - cl, axis=1)
-    tot = np.linalg.norm(cm, axis=1) + np.linalg.norm(cl, axis=1)
-    return dict(peak_x=minmax(sc_model["abs_peak_x"], sc_les["peak_x"]),
-                centroid=np.where(tot > 0, 1 - d / np.where(tot > 0, tot, 1), 1.0),
-                overlap80=np.asarray(sc_model["overlap80"], float),
-                integral=minmax(sc_model["abs_integral"], sc_les["integral"]))
-
-
-def agreement(sc_model, sc_les):
-    t = agreement_terms(sc_model, sc_les)
-    return np.mean([t[k] for k in TERM_KEYS], axis=0), t
-
-
-def crps_share(samples, les, arr, mask):
-    """Median CRPS [pp] of the array share over the records in mask; samples (S,n,H,W)."""
-    from ml_cfm import crps as C
-    tot = samples.sum((2, 3))
-    sh = 100 * (samples * arr[None, None]).sum((2, 3)) / tot
-    lt = les.sum((1, 2))
-    sl = 100 * (les * arr[None]).sum((1, 2)) / lt
-    return float(np.median(C.crps_np(sh[:, mask], sl[mask])))
-
-
 def recipe_fields(split, valid):
     R = FR.RECIPE
     samples = FR.cfm_samples(split, R["cfm_seeds"], R["samples_per_seed"], R["tau"], valid)
@@ -162,12 +131,8 @@ def pair_floor(arr, v, X, Y):
     w0, w1 = (np.maximum(w["target"], 0) for w in ws)
     wd = float(ws[0]["meta"]["wdir_deg"])
     asym = 1.0 - D.Z_RECEPTOR / float(ws[0]["scalars"][0])
-    m0, m1 = (M.record_metrics(w, wd, arr, asym) for w in (w0, w1))
-    prod = M.pair_errors(w1, w0, wd, arr, asym, m1, m0)
-    prod.update({"abs_" + k: v_ for k, v_ in m1.items()})
-    one = lambda dct: {k: np.array([v_]) for k, v_ in dct.items() if not isinstance(v_, bool)}
-    comp, terms = agreement(one(prod), one(m0))
-    out = dict(agreement=float(comp[0]), terms={k: float(terms[k][0]) for k in TERM_KEYS})
+    prod = M.pair_errors(w1, w0, wd, arr, asym)
+    out = {k: float(prod[k]) for k in PROD_KEYS}
     out.update(field_metrics(w1, w0, v, X, Y))
     return out
 
@@ -193,9 +158,7 @@ def main(argv=None):
 
     fields, les, samples = recipe_fields(split, valid)
     sc = M.score_fields(fields, les, split.wdir_deg, arr, split.asymptote)
-    ag = {name: agreement(sc[name], sc["les"]) for name in fields}
-    R = FR.RECIPE
-    samples_t1 = FR.cfm_samples(split, R["cfm_seeds"], R["samples_per_seed"], 1.0, valid)
+
     fm = {}
     for name, f in fields.items():
         rows = [field_metrics(f[i], les[i], v, X, Y) for i in range(split.n)]
@@ -204,39 +167,30 @@ def main(argv=None):
 
     out = dict(split=a.split, recipe=FR.RECIPE, losses=LOSSES, eps_m2=EPS, n_proj=N_PROJ, floor_pair=floor, groups={})
     L = [f"# Reporting metrics on {a.split} (frozen recipe, {split.n} records)", "",
-         "## Training losses", ""] + [f"- **{k}**: {s}" for k, s in LOSSES.items()] + ["",
-         "## Agreement composite: mean of four bounded ratios per record, each in [0, 1] with 1 = the LES; medians over the group", "",
-         "peak = min(x_peak) / max(x_peak) of the two; centroid = 1 - |c_model - c_LES| / (|c_model| + |c_LES|); "
-         "overlap = Jaccard of the 80% source areas; integral = min(I) / max(I) of the two.", ""]
+         "## Training losses", ""] + [f"- **{k}**: {s}" for k, s in LOSSES.items()] + [""]
     for g, m in groups.items():
-        og = out["groups"][g] = dict(n=int(m.sum()), agreement={}, terms={}, field={})
-        L += [f"### {g} (n = {int(m.sum())})", "",
-              "| model | agreement | peak | centroid | overlap80 | integral |", "|---|---|---|---|---|---|"]
+        og = out["groups"][g] = dict(n=int(m.sum()), production={}, field={})
         for name in fields:
-            comp, terms = ag[name]
-            og["agreement"][name] = dict(median=float(np.nanmedian(comp[m])), mean=float(np.nanmean(comp[m])))
-            og["terms"][name] = {k: float(np.nanmedian(terms[k][m])) for k in TERM_KEYS}
-            t = og["terms"][name]
-            L.append(f"| {name} | {og['agreement'][name]['median']:.3f} | {t['peak_x']:.3f} | {t['centroid']:.3f} | {t['overlap80']:.3f} | {t['integral']:.3f} |")
-        ft = floor["terms"]
-        L.append(f"| two-window floor | {floor['agreement']:.3f} | {ft['peak_x']:.3f} | {ft['centroid']:.3f} | {ft['overlap80']:.3f} | {ft['integral']:.3f} |")
+            og["production"][name] = {k: float(np.nanmedian(sc[name][k][m])) for k in PROD_KEYS}
+            og["field"][name] = {k: float(np.nanmedian(fm[name][k][m])) for k in FIELD_KEYS}
+        if g not in PRINT_GROUPS:
+            continue
+        L += [f"## {g} (n = {int(m.sum())}): medians over records", "",
+              "| model | peak distance error [m] | centroid error [m] | 80% source-area overlap (Jaccard) | integral error |", "|---|---|---|---|---|"]
+        for name in fields:
+            t = og["production"][name]
+            L.append(f"| {name} | {t['peak_x']:.1f} | {t['centroid']:.1f} | {t['overlap80']:.3f} | {t['integral']:.3f} |")
+        L.append(f"| two-window floor | {floor['peak_x']:.1f} | {floor['centroid']:.1f} | {floor['overlap80']:.3f} | {floor['integral']:.3f} |")
         L += ["", "| model | rel. L2 | sliced W1 [m] | KL(LES‖model) [nats] | MS-SSIM (log grid) |", "|---|---|---|---|---|"]
         for name in fields:
-            med = {k: float(np.nanmedian(fm[name][k][m])) for k in FIELD_KEYS}
-            og["field"][name] = med
+            med = og["field"][name]
             L.append(f"| {name} | {med['rel_l2']:.3f} | {med['sw1_m']:.1f} | {med['kl_nats']:.3f} | {med['ms_ssim']:.3f} |")
         L.append(f"| two-window floor | {floor['rel_l2']:.3f} | {floor['sw1_m']:.1f} | {floor['kl_nats']:.3f} | {floor['ms_ssim']:.3f} |")
         L.append("")
-    # CRPS: the one line for the generative model, tau = 1 against the recipe's tau
-    out["crps_array_share_pp"] = {}
-    L += [f"## CRPS of the array share [pp], CFM samples ({samples.shape[0]} per record), median over records", "",
-          "| group | tau = 1 | tau = " + f"{R['tau']}" + " |", "|---|---|---|"]
-    for g, m in groups.items():
-        c1, ct = crps_share(samples_t1, les, arr, m), crps_share(samples, les, arr, m)
-        out["crps_array_share_pp"][g] = dict(tau1=c1, tau_recipe=ct)
-        L.append(f"| {g} | {c1:.3f} | {ct:.3f} |")
-    L += ["", "Groups: all = every record; north_N_NE_NW = wind from N, NE or NW; array_in_view_gt5pct = records where the LES "
-          "puts more than 5% of the footprint on the array. Medians over the group's records. "
+    L += ["Octant groups (" + ", ".join(f"{g[4:]} n={out['groups'][g]['n']}" for g in GROUPS if g.startswith("oct_")) +
+          ") are in the JSON and the per-record .npz, for the wind-rose graphs. "
+          "Production errors: |model - LES| of the upwind peak distance and of the field integral, the distance between the two "
+          "mass centroids, and the Jaccard of the two 80% source areas (1 = identical). "
           f"Field metrics on the 122² interior with log floor ε = {EPS:.0e} m⁻²: rel. L2 = ||model - LES|| / ||LES||; "
           f"sliced W1 = mean over {N_PROJ} directions of the 1-D Wasserstein-1 between the unit-mass positive parts [m]; "
           "KL = Σ P log(P/Q) with P = LES/ΣLES and Q = (model+ε)/Σ (0.008 nats smoothing bias at identical fields); "
@@ -249,8 +203,8 @@ def main(argv=None):
         json.dump(out, fh, indent=1, default=float)
     np.savez_compressed(os.path.join(a.outdir, f"metrics_{a.split}_per_record.npz"), run_id=split.meta["run_id"],
                         **{f"{n}__{k}": fm[n][k] for n in fm for k in FIELD_KEYS},
-                        **{f"{n}__agreement": ag[n][0] for n in fields},
-                        **{f"{n}__{k}": ag[n][1][k] for n in fields for k in TERM_KEYS})
+                        octant=split.octant.astype(str),
+                        **{f"{n}__{k}": sc[n][k] for n in fields for k in PROD_KEYS})
     print("\n".join(L))
     return 0
 

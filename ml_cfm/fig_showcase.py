@@ -131,7 +131,7 @@ def main(argv=None):
              fontsize=13, weight="bold", va="center")
     sub = ("Receptor 30 m. Maps 3.66 x 3.66 km, north up, one logarithmic colour scale (floor 10$^{-4}$ of the peak). "
            "White star = tower; green rectangle = solar array; blue = Lake Kegonsa shoreline; arrow = direction the air moves.\n"
-           "FNO: mean of 4 seeds. CFM: mean of 80 samples from 4 seeds, spread scaled by 1.19; the shaded band is the 5-95% range of those samples. "
+           "FNO: mean of 4 seeds. CFM: mean of 80 samples from 4 seeds; the shaded band is the 5-95% range of those samples. "
            "Both emulators are cut at their own 99.5% source area; the LES target is shown positive-only.\n"
            "rel. L2 = ||model $-$ LES|| / ||LES|| over the map, lower is better; two LES realisations of the same case differ by 0.40.")
     fig.text(0.055, 0.933, sub, fontsize=8.5, va="center", color="#333333", linespacing=1.5)

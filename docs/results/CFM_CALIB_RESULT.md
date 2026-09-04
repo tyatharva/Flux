@@ -280,7 +280,7 @@ Decided on val 2026-09-03, to be applied unchanged to test:
 |---|---|---|
 | CFM seeds | 0–3 (seed 4 dropped, worst on val: 0.544) | four-seed pool 0.473 = the five-seed pool; drop-the-worst is the user's rule for both models |
 | samples | 20 per seed, the first 20 stored (80 pooled) | S_sat 21, upper band 64 → 70 → 17.5 per seed, rounded up |
-| spread | τ = 1.19 around the per-record mean in asinh space | §4: one global τ puts the array-share coverage in band |
+| spread | τ = 1 (**2026-09-04: the 1.19 was dropped** — CRPS of the array share is 2–5% worse at 1.19 than at 1, and the reported metrics no longer include coverage) | §4 for what τ = 1.19 bought in coverage |
 | estimator | physical-space mean | ties the asinh mean within the floor; preserves the integral and the array share exactly; median loses 0.03–0.08 |
 | cut | 99.5% source-area cut on the CFM and FNO means | metrics tied across 99.0–99.9 and a 1e-8 floor; scale-free; clean edge; removes every negative cell |
 | FNO | seeds 0–3 mean (seed 4 dropped, 0.549), same cut | the four-seed FNO is 0.526, the five-seed 0.526 |
