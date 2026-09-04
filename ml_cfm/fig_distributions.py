@@ -1,6 +1,7 @@
-"""The per-record distribution of every metric over the whole split: one panel per metric, a
-violin per model with the median marked, the perfect value as a dashed line. The table reports
-RMSEs and means, which the tail drives; this shows the tail.
+"""The per-record distribution of every metric over the whole split as empirical cumulative
+distributions: one panel per metric, one curve per model, y = the fraction of records with a
+value at or below x. A curve further towards the perfect value is better; the vertical
+separation at any x is the difference in the fraction of records that reach it.
 
     python -m ml_cfm.fig_distributions [--split val]
 """
@@ -31,24 +32,27 @@ def main(argv=None):
     z = np.load(os.path.join(FR.OUT, f"metrics_{a.split}_per_record.npz"))
     n = len(z["run_id"])
     plt.rcParams.update({"font.family": "DejaVu Sans"})
-    fig, axes = plt.subplots(2, 4, figsize=(18, 7.6))
+    fig, axes = plt.subplots(2, 4, figsize=(18, 8))
     names = ("Kljun", "FNO", "CFM")
     for ax, (key, label, how, perfect) in zip(axes.ravel(), FS.PANELS):
-        data = [z[f"{name}__{key}"][np.isfinite(z[f"{name}__{key}"])] for name in names]
-        vp = ax.violinplot(data, positions=range(3), showmedians=True, showextrema=False, widths=0.8)
-        for body, name in zip(vp["bodies"], names):
-            body.set_facecolor(FS.COL[name]); body.set_alpha(0.55); body.set_edgecolor("none")
-        vp["cmedians"].set_color("k"); vp["cmedians"].set_linewidth(1.2)
-        for j, d in enumerate(data):
-            ax.scatter(j + (np.random.default_rng(j).uniform(-0.12, 0.12, len(d))), d, s=3, color="k", alpha=0.18, lw=0)
-        ax.axhline(perfect, color="k", lw=0.8, ls="--")
-        ax.set_xticks(range(3)); ax.set_xticklabels(names, fontsize=9)
-        agg = [FS.stat(d, how) for d in data]
-        ax.set_title(label.replace(" RMSE", "") + "   " + ("RMSE " if how == "rmse" else "mean ") + " / ".join(f"{v:.3g}" for v in agg), fontsize=9.5)
-        ax.grid(axis="y", alpha=0.25, lw=0.5); ax.tick_params(axis="y", labelsize=8)
+        for name in names:
+            d = np.sort(z[f"{name}__{key}"][np.isfinite(z[f"{name}__{key}"])])
+            y = np.arange(1, len(d) + 1) / len(d)
+            ax.step(d, y, where="post", color=FS.COL[name], lw=1.8, label=f"{name}  ({'RMSE' if how == 'rmse' else 'mean'} {FS.stat(d, how):.3g})")
+            ax.plot([np.median(d)], [0.5], marker="o", ms=5, color=FS.COL[name], mec="k", mew=0.5, zorder=5)
+        ax.axvline(perfect, color="k", lw=0.8, ls="--")
+        ax.axhline(0.5, color="#999999", lw=0.6, ls=":")
+        ax.set_ylim(0, 1); ax.set_ylabel("fraction of records ≤ x", fontsize=9)
+        ax.set_xlabel(label.replace(" RMSE", ""), fontsize=9.5)
+        if key == "peak_x":
+            ax.set_xlim(-5, 305); ax.set_xticks([0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300])
+            ax.set_xticklabels(["0", "30", "60", "90", "", "150", "", "210", "", "270", ""], fontsize=8)
+        ax.tick_params(labelsize=8); ax.grid(alpha=0.3, lw=0.5)
+        ax.legend(fontsize=8, frameon=False, loc="lower right" if perfect == 0 else "upper left")
     year = {"val": "validation year 2024", "test": "test year 2025"}.get(a.split, a.split)
-    fig.suptitle(f"Per-record distribution of every metric, {year} (n = {n}): violins with the median (black), every record as a dot, dashed = perfect", fontsize=12, y=0.985)
-    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    fig.suptitle(f"Every record's score, {year} (n = {n}): cumulative distributions per model; dot = median; dashed = perfect; "
+                 "peak errors are multiples of the 30 m cell", fontsize=11.5, y=0.99)
+    fig.tight_layout(rect=(0, 0, 1, 0.96))
     os.makedirs(os.path.dirname(out), exist_ok=True)
     fig.savefig(out, dpi=130)
     print("wrote", out)
