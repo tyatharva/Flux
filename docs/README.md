@@ -50,7 +50,7 @@ The most load-bearing of them, cited from `PROJECT_BRIEF.md`:
 * `CONE_MASK_RESULT.md` — 2026-09-01, the only write-up here that is CURRENT rather than
   superseded: it documents `corpus_cone.h5`, the shipped training set, and how its one free parameter was measured rather than picked.
 
-## Documents that live elsewhere, on purpose
+## Documents that deliberately live elsewhere
 
 | path | why it is not here |
 |---|---|
