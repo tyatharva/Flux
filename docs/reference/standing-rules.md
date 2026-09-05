@@ -3,7 +3,7 @@
 Nine rules. Each one cost real GPU time at least once before it was written down. Code
 comments cite them by number ("standing rule 5"), so the numbering is stable.
 
-## 1. Validate the state the model actually loaded, never the config handed to it
+## 1. Validate the state the model actually loaded, never the config passed to it
 
 Five times a configured value was not the value the model ran with. Each produced a
 plausible wrong number rather than an error, and each was found by looking at an artifact
@@ -11,35 +11,35 @@ instead of a setting.
 
 | configured | what the model actually had | found by |
 |---|---|---|
-| a per-cell convective `htFlux` map | all zeros; the case would have run neutral silently | reading the field out of the file |
+| a per-cell convective `htFlux` map | all zeros. The case would have run neutral silently | reading the field out of the file |
 | receptor at 10 m | every footprint landed on the level nearest the 30 m default | reading the call, not the flag |
 | `dt` inside the stability limit | inside the accuracy-vs-stability window: exit 0, no message, near-surface `w` is acoustic noise | `k0/k1` on the dump |
 | `surflayer_wth = −0.012` in the `.in` | `+0.000000` in every dump | reading `htFlux` out of the dump |
-| a `.in` template in the image | absent; `.dockerignore` took it. 81 cases, 0 records, on all 8 machines | reproducing the build locally |
+| a `.in` template in the image | absent. `.dockerignore` excluded it. 81 cases, 0 records, on all 8 machines | reproducing the build locally |
 
 Every parameter that is also an IO-registered field is a property of the restart file, not
 of the `.in`: `htFlux`, `z0m`, `z0t`, `tskin`, `topoPos`, `zPos`, `xPos`, `yPos`. For those
 the `.in` is a request and the restart is the answer. The rule is wider than that list. A
 default silently taken, a parameter silently reverted for being out of range, and a `dt`
-inside the accuracy window are all the same shape.
+inside the accuracy window are all the same kind of failure.
 
-So every step asserts on the artifact it produced, and on the quantity, not on the presence
+So every step checks the artifact it produced, and checks the quantity, not the presence
 of a file.
 
 ## 2. A check that stubs the thing it is checking is a statement about the harness
 
 The 8-machine dry run was green while the image had no `.in` template, because `--stub`
 replaces the screener and the case and opens no file the case path reads. Every seed-side
-artifact was asserted at build time; no case-side one was.
+artifact was asserted at build time. No case-side one was.
 
-Fixes: the image build asserts the case path's inputs and that the template has `Nz = 122`;
-the corpus driver refuses at startup by name; and one real case runs with only the LES and
+Fixes: the image build asserts the case path's inputs and that the template has `Nz = 122`.
+The corpus driver refuses at startup by name. And one real case runs with only the LES and
 LPDM stubbed (`STUB_LES=1`, about 4 minutes, no GPU). That last one is what closes the gap.
 
 ## 3. A diagnostic is only as scale-free as its reference
 
 A diagnostic whose denominator or reference varies with anything but the quantity being
-measured reports that variation as signal. It fails quietly every time: the number stays
+measured reports that variation as signal. It fails silently every time. The number stays
 finite, the check runs, the verdict prints. Four instances, and the fourth is the fix that
 was applied to the second.
 
@@ -57,7 +57,7 @@ turbulence at all?" A SKIP from it is not a PASS.
 
 The diagnostic for the diagnostic is its own sampling error. `bin/seed_stationarity.py`
 reports each trend's AR(1)-corrected standard error and `n_eff`, and returns INDETERMINATE
-rather than PASS or FAIL when the threshold sits inside that spread.
+rather than PASS or FAIL when the threshold is inside that spread.
 
 ## 4. A tolerance must be the size of the failure it is looking for
 
@@ -65,7 +65,7 @@ Not the smallest number you can write down. `--strict-rel` exists to catch losin
 and was scored against 1e-6 s, so it failed a correct production run on half a millisecond,
 at stage 7, after 74 minutes of GPU. One lost dump exceeds that deficit by a factor of
 10,016. Tolerances are now expressed in the unit of the thing they protect (dumps, output
-intervals), and the margin is printed on success too. A configuration designed to sit at
+intervals), and the margin is printed on success too. A configuration designed to run at
 zero margin leaves no evidence of how close it came unless the passing path says so.
 
 The same rule with the sign flipped: a tolerance must also reject nonsense, not only excess.
@@ -78,7 +78,7 @@ time saved".
 It has one degree of freedom, and its own sampling error is the size of the thing it bounds.
 Phase E said DIFFERS on a 2-group floor and PASSED at p ≈ 0.54 on a 10-group one: a factor
 of 5 in the estimated floor from nothing but the number of groups. Use `--cover-groups N`
-with N ≥ 8, quote the standard error, and never quote a tolerance without saying how many
+with N ≥ 8, quote the standard error and never quote a tolerance without saying how many
 independent realisations went into it.
 
 Score a second moment against its own sampling spread, not against a number you picked. The
@@ -88,28 +88,28 @@ realisation's own spread. The reframing is not a loosening. It is what located t
 
 ## 6. Validation must exercise the production code path and the production regime
 
-- **Wrong regime.** The neutral well-mixed gate passed a closure carrying nine turnovers in
+- **Wrong regime.** The neutral well-mixed gate passed a closure with nine turnovers in
   `sigma_w²`, because the floor is nearly inert neutrally (receptor factor 1.000 there, 1.59
   convectively). A regime where a component is inert is no evidence at all about that
   component.
-- **Wrong code path.** `stage4_wellmixed.py` carried its own copy of the `sigma_w` floor,
+- **Wrong code path.** `stage4_wellmixed.py` had its own copy of the `sigma_w` floor,
   which had drifted from the production one. Gates import the production function. They
   never reimplement it.
 - **Quote the no-op control beside the result.** The convective failure was localised by
   scoring the same window with no floor at all. A gate result without its control says only
   "a number came out".
 
-## 7. Assert on the artifact, not on the exit status
+## 7. Check the artifact, not the exit status
 
 Analyses get piped into `grep`, so bash reports grep's status, and a Python traceback lands
-quietly in a redirected `.txt`. A `SyntaxError` in `stage5_footprint.py` was launched six
+silently in a redirected `.txt`. A `SyntaxError` in `stage5_footprint.py` was launched six
 times that way. Every step checks the JSON it was supposed to write, and `bin/preflight.sh`
-parses every Python entry point and shell driver before a campaign starts (about 10 s; the
+parses every Python entry point and shell driver before a campaign starts (about 10 s. The
 drivers refuse to run without it).
 
 Same rule for exit codes. `run_seed.sh` was `[ "$VERDICT" = "PASS" ] || exit 1` and returned
 1 for all thirty seeds. A status identical for every outcome discriminates nothing, in the
-dangerous direction. The verdict lives in the artifact.
+dangerous direction. The verdict is in the artifact.
 
 ## 8. One run per directory, or it is not a series
 

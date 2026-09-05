@@ -1,6 +1,6 @@
 # Quick start
 
-Five paths, from cheapest to most expensive. Each stands alone.
+Five paths, from cheapest to most expensive. Each one is independent of the others.
 
 ## 1. Look at the corpus and the results (no GPU)
 
@@ -12,9 +12,10 @@ docker run --rm -v "$PWD":/w -w /w -u $(id -u):$(id -g) -e MPLCONFIGDIR=/tmp/mpl
     flux-fasteddy:cuda118 python3 bin/fig_corpus_pairs.py --h5 corpus/corpus_cone.h5 --outdir /tmp/figs
 ```
 
-The scored record is already in the repository: `results/ml_cfm/final_recipe/metrics_test.md`
-is the headline table, `results/ml/eval/final_ensemble/eval.md` the FNO's val evaluation,
-`results/ml_cfm/eval/final/eval.md` the CFM's. [Results](../emulator/results.md) reads them.
+The scored record is already in the repository. `results/ml_cfm/final_recipe/metrics_test.md`
+is the headline table. `results/ml/eval/final_ensemble/eval.md` is the FNO's val evaluation and
+`results/ml_cfm/eval/final/eval.md` is the CFM's. The [results](../emulator/results.md) page
+explains them.
 
 ## 2. Run the emulator (one GPU, minutes)
 
@@ -26,8 +27,8 @@ python -m ml_cfm.final_recipe --split val       # both emulators under the froze
 python -m ml_cfm.report_metrics --split val     # the reporting metrics
 ```
 
-Outputs land under `results/ml/eval/check/` and `results/ml_cfm/final_recipe/`. To evaluate on
-the test split, pass `--split test --allow-test` and know that every such read is logged in
+Outputs are written under `results/ml/eval/check/` and `results/ml_cfm/final_recipe/`. To
+evaluate on the test split, pass `--split test --allow-test`. Every such read is logged in
 `results/ml/loader_audit.jsonl`.
 
 ## 3. Retrain the emulators (one RTX 4080, about 2 hours for everything)
@@ -46,9 +47,9 @@ python -m ml_cfm.campaign --runs results/ml_cfm/final/runs.json -K 3 --outdir re
 ```
 
 `ml/phase1.py`, `ml/phase2_optuna.py` and `ml/final.py` reproduce the exploration, the Optuna
-study and the seed selection described in [training](../emulator/training.md); the Optuna
+study and the seed selection described in [training](../emulator/training.md). The Optuna
 database is not shipped, so `ml.final` needs `--trial` or the config above. `ml_cfm/run_all.sh`
-is the CFM's whole autonomous study.
+runs the CFM's whole study unattended.
 
 ## 4. Run one LES case on the workstation (one GPU, about an hour)
 
@@ -58,13 +59,13 @@ docker/run.sh ./docker/build_fasteddy.sh        # compile for the local GPU (sm_
 bin/fetch_assets.sh seeds                       # the 30 restarts (2.1 GB) -> seeds/*/return/seed_restart.nc
 bin/preflight.sh                                # parse every entry point, host and container
 STUB_LES=1 bin/run_corpus_case.sh 2023-01-18T18:00 stubcheck   # the whole path with the LES stubbed, ~4 min, CPU
-bin/run_corpus_case.sh 2023-01-18T18:00         # the real thing: sounding, seed, restart, LES, LPDM, record
+bin/run_corpus_case.sh 2023-01-18T18:00         # the full case: sounding, seed, restart, LES, LPDM, record
 ```
 
 The case needs network access to the HRRR archive for its sounding (about 170 MB per case) and
-about 13 GB of host RAM for the LPDM's field cache. It writes `pairs_npz/case_2023011818.npz`;
-`bin/check_npz.py` validates it. [Case generation](../les/case-generation.md) explains each
-stage; [configuration](../les/configuration.md) the grid it runs on.
+about 13 GB of host RAM for the LPDM's field cache. It writes `pairs_npz/case_2023011818.npz`,
+which `bin/check_npz.py` validates. [Case generation](../les/case-generation.md) explains each
+stage. [Configuration](../les/configuration.md) describes the grid it runs on.
 
 ## 5. Regenerate the seed library or the corpus (rented GPUs)
 
@@ -75,9 +76,9 @@ verify && run_seeds --gpu-count 16              # the 30-seed library, ~1 h on 1
 verify && nohup run_corpus --machine 0 --out /out &   # one eighth of the corpus, ~12 h on 8 x RTX 5090
 ```
 
-[Deployment](../les/deployment.md) has the Vast.ai procedure, the sizing, and the consolidation
+[Deployment](../les/deployment.md) has the Vast.ai procedure, the sizing and the consolidation
 of the eight machines' output into the two HDF5 files. The failed days of the existing corpus
-are named in `corpus/provenance/manifests/`; the hour draw is date-seeded, so a top-up
+are named in `corpus/provenance/manifests/`. The hour draw is seeded from the date, so a top-up
 reproduces exactly the cases that would have been there.
 
 ## Tests
@@ -91,5 +92,5 @@ python bin/test_ml_data.py; python bin/test_ml_model.py; python bin/test_cfm.py 
 
 Nine further tests (`test_dumpsrc`, `test_estimator`, `test_gpu_lpdm`, `test_lpdmonline`,
 `test_parallel_lpdm`, `test_ringsrc`, `test_streaming`, `test_toolkit_parity`, `test_unchained`)
-need LES fields and run after a case has produced a window; each is recorded in a results file
-from when it last ran. [Scripts](../reference/scripts.md) lists them all.
+need LES fields and run after a case has produced a window. Each has a results file from its
+last run. [Scripts](../reference/scripts.md) lists them all.

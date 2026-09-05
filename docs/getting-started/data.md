@@ -1,8 +1,8 @@
 # Data and assets
 
-Everything larger than a few hundred kilobytes lives outside git, on one Hugging Face dataset
+Everything larger than a few hundred kilobytes is kept outside git, on one Hugging Face dataset
 repository: **`tyatharva/flux-kegonsa`** (`https://huggingface.co/datasets/tyatharva/flux-kegonsa`).
-`bin/fetch_assets.sh` downloads a group, verifies every file against `assets/SHA256SUMS`, and
+`bin/fetch_assets.sh` downloads a group, verifies every file against `assets/SHA256SUMS` and
 puts it at the path the code expects. `assets/SHA256SUMS` lists, for each file, its sha256, its
 path on Hugging Face and its path in this repository.
 
@@ -29,43 +29,44 @@ bin/fetch_assets.sh all
 | `predictions/test/fno_seed{0..3}_pred_test.npz`, `seed{0..3}_samples_test.npz` | `results/ml_cfm/test/` | 181 MB | the one audited read of the test split: FNO predictions and 20 CFM samples per seed (`SHA256SUMS.txt` beside them is in git) |
 | `predictions/val/fno_seed{0..4}_pred_val.npz` | `results/ml/final/seed*/pred_val.npz` | 19 MB | the FNO's val predictions |
 
-In git beside them: `corpus/README.md`, `corpus/INDEX.json` (every record's tag, datetime,
-split, machine, day and path), `corpus/FLAGGED.tsv`, `corpus/provenance/` (the 8 machine
-manifests accounting for every day, the two rejected records, a partial manifest kept for
-provenance), `seeds/*/manifest.json`, `seeds/*/seed.in` and each seed's verdicts under
-`seeds/*/return/`, `results/seed_library/` (the library run's machine manifest, thread-block
-sweep, direction-drift table and log), and every scored summary under `results/`.
+The following stay in git beside them. `corpus/README.md`. `corpus/INDEX.json`, which holds
+every record's tag, datetime, split, machine, day and path. `corpus/FLAGGED.tsv`.
+`corpus/provenance/`, which holds the 8 machine manifests that account for every day, the two
+rejected records and a partial manifest kept for provenance. `seeds/*/manifest.json`,
+`seeds/*/seed.in` and each seed's verdicts under `seeds/*/return/`. `results/seed_library/`,
+which holds the library run's machine manifest, thread-block sweep, direction-drift table and
+log. And every scored summary under `results/`.
 
 ## What is regenerable and not hosted
 
 | | size | how to regenerate |
 |---|---|---|
-| `results/ml_cfm/final/seed*/samples_val*.npz` | about 1.3 GB | `ml_cfm/infer.py` from the checkpoints (Euler 16, 32 samples per seed; the 128 extra samples of the sample-count study likewise) |
-| `results/ml/cache/`, `results/ml/*.db` | small | rebuilt by the loader; the Optuna study is not shipped |
-| `data/hrrr/` | 2.4 GB | the HRRR cache; every case re-fetches its sounding from the archive |
+| `results/ml_cfm/final/seed*/samples_val*.npz` | about 1.3 GB | `ml_cfm/infer.py` from the checkpoints (Euler 16, 32 samples per seed. The 128 extra samples of the sample-count study are made the same way) |
+| `results/ml/cache/`, `results/ml/*.db` | small | rebuilt by the loader. The Optuna study is not shipped |
+| `data/hrrr/` | 2.4 GB | the HRRR cache. Every case re-fetches its sounding from the archive |
 | `data/raw/output_USGS10m.tif`, `rasters_USGS10m.tar.gz` | 321 MB + 321 MB | USGS 3DEP 1/3 arc-second, the tile covering the tower |
 | `data/raw/ESA_WorldCover_10m_2021_v200_N42W090_Map.tif` | 92 MB | ESA WorldCover v200 (2021), tile N42W090 |
-| `data/raw/conus404_site.npz`, `H_and_sigma_w.csv` | 1 MB each | `bin/conus404_site.py` (anonymous S3 over HTTPS); the tower's own eddy-covariance record |
-| `data/grid16*`, `grid24*`, `grid_cbl`, `grid`, `case_grids/`, `smokelib/` | up to 280 MB | retired grids and the stubbed-LES smoke library; regenerable with `bin/prep_surface.py` |
-| LES windows, dumps, `runs/*/output` | tens of GB per case | never kept; a case is one FastEddy run |
+| `data/raw/conus404_site.npz`, `H_and_sigma_w.csv` | 1 MB each | `bin/conus404_site.py` (anonymous S3 over HTTPS), and the tower's own eddy-covariance record |
+| `data/grid16*`, `grid24*`, `grid_cbl`, `grid`, `case_grids/`, `smokelib/` | up to 280 MB | retired grids and the stubbed-LES smoke library. Regenerable with `bin/prep_surface.py` |
+| LES windows, dumps, `runs/*/output` | tens of GB per case | never kept. A case is one FastEddy run |
 
 ## The production surface
 
 `data/grid30_raised/` is tracked (184 kB): `topo.npy`, `z0m.npy`, `htFlux.npy`, `lcclass.npy`,
-`array.npy`, `water.npy`, `dmap.npy`, `meta.npy`, `topo.bin`, and the two clipped rasters
-`dem24.tif`, `lc24.tif`. It is built by `bin/prep_surface.py` from the two raw tiles above (see
+`array.npy`, `water.npy`, `dmap.npy`, `meta.npy`, `topo.bin` and the two clipped rasters
+`dem24.tif` and `lc24.tif`. `bin/prep_surface.py` builds it from the two raw tiles above (see
 [the site](../problem/site.md)), and every corpus case reads it. The deployment image asserts
-the three `.npy` maps are present.
+that the three `.npy` maps are present.
 
 ## Sources
 
 | | |
 |---|---|
-| HRRR | NOAA's 3 km High-Resolution Rapid Refresh analyses, hourly, v4 from 2020-12-02, fetched by Herbie from the public archive with byte-range subsetting; about 170 MB per case, nothing retained |
-| CONUS404 | the 45-year 4 km hourly reanalysis, streamed from the USGS Open Storage Network; climatology only, never forcing |
+| HRRR | NOAA's 3 km High-Resolution Rapid Refresh analyses, hourly, v4 from 2020-12-02. Fetched by Herbie from the public archive with byte-range subsetting. About 170 MB per case, nothing retained |
+| CONUS404 | the 45-year 4 km hourly reanalysis, streamed from the USGS Open Storage Network. Used for climatology only, never for forcing |
 | USGS 3DEP | 1/3 arc-second (about 10 m) bare-earth elevation, EPSG:4269 |
-| ESA WorldCover | v200, 2021, 10 m land cover, EPSG:4326; it labels the array as cropland |
-| Kljun FFP | v1.42, `footprint.kljun.net/downloads/v1.42/FFP_Python.zip`, retrieved 2026-08-30, vendored in `third_party/FFP/` with its ISC licence; file hashes in `third_party/FFP/PROVENANCE.md` |
+| ESA WorldCover | v200, 2021, 10 m land cover, EPSG:4326. It labels the array as cropland |
+| Kljun FFP | v1.42, `footprint.kljun.net/downloads/v1.42/FFP_Python.zip`, retrieved 2026-08-30, vendored in `third_party/FFP/` with its ISC licence. File hashes are in `third_party/FFP/PROVENANCE.md` |
 | FastEddy | NCAR v5.0.1 plus `fasteddy/patches/`, fetched by `fasteddy/fetch.sh` |
 | the tower | UW-Madison Kegonsa Solar Array eddy-covariance tower, `42.957160, −89.292362`, instrument at about 10 m |
 
