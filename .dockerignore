@@ -90,9 +90,25 @@ data/hrrr
 data/smokelib
 data/case_grids
 
-# --- results: the JSON/txt record stays, the arrays go ----------------------
+# --- results: the JSON/txt record stays, the arrays and the model weights go ---------------
+# The case path reads results/sigma_w_curve_30m.json and results/tback_production.txt and
+# writes results/corpus/, results/forcing/, results/soundings/, results/pick/. The emulator's
+# checkpoints, samples, predictions and the Optuna study (3.8 GB on 2026-09-04) are not
+# inputs to anything the image does; the whole-tree ceiling in Dockerfile.blackwell is what
+# caught them riding along.
 results/**/*.npz
 results/**/*.nc
+results/**/*.pt
+results/**/*.db
+results/ml/cache
+results/ml/runs
+results/ml/eval/smoke
+
+# --- corpus: the index and provenance stay, the dataset goes (it is an OUTPUT of the image)
+corpus/*.h5
+corpus/pairs_npz
+corpus/logs
+jobs24
 
 # --- FastEddy: NOT taken from the host. The image runs fasteddy/fetch.sh itself, which
 # fetches NCAR v5.0.1, applies fasteddy/patches/ and verifies fasteddy/MANIFEST.sha256, so
