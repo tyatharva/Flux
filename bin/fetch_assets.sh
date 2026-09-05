@@ -3,7 +3,7 @@
 # them against assets/SHA256SUMS, and put each at the path the code expects.
 #
 #   bin/fetch_assets.sh corpus              corpus/corpus_cone.h5, corpus/corpus_raw.h5      (76 MB)
-#   bin/fetch_assets.sh pairs               corpus/pairs_npz/ (the 1366 source records)       (55 MB)
+#   bin/fetch_assets.sh pairs               corpus/pairs_npz/ and corpus/logs/, unpacked from two tars (55 MB)
 #   bin/fetch_assets.sh seeds               seeds/*/return/seed_restart.nc, 30 files           (2.1 GB)
 #   bin/fetch_assets.sh weights             the FNO and CFM checkpoints                        (610 MB)
 #   bin/fetch_assets.sh predictions         the audited test-split outputs + FNO val preds     (200 MB)
@@ -22,7 +22,7 @@ SUMS="$ROOT/assets/SHA256SUMS"
 want() {  # group -> regex on the HF path
   case "$1" in
     corpus)      echo '^corpus/corpus_(cone|raw)\.h5$' ;;
-    pairs)       echo '^corpus/pairs_npz\.tar$' ;;
+    pairs)       echo '^corpus/(pairs_npz|logs)\.tar$' ;;
     seeds)       echo '^seeds/' ;;
     weights)     echo '^weights/' ;;
     predictions) echo '^predictions/' ;;
@@ -49,20 +49,28 @@ fetch_one() {  # hf_path local_path sha
   echo "  verified $local"
 }
 
+fetch_tar() {  # hf_path local_dir sha : a directory that travels as one tar
+  local hf="$1" dir="${2%/}" sha="$3" tar="${2%/}.tar"
+  if [ -d "$dir" ]; then echo "  ok      $dir/ ($(ls "$dir" | wc -l) files, already unpacked)"; return 0; fi
+  mkdir -p "$(dirname "$dir")"
+  echo "  fetch   $hf -> $tar"
+  curl -fL --retry 3 -o "$tar" "$BASE/$hf"
+  echo "$sha  $tar" | sha256sum -c --quiet - || { echo "FATAL: checksum mismatch on $tar; removed" >&2; rm -f "$tar"; exit 1; }
+  tar -xf "$tar" -C "$(dirname "$dir")" && rm -f "$tar"
+  echo "  unpacked $dir/ ($(ls "$dir" | wc -l) files)"
+}
+
 n=0
 for g in "$@"; do
   rx="$(want "$g")"
   while read -r sha hf local; do
     [ -n "$sha" ] && [ "${sha:0:1}" != "#" ] || continue
     echo "$hf" | grep -Eq "$rx" || continue
-    fetch_one "$hf" "$local" "$sha"; n=$((n+1))
+    case "$local" in
+      */) fetch_tar "$hf" "$local" "$sha" ;;
+      *)  fetch_one "$hf" "$local" "$sha" ;;
+    esac
+    n=$((n+1))
   done < "$SUMS"
-  if [ "$g" = pairs ] || [ "$g" = all ]; then
-    # the 1366 source records travel as one tar; unpack beside the .h5 files
-    if [ ! -d corpus/pairs_npz ]; then
-      curl -fL --retry 3 -o corpus/pairs_npz.tar "$BASE/corpus/pairs_npz.tar" && tar -xf corpus/pairs_npz.tar -C corpus && rm corpus/pairs_npz.tar
-      echo "  unpacked corpus/pairs_npz/ ($(ls corpus/pairs_npz | wc -l) files)"
-    fi
-  fi
 done
 echo "done: $n file(s) checked against assets/SHA256SUMS"
