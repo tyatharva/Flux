@@ -1,6 +1,6 @@
 # FastEddy and the patches
 
-Flux runs NCAR's FastEddy, a GPU-resident large-eddy simulation model, at release **v5.0.1**
+flux-kegonsa runs NCAR's FastEddy, a GPU-resident large-eddy simulation model, at release **v5.0.1**
 with a six-patch series on top. There is no fork to clone. FastEddy is fully compressible,
 fp32, with a third-order Runge–Kutta integrator; it is the offline generator of every training
 target and is never part of inference.

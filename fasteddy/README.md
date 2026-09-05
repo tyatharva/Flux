@@ -1,6 +1,6 @@
 # FastEddy: upstream release plus six patches
 
-Flux runs NCAR's FastEddy **v5.0.1** with a small patch series on top. There is no fork to
+flux-kegonsa runs NCAR's FastEddy **v5.0.1** with a small patch series on top. There is no fork to
 clone. `fasteddy/fetch.sh` fetches the release, checks its commit, applies the patches, and
 verifies every source file against `MANIFEST.sha256`. The result lands in
 `FastEddy-model-5.0.1/`, the path every build script expects.

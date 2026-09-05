@@ -677,7 +677,7 @@ def main():
 
     # ---- provenance, first, because a rented machine has no other way to know ----
     say("=" * 78, stamp=False)
-    say("Flux seed library -- FastEddy v5.0.1 + fasteddy/patches")
+    say("flux-kegonsa seed library -- FastEddy v5.0.1 + fasteddy/patches")
     if os.path.isfile(PROV):
         for ln in open(PROV):
             say("  " + ln.rstrip(), stamp=False)

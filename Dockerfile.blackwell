@@ -524,7 +524,7 @@ RUN set -eux; \
     } > /flux/IMAGE_PROVENANCE.txt; \
     cat /flux/IMAGE_PROVENANCE.txt
 
-LABEL org.opencontainers.image.title="Flux FastEddy seed generator" \
+LABEL org.opencontainers.image.title="flux-kegonsa FastEddy seed generator" \
       org.opencontainers.image.description="FastEddy v5.0.1 + fasteddy/patches + the Kegonsa flux-footprint pipeline; CUDA 13.0; real SASS sm_75..sm_120" \
       org.opencontainers.image.revision="${GIT_COMMIT}" \
       org.opencontainers.image.created="${BUILD_DATE}" \

@@ -38,9 +38,9 @@ fetch_one() {  # hf_path local_path sha
   fi
   mkdir -p "$(dirname "$local")"
   echo "  fetch   $hf -> $local"
-  if command -v huggingface-cli >/dev/null 2>&1; then
+  if command -v hf >/dev/null 2>&1; then
     tmp="$(mktemp -d)"
-    huggingface-cli download --repo-type dataset "$REPO" "$hf" --local-dir "$tmp" >/dev/null
+    hf download --repo-type dataset "$REPO" "$hf" --local-dir "$tmp" >/dev/null
     mv "$tmp/$hf" "$local"; rm -rf "$tmp"
   else
     curl -fL --retry 3 -o "$local" "$BASE/$hf"
