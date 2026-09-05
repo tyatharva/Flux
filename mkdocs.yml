@@ -1,8 +1,8 @@
-site_name: Flux
+site_name: flux-kegonsa
 site_description: An LES-trained flux-footprint emulator for the Kegonsa Solar Array eddy-covariance tower
 site_url: https://flux-kegonsa.readthedocs.io/
-repo_url: https://github.com/tyatharva/Flux
-repo_name: tyatharva/Flux
+repo_url: https://github.com/tyatharva/flux-kegonsa
+repo_name: tyatharva/flux-kegonsa
 edit_uri: edit/main/docs/
 copyright: Copyright &copy; 2026 Atharva Tyagi. Apache-2.0.
 docs_dir: docs

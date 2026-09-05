@@ -1,7 +1,7 @@
 # Repository layout
 
 ```
-Flux/
+flux-kegonsa/
 ├── README.md, LICENSE (Apache-2.0), CITATION.cff
 ├── mkdocs.yml, .readthedocs.yaml        this documentation
 ├── Dockerfile                           CUDA 11.8 toolchain image (workstation); every LES result came out of it

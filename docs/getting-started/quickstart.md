@@ -5,7 +5,7 @@ Five paths, from cheapest to most expensive. Each stands alone.
 ## 1. Look at the corpus and the results (no GPU)
 
 ```bash
-git clone https://github.com/tyatharva/Flux.git && cd Flux
+git clone https://github.com/tyatharva/flux-kegonsa.git && cd flux-kegonsa
 bin/fetch_assets.sh corpus                      # corpus_cone.h5 + corpus_raw.h5 -> corpus/ (76 MB)
 docker build -t flux-fasteddy:cuda118 .         # the analysis image (the host Python has no h5py)
 docker run --rm -v "$PWD":/w -w /w -u $(id -u):$(id -g) -e MPLCONFIGDIR=/tmp/mpl \

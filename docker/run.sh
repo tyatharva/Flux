@@ -9,7 +9,7 @@
 # passwd entry inside the container.
 set -euo pipefail
 
-PROJECT_ROOT="${PROJECT_ROOT:-/home/atyagi/Flux}"
+PROJECT_ROOT="${PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 IMAGE="${IMAGE:-flux-fasteddy:cuda118}"
 
 exec docker run --gpus all --rm -it \

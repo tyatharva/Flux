@@ -7,7 +7,7 @@
 # built, so both integrators see bit-identical inputs and the only difference left is the
 # integrator itself. It is not linked into FastEddy and is not on the production path.
 set -uo pipefail
-FLUX_ROOT="${FLUX_ROOT:-/home/atyagi/Flux}"
+FLUX_ROOT="${FLUX_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 ARCH="${SM_ARCH:-sm_89}"
 docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
   -v "${FLUX_ROOT}":/work -w /work --entrypoint nvcc "${FLUX_IMAGE:-flux-fasteddy:cuda118}" \

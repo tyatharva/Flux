@@ -40,7 +40,7 @@
 set -uo pipefail
 # Repo root is a variable so a seed job can run on a rented GPU whose checkout is
 # somewhere else. Defaults to this machine, so nothing that already works changes.
-FLUX_ROOT="${FLUX_ROOT:-/home/atyagi/Flux}"
+FLUX_ROOT="${FLUX_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 FLUX_IMAGE="${FLUX_IMAGE:-flux-fasteddy:cuda118}"
 NATIVE="${FLUX_NATIVE:-0}"
 # Where the per-GPU flock files live. /var/lock is created in the image; a workstation

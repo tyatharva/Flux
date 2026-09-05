@@ -1,4 +1,4 @@
-# Flux
+# flux-kegonsa
 
 **A site-calibrated flux-footprint emulator for the UW-Madison Kegonsa Solar Array
 eddy-covariance tower.** It takes the six scalars the Kljun et al. (2015) footprint model
@@ -43,6 +43,6 @@ where the site-specific skill lives. Every one of these is explained in
 
 ## Cite
 
-Atharva Tyagi, *Flux: an LES-trained flux-footprint emulator for the Kegonsa Solar Array
+Atharva Tyagi, *flux-kegonsa: an LES-trained flux-footprint emulator for the Kegonsa Solar Array
 eddy-covariance tower*, 2026. `CITATION.cff` in the repository. Code Apache-2.0; the vendored
 Kljun FFP under its own ISC-style licence; FastEddy Apache-2.0.

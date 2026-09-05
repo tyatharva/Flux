@@ -1,11 +1,11 @@
 cff-version: 1.2.0
 message: "If you use this software or the corpus, please cite it as below."
-title: "Flux: an LES-trained flux-footprint emulator for the Kegonsa Solar Array eddy-covariance tower"
+title: "flux-kegonsa: an LES-trained flux-footprint emulator for the Kegonsa Solar Array eddy-covariance tower"
 type: software
 authors:
   - family-names: Tyagi
     given-names: Atharva
-repository-code: "https://github.com/tyatharva/Flux"
+repository-code: "https://github.com/tyatharva/flux-kegonsa"
 license: Apache-2.0
 version: "1.0.0"
 date-released: "2026-09-04"

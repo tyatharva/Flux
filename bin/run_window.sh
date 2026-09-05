@@ -33,7 +33,7 @@
 # usage: run_window.sh <dir> <restart> <dt> <window_s> <topofile|-> <Ug> <Vg> [extra.in]
 #        env: SKIP_S=0  seconds of leading adjustment to run and then discard
 set -uo pipefail
-cd "${FLUX_ROOT:-/home/atyagi/Flux}"
+cd "${FLUX_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 D="$1"; RST="$2"; DT="$3"; WIN="$4"; TOPO="$5"; UG="$6"; VG="$7"; EXTRA="${8:-}"
 BASE="${BASE:-runs/g16_base/base.in}"
 L=/tmp/flux-logs

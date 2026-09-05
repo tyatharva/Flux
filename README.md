@@ -1,4 +1,4 @@
-# Flux
+# flux-kegonsa
 
 A site-calibrated flux-footprint emulator for the UW-Madison Kegonsa Solar Array
 eddy-covariance tower. It takes the six scalars the Kljun et al. (2015) footprint model takes
@@ -23,7 +23,7 @@ On the untouched 2025 test split (294 cases), both emulators beat Kljun on every
 ## Quick start
 
 ```bash
-git clone https://github.com/tyatharva/Flux.git && cd Flux
+git clone https://github.com/tyatharva/flux-kegonsa.git && cd flux-kegonsa
 bin/fetch_assets.sh corpus weights          # from https://huggingface.co/datasets/tyatharva/flux-kegonsa
 conda env create -f ml/environment.yml && conda activate LESNet
 python -m ml_cfm.report_metrics --split val  # both emulators under the frozen recipe, on validation

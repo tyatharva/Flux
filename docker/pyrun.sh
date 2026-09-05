@@ -19,7 +19,7 @@
 # translate through.
 set -uo pipefail
 # See docker/run_case.sh: repo root is overridable for off-machine jobs.
-FLUX_ROOT="${FLUX_ROOT:-/home/atyagi/Flux}"
+FLUX_ROOT="${FLUX_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # LPDM_WORKERS is forwarded so the campaign can size the fork pool per stage;
 # without it every container would silently fall back to one core.
 
