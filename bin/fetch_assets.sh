@@ -9,7 +9,7 @@
 #   bin/fetch_assets.sh predictions         the audited test-split outputs + FNO val preds     (200 MB)
 #   bin/fetch_assets.sh all
 #
-# Uses `huggingface-cli` if present (pip install huggingface_hub), otherwise curl. Every file
+# Uses the `hf` CLI if present (pip install huggingface_hub), otherwise curl. Every file
 # is checked against assets/SHA256SUMS after download; a mismatch is fatal and the file is
 # removed. Re-running skips files that are already present and correct.
 set -euo pipefail
