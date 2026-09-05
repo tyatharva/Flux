@@ -6,8 +6,6 @@ and returns, in milliseconds, the two-dimensional footprint that a large-eddy si
 this site would produce. The training targets are 1366 FastEddy large-eddy simulations with a
 backward Lagrangian particle model, one per day over five years, forced by real HRRR analyses.
 
-**Documentation: https://flux-kegonsa.readthedocs.io** (source under `docs/`, built with MkDocs).
-
 ## The result
 
 On the untouched 2025 test split (294 cases), both emulators beat Kljun on every metric:
