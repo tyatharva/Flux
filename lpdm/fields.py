@@ -65,7 +65,7 @@ class FieldSet:
                  cache_dtype=np.float32, defer_load=False,
                  stream=None, nt=None, geom_dump=None):
         # store_dtype emulates FastEddy writing the LPDM's four fields at reduced
-        # precision (docs/PLAN.md Stage 3: fp16 on write takes a 37.5-min window from 82 GB to
+        # precision (docs/history/overview.md Stage 3: fp16 on write takes a 37.5-min window from 82 GB to
         # 16 GB). None = full fp32, as written today.
         self.store_dtype = store_dtype
         # RAM dtype of the field cache.
@@ -288,7 +288,7 @@ class FieldSet:
                 print(f"    loaded {n+1}/{nt}  {os.path.basename(str(p))}", flush=True)
 
         # ASSERT ON WHAT ARRIVED, NOT ON WHAT WAS PROMISED. A window one dump short is a
-        # real failure mode here -- docs/FASTEDDY_TRAPS.md 18b is a whole entry about half a
+        # real failure mode here -- docs/reference/fasteddy-traps.md 18b is a whole entry about half a
         # millisecond of it -- and a short stream would otherwise leave the tail of the
         # cache as uninitialised np.empty, which is finite, plausible garbage.
         got = n + 1

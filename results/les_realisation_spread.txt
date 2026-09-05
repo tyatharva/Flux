@@ -4,7 +4,7 @@ the integral and the array share are not.
 WHY IT CAME UP. Both target cases were run twice -- the second time only because the window
 fields had been released and the wrap diagnostic needed them back. The two runs start from a
 BIT-IDENTICAL restart, use the same .in, the same surface, the same rotation and the same
-code. FastEddy is not bitwise reproducible (PROJECT_BRIEF.md: ~1e-4 relative in velocity after 200
+code. FastEddy is not bitwise reproducible (docs/getting-started/environment.md: ~1e-4 relative in velocity after 200
 steps, from non-associative GPU reductions), and over 152,100 steps that grows into a
 different eddy field with the same statistics. Nobody had measured what it does to a
 FOOTPRINT.

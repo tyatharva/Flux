@@ -2,7 +2,7 @@
 """Measure the fastest CUDA thread-block shape ON THIS GPU, before the library is spun.
 
 WHY THIS EXISTS AND WHY IT RUNS AUTOMATICALLY. Every `.in` in this project carries
-tBx=1, tBy=2, tBz=64, and PROJECT_BRIEF.md records where that came from: a sweep of nine legal
+tBx=1, tBy=2, tBz=64, and docs/les/configuration.md records where that came from: a sweep of nine legal
 shapes at 122^3, 300 steps each, ON AN RTX 4080 (Ada, sm_89), 2026-08-22. 1x2x64 won at
 0.01475 s/step, 1x2x32 and 1x8x16 were within 1%, 1x16x16 was 12% slower and 1x32x8 was
 46% slower. NOTHING ABOUT THAT IS A PROPERTY OF THE GRID. It is a property of the memory
@@ -42,7 +42,7 @@ block shape changes how fast the answer arrives and not what it is.
 AND THE WINNER IS NOT PICKED ON ONE MEASUREMENT. The first version of this script ran each
 shape once and took the fastest, which on the development GPU meant choosing 2x2x32 over
 1x2x64 on 0.7% -- a difference smaller than the repeat noise of a single 200-step run, and
-exactly the failure PROJECT_BRIEF.md names: "A TOLERANCE MEASURED FROM ONE DIFFERENCE IS NOT A
+exactly the failure docs/reference/standing-rules.md names: "A TOLERANCE MEASURED FROM ONE DIFFERENCE IS NOT A
 TOLERANCE." The sweep is now two phases: SCREEN every candidate once, then CONFIRM everything
 within a few percent of the best by repeating it, rank on the MEDIAN, and keep the incumbent
 1x2x64 unless the challenger beats it by more than the measured noise.
@@ -284,7 +284,7 @@ def main():
         if gain <= noise:
             # A DIFFERENCE SMALLER THAN THE REPEAT NOISE IS NOT A DIFFERENCE. Changing the
             # library's block shape on it would be reporting measurement scatter as a
-            # result -- and every .in in the project, and PROJECT_BRIEF.md, carry the incumbent.
+            # result -- and every .in in the project, and docs/les/configuration.md, carry the incumbent.
             print(f"\n  {win_shape} is {gain:.2%} faster than the incumbent "
                   f"{a.incumbent}, which is inside the {noise:.2%} repeat noise of this "
                   f"measurement. KEEPING {a.incumbent}.")
@@ -307,11 +307,11 @@ def main():
               f"winner here" + ("  (unchanged)" if win_shape == "1x2x64" else ""))
     xs = [(k, st) for k, st in stats.items() if shape_of[k][0] > 1]
     if xs:
-        # THE COALESCING CLAIM, RE-TESTED RATHER THAN INHERITED. PROJECT_BRIEF.md records tBx > 1
+        # THE COALESCING CLAIM, RE-TESTED RATHER THAN INHERITED. docs/les/configuration.md records tBx > 1
         # costing 17% at 186^2 on Ada. Whatever this machine says, it is a measurement.
         b = min(xs, key=lambda kv: kv[1]["median"])
         print(f"  best tBx>1 shape here: {b[0]} at {b[1]['median'] / win_st['median']:.3f}x "
-              f"the winner (PROJECT_BRIEF.md records tBx>1 costing ~17% at 186^2 on Ada)")
+              f"the winner (docs/les/configuration.md records tBx>1 costing ~17% at 186^2 on Ada)")
 
     os.makedirs(os.path.dirname(os.path.abspath(a.json)) or ".", exist_ok=True)
     json.dump({"grid": [nx, ny, nz], "Nh": nh, "steps": a.steps, "gpu": a.gpu,

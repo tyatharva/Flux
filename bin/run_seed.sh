@@ -15,7 +15,7 @@
 #
 # NO CHAIN, AND THEREFORE NO RESUME. A seed is ONE continuous FastEddy invocation --
 # 738,720 steps, 3.0 simulated hours, ~2.9 h wall. Chaining was retired 2026-08-26 and
-# with it the entire failure mode of docs/FASTEDDY_TRAPS.md 17: a restart READ overwrites every
+# with it the entire failure mode of docs/reference/fasteddy-traps.md 17: a restart READ overwrites every
 # IO-registered field (htFlux, z0m, z0t, tskin, topoPos, zPos) with whatever the restart
 # file holds, so every segment boundary was an opportunity to inherit state the .in does
 # not describe. It cost a whole segment of a stable seed running at zero surface flux
@@ -164,7 +164,7 @@ echo "  dt $DT, dump every $FRQ steps, $TOTAL steps in ONE invocation (proj ${WA
 # `meta.stub = true` and `stub: true` go into BOTH json artifacts, the restart is a 1 kB
 # text file rather than a 73 MB netCDF, and bin/run_seeds.py refuses to count a stub as
 # accepted. That is the same discipline STUB_LES=1 already uses for corpus cases
-# (PROJECT_BRIEF.md: "A STUBBED RECORD CAN NEVER MASQUERADE AS A CORPUS RECORD").
+# (docs/reference/standing-rules.md: "A STUBBED RECORD CAN NEVER MASQUERADE AS A CORPUS RECORD").
 #
 # STUB_SEED_FAIL=1 makes it fail instead, so "a failed seed frees its GPU rather than
 # stranding it" is a thing that can be SHOWN rather than argued.
@@ -298,7 +298,7 @@ else
   #
   # IT COSTS ONE RESTART, AND THE RESTART IS THE DANGEROUS PART. htFlux is IO-registered,
   # so the main invocation would inherit +0.05 from the burn-in dump whatever its .in says
-  # (docs/FASTEDDY_TRAPS.md 17). bin/zero_htflux.py writes the zero into the FILE and reads it
+  # (docs/reference/fasteddy-traps.md 17). bin/zero_htflux.py writes the zero into the FILE and reads it
   # back, and the existing per-run htFlux assertion below is the second lock.
   ACC_S="${SEED_ACCEL_S:-0}"
   if [ "$ACC_S" != "0" ]; then
@@ -316,7 +316,7 @@ else
     cp -f "$ACC_LAST" "$JOB/FE_ACC.0" || die "staging the burn-in restart"
     ./docker/pyrun.sh bin/zero_htflux.py "${JOB_REL}/FE_ACC.0" --value "$WTH" \
       || die "could not clear the burn-in htFlux out of the restart"
-    # ONE RUN PER DIRECTORY, OR IT IS NOT A SERIES (docs/FASTEDDY_TRAPS.md 18c): the burn-in's
+    # ONE RUN PER DIRECTORY, OR IT IS NOT A SERIES (docs/reference/fasteddy-traps.md 18c): the burn-in's
     # dumps carry step numbers that overlap the main run's and would interleave into a
     # single sorted "history" with two states at the same time.
     rm -f "$JOB/output/${OUTBASE}_ACC".*
@@ -324,7 +324,7 @@ else
   # A COLD START, so inPath/inFile are empty and surflayer_wth is whatever the .in says.
   # With no restart to read, htFlux CANNOT be inherited -- which is the point of retiring
   # the chain. The assertion below is kept anyway: it costs seconds once per run, and
-  # PROJECT_BRIEF.md's standing rule is to validate the state the model actually loaded, never
+  # docs/reference/standing-rules.md's standing rule is to validate the state the model actually loaded, never
   # the config handed to it.
   if [ "$ACC_S" != "0" ]; then
     sed -e "s|^Nt = .*|Nt = $TOTAL|" \
@@ -365,7 +365,7 @@ else
   [ -n "$WATCH_PID" ] && { kill -TERM -- "-$WATCH_PID" 2>/dev/null || kill "$WATCH_PID" 2>/dev/null; }
   # A container the watcher stopped exits non-zero, which is not a failure -- but a run
   # that failed for any OTHER reason must still fail. Distinguish on the marker, and on
-  # the artifact, never on the exit status alone (docs/FASTEDDY_TRAPS.md 12).
+  # the artifact, never on the exit status alone (docs/reference/fasteddy-traps.md 12).
   if [ "$RC_RUN" != "0" ] && [ ! -f "$JOB/output/.early_stop" ]; then
     die "the seed run"
   fi
@@ -404,7 +404,7 @@ print(f"  htFlux confirmed {got:+.6f}")
 PYCHK
 
 # ---- the gate, HERE, so the 300 s dumps never travel -------------------------------
-# ASSERT ON THE ARTIFACT, NOT THE EXIT STATUS (docs/FASTEDDY_TRAPS.md 12): the gate's stdout is
+# ASSERT ON THE ARTIFACT, NOT THE EXIT STATUS (docs/reference/fasteddy-traps.md 12): the gate's stdout is
 # tee'd, so $? would be tee's. The verdict is read back out of the JSON it wrote.
 # The gate scores the LAST 1.5 h, which is past the warm-up, so the flux it needs for the
 # Kljun terms is the TARGET one and not the zero the first segment ran under.
@@ -426,7 +426,7 @@ import json,sys
 man=json.load(open(sys.argv[1])); st=json.load(open(sys.argv[2]))
 man["achieved"]=st["final"]                 # LABEL THE SEED BY WHAT IT ACHIEVED, not by
 man["achieved"]["pass"]=st["pass"]          # what it was asked for -- pick_seed.py reads
-man["achieved"]["source_dump"]=sys.argv[3]  # these, and PROJECT_BRIEF.md says the same for
+man["achieved"]["source_dump"]=sys.argv[3]  # these, and docs/les/seed-library.md says the same for
 # THE CEILING THIS RUN WAS ACTUALLY HELD TO, STAMPED INTO THE ARTIFACT.
 # steps_total in the manifest is the job's DESIGN ceiling (349920 = 3.0 sim-h for every
 # seeds job); SEED_CEILING_H is applied inside this script and, until now, left no trace.
@@ -457,7 +457,7 @@ date '+%F %H:%M:%S'
 # the artifact and must not be reported as an error.
 #
 # The verdict is NOT lost: it is in return/stationarity.json, in manifest.achieved.pass, on
-# the machine manifest, and stamped onto every pair as seed.gate_state. That is PROJECT_BRIEF.md's
+# the machine manifest, and stamped onto every pair as seed.gate_state. That is docs/les/seed-library.md's
 # standing rule -- assert on the ARTIFACT, not on the exit status -- applied to this
 # script's own output rather than to FastEddy's.
 #

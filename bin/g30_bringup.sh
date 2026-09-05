@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 30 m BRING-UP: measured cost, and the FLAT dt accuracy boundary re-measured.
 #
-# WHY THE BOUNDARY IS RE-MEASURED AND NOT CARRIED. PROJECT_BRIEF.md's standing rule, and it has
+# WHY THE BOUNDARY IS RE-MEASURED AND NOT CARRIED. docs/reference/standing-rules.md's standing rule, and it has
 # been right twice: the accuracy boundary is NOT a property of CFL_3d alone. It was ~1.64
 # at dx/dz_sfc = 2.80 on the retired 24 m grid, ~1.51 at 4.007 on the 16 m one, and
 # 1.55-1.60 at 2.804 on the current 24 m one -- the SAME anisotropy as the retired grid and

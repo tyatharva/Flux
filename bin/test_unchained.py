@@ -8,8 +8,8 @@ one cheap measurement.
 
 AND THE TEST IS NOT "ARE THEY IDENTICAL". FastEddy is NOT bitwise reproducible run to run
 on a single GPU -- two runs of the same case differ by ~1e-4 relative in velocity and
-~7e-4 K in theta after 200 steps (PROJECT_BRIEF.md). So chained-vs-unchained CANNOT be zero, and
-comparing it against zero would fail a correct change. PROJECT_BRIEF.md's standing rule applies:
+~7e-4 K in theta after 200 steps (docs/getting-started/environment.md). So chained-vs-unchained CANNOT be zero, and
+comparing it against zero would fail a correct change. docs/reference/standing-rules.md's standing rule applies:
 compare against the floor, not against zero.
 
     A   2N steps, one invocation
@@ -158,7 +158,7 @@ def main():
     if verdict:
         print("\n  PASS: the chain is worth no more than re-running the same case.")
         print("        Unchaining does not change the answer; it removes a restart READ,")
-        print("        which is what docs/FASTEDDY_TRAPS.md 17 was about.")
+        print("        which is what docs/reference/fasteddy-traps.md 17 was about.")
     else:
         print("\n  FAIL: chained and unchained differ by more than the reproducibility")
         print("        floor. Do NOT carry chained results over to unchained production.")

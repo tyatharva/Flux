@@ -22,7 +22,7 @@ field cache is not buildup -- it IS the window, and the production integrator
 (`lpdm/driver.py:compute_footprint`) is a CPU integrator that random-accesses all of it on
 every step. Host residency therefore floors at the cache, not at a snapshot. Getting to
 ~74 MB needs the window to live in VRAM and the integration to happen there, i.e. making
-`lpdm/gpu.py:GpuLPDM` the production integrator -- which docs/PLAN.md carries as a deferred item
+`lpdm/gpu.py:GpuLPDM` the production integrator -- which docs/history/overview.md carries as a deferred item
 and which is an INTEGRATOR change, not a plumbing change.
 
 usage: docker/pyrun.sh bin/test_streaming.py runs/<case>/window --dt 0.0295858 [--n 24]

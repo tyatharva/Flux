@@ -5,7 +5,7 @@
 case. Three rules, in order:
 
   1. AT MOST ONE PER DAY. Two times from one day share the synoptic state, the soil
-     moisture and the morning's history -- they are not independent units, and PROJECT_BRIEF.md's
+     moisture and the morning's history -- they are not independent units, and docs/problem/site.md's
      split-by-run rule would have to cover them jointly or the effective sample size is
      overstated. One per day makes the run id and the independent unit the same thing.
 
@@ -46,7 +46,7 @@ VONK, G, Z0 = 0.4, 9.81, 0.1435
 RHO_CP = 1.15 * 1004.5          # W/m^2 -> K m/s
 DIR_SECTORS = 12                # 30 deg, matching the seed library's 12 headings
 DIR_NAMES = ["N", "NNE", "ENE", "E", "ESE", "SSE", "S", "SSW", "WSW", "W", "WNW", "NNW"]
-# PROJECT_BRIEF.md's own classes: 27.2% very unstable (z/L < -0.5), 30.3% unstable,
+# docs/problem/site.md's own classes: 27.2% very unstable (z/L < -0.5), 30.3% unstable,
 # 13.3% near-neutral, 20.4% stable, 8.8% very stable.
 STAB_EDGES = [-np.inf, -0.5, -0.02, 0.02, 0.5, np.inf]
 STAB_NAMES = ["v.unstable", "unstable", "neutral", "stable", "v.stable"]
@@ -97,7 +97,7 @@ def main():
                          "and 0.044, and both collapsed on the same timeline -- the "
                          "Ozmidov scale is 6.9 Delta at the receptor even at 0.044, "
                          "against 318 neutrally, so weakening the stratification does not "
-                         "reach the problem (docs/results/STABLE_REGIME_RESULT.md). Unstable hours are "
+                         "reach the problem (docs/history/stable-regime.md). Unstable hours are "
                          "never screened by this. Raise it only to re-measure the bound.")
     ap.add_argument("--out", default="results/selected_times.tsv")
     ap.add_argument("--report", default="results/time_selection.txt")

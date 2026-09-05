@@ -100,7 +100,7 @@ def predictors(rows, cases):
     the sample is: 2 seeds with a measured freeze-time drift rate, and 2 corpus cases with
     a measured widening. With n = 2 a straight line through the points is exact by
     construction and its correlation is +/-1 whatever the physics -- reporting one would
-    be the purest form of the failure PROJECT_BRIEF.md already forbids twice ("a tolerance
+    be the purest form of the failure docs/reference/standing-rules.md already forbids twice ("a tolerance
     measured from one difference is not a tolerance"; "gates compare against a
     DISTRIBUTION with enough degrees of freedom to have a standard error").
 

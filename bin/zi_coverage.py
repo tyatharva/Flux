@@ -36,7 +36,7 @@ def main():
     qc = d["qc"]
     zi, wth, zL = d["pblh"][qc], d["wth"][qc], d["zL"][qc]
     us, lst = d["ustar"][qc], d["lst"][qc]
-    # The convective-midday reference used throughout PROJECT_BRIEF.md: local 10-16 h with a
+    # The convective-midday reference used throughout docs/problem/site.md: local 10-16 h with a
     # surface heat flux clearly above the noise. This is the population the array signal
     # lives in, so it is the one the coverage question is really about.
     mid = (lst >= 10) & (lst < 16) & (wth > 0.05)

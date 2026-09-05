@@ -20,7 +20,7 @@ ASSERTED (a FAIL is a FAIL):
   8. The audit log has no line that loaded the test split.
 
 MEASURED AND PRINTED (not gated): octant counts, records with array share > 5%, seed keys
-shared between train and val (the leakage channel PROJECT_BRIEF.md limitation 10 names).
+shared between train and val (the leakage channel docs/limitations-and-future-work.md limitation 10 names).
 
 usage: /home/atyagi/miniforge3/envs/LESNet/bin/python bin/test_ml_data.py
 """
@@ -106,7 +106,7 @@ def main():
                     f"median |diff| {np.median(d):.3f} pp, p95 {np.percentile(d, 95):.3f} pp")
     north = np.concatenate([tr.octant, va.octant]) == "N"
     print(f"         N-wind mean array share: raster {100*np.nanmean(rs[north]):.2f}% "
-          f"meta {100*np.mean(meta_share[north]):.2f}% (PROJECT_BRIEF.md: 30.28%)")
+          f"meta {100*np.mean(meta_share[north]):.2f}% (docs/corpus/dataset.md: 30.28%)")
 
     # 6. the cone, rebuilt
     tc = time.time()

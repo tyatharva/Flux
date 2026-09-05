@@ -27,7 +27,7 @@ for the diagnostic than the transport model runs on would make the two incompara
 this project has already been bitten once by a gate carrying its own copy of a closure.
 
 REPORTED ALONGSIDE: the resolved fraction of sigma_w^2, f = ww_res/(ww_res + (2/3)e_sgs).
-That number is NOT a gate -- PROJECT_BRIEF.md retired the 40% sub-grid gate because no affordable
+That number is NOT a gate -- docs/limitations-and-future-work.md retired the 40% sub-grid gate because no affordable
 grid clears it at a 10 m receptor -- but it is what makes L_O/Delta concrete: a layer with
 L_O ~ Delta has almost nothing resolved, and the two numbers say the same thing twice.
 

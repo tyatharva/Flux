@@ -35,12 +35,12 @@ TWO CONDITIONS, because either alone is fooled:
      e_res/u*^2 is still REPORTED, because it is the standing stationarity gate's own
      quantity and it is informative. It is just not what decides.
 
-     NOT the sub-grid FRACTION either: PROJECT_BRIEF.md retired that gate because this grid cannot
+     NOT the sub-grid FRACTION either: docs/limitations-and-future-work.md retired that gate because this grid cannot
      clear it at any affordable spacing, and a check nobody can pass is not a check.
 
   2. u* NOT COLLAPSING, scored against the run's OWN history rather than an absolute
      value, because u* legitimately moves 18% over hours on the 17.6 h inertial
-     oscillation (PROJECT_BRIEF.md). Two ways to fail: the final u* falls below half its own
+     oscillation (docs/les/seed-library.md). Two ways to fail: the final u* falls below half its own
      running maximum, or it is trending down faster than 20 %/h over the scored half.
 
 THE THRESHOLDS ARE MEASURED, NOT PICKED. Calibrated on this project's own runs -- the
@@ -70,7 +70,7 @@ walks from healthy to dead inside ONE run and therefore separates the two by its
                        start failing healthy spin-ups, and this is not the stationarity gate.
 
 AND THERE ARE TWO COLLAPSED RUNS, NOT ONE. The other is the cold-started rung of
-docs/FASTEDDY_TRAPS.md 15 (G = 6, w'th' = -0.020): u* 0.219 -> 0.043, z_i 209 -> 61 m,
+docs/reference/fasteddy-traps.md 15 (G = 6, w'th' = -0.020): u* 0.219 -> 0.043, z_i 209 -> 61 m,
 z/L +34.8 -- and it scored **k0/k1 = 0.72**, also a pass. So the accuracy check has now
 waved through a dead boundary layer twice, at two different values, which is what makes
 the point structural rather than a coincidence of one number.
@@ -223,7 +223,7 @@ def verdict(rows):
     if last["n_bad"] or not np.isfinite(last["ustar"]) or not np.isfinite(last["e_max"]):
         return "FAIL", (f"  FAIL: NON-FINITE velocity in {last['path']}\n"
                         f"        {last['n_bad']:,} bad cells. inf is not NaN and FastEddy "
-                        f"prints no CORRUPTED banner for it (docs/FASTEDDY_TRAPS.md #1).")
+                        f"prints no CORRUPTED banner for it (docs/reference/fasteddy-traps.md #1).")
     tag = (f"max e_res/U_ref^2={last['e_over_uref2']:.2e} at k={last['k_max']}  "
            f"u*={last['ustar']:.4f}  U_ref={last['u_ref']:.2f}  "
            f"(e_res/u*^2={last['e_over_ust2']:.2f}, reported only)")

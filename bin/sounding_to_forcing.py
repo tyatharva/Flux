@@ -103,7 +103,7 @@ def derive_dt(dx, dz_sfc, cfl_max=1.35, cadence=CADENCE):
     """Largest dt at or below the CFL target that makes the cadence an integer step count.
 
     CFL_3d = c dt sqrt(2/dx^2 + 1/dz_sfc^2), the form that reproduces the retired 24 m
-    grid's stated 1.4946 to four digits (PROJECT_BRIEF.md). run_window.sh asserts
+    grid's stated 1.4946 to four digits (docs/les/configuration.md). run_window.sh asserts
     |frq*dt - cadence| < 2e-4, so rounding dt and hoping is not an option.
     """
     fac = C_SOUND * np.sqrt(2.0 / dx ** 2 + 1.0 / dz_sfc ** 2)
@@ -199,7 +199,7 @@ def fit_base_state(zf, thf, wts, zceiling):
 def ekman_backing_deg(zoL):
     """Expected surface-to-geostrophic turning, from THIS project's own measurements.
 
-    PROJECT_BRIEF.md: 22-25 deg in the neutral cases, 7-13 deg in the CBL. Interpolated on
+    docs/les/seed-library.md: 22-25 deg in the neutral cases, 7-13 deg in the CBL. Interpolated on
     z_i/L rather than invented, and used only as a LABEL and as the optional
     --match-10m pre-compensation; the LES's achieved direction is what the corpus records.
     """
@@ -244,7 +244,7 @@ def flux_split(grid_dir):
     HRRR's SHTFL is a 3 km grid-cell average over a heterogeneous surface, so it is a
     DOMAIN MEAN, not a cropland value. prep_surface.py --wth takes the cropland
     REFERENCE. Dividing by mean(f) is what makes the two consistent, and getting it
-    backwards spins the seed up at the wrong z_i (PROJECT_BRIEF.md, 0.1363 vs 0.1290).
+    backwards spins the seed up at the wrong z_i (docs/les/seed-library.md, 0.1363 vs 0.1290).
 
     The grid's saved htFlux.npy is NOT used even when it is non-zero: it carries whichever
     reference flux that build happened to use, and data/grid16 is in fact a neutral build
@@ -284,7 +284,7 @@ def _grid_z0(grid_dir):
         return float(np.exp(np.log(np.load(p)).mean()))
     # REFUSE RATHER THAN GUESS. 0.1435 was the 122^2 @ 16 m value and it is 0.0615 at
     # 30 m -- the box takes in more lake. A grid constant used on the wrong grid is
-    # docs/FASTEDDY_TRAPS.md 19, and a WARNING is not enough: the run continues, the Obukhov
+    # docs/reference/fasteddy-traps.md 19, and a WARNING is not enough: the run continues, the Obukhov
     # label comes out wrong by a plausible amount, and it reaches the pair. The caller
     # always has a grid; if the grid has no z0m.npy then the surface was never built and
     # nothing downstream should proceed on a literal.
@@ -385,7 +385,7 @@ def build(snd, grid_dir, nz, zceiling, c1, dx, cfl, match_10m, w_low, z_low,
 
     # Subsidence opposes entrainment at the inversion. The knee follows the case's own
     # z_i instead of the 500 m the static base.in carries; -25 m/h is the fair-weather
-    # value PROJECT_BRIEF.md settled on (the kernel divides by 3600).
+    # value docs/les/case-generation.md settled on (the kernel divides by 3600).
     lsf = dict(lsf_w_surf=0.0, lsf_w_lev1=-25.0, lsf_w_lev2=0.0,
                lsf_w_zlev1=float(round(max(zi, 200.0), 1)),
                lsf_w_zlev2=float(round(min(max(2.0 * zi, 1000.0), 2000.0), 1)))

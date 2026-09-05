@@ -77,7 +77,7 @@ dampingLayerDepth = 500.0 # 20% of the 2500 m domain depth; clean domain to 2000
 surflayerSelector = 1 # surfacelayer selector: 0= off, 1= surface kinematic heat flux (surflayer_wth), 2=sking temperature rate (surflayer_tr)
 surflayer_z0 = 0.1435 # geometric-mean z0 of the real 122^2 @ 16 m WorldCover map
 surflayer_z0t = 0.01 # roughness length (temperature) when surflayerSelector > 0
-surflayer_wth = 0.0 # kinematic VIRTUAL heat flux (the run is dry; see PROJECT_BRIEF.md). 0 = neutral
+surflayer_wth = 0.0 # kinematic VIRTUAL heat flux (the run is dry; see docs/problem/site.md). 0 = neutral
 surflayer_tr = -0.0 # temperature rate at the surface when surflayerSelector = 2 (>0 for warming; <0 for cooling)
 surflayer_wq = 0.0 # latent heat flux at the surface (kg/kg m s-1) when surflayerSelector = 1
 surflayer_qr = 0.0 # water vapor rate (kg/kg h-1) when surflayerSelector = 2

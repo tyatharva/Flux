@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # THE FULL ACCEPTANCE BATTERY FOR ONE SEED, in one place so every seed gets the same one.
 #
-# The first seed's battery was assembled by hand from PROJECT_BRIEF.md and docs/PLAN.md, which is
+# The first seed's battery was assembled by hand from docs/les/seed-library.md and docs/history/overview.md, which is
 # fine once and unrepeatable fifteen times: the risk is not that a check fails, it is that
 # a check is quietly SKIPPED for one rung and the library ends up with seeds that were
 # held to different standards. Every item below is run for every seed, and an item that
@@ -9,7 +9,7 @@
 #
 #   usage: bin/seed_accept.sh seeds/seed_nbl-deep_a000 [--wall-seconds N]
 #
-# ASSERT ON THE ARTIFACT, NOT THE EXIT STATUS (docs/FASTEDDY_TRAPS.md 12). Every step here is
+# ASSERT ON THE ARTIFACT, NOT THE EXIT STATUS (docs/reference/fasteddy-traps.md 12). Every step here is
 # piped into tee or grep, so $? belongs to the last element of the pipe. Verdicts are
 # re-read from the JSON each tool writes, and a missing JSON is a failure.
 set -uo pipefail
@@ -93,7 +93,7 @@ say "3. k0/k1 (accuracy CFL; ~9 means dt is past the boundary)"
 
 # ---- 4. is the turbulence ALIVE -- a VERDICT, never a SKIP ------------------------
 # k0/k1 is a dt check, not a physics check. A stable seed collapsed with k0/k1 at 0.442
-# throughout (PROJECT_BRIEF.md), so this runs everywhere k0/k1 runs and a SKIP is not an answer.
+# throughout (docs/les/configuration.md), so this runs everywhere k0/k1 runs and a SKIP is not an answer.
 say "4. turb_alive (the physics check; a SKIP is not a PASS)"
 ./docker/pyrun.sh docker/turb_alive.py "${LAST#$ROOT/}" \
     --json "$JOB_REL/return/turb_alive.json" 2>&1 | tee_

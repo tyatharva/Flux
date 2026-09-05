@@ -7,7 +7,7 @@
 Every run is `python -m ml.train` in its own process; K of them at a time. A monitor
 thread samples nvidia-smi every 5 s into gpu_util.csv, so the utilisation and the
 concurrency that was actually achieved are recorded, not assumed. The baseline is run with
-several seeds and every comparison is quoted in units of that seed spread (PROJECT_BRIEF.md
+several seeds and every comparison is quoted in units of that seed spread (docs/les/seed-library.md
 standing rule 5: a tolerance measured from one difference is not a tolerance).
 """
 import argparse

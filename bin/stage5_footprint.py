@@ -146,7 +146,7 @@ def main():
                          "to <outdir>/<tag>_touchdowns.npz. THE ML TARGET IS A CONTINUOUS "
                          "DENSITY FITTED TO THESE, not the 122^2 raster -- binning is what "
                          "makes the per-cell L1 ~92% between two realisations of the same "
-                         "conditions (docs/ML_TARGETS.md). The window fields are deleted at the "
+                         "conditions (docs/emulator/targets-and-architecture.md). The window fields are deleted at the "
                          "end of every case, so a touchdown not written here is gone. "
                          "1e5 costs ~1.6 MB; 0 (default) keeps the old behaviour. Only the "
                          "FIRST realisation is captured -- the second exists to measure a "
@@ -365,7 +365,7 @@ def main():
               f"(cadence {fs.dt_dump:.1f} s), loaded in {t_load:.0f} s")
         if a.strict_rel and ring is not None:
             # THE STREAM'S OWN CADENCE, ASSERTED. run_window.sh derives dt so frqOutput*dt
-            # lands the output cadence on an integer step count, and docs/FASTEDDY_TRAPS.md 18b
+            # lands the output cadence on an integer step count, and docs/reference/fasteddy-traps.md 18b
             # is a whole entry about scoring that against a constant instead of against a
             # tenth of the measured interval. Same rule here.
             want = ring.meta.frq_output * a.dt
@@ -598,7 +598,7 @@ def main():
                                   "kpk", "wstar", "ustar", "h", "L", "d_r", "mode",
                                   "legacy", "delta")}
         # THE INVARIANT'S VERDICT TRAVELS WITH THE CASE. bin/run_corpus_case.sh asserts on
-        # it, because PROJECT_BRIEF.md's standing rule is to assert on the artifact rather than
+        # it, because docs/reference/standing-rules.md's standing rule is to assert on the artifact rather than
         # on an exit status -- and this analysis is piped into tee, so the exit status
         # belongs to tee.
         if _fl.get("health") is not None:
@@ -670,7 +670,7 @@ def main():
             # printed the standard error and dropped it: the .txt held the only copy of
             # the number that says whether a share DIFFERENCE means anything, and across
             # 1370 cases nothing downstream could reach it. A share quoted without its
-            # own SE is exactly the reporting failure PROJECT_BRIEF.md forbids -- "score a
+            # own SE is exactly the reporting failure docs/reference/standing-rules.md forbids -- "score a
             # second moment against its own sampling spread".
             out["cover_share_se"] = {}
             out["cover_share_groups_n"] = ng

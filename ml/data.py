@@ -7,7 +7,7 @@ THE TEST SPLIT IS OFF LIMITS. `load_split("test")` raises TestSplitForbidden unl
 flag can be set is the `--allow-test` option of ml/evaluate.py, which exists so the test
 evaluation can be run deliberately, by hand, once. Every call is appended to
 results/ml/loader_audit.jsonl, so "the test split was never read" is a statement about an
-artifact and not about intent (PROJECT_BRIEF.md standing rule 7).
+artifact and not about intent (docs/reference/standing-rules.md standing rule 7).
 
 Rows are read by FANCY-INDEXING the requested split's rows only. The file interleaves the
 splits (train rows span the whole file, val and test sit in the middle), so a slice would

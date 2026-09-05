@@ -29,7 +29,7 @@ verticalDeformQuadCoeff = 0.0 # pure cubic
 #--TIME_INTEGRATION
 timeMethod = 0 # Selector for time integration method. [0=RK3-WS2002 (default)]
 Nt = 68480
-dt = 0.0308642 # 5/162 s: integer 5 s cadence. CFL_3d 1.3502, 10.0% under the MEASURED boundary (k0/k1 0.130 at 1.50, 8.857 at 1.55). See PROJECT_BRIEF.md and results/g30_bringup.txt.
+dt = 0.0308642 # 5/162 s: integer 5 s cadence. CFL_3d 1.3502, 10.0% under the MEASURED boundary (k0/k1 0.130 at 1.50, 8.857 at 1.55). See docs/les/configuration.md and results/g30_bringup.txt.
 NtBatch = 162
 #--HYDRO_CORE
 ##------------: HYDRO_CORE Submodule Selectors ---

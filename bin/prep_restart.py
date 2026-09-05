@@ -116,7 +116,7 @@ def main():
             print(f"  injected the static surface: terrain {topo.min():.1f}..{topo.max():.1f} m, "
                   f"z0 {z0.min():.0e}..{z0.max():.2f} m  (NOT rotated -- it is the geography)")
 
-    # ---- READ IT BACK. PROJECT_BRIEF.md's standing rule, applied where it is load-bearing ----
+    # ---- READ IT BACK. docs/reference/standing-rules.md's standing rule, applied where it is load-bearing ----
     #
     # The surface is injected by OVERWRITING the restart file, because that is the only way
     # to give FastEddy v5.0.1 a spatially varying surface -- and a write that silently does

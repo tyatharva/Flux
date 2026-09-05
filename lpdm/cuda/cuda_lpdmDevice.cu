@@ -37,7 +37,7 @@ static double   *offz_d = NULL, *offf_d = NULL, *offs_d = NULL;  /* floor table 
 static int       n_off = 0;
 /* DELIVERY OF THE FLOOR. Production is MULTIPLICATIVE -- sigma^2 = sc(z) (2/3)e -- and
  * additive (sigma^2 = (2/3)e + delta(z)) is a recorded negative result kept so the two can
- * be measured on the same fields (SIXTH_PASS_RESULTS.md). Both are here because the CPU
+ * be measured on the same fields (docs/history/pass-6.md). Both are here because the CPU
  * path has both, and a port that silently supported only one would be a different model
  * from the one it is being scored against. */
 static int       floor_mode = 0;   /* 0 none, 1 multiplicative, 2 additive */
@@ -320,7 +320,7 @@ __device__ void localStats(const Ctx &c, double x, double y, double z, double t,
     ds += doff;
   }
   if(s2 < 1e-6) s2 = 1e-6;
-  /* eps consistency, with BOTH sides floored identically (FASTEDDY_TRAPS.md 11) */
+  /* eps consistency, with BOTH sides floored identically (docs/reference/fasteddy-traps.md 11) */
   double denom = sig2_raw > 1e-6 ? sig2_raw : 1e-6;
   double ratio = s2/denom; if(ratio < 1.0) ratio = 1.0;
   ep *= ratio;

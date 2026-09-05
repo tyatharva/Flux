@@ -32,7 +32,7 @@ import sys
 import numpy as np
 
 C_SOUND = 347.2          # sqrt(gamma R T) at 300 K; the constant CFL_3d is defined with
-NS_PER_CELL_STEP = 8.51  # measured, PROJECT_BRIEF.md "Cost and thread blocks"
+NS_PER_CELL_STEP = 8.51  # measured, docs/les/configuration.md "Cost and thread blocks"
 
 
 def z_of_zeta(zeta, c1, zC, fcoeff=0.0):

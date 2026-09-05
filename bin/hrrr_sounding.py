@@ -2,7 +2,7 @@
 """One HRRR pseudo-sounding at the Kegonsa tower, for one valid time.
 
 WHY HRRR AND NOT CONUS404. CONUS404 hourly carries no time-varying atmospheric
-profiles at all -- checked in the store's own .zmetadata, recorded in PROJECT_BRIEF.md -- so it
+profiles at all -- checked in the store's own .zmetadata, recorded in docs/reference/ruled-out.md -- so it
 cannot force a per-case run however convenient it would be. HRRR supplies 3 km analyses on
 ~50 HYBRID levels, which is the part that matters: pressure-level products put 3-4 levels
 in the whole boundary layer, and this project's receptor is at 10 m.
@@ -22,7 +22,7 @@ TWO TRAPS, BOTH OF WHICH PRODUCE PLAUSIBLE WRONG NUMBERS RATHER THAN ERRORS:
      longitude that is a ~5 degree rotation -- comparable to a whole direction bin in a
      12-direction corpus, and invisible in the wind SPEED, which is rotation-invariant.
      Rotated here with pyproj's meridian convergence rather than a hand-rolled Lambert
-     formula. (bin/conus404_dist.py hits the identical issue and quotes 5.5 deg for
+     formula. (bin/conus404_dist.py (retired 2026-09-04; see docs/history/) hits the identical issue and quotes 5.5 deg for
      CONUS404's grid; agreement to a few tenths is the cross-check.)
 
   2. The geostrophic wind needs a HORIZONTAL GRADIENT, so a single gridpoint cannot give
@@ -218,7 +218,7 @@ def fetch(ts, box_km, level_mb, save_dir=None, keep_grib=False, nlev=20):
     # ---- native (hybrid) levels: the profile ------------------------------------
     # SPFH IS NOT REQUESTED, because nothing downstream reads it: the run is dry, the
     # profile carries only z/theta/u/v/p/T, and the ONE thing moisture would change --
-    # buoyancy -- is absorbed by prescribing htFlux as the VIRTUAL flux (PROJECT_BRIEF.md). It is
+    # buoyancy -- is absorbed by prescribing htFlux as the VIRTUAL flux (docs/problem/site.md). It is
     # a sixth of the download for a field that is thrown away.
     #
     # AND THE GRIB IS DELETED AFTER EXTRACTION unless --keep-grib. GRIB byte-range
@@ -479,7 +479,7 @@ def build(raw, level_mb):
     rho_s = float(sfc.get("psfc", 96000.0)) / (RD * float(sfc.get("t2m", 288.0)))
     wth = sh / (rho_s * CP) if np.isfinite(sh) else np.nan
     bowen = sh / lh if (np.isfinite(sh) and np.isfinite(lh) and abs(lh) > 1.0) else np.nan
-    # Virtual, because the run is DRY and buoyancy is what htFlux is for (PROJECT_BRIEF.md).
+    # Virtual, because the run is DRY and buoyancy is what htFlux is for (docs/problem/site.md).
     # With a per-case Bowen ratio this conversion is exact instead of class-table-derived.
     th_s = float(sfc.get("t2m", 288.0)) * (P0 / float(sfc.get("psfc", 96000.0))) ** KAPPA
     # The conversion needs a POSITIVE Bowen ratio. At night SHTFL < 0 and LHTFL is small
@@ -555,7 +555,7 @@ def main():
     with open(out, "w") as f:
         json.dump(rec, f, indent=1)
 
-    # ASSERT ON THE ARTIFACT, not on the exit status (docs/FASTEDDY_TRAPS.md 12).
+    # ASSERT ON THE ARTIFACT, not on the exit status (docs/reference/fasteddy-traps.md 12).
     assert os.path.getsize(out) > 512, f"{out} is suspiciously small"
     g, s = rec["geostrophic"], rec["surface"]
     print(f"{out}")

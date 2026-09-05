@@ -79,7 +79,7 @@ def score_artifact(path):
     if "les" not in d:
         return None
     f = np.asarray(d["les"])
-    if not np.isfinite(f).all():           # isfinite FIRST: inf passes every > (PROJECT_BRIEF.md)
+    if not np.isfinite(f).all():           # isfinite FIRST: inf passes every > (docs/reference/standing-rules.md)
         return dict(path=path, error="non-finite values in the footprint")
     tot = np.abs(f).sum()
     if tot <= 0:

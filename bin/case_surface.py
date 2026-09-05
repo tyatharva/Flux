@@ -3,7 +3,7 @@
 
 WHY THIS IS NEEDED, and it is not optional. bin/prep_restart.py injects `htFlux` into the
 restart file from `<grid>/htFlux.npy`, because the restart read is the only way to give
-FastEddy v5.0.1 a spatially varying surface (PROJECT_BRIEF.md, the Stage 6 lever). The retired
+FastEddy v5.0.1 a spatially varying surface (docs/problem/site.md, the Stage 6 lever). The retired
 per-bin campaign could therefore build ONE grid directory per regime and reuse it.
 
 **A sounding-forced corpus cannot.** Every one of ~1825 cases has its own surface heat

@@ -16,7 +16,7 @@ docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
   lpdm/cuda/cuda_lpdmDevice.cu \
   -o lib/liblpdm.so
 rc=$?
-# ASSERT ON THE ARTIFACT, not the exit status (docs/FASTEDDY_TRAPS.md 12).
+# ASSERT ON THE ARTIFACT, not the exit status (docs/reference/fasteddy-traps.md 12).
 if [ ! -s "${FLUX_ROOT}/lib/liblpdm.so" ]; then
   echo "FATAL: nvcc produced no lib/liblpdm.so (rc=$rc)" >&2; exit 1
 fi

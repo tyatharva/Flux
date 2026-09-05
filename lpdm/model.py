@@ -39,7 +39,7 @@ Pass aniso=SURFACE_LAYER_ANISO to switch it on. With CONSTANT ratios the horizon
 sigma^2-gradient drift is unchanged -- r_i cancels between d(sigma_i^2)/dz and 1/sigma_i^2
 -- and only the vertical term and the per-component OU timescales change.
 
-Particle state is fp64 throughout (PROJECT_BRIEF.md convention): trajectories integrate for
+Particle state is fp64 throughout (docs/les/lpdm-and-footprint.md convention): trajectories integrate for
 thousands of steps and fp32 roundoff accumulates into a spurious drift.
 """
 from __future__ import annotations

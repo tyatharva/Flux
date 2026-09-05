@@ -43,7 +43,7 @@ split alone and written into the file, so the loader cannot recompute them diffe
 
 The target and Kljun channels are normalised on a LOG-MODULUS scale rather than a linear
 one, because a footprint spans orders of magnitude and is SIGNED (negative lobes are
-physical -- PROJECT_BRIEF.md -- and carry 5.8-11.1% of |flux|). `asinh(x / s)` with `s` the train
+physical -- docs/les/lpdm-and-footprint.md -- and carry 5.8-11.1% of |flux|). `asinh(x / s)` with `s` the train
 median of |x| over non-pad cells is smooth through zero, preserves sign, and needs no
 clipping. The constant `s` is stored; nothing else is applied.
 
@@ -213,7 +213,7 @@ def main():
         sc, kl, tg, meta, derived, when = load_one(f, a.allow_stub)
         # KEYED ON run_id, NOT parent_case. With N_WINDOWS = 2 a case yields TWO records
         # -- `<case>_w0` and `<case>_w1` -- which deliberately SHARE a parent_case and are
-        # separate training pairs (PROJECT_BRIEF.md: "both footprints are separate training pairs,
+        # separate training pairs (docs/les/lpdm-and-footprint.md: "both footprints are separate training pairs,
         # tagged by parent"). Keying on the parent refuses a perfectly good two-window
         # corpus. run_id is unique per record and is still identical between two machines
         # that generated the same day, which is the failure this is for.
@@ -287,7 +287,7 @@ def main():
     # median across records is robust to the one case with an anomalous spike. It maps a
     # typical peak to asinh(1) = 0.88 and leaves the tail near zero, which is what a
     # residual model wants. Sign is preserved: negative lobes are physical and carry
-    # 5.8-11.1% of |flux| (PROJECT_BRIEF.md), so nothing is clipped or absolute-valued.
+    # 5.8-11.1% of |flux| (docs/les/lpdm-and-footprint.md), so nothing is clipped or absolute-valued.
     def scale_of(arr):
         peaks = np.abs(arr[train][:, valid]).max(axis=1)
         peaks = peaks[peaks > 0]

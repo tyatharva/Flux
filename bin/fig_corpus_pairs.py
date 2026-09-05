@@ -17,7 +17,7 @@ NOT wind-aligned, so the footprint swings around the receptor with the wind and 
 array and the lake stay put. That is the point of the frame and it is the first thing to
 check by eye.
 
-Panels are NOT renormalised (unlike bin/make_figures.py). The absolute scale is an input to
+Panels are NOT renormalised (unlike bin/make_figures.py (retired 2026-09-04; see docs/history/pass-6.md)). The absolute scale is an input to
 the loss, so it is what is plotted; the integral is printed on every target panel instead.
 
 usage: fig_corpus_pairs.py [--h5 corpus/corpus_raw.h5] [--outdir figures/raw]
@@ -210,7 +210,7 @@ def kljun_peak_distance(d):
 
 
 def negative_fraction(f):
-    """|negative lobe| / |f|, the quantity PROJECT_BRIEF.md quotes as 5.8-11.1%."""
+    """|negative lobe| / |f|, the quantity docs/les/lpdm-and-footprint.md quotes as 5.8-11.1%."""
     a = np.abs(f).sum()
     return float(-np.minimum(f, 0).sum() / a) if a > 0 else 0.0
 
@@ -628,7 +628,7 @@ def sanity_figure(d, outpath, dpi):
     ax.axvspan(5.8, 11.1, color="k", alpha=0.12, lw=0)
     ax.set_xlabel("negative lobe  [% of $|f|$]", fontsize=8.5)
     ax.set_ylabel("records", fontsize=8.5)
-    ax.set_title("signed target; grey = the 5.8-11.1% PROJECT_BRIEF.md quotes", fontsize=8.2)
+    ax.set_title("signed target; grey = the 5.8-11.1% docs/les/lpdm-and-footprint.md quotes", fontsize=8.2)
     ax.tick_params(labelsize=7)
 
     # the zero pad, checked but not PLOTTED -- a bar chart of two exact zeros is two

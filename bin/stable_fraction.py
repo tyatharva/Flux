@@ -55,7 +55,7 @@ G = 9.81
 THETA0 = 290.0
 RHO_CP = 1.15 * 1004.5      # W/m^2 -> K m/s, the same constant select_times.py uses
 Z0 = 0.1435                 # geometric-mean WorldCover z0 of the 1952 m box
-UST_QC = 0.15               # the standing QC in PROJECT_BRIEF.md
+UST_QC = 0.15               # the standing QC in docs/problem/site.md
 
 # The bands. The user's question is the middle one; the others exist so the answer cannot
 # be read as "weakly stable is rare" when the band just below it is even more runnable.
@@ -196,7 +196,7 @@ def tabulate(name, zeta, ust, n_nonmost, tot, P):
               f"p25 {np.percentile(z,25):.3f}  p50 {np.percentile(z,50):.3f}  "
               f"p75 {np.percentile(z,75):.3f}  p90 {np.percentile(z,90):.3f}")
         if label.startswith("u* >="):
-            # CROSSWALK, so this does not read as contradicting PROJECT_BRIEF.md's climatology.
+            # CROSSWALK, so this does not read as contradicting docs/problem/site.md's climatology.
             # "Stable" here means z/L > 0 at 10 m, which is a WIDER set than the standing
             # class table's "stable + very stable" (z/L > 0.05, and quoted at 30 m where
             # z/L is 3x larger for the same L). Both splits are printed on the same rows
@@ -208,7 +208,7 @@ def tabulate(name, zeta, ust, n_nonmost, tot, P):
                      (0.05, 0.5, "stable         +0.05 .. +0.5"),
                      (0.5, np.inf, "very stable    z/L > +0.5")]
             P("")
-            P("      crosswalk to PROJECT_BRIEF.md's own class edges, evaluated HERE at 10 m:")
+            P("      crosswalk to docs/problem/site.md's own class edges, evaluated HERE at 10 m:")
             for lo, hi, lab in edges:
                 k = int(((zz > lo) & (zz <= hi)).sum())
                 P(f"        {lab:<34} {k:>7} {100.0*k/max(zz.size,1):>6.1f}%")

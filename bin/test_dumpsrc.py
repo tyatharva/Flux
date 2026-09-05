@@ -11,7 +11,7 @@ becomes an estimator change.
 So this asserts BIT-IDENTITY, not agreement within a tolerance. There is no physics between
 the two paths -- the same bytes reach the same arithmetic -- so any difference at all is a
 bug in the indirection and a tolerance would only hide it. This is the opposite situation
-from a sampling comparison, where PROJECT_BRIEF.md requires a DERIVED tolerance: here the correct
+from a sampling comparison, where docs/reference/standing-rules.md requires a DERIVED tolerance: here the correct
 tolerance is exactly zero and anything else is wrong.
 
 Three things are checked:

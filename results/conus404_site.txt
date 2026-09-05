@@ -36,7 +36,7 @@ earth-relative rotation applied: COSALPHA=0.9953 SINALPHA=-0.0967 (-5.55 deg)
   --------------------------------------------------------------------------
   all         10.58  10.18  10.36   9.76  15.96  14.26  14.37  14.54  100.00
 
-  The array is upwind only on northerlies (PROJECT_BRIEF.md), so the N/NE/NW columns are
+  The array is upwind only on northerlies (docs/problem/site.md), so the N/NE/NW columns are
   the ones where the tower measures the array at all -- and they are where the
   emulator's site-specific skill has to come from.
 

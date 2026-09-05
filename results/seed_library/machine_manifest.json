@@ -182,7 +182,7 @@
   "fasteddy_rss_peak_nproc": 32,
   "mem_total_bytes": 811088494592,
   "mem_available_min_bytes": 771079733248,
-  "note": "A seed runs no LPDM. PROJECT_BRIEF.md's 12.45 GB is a CORPUS CASE (the LPDM field cache), not a seed."
+  "note": "A seed runs no LPDM. docs/les/deployment.md's 12.45 GB is a CORPUS CASE (the LPDM field cache), not a seed."
  },
  "n_attempted": 30,
  "n_completed": 30,

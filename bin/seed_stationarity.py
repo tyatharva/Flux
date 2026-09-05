@@ -6,7 +6,7 @@ geostrophic wind does not settle to a fixed u* on any affordable timescale: f = 
 here, so the inertial period is 17.6 h and u* falls for a quarter of it and then rises.
 Measured on g16_spin, u* moved -27% over 6.26 simulated hours while U/u* was within 0.31%
 of its final value by 3.01 h. Gating on u* alone failed this project's spin-ups TWICE for
-a reason that was not a modelling error, and PROJECT_BRIEF.md now records why.
+a reason that was not a modelling error, and docs/les/seed-library.md now records why.
 
 Kljun's Pi_4 = U(z_m)/u* is the only channel through which the wind enters the streamwise
 footprint shape, and both of its terms ride the oscillation together -- so the RATIO is
@@ -20,12 +20,12 @@ FIXED threshold (ZI_ABS). See the block above LIMITS for the measurements. The s
 below score the footprint's controlling parameters, and they are far tighter in footprint
 terms than the u* test they replace.
 
-WHY THIS FILE EXISTS RATHER THAN A COPY. bin/run_pass5.sh scored the fifth pass's neutral
+WHY THIS FILE EXISTS RATHER THAN A COPY. bin/run_pass5.sh (retired 2026-09-04; see docs/history/pass-5.md) scored the fifth pass's neutral
 spin-up from an inline heredoc with L hardwired to infinity. Seeds span stable, neutral
 and convective, so the Kljun terms need a real L -- and this project has already shipped
 one wrong result from a gate that carried its own drifted COPY of a production function
 (stage4_wellmixed.py's sigma_w floor). So the limits and the scoring live HERE, once, and
-run_pass5.sh imports them.
+run_pass5.sh (retired 2026-09-04; see docs/history/pass-5.md) imports them.
 
 The gate runs INSIDE the seed job. The 300 s stationarity dumps are ~73 MB each and there
 are ~36 of them; scoring them where they are written means the verdict travels back as a
@@ -57,7 +57,7 @@ VONK = 0.4
 # That threshold MOVES WITH THE PEAK, and in a neutral Ekman layer the peak is not steady:
 # u* falls through the first quarter of the 17.6 h inertial period, TKE ~ u*^2 goes with
 # it, and a falling threshold pushes the crossing height up while the layer holds still.
-# Measured on seed_nbl-shallow_a000 over its scored window (docs/results/SEED_NBL_SHALLOW_RESULT.md):
+# Measured on seed_nbl-shallow_a000 over its scored window (docs/history/seed-rungs.md):
 #
 #   z_i, 5% of the running peak   364.4 m   +11.67 %/h   <- FAILED a 3 %/h limit
 #   z_i, fixed 0.01 m2/s2         389.3 m    +1.87 %/h
@@ -96,7 +96,7 @@ ZI_ABS = 0.01            # m2/s2 of resolved TKE; the gated depth's fixed thresh
 # THE SEARCH IS BOUNDED BY THE DECAY MINIMUM, and that lives in lpdm/les_stats.py because
 # the corpus input `h` is computed there and the two must not drift apart. Imported, never
 # reimplemented -- the rule this project already paid for twice (stage4_wellmixed.py's copy
-# of the sigma_w floor; bin/run_pass5.sh's copy of this very estimator).
+# of the sigma_w floor; bin/run_pass5.sh (retired 2026-09-04; see docs/history/pass-5.md)'s copy of this very estimator).
 from lpdm.les_stats import bl_depth                                        # noqa: E402
 
 
@@ -108,7 +108,7 @@ def zi_fixed(tk, z, thresh=ZI_ABS):
 def tke_bl_average(tk, z, zi):
     """Resolved TKE averaged over the BOUNDARY LAYER, not over the whole column.
 
-    THE ONE DEFINITION. bin/run_pass5.sh imports this rather than restating it: that file
+    THE ONE DEFINITION. bin/run_pass5.sh (retired 2026-09-04; see docs/history/pass-5.md) imports this rather than restating it: that file
     already carried an inline 5%-of-peak copy of the depth while importing LIMITS from
     here, and the same file then broke when the TKE key changed. A gate with a private
     copy of a definition is how stage4_wellmixed.py came to score a closure the footprints
@@ -130,14 +130,14 @@ def zi_peak_fraction(tk, z, frac=0.05):
     """Depth from a fraction of the profile's OWN peak. Reported, never gated.
 
     This is what lpdm/les_stats.py:window_stats produces as the corpus input `h`, so the
-    library's depth axis stays commensurable with it. docs/FASTEDDY_TRAPS.md 16 is the whole
+    library's depth axis stays commensurable with it. docs/reference/fasteddy-traps.md 16 is the whole
     story of why it must not be trended.
     """
     return bl_depth(tk, z, frac=frac)
 
 
 # Percent-per-hour trend limits, scored over the last SCORE_H hours. Single definition;
-# bin/run_pass5.sh imports this dict rather than restating it.
+# bin/run_pass5.sh (retired 2026-09-04; see docs/history/pass-5.md) imports this dict rather than restating it.
 # HOW MANY STANDARD ERRORS OF SEPARATION A VERDICT NEEDS. 3 SE is ~99.7% under a normal
 # approximation; the estimator here is a least-squares slope over 19-25 correlated dumps,
 # so the normal approximation is itself rough and 3 is chosen to be comfortably clear of
@@ -168,7 +168,7 @@ def series(paths, dt, k):
             e = np.maximum(g("TKE_0"), 0.0)
             out["ustar"].append(float(g("fricVel").mean()))
             out["th0"].append(float(g("theta")[0].mean()))
-        # inf is not NaN and NaN passes every > comparison (docs/PLAN.md working agreement),
+        # inf is not NaN and NaN passes every > comparison (docs/history/overview.md working agreement),
         # so the finiteness test comes FIRST and is on every field that feeds a moment.
         for nm, a in (("u", u), ("v", v), ("w", w), ("TKE_0", e)):
             if not np.isfinite(a).all():
@@ -205,7 +205,7 @@ def series(paths, dt, k):
 def kljun_geometry(s, zm, wth):
     """x_peak and x90 per dump, with a REAL Obukhov length.
 
-    run_pass5.sh could pass L = inf because it scored a neutral spin-up. A convective seed
+    run_pass5.sh (retired 2026-09-04; see docs/history/pass-5.md) could pass L = inf because it scored a neutral spin-up. A convective seed
     at w'th_v' = 0.16 K m/s and u* = 0.3 has L = -14 m, i.e. z_m/L = -0.7 -- treating that
     as neutral would score the wrong footprint entirely and call the seed stationary on a
     geometry it does not have.
@@ -269,7 +269,7 @@ def score(s, xp, x90, score_h):
         """The trend's OWN standard error, in %/h, and the effective sample size.
 
         A TREND IS AN ESTIMATE AND HAS A SAMPLING ERROR; a limit it is compared against
-        is meaningless without one. This is the same rule PROJECT_BRIEF.md already states twice
+        is meaningless without one. This is the same rule docs/reference/standing-rules.md already states twice
         -- score a second moment against its own sampling spread, and never quote a
         tolerance without saying how many independent realisations went into it -- applied
         to the estimator rather than to the quantity.
@@ -476,7 +476,7 @@ def main():
     # A REFUSED SCORING WINDOW IS A NAMED FATAL, NOT A TRACEBACK. The gate's stdout is
     # tee'd by bin/run_seed.sh and its verdict is read back out of the JSON, so a traceback
     # here surfaces to the driver only as "the gate wrote no JSON" -- true, and silent about
-    # why. Say why, and exit non-zero (docs/FASTEDDY_TRAPS.md 12).
+    # why. Say why, and exit non-zero (docs/reference/fasteddy-traps.md 12).
     try:
         ok, rows, reported, sel, dwdir, n_indet = score(s, xp, x90, a.score_h)
     except ValueError as e:
@@ -532,7 +532,7 @@ def main():
           f"forward to the window's own midpoint rather than assuming the adjustment "
           f"closes a gap; measured, the adjustment WIDENS one.")
     # THE CELL SIZE IS THE GRID'S, NOT A CONSTANT. It read "a 16 m raster cell" on a 24 m
-    # grid -- the same defect as docs/FASTEDDY_TRAPS.md 19, in a print rather than in a
+    # grid -- the same defect as docs/reference/fasteddy-traps.md 19, in a print rather than in a
     # calculation, which makes it worse rather than better: a wrong number in prose is
     # copied into a result file and never recomputed.
     print(f"  x_peak spans {xp[sel].min():.1f}-{xp[sel].max():.1f} m across the scored "

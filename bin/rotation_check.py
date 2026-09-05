@@ -5,7 +5,7 @@ The seed library is 5 rungs x 3 base angles = 15 states presenting 60 (state, di
 options, and the x4 comes entirely from re-indexing a square, doubly periodic, FLAT,
 UNIFORM spin-up. Gate B6 already showed the rotation is exact and that 200 steps of
 FastEddy from a rotated state agree with the unrotated one -- but B6 ran on fifth-pass
-spin-ups, and PROJECT_BRIEF.md's standing rule is to validate the state the model actually
+spin-ups, and docs/reference/standing-rules.md's standing rule is to validate the state the model actually
 LOADED. This scores the artifact a seed job actually returns, before 60 cases are built
 on it, and it costs seconds rather than GPU time.
 

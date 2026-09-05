@@ -180,13 +180,13 @@ def main():
         # u* IS THE TEST, NOT COLUMN TKE. The first version keyed on the TKE integral and
         # said "no" on a run whose u* had fallen 58% and whose z/L had reached 2.67 --
         # because that integral is dominated by gravity-wave variance aloft, which GROWS
-        # as the turbulence dies (docs/FASTEDDY_TRAPS.md 15). It is kept as a REPORTED line for
+        # as the turbulence dies (docs/reference/fasteddy-traps.md 15). It is kept as a REPORTED line for
         # exactly that reason: seeing it rise while u* falls is the diagnosis.
         #
         # THE VERDICT ITSELF IS docker/turb_alive.py's, imported rather than reimplemented.
         # This function used to carry its own copy of the collapse test, which is the same
         # shape of mistake as stage4_wellmixed.py carrying its own copy of the sigma_w
-        # floor -- the gate drifts from the thing it is supposed to be scoring. PROJECT_BRIEF.md
+        # floor -- the gate drifts from the thing it is supposed to be scoring. docs/les/lpdm-and-footprint.md
         # is explicit: gates import the production function.
         sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                         "..", "docker"))

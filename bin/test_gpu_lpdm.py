@@ -76,7 +76,7 @@ def main():
     ap.add_argument("--no-sgs-most", action="store_true")
     ap.add_argument("--cover-groups", type=int, default=10,
                     help="release groups for the cover-share sampling floor. A TOLERANCE "
-                         "MEASURED FROM ONE DIFFERENCE IS NOT A TOLERANCE (PROJECT_BRIEF.md): "
+                         "MEASURED FROM ONE DIFFERENCE IS NOT A TOLERANCE (docs/reference/standing-rules.md): "
                          "the 2-group floor came out 0.00 and failed a 1.2-point "
                          "difference against nothing.")
     ap.add_argument("--wm-n", type=int, default=40000,

@@ -90,7 +90,7 @@ Kljun FFP on the REAL 122 x 122 @ 30 m map (data/grid30_raised)
   very stable      NW     400   2508    0.04%   0.00%  18.16%  39.76%
 
 === the directional discriminator is weaker than the idealised table said ===
-PROJECT_BRIEF.md's array shares are CROSSWIND-INTEGRATED fractions inside the array's
+docs/corpus/dataset.md's array shares are CROSSWIND-INTEGRATED fractions inside the array's
 upwind reach along a line from the tower. The tower is INSIDE a 2-D rectangle, so
 flux arriving from crosswind angles still lands on the array and the real 2-D share
 is larger -- and the N-vs-E/W RATIO, which is what Gate F leans on, is smaller.
@@ -99,7 +99,7 @@ is larger -- and the N-vs-E/W RATIO, which is what Gate F leans on, is smaller.
   unstable          27.0%    0.0%76483.54x
   neutral           27.5%    0.0%2973945.63x
   stable            17.0%    0.0%278023146592900.50x
-  PROJECT_BRIEF.md quotes ~3.7x for neutral from the idealised table; the real map gives
+  docs/corpus/dataset.md quotes ~3.7x for neutral from the idealised table; the real map gives
   the number above. Gate F should lean on ABSOLUTE share by direction, not the ratio.
 
 === how much displacement height is worth ===

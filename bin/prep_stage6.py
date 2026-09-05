@@ -23,7 +23,7 @@ Two products:
    roughness input, but `z0m` IS in the registered list, so a restart file carries it.
    No FastEddy source change is required.
 
-Rotation happens entirely here (PROJECT_BRIEF.md): the DEM is resampled into a frame whose +x is
+Rotation happens entirely here (docs/problem/site.md): the DEM is resampled into a frame whose +x is
 the direction the wind blows TOWARD, so the LES needs no code change and its x axis is the
 mean-wind axis by construction.
 """
@@ -48,7 +48,7 @@ TOWER_LON, TOWER_LAT = -89.292362, 42.957160
 # "upwind distance") silently moves the array when the wind direction changes, which is
 # exactly wrong for a multi-direction corpus: for a westerly the array is upwind, for an
 # easterly it must be downwind and out of the footprint.
-# PROJECT_BRIEF.md: array footprint ~100 m x 400 m, at 270 deg from the tower.
+# docs/corpus/dataset.md: array footprint ~100 m x 400 m, at 270 deg from the tower.
 ARRAY_BEARING = 270.0        # deg, direction from the tower to the array centre
 ARRAY_DISTANCE = 200.0       # m
 ARRAY_EW = 100.0             # m, east-west extent

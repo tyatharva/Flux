@@ -22,7 +22,7 @@ WHAT IS ASSERTED, and why each one is here rather than eyeballed:
   base-state fit rms < 0.5 K        the base state is what the damping layer relaxes toward
   cadence lands on an integer       bin/run_window.sh asserts |frq*dt - 5| < 2e-4
 
-ASSERT ON THE ARTIFACT, NOT THE EXIT STATUS (docs/FASTEDDY_TRAPS.md 12). Every check below reads
+ASSERT ON THE ARTIFACT, NOT THE EXIT STATUS (docs/reference/fasteddy-traps.md 12). Every check below reads
 the JSON that was supposed to be written, not the return code of the thing that wrote it.
 
 usage: test_sounding.py [--times ...] [--keep] [--outdir results/soundings]

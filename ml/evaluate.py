@@ -30,22 +30,22 @@ OUT_DEFAULT = os.path.join(REPO, "results", "ml", "eval")
 NORTH = ("N", "NE", "NW")
 
 # Realisation floors from the record, quoted beside each metric. n is the number of
-# independent realisations behind each number (PROJECT_BRIEF.md standing rule 5).
+# independent realisations behind each number (docs/reference/standing-rules.md standing rule 5).
 FLOORS = {
     "peak_x": [("1 cell (30 m) run-to-run, both cases", "2 runs x 2 cases",
                 "results/les_realisation_spread.txt"),
                ("0-24 m half-vs-half, convective", "4 cases",
-                "docs/results/FOURTH_PASS_RESULTS.md:547-560")],
+                "docs/history/pass-4.md:547-560")],
     "centroid": [("46 m run-to-run (334 vs 380 m), convective", "2 runs x 1 case",
                   "results/les_realisation_spread.txt"),
                  ("15-90 m half-vs-half, convective", "4 cases",
-                  "docs/results/FOURTH_PASS_RESULTS.md:547-560"),
+                  "docs/history/pass-4.md:547-560"),
                  ("336 m p90 at 22.5 min of sub-windows", "18 sub-windows x 1 window",
-                  "docs/results/STAGE2-6_RESULTS_V2.md:310-380")],
+                  "docs/history/stages-0-2.md:310-380")],
     "overlap80": [("0.592 half-vs-half at this grid", "1 window",
-                   "docs/results/STAGE2-6_RESULTS_V2.md:296-305"),
+                   "docs/history/stages-0-2.md:296-305"),
                   ("0.43-0.51 half-vs-half, convective", "4 cases",
-                   "docs/results/FOURTH_PASS_RESULTS.md:547-560"),
+                   "docs/history/pass-4.md:547-560"),
                   ("0.56 two LPDM seeds on the same fields", "1 case",
                    "results/les_realisation_spread.txt:30")],
     "array_share": [("5.65 -> 1.07 pp and 1.14 -> 0.47 pp run-to-run", "2 runs x 2 cases",
@@ -59,7 +59,7 @@ FLOORS = {
     "shape_l1_2d": [("0.41 two LPDM seeds on the same fields", "1 case",
                      "results/les_realisation_spread.txt:30"),
                     ("0.92 two release ensembles, retired 60 m grid", "1 case",
-                     "results/stage5.txt:36; docs/results/STAGE2-6_RESULTS.md:520-545")],
+                     "results/stage5.txt:36; docs/history/stages-0-2.md:520-545")],
     "shape_1d": [("the two-window pair scored by this evaluator", "1 pair",
                   "results/ml/eval/floor/pair_floor.json")],
 }
@@ -234,7 +234,7 @@ def pair_floor():
                 kljun_vs_w={k: [float(x[k]) for x in ek] for k in ek[0]},
                 note="two windows of one run: a LOWER bound on the realisation floor "
                      "(near-duplicates at 0.19-0.33 of the half-vs-half floor, "
-                     "PROJECT_BRIEF.md N_WINDOWS)")
+                     "docs/les/lpdm-and-footprint.md N_WINDOWS)")
 
 
 def _panel_row(axes, split, fields, sc, arr, i, FCP, half=900):

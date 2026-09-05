@@ -37,7 +37,7 @@ control will be the fair number.
   convective      1.76              47.5%                52.5%
   NEUTRAL         1.76              13.6%                86.4%
 
-Same grid, same receptor, same Delta = 17.05 m. The difference is physical and PROJECT_BRIEF.md
+Same grid, same receptor, same Delta = 17.05 m. The difference is physical and docs/les/lpdm-and-footprint.md
 already predicts it: the resolved fraction collapses onto z/Delta, crossing 40% at
 z/Delta ~ 3.5 neutral and ~2.1 convective, because thermals draw on z_i-scale motions
 while shear-driven eddies scale with z. At z/Delta = 1.76 convection is just past its

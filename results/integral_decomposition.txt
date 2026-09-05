@@ -24,7 +24,7 @@ CONVECTIVE: IT SATURATES.  +1.4% over the last quarter-domain before the cap, an
 over the whole two domain lengths past it. The cap is removing essentially nothing. The
 integral settles at 1.043 = 1.067x the 1 - z_m/z_i ceiling, and since neither truncation nor
 wrap can put it there, what is left is the advective non-closure -- w_bar at the receptor is
--0.141 m/s, a real mean subsidence over sloping ground, and PROJECT_BRIEF.md already states that
+-0.141 m/s, a real mean subsidence over sloping ground, and docs/les/lpdm-and-footprint.md already states that
 the turbulent flux there genuinely is not the surface flux. THAT IS PHYSICS AND IT STAYS.
 
 NEAR-NEUTRAL: IT KEEPS CLIMBING.  +7.3% over the last quarter-domain before the cap and

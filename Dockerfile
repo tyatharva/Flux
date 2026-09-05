@@ -10,7 +10,7 @@
 #   * inst.txt starts with `apt install nvidia-cuda-toolkit`, which on Ubuntu
 #     22.04 is CUDA 11.5. CUDA 11.5 predates sm_89 entirely -- the RTX 4080
 #     cannot be targeted with it. The 11.8 base image supplies the toolkit
-#     instead. 11.8 is the FIRST release with sm_89 support, so the PROJECT_BRIEF.md
+#     instead. 11.8 is the FIRST release with sm_89 support, so the docs/getting-started/environment.md
 #     pin is a hard floor, not a preference.
 #
 #   * inst.txt installs gcc-13/gfortran-13 from the toolchain PPA. nvcc 11.8
@@ -99,7 +99,7 @@ RUN pip3 install --no-cache-dir \
 # Layer 3: HRRR pseudo-sounding retrieval (bin/hrrr_sounding.py).
 #
 # The per-case forcing comes from HRRR analyses rather than CONUS404, which
-# carries no atmospheric profiles at all (PROJECT_BRIEF.md). Herbie does the archive
+# carries no atmospheric profiles at all (docs/reference/ruled-out.md). Herbie does the archive
 # lookup and GRIB byte-range subsetting; cfgrib/eccodes decode the messages.
 #
 # `eccodes` is the pip binary wheel, which ships its own libeccodes -- the apt

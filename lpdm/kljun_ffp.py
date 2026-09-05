@@ -51,7 +51,7 @@ PRINTS it rather than asserting it away.
 
 `raise_ffp_exception` only RAISES for its 'fatal' codes; 'error' codes (z_m/L below -15.5,
 u* <= 0.1, h <= 10, z_m > h) are PRINTED and execution continues. A printed warning inside
-a redirected log is this project's standing failure mode (docs/FASTEDDY_TRAPS.md 12), so
+a redirected log is this project's standing failure mode (docs/reference/fasteddy-traps.md 12), so
 `ffp_validity()` evaluates the official's own conditions up front and returns them as data.
 The caller decides; nothing is silently fine.
 """

@@ -144,7 +144,7 @@ class HostWatch(threading.Thread):
     """Peak HOST memory for the whole machine, and for FastEddy alone.
 
     WHY IT IS HERE. The corpus rental is the expensive one, and its sizing question is
-    "how much system RAM does N-way need". PROJECT_BRIEF.md's 12.45 GB figure is the peak host
+    "how much system RAM does N-way need". docs/les/deployment.md's 12.45 GB figure is the peak host
     RSS of a CORPUS CASE -- the LPDM's 12.0 GB fp16 field cache, which `compute_footprint`
     random-accesses -- and a SEED runs no LPDM at all. So the two numbers are different by
     construction and quoting the case number for a seed run would over-size the box by an
@@ -319,7 +319,7 @@ def newest_step(d, base):
 def gate_state(js):
     """DRIFTING / INDETERMINATE / PASS, from the gate's own arrays.
 
-    `pass` alone is not the label to carry: docs/PLAN.md records that TKE_BL/u*^2 and z_i cannot
+    `pass` alone is not the label to carry: docs/history/overview.md records that TKE_BL/u*^2 and z_i cannot
     be resolved against their thresholds at ANY window width in an affordable spin-up, so
     almost every seed in this library is legitimately INDETERMINATE and `pass` is False.
     INDETERMINATE and DRIFTING are different verdicts and pick_seed.py treats them
@@ -393,7 +393,7 @@ def run_one(job, gpu, a, workroot, outroot, tb):
             # own stub output reported "18 accepted" -- the fresh path excludes a stub
             # explicitly, the skip path derived `accepted` from the gate state alone, and
             # the gate state of a stub is whatever its fabricated JSON says. That is
-            # precisely the failure PROJECT_BRIEF.md forbids: a stubbed record masquerading as a
+            # precisely the failure docs/reference/standing-rules.md forbids: a stubbed record masquerading as a
             # real one. The stub flag travels in the artifact, so read it from there.
             stub_on_disk = bool(js and js.get("stub"))
             if not stub_on_disk:
@@ -447,7 +447,7 @@ def run_one(job, gpu, a, workroot, outroot, tb):
             # writes FE_SEED_ACC.* and stages FE_ACC.0, and `rm -f "$OUTBASE".*` does not
             # match either -- while bin/seed_report.py globs `output/*.[0-9]*` with no
             # family filter and would fold the burn-in's dumps into the run's series.
-            # ONE RUN PER DIRECTORY, OR IT IS NOT A SERIES (docs/FASTEDDY_TRAPS.md 18c).
+            # ONE RUN PER DIRECTORY, OR IT IS NOT A SERIES (docs/reference/fasteddy-traps.md 18c).
             shutil.rmtree(os.path.join(wd, "output"), ignore_errors=True)
             shutil.rmtree(os.path.join(wd, "return"), ignore_errors=True)
             for stale in ("FE_ACC.0", "accel.in", "run.in"):
@@ -964,7 +964,7 @@ def main():
         say(f"    machine RAM                      : {gb(host.mem_total):6.2f} GB"
             + (f", low-water MemAvailable {gb(host.mem_avail_min):.2f} GB"
                if host.mem_avail_min is not None else ""))
-    say("    NOTE: a SEED runs no LPDM, so this is NOT the corpus-case figure. PROJECT_BRIEF.md's")
+    say("    NOTE: a SEED runs no LPDM, so this is NOT the corpus-case figure. docs/les/deployment.md's")
     say("    12.45 GB peak host RSS is a CASE -- the LPDM's 12.0 GB fp16 field cache, which")
     say("    a seed never allocates. Size a seed box on the number above; size a CORPUS box")
     say("    on ~12.5 GB per concurrent case.")
@@ -1050,7 +1050,7 @@ def main():
                            "fasteddy_rss_peak_nproc": host.fe_rss_peak_n,
                            "mem_total_bytes": host.mem_total,
                            "mem_available_min_bytes": host.mem_avail_min,
-                           "note": "A seed runs no LPDM. PROJECT_BRIEF.md's 12.45 GB is a CORPUS "
+                           "note": "A seed runs no LPDM. docs/les/deployment.md's 12.45 GB is a CORPUS "
                                    "CASE (the LPDM field cache), not a seed."},
            # ASSERT ON THE VALUE, not on the variable still being in scope: this field and
            # the SUMMARY line above must be the same number, and for one library they were

@@ -151,7 +151,7 @@ class StubScreener:
         else:
             import math
             # Seasonal amplitude, and a daytime window. The constants are chosen so the
-            # yield lands near the 80% PROJECT_BRIEF.md records for the real screens -- a yield
+            # yield lands near the 80% docs/les/case-generation.md records for the real screens -- a yield
             # near 0 or near 1 would make every worker finish together and test nothing.
             warm = 0.35 + 0.65 * 0.5 * (1.0 - math.cos(2 * math.pi * (when.month - 1) / 12.0))
             # A PER-DAY SYNOPTIC FACTOR, and it is the point of the whole stub. Without it

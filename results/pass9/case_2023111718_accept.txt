@@ -40,8 +40,8 @@ usage: stage4_wellmixed.py [-h] [--dt DT] [--n N] [--tlimit TLIMIT]
                            [--fp16-cache]
                            outdir
 stage4_wellmixed.py: error: unrecognized arguments: --receptor-from data/case_grids/case_2023111718
-usage: containment_gate.py [-h] [--out OUT] json [json ...]
-containment_gate.py: error: unrecognized arguments: --json results/pass9/case_2023111718_containment.json
+usage: containment_gate.py (retired 2026-09-04; see docs/history/containment.md) [-h] [--out OUT] json [json ...]
+containment_gate.py (retired 2026-09-04; see docs/history/containment.md): error: unrecognized arguments: --json results/pass9/case_2023111718_containment.json
 import json, sys, os
 a = json.load(open(sys.argv[1]))
 if not os.path.exists(sys.argv[2]):

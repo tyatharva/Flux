@@ -20,7 +20,7 @@ usage: k0k1_by_slope.py <dump.nc> [--grid data/grid16] [--box 3]
 NOTE WHAT THIS CANNOT SEE. Conditioning k0/k1 on slope makes it terrain-aware; it does not
 make it a physics check. The ratio is between two levels, so it stays healthy when both go
 quiet together -- it read 0.442 on a fully collapsed stable boundary layer. Run
-docker/turb_alive.py alongside it, always. bin/run_pass5.sh does.
+docker/turb_alive.py alongside it, always. bin/run_pass5.sh (retired 2026-09-04; see docs/history/pass-5.md) does.
 """
 import argparse
 import os

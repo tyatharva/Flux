@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Stage 2 gate analysis: TKE stationarity and resolved turbulence profiles.
 
-Gate criteria (docs/PLAN.md Stage 2):
+Gate criteria (docs/history/overview.md Stage 2):
   1. Domain-averaged TKE reaches a plateau.
   2. Resolved w'w'(z) profile has the recognizable NBL/CBL validation shape.
 

@@ -47,5 +47,5 @@ field, i.e. it would systematically shorten every footprint.
   The favourable half: the negative component is BROAD, SMOOTH and FAR-FIELD -- monotone in
   radius with no structure inside 200 m. A signed decomposition f = w+ p+ - w- p- therefore
   needs only a wide, simple p- , which is the cheapest of the three candidates in
-  ML_TARGETS.md rather than the most fragile. Decide at build time, but decide knowing the
+  docs/emulator/targets-and-architecture.md rather than the most fragile. Decide at build time, but decide knowing the
   number is 21-35% and that the shape is easy.

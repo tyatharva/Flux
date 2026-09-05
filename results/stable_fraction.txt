@@ -31,7 +31,7 @@ BELOW it is more runnable still, so the operative figure is z/L <= 0.10.
       RUNNABLE at this grid (z/L <= 0.10)           3374        65.8%     29.2%
       z/L over the stable set: p10 0.006  p25 0.019  p50 0.056  p75 0.150  p90 0.304
 
-      crosswalk to PROJECT_BRIEF.md's own class edges, evaluated HERE at 10 m:
+      crosswalk to docs/problem/site.md's own class edges, evaluated HERE at 10 m:
         very unstable  z/L < -0.5              537    4.6%
         unstable       -0.5 .. -0.05          3712   32.1%
         near-neutral   -0.05 .. +0.05         4612   39.9%
@@ -62,7 +62,7 @@ BELOW it is more runnable still, so the operative figure is z/L <= 0.10.
       RUNNABLE at this grid (z/L <= 0.10)            481        64.9%     28.4%
       z/L over the stable set: p10 0.008  p25 0.022  p50 0.063  p75 0.134  p90 0.213
 
-      crosswalk to PROJECT_BRIEF.md's own class edges, evaluated HERE at 10 m:
+      crosswalk to docs/problem/site.md's own class edges, evaluated HERE at 10 m:
         very unstable  z/L < -0.5              141    8.3%
         unstable       -0.5 .. -0.05           442   26.1%
         near-neutral   -0.05 .. +0.05          696   41.2%
@@ -93,7 +93,7 @@ BELOW it is more runnable still, so the operative figure is z/L <= 0.10.
       RUNNABLE at this grid (z/L <= 0.10)           5558        60.7%     21.6%
       z/L over the stable set: p10 0.007  p25 0.025  p50 0.071  p75 0.159  p90 0.287
 
-      crosswalk to PROJECT_BRIEF.md's own class edges, evaluated HERE at 10 m:
+      crosswalk to docs/problem/site.md's own class edges, evaluated HERE at 10 m:
         very unstable  z/L < -0.5             2836   11.0%
         unstable       -0.5 .. -0.05          9034   35.1%
         near-neutral   -0.05 .. +0.05         8347   32.4%

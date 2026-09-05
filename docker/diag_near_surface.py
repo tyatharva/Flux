@@ -65,7 +65,7 @@ def diagnose(path):
         + "\n  (healthy: w ratio < 1, others ~1. A w ratio near 9 means dt exceeds the\n"
         "   ACCURACY CFL limit -- ~1.51 at 122^3 @ 16 m, ~1.64 at the retired 24-30 m\n"
         "   grids. THE BOUNDARY IS NOT THE SAME NUMBER AT EVERY GRID: it moves with grid\n"
-        "   ANISOTROPY, so re-measure it whenever dx/dz_sfc changes. See PROJECT_BRIEF.md.\n"
+        "   ANISOTROPY, so re-measure it whenever dx/dz_sfc changes. See docs/les/configuration.md.\n"
         "   Not a stability failure: the run will still exit 0 with no CORRUPTED report.\n"
         "\n"
         "   AND A HEALTHY RATIO HERE IS NOT A HEALTHY BOUNDARY LAYER. This is a dt check.\n"

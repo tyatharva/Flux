@@ -9,19 +9,19 @@ before committing 3.1 h of GPU per job to it:
                   every `>` comparison, and FastEddy exits 0 on fully-NaN fields.
   k0/k1 < 1       the accuracy-CFL check. ~0.27 is right, ~9 means dt is past the accuracy
                   boundary and the lowest levels are grid-scale acoustic noise rather than
-                  turbulence -- which otherwise looks completely fine (PROJECT_BRIEF.md).
+                  turbulence -- which otherwise looks completely fine (docs/les/lpdm-and-footprint.md).
   turbulence      AND k0/k1 IS NOT THAT CHECK. It read 0.442 -- a pass -- on a boundary
      alive        layer whose turbulence had entirely collapsed, because it is a ratio
                   between two levels and both went quiet together. docker/turb_alive.py
                   asks the separate question, and this imports it rather than
-                  reimplementing it (PROJECT_BRIEF.md: gates import the production function).
+                  reimplementing it (docs/reference/standing-rules.md: gates import the production function).
   the receptor    k = 2 must sit at 10.000 m, or every footprint is computed at the wrong
                   height with nothing in the output to say so.
   z_i in range    the capping inversion is the CONTROL on z_i; if the achieved depth is
                   nowhere near the rung's target the control is not working.
   the log         grepped for `outside limits` as well as CORRUPTED -- an out-of-range
                   parameter does not stop FastEddy, it silently uses the compiled-in
-                  default (docs/FASTEDDY_TRAPS.md 13).
+                  default (docs/reference/fasteddy-traps.md 13).
 
 usage: smoke_check.py <dump> [--manifest seeds/<job>/manifest.json] [--log FILE]
 """

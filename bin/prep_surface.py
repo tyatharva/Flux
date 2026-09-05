@@ -97,13 +97,13 @@ WORLDCOVER_WTH = {
     95: 0.60,
     100: 1.00,
 }
-# The solar array. PROJECT_BRIEF.md lists the elevated heat source as an accepted omission, and
+# The solar array. docs/problem/site.md lists the elevated heat source as an accepted omission, and
 # with a per-cell htFlux it no longer has to be one. PV modules are darker than the crop
 # they replaced (albedo ~0.1 against ~0.2) and they do not transpire, so essentially all of
 # the absorbed shortwave that is not exported as electricity leaves as sensible heat. Field
 # studies of utility-scale arrays report a daytime sensible-flux enhancement of order 1.5-2
 # over the adjacent vegetation. 1.6 is that, stated as an assumption and swept if it
-# matters. This is also the pathway PROJECT_BRIEF.md identifies for albedo: with no radiation
+# matters. This is also the pathway docs/problem/site.md identifies for albedo: with no radiation
 # scheme, htFlux is what albedo would have controlled.
 WTH_ARRAY = 1.60
 WTH_FALLBACK = 1.00
@@ -113,7 +113,7 @@ WTH_FALLBACK = 1.00
 # The multipliers above are SENSIBLE-flux ratios -- that is what the field studies they
 # come from report, and what "PV modules do not transpire" is an argument about. But the
 # field FastEddy is given must be the VIRTUAL heat flux, because the run is dry and
-# buoyancy is what htFlux is for (PROJECT_BRIEF.md, "Boundary and initial conditions"):
+# buoyancy is what htFlux is for (docs/problem/site.md, "Boundary and initial conditions"):
 #
 #     w'th_v' = w'th' + 0.61 th w'q' = w'th' * (1 + 0.61 th c_p / (B L_v))
 #
@@ -125,7 +125,7 @@ WTH_FALLBACK = 1.00
 # and is exactly what the decision to run dry is trading for.
 #
 # The fourth pass prescribed the CONUS404 sensible flux directly and never applied any of
-# this; PROJECT_BRIEF.md predicted that would cost 5-10% in z_i and w*.
+# this; docs/les/seed-library.md predicted that would cost 5-10% in z_i and w*.
 WORLDCOVER_BOWEN = {
     10: 0.4,     # tree cover -- transpiring deciduous canopy
     20: 0.8,     # shrubland
@@ -175,7 +175,7 @@ def smooth121(a, npass):
     """Separable 1-2-1 passes.
 
     WHY. The terrain dt is set by the STEEPEST cell, through the terrain-following metric
-    amplification CFL_eff ~ CFL_3d sqrt(1 + (slope dx/dz)^2) (PROJECT_BRIEF.md). The raw 24 m
+    amplification CFL_eff ~ CFL_3d sqrt(1 + (slope dx/dz)^2) (docs/les/configuration.md). The raw 24 m
     field reaches |grad z| = 0.37 -- a 9 m drop across one cell -- which the grid cannot
     represent as anything but an aliased step, and which alone would cost a 1.44x smaller
     dt on every terrain run. Two passes take the maximum to 0.245 (amplification 1.21) for
@@ -423,7 +423,7 @@ def main():
           f"{a.receptor * (zC - topo[jt, it]) / zC:.4f}"
           f" m above the tower cell's ground (terrain-following compression)")
 
-    # ---- slope statistics: these set the terrain dt (PROJECT_BRIEF.md CFL amplification) ----
+    # ---- slope statistics: these set the terrain dt (docs/les/configuration.md CFL amplification) ----
     gy, gx = np.gradient(topo, a.dx)
     slope = np.hypot(gx, gy)
     q = np.percentile(slope, [50, 90, 99]), slope.max()
@@ -437,7 +437,7 @@ def main():
     print("    -> terrain dt is at most the flat dt divided by %.3f. THIS IS A PROJECTION,"
           % ampl_max)
     print("       not a substitute for bisecting it: the amplification formula sets the")
-    print("       search bracket, and k0/k1 < 1 sets the answer (PROJECT_BRIEF.md).")
+    print("       search bracket, and k0/k1 < 1 sets the answer (docs/les/configuration.md).")
 
     # ---- surface heat flux: SENSIBLE ratios converted to VIRTUAL multipliers ----------
     bowen_crop = a.bowen_crop if a.bowen_crop is not None else WORLDCOVER_BOWEN[40]

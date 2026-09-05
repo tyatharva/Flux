@@ -3,7 +3,7 @@
   "eps_consistent": true,
   "form": "multiplicative",
   "mode": "surface",
-  "note": "the near field is closure-dominated at z/Delta ~ 1; the sigma_w anchor is worth 46-66% shape L1 against a 38% sampling floor (PROJECT_BRIEF.md)",
+  "note": "the near field is closure-dominated at z/Delta ~ 1; the sigma_w anchor is worth 46-66% shape L1 against a 38% sampling floor (docs/les/lpdm-and-footprint.md)",
   "rel_seconds": 1800.0,
   "sgs_most": true,
   "subgrid_weight": true,

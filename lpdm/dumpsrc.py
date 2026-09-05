@@ -6,7 +6,7 @@ That is correct and it is also the only reason a footprint requires ~10 GB of sc
 window: FastEddy encodes the fields, the filesystem stores them, and the readers decode
 them straight back. Nothing else in the pipeline needs the file.
 
-The in-process hook removes the file. It cannot remove the readers -- PROJECT_BRIEF.md's standing
+The in-process hook removes the file. It cannot remove the readers -- docs/les/lpdm-and-footprint.md's standing
 rule is that a gate exercises the PRODUCTION code path, so re-implementing `window_stats`
 against arrays would produce a second statistics function whose agreement with the first is
 an assumption rather than a fact, and this project has already paid twice for exactly that

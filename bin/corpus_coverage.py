@@ -12,7 +12,7 @@ of the year, and neither is a random trim:
     (`bin/case_surface.py`) -- so losing them costs diversity in the flow, not in the
     array response.
 
-PROJECT_BRIEF.md quotes 60.9% of convective midday from CONUS404's PBLH. This measures the same
+docs/problem/site.md quotes 60.9% of convective midday from CONUS404's PBLH. This measures the same
 thing on the diagnostic the corpus ACTUALLY filters with (HRRR's HPBL), over the hours the
 corpus actually draws, which is the only version of the number that predicts a corpus size.
 

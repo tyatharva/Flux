@@ -24,7 +24,7 @@
 # The old brief's "CUDA 11.8 (do not upgrade)" was written when sm_89 was the only
 # target that mattered and 11.8 was the FIRST release that had it -- a floor,
 # not a ceiling. That pin is superseded HERE and only here. What the upgrade
-# changed, and what it measurably did not, is docs/FASTEDDY_TRAPS.md 23.
+# changed, and what it measurably did not, is docs/reference/fasteddy-traps.md 23.
 #
 # WHY 13.0 RATHER THAN 12.8. 12.8 is the first toolkit with sm_120 and would
 # have done; 13.0 was tried first because it matches the driver generation on
@@ -404,10 +404,10 @@ RUN set -eux; \
     # whole-program keeps PTX, separately-compiled-then-device-linked does not.
     grep -qx compute_120 /flux/sass_ptx_lpdm.txt \
       || { echo "FATAL: liblpdm.so carries no compute_120 PTX, so the whole-program-vs--dlink"; \
-           echo "       contrast documented in docs/FASTEDDY_TRAPS.md 23 is not checkable here."; exit 1; }; \
+           echo "       contrast documented in docs/reference/fasteddy-traps.md 23 is not checkable here."; exit 1; }; \
     [ ! -s /flux/sass_ptx.txt ] \
       || { echo "FATAL: FastEddy carries PTX. The -dlink finding may no longer hold;"; \
-           echo "       re-check docs/FASTEDDY_TRAPS.md 23 before trusting it."; exit 1; }
+           echo "       re-check docs/reference/fasteddy-traps.md 23 before trusting it."; exit 1; }
 
 # THE JOB DIRECTORIES MUST BE CLEAN, or run_seed.sh refuses. A partial run on
 # disk is refused rather than silently wiped (it may be hours of GPU someone

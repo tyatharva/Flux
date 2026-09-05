@@ -69,7 +69,7 @@ ZI_MIN_M = 300.0        # below: the 30 m receptor leaves the surface layer
 ZI_MAX_M = 1250.0       # above: the 3660 m box cannot hold the layer at L >= 2 z_i
 MAX_DZIDT_REL = 15.0    # %/h; a stationarity screen, independent of the z_i value
 MAX_ZOL = 0.0           # z/L must be NEGATIVE: the corpus contains no stable cases, and
-                        # docs/results/STABLE_REGIME_RESULT.md is why -- a stable BL laminarises at
+                        # docs/history/stable-regime.md is why -- a stable BL laminarises at
                         # this grid and there is no stationary state to sample.
 
 

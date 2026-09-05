@@ -17,7 +17,7 @@
  * PRECISION. Fields are fp16 in the ring (the offline cache already is, and ioLPDMmode's
  * 16-bit packing measured harmless: 0 m in peak, 19 m in centroid against a 59.2% error
  * floor). PARTICLE STATE IS fp64 -- positions integrate for thousands of steps and fp32
- * roundoff accumulates into a spurious drift (PROJECT_BRIEF.md convention).
+ * roundoff accumulates into a spurious drift (docs/les/lpdm-and-footprint.md convention).
  */
 #ifndef _CUDA_LPDMDEVICE_CU_H
 #define _CUDA_LPDMDEVICE_CU_H

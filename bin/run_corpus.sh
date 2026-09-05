@@ -14,7 +14,7 @@
 #
 # WHY ONE PER DAY RATHER THAN MANY. Consecutive hours of the same day are not independent
 # -- the same synoptic state, the same soil moisture, a boundary layer that remembers the
-# morning. PROJECT_BRIEF.md's split rule already says the effective sample size for
+# morning. docs/corpus/dataset.md's split rule already says the effective sample size for
 # generalisation is the number of RUNS; drawing 6 hours from one day inflates the count
 # without inflating that.
 #
@@ -130,7 +130,7 @@ if [ "$skip" -gt 0 ]; then
   echo "  THE SKIPS ARE NOT A NEUTRAL TRIM. z_i and surface heat flux correlate at +0.43"
   echo "  (CONUS404) and +0.49 (HRRR) at this site, so the deep-boundary-layer hours the"
   echo "  300-1250 m band cannot hold carry 2.33x the mean surface heat flux of the ones"
-  echo "  it can. State the exclusion wherever the corpus is described (PROJECT_BRIEF.md, Known"
+  echo "  it can. State the exclusion wherever the corpus is described (docs/limitations-and-future-work.md, Known"
   echo "  limitations F)."
   cut -f3 "$LEDGER" | tail -n +2 | sed 's/[0-9]\+/N/g' | sort | uniq -c | sort -rn | head -5
 fi

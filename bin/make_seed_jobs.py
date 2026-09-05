@@ -106,7 +106,7 @@ inversion reached an ordinary 12 K/km rather than thousands; and the flow aloft 
 from geostrophic instead of pinning to it. Every one of those says the surface layer was
 healthy. What moved was WHERE the energy sat: the height holding 95% of the column TKE ran
 92 m -> 1825 m. The turbulence was not destroyed by stratification at the surface; it
-failed to be RESOLVED there. bin/sbl_diagnose.py scores both signatures and this is the
+failed to be RESOLVED there. bin/sbl_diagnose.py (retired 2026-09-04; see docs/history/) scores both signatures and this is the
 starvation one.
 
 So halving z/L bought a slightly slower death and nothing else, which is what the Ozmidov
@@ -165,7 +165,7 @@ as JSON, and the log -- the ~36 intermediate 300 s dumps never leave the rented 
 
 BITWISE REPRODUCIBILITY WILL NOT HOLD ACROSS DIFFERENT PHYSICAL GPUs. Stated, not fixed:
 FastEddy is already non-reproducible run-to-run on ONE GPU (~1e-4 relative in velocity,
-~7e-4 K in theta after 200 steps -- PROJECT_BRIEF.md). Seeds are turbulence realisations, so this
+~7e-4 K in theta after 200 steps -- docs/getting-started/environment.md). Seeds are turbulence realisations, so this
 costs nothing; it is recorded so nobody later diffs two seeds expecting equality.
 
 usage: make_seed_jobs.py [--outdir jobs] [--template runs/g16_base/base.in] [--sim-h 3.0]
@@ -186,7 +186,7 @@ from sounding_to_forcing import derive_dt, les_levels, write_in
 
 # name, regime, z_i target (m), virtual w'th' (K m/s), G (m/s)
 #
-# Anchored on CONUS404 at the tower (39,456 hourly records, PROJECT_BRIEF.md): z_i p25/p50/p75 =
+# Anchored on CONUS404 at the tower (39,456 hourly records, docs/les/case-generation.md): z_i p25/p50/p75 =
 # 267/493/835 m, w'th' p25/p50/p75 = -0.006/+0.015/+0.076, U(30 m) p25/p50/p75 =
 # 3.9/5.2/6.8 m/s, and the site is unstable more than half the time. The convective rungs
 # straddle the convective-midday reference (z_i p50 859 m, w'th' p50 0.109 sensible ->
@@ -196,7 +196,7 @@ from sounding_to_forcing import derive_dt, les_levels, write_in
 # THE WARM-UP COLUMN IS GONE with the stable rung and with chaining. It existed so a stable
 # rung could run its FIRST SEGMENT neutral before the cooling started; there are no
 # segments any more, and no stable rung to need one. The finding it encoded is not lost --
-# a cold-started stable boundary layer collapses (docs/FASTEDDY_TRAPS.md 15) -- it is simply
+# a cold-started stable boundary layer collapses (docs/reference/fasteddy-traps.md 15) -- it is simply
 # not reachable from a rung table that contains no stable rung.
 # THE STABLE RUNG IS GONE, BY MEASUREMENT. Two seeds were run and both collapsed:
 #   sbl      G=8,  w'th'=-0.012 (GABLS1's own regime), z/L ~ 0.12-0.21 -> dead by 2.3 h
@@ -206,7 +206,7 @@ from sounding_to_forcing import derive_dt, les_levels, write_in
 # the inversion was an ordinary 12 K/km and the flow aloft was DEPARTING from geostrophic.
 # The surface layer was healthy the whole way down. What failed is resolution -- the
 # Ozmidov scale is 6.9 Delta at the receptor even at z/L 0.044, against 318 neutrally --
-# so no forcing change reaches it. See docs/results/STABLE_REGIME_RESULT.md.
+# so no forcing change reaches it. See docs/history/stable-regime.md.
 RUNGS = [
     ("nbl-shallow", "neutral",    300.0,  0.000,  8.0),
     ("nbl-deep",    "neutral",    550.0,  0.000, 12.0),
@@ -273,7 +273,7 @@ def base_state(regime, zi):
         # CORRECTION, same day: this change was originally justified by a z_i that fell
         # 154 -> 76 m under neutral forcing. That fall was a DIAGNOSTIC ARTIFACT -- z_i as
         # "5% of the peak TKE" shrinks when the surface peak grows, and it grew 25x while
-        # the TKE at 150 m grew 8x (docs/FASTEDDY_TRAPS.md 16). The layer was deepening. The
+        # the TKE at 150 m grew 8x (docs/reference/fasteddy-traps.md 16). The layer was deepening. The
         # change is kept anyway because a neutral-below-stratified-above initial profile is
         # GABLS1's own shape and the right initial condition for a stable rung, but it was
         # not the fix it was claimed to be. The fix was the forcing.
@@ -292,7 +292,7 @@ def plan_run(sim_h, dt, frq):
     CHAINING IS RETIRED (2026-08-26). This used to plan a chain of sub-wall-cap segments,
     and the whole point of removing it is that every segment boundary was a restart READ,
     which overwrites every IO-registered field with whatever the restart file holds
-    (docs/FASTEDDY_TRAPS.md 17). A seed now runs 738,720 steps in one go, ~2.9 h wall, and the
+    (docs/reference/fasteddy-traps.md 17). A seed now runs 738,720 steps in one go, ~2.9 h wall, and the
     one-hour-per-run cap does not apply to it. The cap constants are gone rather than
     raised, because a cap nothing checks is worse than no cap.
     """

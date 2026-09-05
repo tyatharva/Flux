@@ -373,7 +373,7 @@ class WindowAccumulator:
         # for why the bound is not optional. This is the corpus input `h` and the currency
         # bin/pick_seed.py matches seeds in; the seed GATE uses a fixed threshold instead,
         # because it scores a trend and a peak-normalised threshold moves with the peak
-        # (docs/FASTEDDY_TRAPS.md 16).
+        # (docs/reference/fasteddy-traps.md 16).
         h, h_info = bl_depth(tke_prof, z, frac=0.05, return_info=True)
         # AND WHEN A WAVE LAYER WAS BOUNDED AWAY, SAY SO IN THE RECORD. h is then the
         # surface-attached depth and is correct, but the column also holds a second, more

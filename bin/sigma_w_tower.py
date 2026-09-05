@@ -25,13 +25,13 @@ It converges in a handful of iterations for every record in the file.
 
 THIS IS MORE TRUSTWORTHY AT 30 m THAN AT 10 m, not less. MOST is what is being inverted,
 and a 10 m sensor standing inside a 2-3 m solar array is plausibly inside the roughness
-sublayer, where MOST does not hold (PROJECT_BRIEF.md). At 30 m the receptor is clear of a 5-15 m
+sublayer, where MOST does not hold (docs/les/lpdm-and-footprint.md). At 30 m the receptor is clear of a 5-15 m
 RSL by a factor of 2-6, so the FORWARD half of the translation is on firmer ground than the
 backward half. The residual risk sits in step 1 and is stated, not hidden: an RSL-affected
 sigma_w(10) yields an RSL-affected u*.
 
 phi_w is IMPORTED from lpdm/sgs_floor.py. A gate that reimplements the production function
-is scoring a different model than the one it is gating (PROJECT_BRIEF.md, twice now).
+is scoring a different model than the one it is gating (docs/les/lpdm-and-footprint.md, twice now).
 
 usage:
   bin/sigma_w_tower.py                              # build results/sigma_w_curve_30m.json
@@ -62,7 +62,7 @@ H_ABS_MAX = 500.0        # W/m2. THE FILE CARRIES SENTINELS: 9 rows at exactly -
 # they land in the lowest H decile and drag its edge to -9999, so the bin the gate would
 # look a nocturnal case up in is defined by nine bad rows. Screen on the ARTIFACT's
 # plausibility, not on a magic number: |H| <= 500 W/m2 keeps every real record.
-USTAR_QC = 0.15          # m/s, the project's standing QC (PROJECT_BRIEF.md, CONUS404 section)
+USTAR_QC = 0.15          # m/s, the project's standing QC (docs/problem/site.md, CONUS404 section)
 
 
 def ustar_from_sigma_w(sig, h_wm2, z=Z_TOWER, iters=60, tol=1e-10):
@@ -100,7 +100,7 @@ def load(csv_path):
                 h_, s_ = float(row["H"]), float(row["sigma_w"])
             except (TypeError, ValueError):
                 continue
-            # np.isfinite FIRST, never isnan: inf passes every > comparison (PROJECT_BRIEF.md).
+            # np.isfinite FIRST, never isnan: inf passes every > comparison (docs/reference/standing-rules.md).
             if np.isfinite(h_) and np.isfinite(s_) and s_ > 0 and abs(h_) <= H_ABS_MAX:
                 H.append(h_); S.append(s_)
     return np.asarray(H), np.asarray(S)
@@ -113,7 +113,7 @@ def build_curve(H, S, n_bins=10, min_n=30, ustar_qc=USTAR_QC):
     the quantity this file can actually produce. It removes the calm-night tail where the
     inversion is least trustworthy (u* ~ 0.08, z/L ~ 1) and where MOST is furthest from
     the regime it was written for. Those hours are outside the corpus anyway -- stable is
-    excluded (docs/results/STABLE_REGIME_RESULT.md) -- so screening them costs the gate nothing.
+    excluded (docs/history/stable-regime.md) -- so screening them costs the gate nothing.
     """
     ust, zeta10 = ustar_from_sigma_w(S, H, Z_TOWER)
     wth = H / RHO_CP
@@ -194,7 +194,7 @@ def main():
     print("  it is good for: surface-layer MOST makes sigma_w RISE with height at fixed u*,")
     print("  while a real SBL has u* falling with height and sigma_w falling with it. The")
     print("  translated stable bins are therefore an upper bound. It costs nothing here --")
-    print("  the corpus contains no stable cases (docs/results/STABLE_REGIME_RESULT.md) -- but a stable")
+    print("  the corpus contains no stable cases (docs/history/stable-regime.md) -- but a stable")
     print("  case scored against these bins would be scored against the wrong curve.")
     print("\n  READ THIS AS AN ORDER-OF-MAGNITUDE CHECK PLUS A GATE, NOT A VALIDATION. The")
     print("  file carries no wind speed, so conditioning on H alone leaves an IQR spanning")

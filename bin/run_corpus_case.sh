@@ -5,7 +5,7 @@
 #   env:   WINDOW_S=2700  ADJ_S=1800  TBACK=900  KEEP_FIELDS=0  COVER_GROUPS=10
 #          -- COVER_GROUPS is the number of independent release groups the array-share
 #             standard error is estimated from. The default in stage5_footprint.py is 2,
-#             which is ONE difference and therefore ~one degree of freedom; PROJECT_BRIEF.md's
+#             which is ONE difference and therefore ~one degree of freedom; docs/reference/standing-rules.md's
 #             standing rule is N >= 8 wherever a share or a shape is being tested, and
 #             Phase E measured a FACTOR OF 5 in the estimated floor between a 2-group and a
 #             10-group split. The split costs nothing -- the touchdowns are already
@@ -36,7 +36,7 @@
 # simulated hours here; restarting from a seed of the right regime, depth and heading
 # needs 30 minutes. Across ~1825 cases that is the difference between ~2000 and ~7600 GPU-h.
 #
-# ASSERT ON THE ARTIFACT, NOT THE EXIT STATUS at every stage (docs/FASTEDDY_TRAPS.md 12): the
+# ASSERT ON THE ARTIFACT, NOT THE EXIT STATUS at every stage (docs/reference/fasteddy-traps.md 12): the
 # analyses are piped into grep, so bash reports GREP's status and a python traceback lands
 # quietly in a redirected .txt. Each step below checks the file it was supposed to write.
 set -uo pipefail
@@ -49,13 +49,13 @@ TS="${1:-}"
 # Pure bash, because `tr -d '-:'` parses `-:` as an OPTION BUNDLE and fails -- and the
 # failure went to stderr, which stage 1's grep filter swallowed, so the tag silently came
 # out as the empty string and every artifact landed on top of the last case's. Same class
-# as docs/FASTEDDY_TRAPS.md 12: a filtered stream is a hidden error.
+# as docs/reference/fasteddy-traps.md 12: a filtered stream is a hidden error.
 _t="${TS//[-:]/}"; _t="${_t/T/}"
 TAG="${2:-case_${_t:0:10}}"
 [[ "$TAG" =~ ^[A-Za-z0-9_]+$ ]] || { echo "FATAL: bad tag '$TAG' from '$TS'" >&2; exit 65; }
 [ "${#TAG}" -ge 8 ] || { echo "FATAL: tag '$TAG' too short; is '$TS' a valid timestamp?" >&2
                          exit 65; }
-# THE RAISED SURFACE IS PRODUCTION, settled by the sixth pass (docs/results/SIXTH_PASS_RESULTS.md):
+# THE RAISED SURFACE IS PRODUCTION, settled by the sixth pass (docs/history/pass-6.md):
 # topoPos is raised by the displacement height over the array so the first model level
 # clears panel top, z0_array goes 0.10 -> 0.25 (which is the only thing that gives the
 # array ANY neutral signal -- at 0.10 it is aerodynamically identical to the cropland
@@ -94,7 +94,7 @@ WINDOW_S="${WINDOW_S:-2700}"
 # measurement can only govern a 16 m run.
 #
 # 900 s is the 30 m production value. Note it is deliberately LONGER than the 600 s the
-# capture curve measured as sufficient at this receptor (PROJECT_BRIEF.md: 99.6% and 100.0% of the
+# capture curve measured as sufficient at this receptor (docs/les/lpdm-and-footprint.md: 99.6% and 100.0% of the
 # 900 s integral is in by 600 s) -- production kept the fourth pass's 900 and the 6.7% it
 # costs is recorded rather than taken.
 _TBF="results/tback_production_dx${DX%.*}.txt"
@@ -146,7 +146,7 @@ print(p['U_g'], p['V_g'], p['dt'], d['labels']['wth_cropland_reference'])")
 # ---- 3. this case's surface ------------------------------------------------------
 # NOT OPTIONAL, and its absence is silent. prep_restart.py injects htFlux from the grid
 # directory into the restart file, and the restart read OVERWRITES the .in's scalar
-# (PROJECT_BRIEF.md, the Stage 6 lever). data/grid16 ships with htFlux ALL ZEROS, so a convective
+# (docs/problem/site.md, the Stage 6 lever). data/grid16 ships with htFlux ALL ZEROS, so a convective
 # case pointed at it runs NEUTRAL, exits 0, and says nothing. The static geography is
 # hardlinked, so this costs ~116 kB and no copy.
 say "$TAG  stage 3: per-case surface flux map"
@@ -198,7 +198,7 @@ PICK=results/pick/$TAG.json
 # z_i concession below was granted on, and it never depended on the limit being z_i.
 # Refusing a seed therefore removes a RESTART POINT without removing any error.
 #
-# MEASURED COST OF THE NARROW FORM on the 30-seed library (docs/results/SEED_LIBRARY_RESULT.md): it
+# MEASURED COST OF THE NARROW FORM on the 30-seed library (docs/les/seed-library.md): it
 # admitted 11 of 30. It took out ALL SIX cbl-shallow seeds, leaving the weakly-convective
 # rung with no restart point; eight of twelve neutral seeds, dropping the neutral half to
 # four base angles and firing pick_seed's own half-spacing warning at 14.5 deg against a
@@ -251,7 +251,7 @@ cp -f "$GRID/topo.bin" "$D/topo.bin" || die "topo.bin"
 # These were two FastEddy runs -- an adjustment, then a restart from its final dump into
 # the window. That restart is gone. CHAINING IS RETIRED (2026-08-26) and the only restart
 # left in the project is seed -> target, which happens at stage 5 above. What it buys is
-# docs/FASTEDDY_TRAPS.md 17 removed structurally rather than by assertion: a restart READ
+# docs/reference/fasteddy-traps.md 17 removed structurally rather than by assertion: a restart READ
 # overwrites every IO-registered field, so each restart is an opportunity to silently
 # inherit state the .in does not describe.
 #
@@ -404,7 +404,7 @@ fi
 
 # ---- 6b. ASSERT ON THE STATE THE DUMPS CARRY, NOT ON THE .in ----------------------
 # The surface reaches FastEddy only through the restart file, and the restart READ
-# overwrites whatever the .in said (PROJECT_BRIEF.md, the Stage 6 lever). prep_restart.py now
+# overwrites whatever the .in said (docs/problem/site.md, the Stage 6 lever). prep_restart.py now
 # reads back what it injected, but that scores the file, not the RUN -- and this project
 # has four separate instances of a configured value that the model never actually used.
 # The window dumps carry z0m, so the question "did the run use this case's surface?" is

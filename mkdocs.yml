@@ -1,0 +1,120 @@
+site_name: Flux
+site_description: An LES-trained flux-footprint emulator for the Kegonsa Solar Array eddy-covariance tower
+site_url: https://flux-kegonsa.readthedocs.io/
+repo_url: https://github.com/tyatharva/Flux
+repo_name: tyatharva/Flux
+edit_uri: edit/main/docs/
+copyright: Copyright &copy; 2026 Atharva Tyagi. Apache-2.0.
+docs_dir: docs
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - navigation.indexes
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: deep orange
+      toggle:
+        icon: material/weather-night
+        name: Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: deep orange
+      toggle:
+        icon: material/weather-sunny
+        name: Light mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - footnotes
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.tabbed:
+      alternate_style: true
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Quick start: getting-started/quickstart.md
+      - Environment: getting-started/environment.md
+      - Data and assets: getting-started/data.md
+  - Problem and approach:
+      - Motivation: problem/motivation.md
+      - Method overview: problem/method-overview.md
+      - The site: problem/site.md
+  - LES pipeline:
+      - FastEddy and the patches: les/fasteddy-and-patches.md
+      - Configuration: les/configuration.md
+      - Seed library: les/seed-library.md
+      - Case generation: les/case-generation.md
+      - LPDM and the footprint estimator: les/lpdm-and-footprint.md
+      - Gates and diagnostics: les/gates-and-diagnostics.md
+      - Deployment on rented GPUs: les/deployment.md
+  - Corpus:
+      - Dataset: corpus/dataset.md
+      - Figures: corpus/figures.md
+  - Emulator:
+      - Targets and architecture: emulator/targets-and-architecture.md
+      - Training and selection: emulator/training.md
+      - Results: emulator/results.md
+      - Calibration: emulator/calibration.md
+  - Limitations and future work: limitations-and-future-work.md
+  - Development history:
+      - Overview: history/overview.md
+      - Stages 0 to 2: history/stages-0-2.md
+      - Third pass: history/pass-3.md
+      - Fourth pass: history/pass-4.md
+      - Fifth pass: history/pass-5.md
+      - Sixth pass: history/pass-6.md
+      - Seventh pass: history/pass-7.md
+      - Eighth pass: history/pass-8.md
+      - Ninth pass: history/pass-9.md
+      - Seed rungs: history/seed-rungs.md
+      - Stable regime: history/stable-regime.md
+      - Containment: history/containment.md
+      - Target case: history/target-case.md
+      - Cone mask: history/cone-mask.md
+      - Emulator timeline: history/emulator-timeline.md
+      - Unmerged work: history/unmerged-producer-consumer.md
+  - Reference:
+      - Repository layout: reference/repository-layout.md
+      - Scripts: reference/scripts.md
+      - Standing rules: reference/standing-rules.md
+      - FastEddy traps: reference/fasteddy-traps.md
+      - Ruled out: reference/ruled-out.md
+      - Glossary: reference/glossary.md

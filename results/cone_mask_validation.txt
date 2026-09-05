@@ -223,5 +223,5 @@ Deposit the UNFOLDED displacement at generation time: bin each touchdown by its
 cumulative displacement from the receptor rather than by its folded LES column
 index, and let the raster window truncate what leaves it. Then no wrapped
 material is deposited at all and no mask is needed. It requires the touchdowns,
-which docs/ML_TARGETS.md decided not to save, so it is a generation-time change
+which docs/emulator/targets-and-architecture.md decided not to save, so it is a generation-time change
 and a full corpus regeneration.

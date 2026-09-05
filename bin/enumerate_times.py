@@ -11,7 +11,7 @@ the choice a COVERAGE decision instead of an accident (`bin/select_times.py`).
 
 The tower's averaging periods are half-hourly and a footprint is stamped period-ending, so
 a day holds 48 of them. But the forcing for a case comes from **the HRRR analysis whose
-valid time equals the footprint timestamp** (PROJECT_BRIEF.md), and HRRR analyses run hourly. A
+valid time equals the footprint timestamp** (docs/les/case-generation.md), and HRRR analyses run hourly. A
 :30 timestamp has no analysis behind it. HRRR's `subh` product carries 15-minute FORECAST
 output, but the pseudo-sounding needs the `nat` hybrid-level profile, which is hourly-only
 -- so the case timestamps are hourly whatever the surface cadence is. This is a property of

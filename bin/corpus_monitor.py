@@ -11,7 +11,7 @@ full raster cell (64 -> 48 m) and drove the floor factor to 9e4.
 
 That asymmetry is not an accident. The share is an integral over ~1.03% of the box with a
 sampling SE of 3-4 points, so it averages a near-field error away; the peak is a location,
-converged to under one cell in a single 2.5-minute sub-window (PROJECT_BRIEF.md's ensemble table),
+converged to under one cell in a single 2.5-minute sub-window (docs/reference/standing-rules.md's ensemble table),
 so it registers one. **Gate the sharp quantities. Report the blunt one.**
 
 === THE GATES, AND WHERE EACH NUMBER COMES FROM ===
@@ -32,7 +32,7 @@ historical defects actually produced.
 G2a is the sharp one and G2b is coarse, deliberately. The wrap cap makes the integral
 converge FROM BELOW, so saturation by 1.0 L is a statement about whether the cap is
 binding -- and "an integral that crosses 1 and keeps climbing cannot be truncation, so it
-is always a model inconsistency" (PROJECT_BRIEF.md). The magnitude, by contrast, is legitimately
+is always a model inconsistency" (docs/les/lpdm-and-footprint.md). The magnitude, by contrast, is legitimately
 not 1: over a slope the residual is w_bar times the concentration integral, which is the
 advection non-closure that makes EC hard in complex terrain. So the band is wide and the
 value is quoted against Kljun on the identical cells rather than against 1.
@@ -83,7 +83,7 @@ def score(d, cell_m=16.0):
     else:
         # NOT A PASS. A case with no health block was produced before the invariant
         # existed, or by a path that skipped the floor; either way it is unjudged, and
-        # PROJECT_BRIEF.md's rule is that a regime with no evidence is no evidence, not good news.
+        # docs/reference/standing-rules.md's rule is that a regime with no evidence is no evidence, not good news.
         rows.append(("G1 floor health", None,
                      "no health block in this JSON -- the case predates the invariant or "
                      "ran without --sgs-most; UNJUDGED, not passed"))
@@ -129,7 +129,7 @@ def score(d, cell_m=16.0):
     # G2c is REPORTED, NOT GATED, and deliberately so. An integral above the asymptote is
     # not automatically wrong -- over sloping ground the residual is w_bar times the
     # concentration integral and the footprint genuinely need not integrate to the
-    # asymptote (PROJECT_BRIEF.md) -- but it is the shape a broken closure makes, so the number
+    # asymptote (docs/les/lpdm-and-footprint.md) -- but it is the shape a broken closure makes, so the number
     # belongs in every record.
     if I is not None and A:
         rows.append(("G2c integral vs asymptote", None,
@@ -186,7 +186,7 @@ def main():
         # THE CELL SIZE IS IN THE RECORD. stage5_footprint.py writes `res`, the raster
         # resolution it actually used; taking the CLI default instead scored a 24 m grid
         # against a 16 m cell -- conservative here, but the same defect as
-        # docs/FASTEDDY_TRAPS.md 19 and it would be the wrong sign on a coarser grid.
+        # docs/reference/fasteddy-traps.md 19 and it would be the wrong sign on a coarser grid.
         rows, rep = score(d, float(d.get("res") or a.cell_m))
         bad = [r for r in rows if r[1] is False]
         unj = [r for r in rows if r[1] is None]

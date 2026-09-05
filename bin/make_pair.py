@@ -15,7 +15,7 @@ window by lpdm/les_stats.py:window_stats, so:
     case LANDS in input space without making the pair wrong -- input and target are
     measured on the same fields, so they are consistent by construction;
   * the Ekman turning, the inertial oscillation and the entrainment growth are all
-    absorbed as LABELS rather than errors, which is what PROJECT_BRIEF.md already requires for
+    absorbed as LABELS rather than errors, which is what docs/les/lpdm-and-footprint.md already requires for
     direction ("Achieved direction is not forcing direction");
   * and the emulator is being taught the map the LES actually realises, which is the only
     map the LPDM footprint corresponds to.
@@ -27,7 +27,7 @@ gap is measurable across the corpus instead of assumed small.
 
 `run_id` is written into every record and is the ONLY legitimate grouping key for a
 train/test split. The effective sample size for generalisation is the number of LES runs,
-not the number of footprint cells or sub-windows drawn from one run (PROJECT_BRIEF.md, ML model).
+not the number of footprint cells or sub-windows drawn from one run (docs/les/lpdm-and-footprint.md, ML model).
 
 === WHAT IS NOT AN INPUT ===
 
@@ -53,7 +53,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lpdm import kljun_ffp
 
-# Kljun's scalar inputs, and nothing else. PROJECT_BRIEF.md: "Inputs are Kljun's scalars only."
+# Kljun's scalar inputs, and nothing else. docs/corpus/dataset.md: "Inputs are Kljun's scalars only."
 KLJUN_INPUTS = ("u_mean", "ustar", "sigma_v", "h", "L", "wdir")
 
 # ---- THE .npz TRAINING RECORD ---------------------------------------------------------
@@ -220,7 +220,7 @@ def write_training_npz(a, rec, st, fp, npz_path, target, kljun_raster, xc, yc, z
     # L IS UNBOUNDED AND IS +/-inf AT EXACTLY NEUTRAL, which is a legitimate state and not
     # corruption -- but it cannot go into a network. The vector is written with L because
     # that is the named format; 1/L is written beside it in the meta, is finite everywhere,
-    # and is the form the similarity functions actually use. docs/ML_TARGETS.md says the loader
+    # and is the form the similarity functions actually use. docs/emulator/targets-and-architecture.md says the loader
     # substitutes it. Loud here so it can never be a surprise there.
     inv_L = (1.0 / L) if np.isfinite(L) else 0.0
     if not np.isfinite(scalars).all():
@@ -490,7 +490,7 @@ def main():
                  # READ OFF THE GRID THIS CASE RAN ON, never a literal. It was 0.1435 --
                  # the 122^2 @ 16 m value -- and it is 0.0615 at 30 m, because the box
                  # takes in more lake. A constant that is really a grid property is
-                 # docs/FASTEDDY_TRAPS.md 19, and it has bitten five times in one day.
+                 # docs/reference/fasteddy-traps.md 19, and it has bitten five times in one day.
                  "z0_geometric_m": z0_geom,
                  "note": "constant across the corpus: a single-tower emulator"},
         "closure": {"sgs_most": fp.get("sgs_most"), "mode": fp.get("sgs_most_mode"),
@@ -500,7 +500,7 @@ def main():
                     "tback_s": fp.get("tback"), "rel_seconds": fp.get("rel_seconds"),
                     "note": "the near field is closure-dominated at z/Delta ~ 1; the "
                             "sigma_w anchor is worth 46-66% shape L1 against a 38% "
-                            "sampling floor (PROJECT_BRIEF.md)"},
+                            "sampling floor (docs/les/lpdm-and-footprint.md)"},
         "diagnostics": {"integral_les": fp.get("integral_les"),
                         "integral_kljun": fp.get("integral_kljun"),
                         # THE ASYMPTOTE IS 1 - z_m/z_i, NOT 1 (Steinfeld et al. 2008,
@@ -514,7 +514,7 @@ def main():
                         # THE SHARE TRAVELS WITH ITS OWN SAMPLING SPREAD. A share quoted
                         # without an SE cannot be compared to anything: the h defect moved
                         # the array share 0.8 points against a 3.66-point SE and looked
-                        # like a result. PROJECT_BRIEF.md: score a second moment against its own
+                        # like a result. docs/reference/standing-rules.md: score a second moment against its own
                         # sampling spread, never against a number you picked.
                         "cover_share_se": fp.get("cover_share_se", {}),
                         "cover_share_groups": fp.get("cover_share_groups_n"),

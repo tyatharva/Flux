@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Footprint geometry on the REAL map, at the real receptor height. Phase A gate.
 
-PROJECT_BRIEF.md's array-share and water-share tables are Kljun evaluated against idealised
+docs/corpus/dataset.md's array-share and water-share tables are Kljun evaluated against idealised
 upwind distances -- straight lines from the tower at 60 / 100 / 250 m. That was the right
 way to size a domain before the surface existed. It is not a measurement, and two of the
 decisions resting on it (the domain length, and whether the lake is still in the science)
@@ -136,7 +136,7 @@ def main():
         p("")
 
     p("=== the directional discriminator is weaker than the idealised table said ===")
-    p("PROJECT_BRIEF.md's array shares are CROSSWIND-INTEGRATED fractions inside the array's")
+    p("docs/corpus/dataset.md's array shares are CROSSWIND-INTEGRATED fractions inside the array's")
     p("upwind reach along a line from the tower. The tower is INSIDE a 2-D rectangle, so")
     p("flux arriving from crosswind angles still lands on the array and the real 2-D share")
     p("is larger -- and the N-vs-E/W RATIO, which is what Gate F leans on, is smaller.")
@@ -146,7 +146,7 @@ def main():
         n_, e_ = keep.get((zA, sname, "N")), keep.get((zA, sname, "E"))
         if n_ and e_:
             p(f"  {sname:<15}{n_:7.1f}%{e_:7.1f}%{n_/e_:8.2f}x")
-    p("  PROJECT_BRIEF.md quotes ~3.7x for neutral from the idealised table; the real map gives")
+    p("  docs/corpus/dataset.md quotes ~3.7x for neutral from the idealised table; the real map gives")
     p("  the number above. Gate F should lean on ABSOLUTE share by direction, not the ratio.")
     p("")
     p("=== how much displacement height is worth ===")

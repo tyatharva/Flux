@@ -70,7 +70,7 @@
 [   135.2s]     WINNER 1x8x16 at 0.00580 s/step compute (median of 3)
 [   135.2s]     spread over the measured set: 2.72x  (1x128x1 is slowest)   |  repeat noise 0.00%
 [   135.2s]     the Ada winner 1x2x64 is 1.017x the winner here
-[   135.2s]     best tBx>1 shape here: 2x2x32 at 1.017x the winner (PROJECT_BRIEF.md records tBx>1 costing ~17% at 186^2 on Ada)
+[   135.2s]     best tBx>1 shape here: 2x2x32 at 1.017x the winner (docs/les/configuration.md records tBx>1 costing ~17% at 186^2 on Ada)
 [   135.2s]     -> /out/threadblock_sweep.json
 [   135.2s]   block shape for every seed: 1x8x16 (measured on this machine)
 [   135.2s] 
@@ -214,7 +214,7 @@
 [  3506.3s]     peak container RSS (cgroup)      :  58.86 GB
 [  3506.3s]     peak summed FastEddy RSS         :   8.98 GB over 32 concurrent process(es)  = 0.28 GB each
 [  3506.3s]     machine RAM                      : 755.39 GB, low-water MemAvailable 718.12 GB
-[  3506.3s]     NOTE: a SEED runs no LPDM, so this is NOT the corpus-case figure. PROJECT_BRIEF.md's
+[  3506.3s]     NOTE: a SEED runs no LPDM, so this is NOT the corpus-case figure. docs/les/deployment.md's
 [  3506.3s]     12.45 GB peak host RSS is a CASE -- the LPDM's 12.0 GB fp16 field cache, which
 [  3506.3s]     a seed never allocates. Size a seed box on the number above; size a CORPUS box
 [  3506.3s]     on ~12.5 GB per concurrent case.

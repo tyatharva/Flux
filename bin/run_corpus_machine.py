@@ -121,7 +121,7 @@ def discover_gpus():
 class HostWatch(threading.Thread):
     """Peak host memory for the WHOLE MACHINE. This is the number the rental turns on.
 
-    PROJECT_BRIEF.md records 12.45 GB peak host RSS for ONE corpus case -- the LPDM's 12.0 GB fp16
+    docs/les/deployment.md records 12.45 GB peak host RSS for ONE corpus case -- the LPDM's 12.0 GB fp16
     field cache, which is not buildup but the window itself, random-accessed by a CPU
     integrator. That has never been measured N-way. Eight concurrent cases could approach
     100 GB, and a box that starts swapping does not fail, it just runs several times slower
