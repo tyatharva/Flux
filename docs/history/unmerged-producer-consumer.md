@@ -93,12 +93,13 @@ correctly refused by `check_npz` because `STUB_LES` stamps them stub.
 
 | tag | digest | built from |
 |---|---|---|
-| `ghcr.io/tyatharva/flux-seeds:abc0399a91fd-fe0ce48d5dff06` | (local only) | the producer/consumer commit |
-| `ghcr.io/tyatharva/flux-seeds:0a0b90106a9e-fe0ce48d5dff06` | `sha256:748457b81203076787e595511777cc294641f636e052ecb502d4a333a67ff873` | the HRRR-Zarr commit |
+| `flux-seeds:abc0399a91fd-fe0ce48d5dff06` | (was local only) | the producer/consumer commit |
+| `flux-seeds:0a0b90106a9e-fe0ce48d5dff06`, once also tagged `:corpus` | `sha256:748457b81203076787e595511777cc294641f636e052ecb502d4a333a67ff873` | the HRRR-Zarr commit |
 
-**The moving tag `:corpus` on GHCR points at the `0a0b901` image**, not at the image that
-made the corpus (`7de9dee2a01d`, `sha256:3f58d049d895…`). Retag or delete it; never use it to
-attribute a result.
+Both images were deleted on 2026-09-05, from GHCR and from the build host. The `:corpus` tag
+had pointed at the `0a0b901` image and not at the image that made the corpus
+(`7de9dee2a01d`, `sha256:3f58d049d895…`); a result attributed to `:corpus` before that date
+was made by this branch's code, not by `main`.
 
 ## Why it was not merged
 
