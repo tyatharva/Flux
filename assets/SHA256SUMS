@@ -56,3 +56,5 @@ d73f76fc301314468407e40295dbc67c0083205ee4c46c7e34662c545bf4a91d  predictions/va
 dc06a644b069faabcb8e642ecd416e7d12c33b25e64a16707611ee56dbf176a2  predictions/val/fno_seed2_pred_val.npz  results/ml/final/seed2/pred_val.npz
 a9abe2313d8cd73e1a25b61c61ffe6f78179cfa1ec200b5afd71cf1acd465e0a  predictions/val/fno_seed3_pred_val.npz  results/ml/final/seed3/pred_val.npz
 5ac71948a62c408bb357d23ef418970909eb3472a0c40a381622d67a67b74757  predictions/val/fno_seed4_pred_val.npz  results/ml/final/seed4/pred_val.npz
+b4600bb81e98b2fb964a1c24e12694eb6cc7602264b1c87939f1633c958041bf  corpus/pairs_npz.tar  corpus/pairs_npz/
+7596735e9347902d868ba40a401f92a60107a0ca50613611e75e700319fe72bf  corpus/logs.tar  corpus/logs/

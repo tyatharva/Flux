@@ -21,7 +21,7 @@ bin/fetch_assets.sh all
 |---|---|---|---|
 | `corpus/corpus_cone.h5` | `corpus/corpus_cone.h5` | 32.2 MB | **the training set**: 1366 records, `target` cropped to the wind-aligned cone |
 | `corpus/corpus_raw.h5` | `corpus/corpus_raw.h5` | 44.2 MB | the same records with the wraparound still in `target` |
-| `corpus/pairs_npz.tar` | `corpus/pairs_npz/` | 54 MB | the 1366 self-contained source `.npz`, one per case, plus the machines' `manifest.*.json` |
+| `corpus/pairs_npz.tar` | `corpus/pairs_npz/` | 54 MB | the 1366 self-contained source `.npz`, one per case |
 | `corpus/logs.tar` | `corpus/logs/` | 0.2 MB | the 8 orchestrator run logs |
 | `seeds/<seed>/seed_restart.nc` × 30 | `seeds/<seed>/return/seed_restart.nc` | 30 × 73.3 MB = 2.1 GB | the seed library: the final dump of each spin-up, all 22 variables |
 | `weights/fno/seed{0..4}/best.pt` | `results/ml/final/seed*/best.pt` | 5 × 108.3 MB | the FNO's five seeds |
