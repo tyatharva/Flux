@@ -7,8 +7,8 @@ this site would produce. The training targets are 1366 FastEddy large-eddy simul
 backward Lagrangian particle model, one per day over five years, forced by real HRRR analyses.
 
 **Note:** Documenation was written by Claude Fable 5.1 based on my own notes of the project,
-and for now remains unreviewed by me as of this commit.
-Beware of any overly wordy, dense, or confusing passages; I am happy to answer any questions!
+and for now remains unreviewed by me as of this commit. Beware of any overly wordy, dense,
+or confusing passages; I am happy to answer any questions!
 
 ## The result
 
