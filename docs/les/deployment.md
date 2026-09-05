@@ -24,12 +24,15 @@ made it after the box is gone.
 |---|---|
 | the seed library run | `ghcr.io/tyatharva/flux-seeds:bb961bcfc77d-fe0ce48d5dff06`, digest `sha256:329a4a2c21f8d16b83e13427f3444d7543c53cf551999a16a7a248589ba37afa` (13.1 GB on disk, 4.05 GB compressed, 22 layers) |
 | **the corpus run** | `ghcr.io/tyatharva/flux-seeds:7de9dee2a01d-fe0ce48d5dff06`, digest `sha256:3f58d049d895178e9a9035e9317d6a11582f9002dc801be3e2dd7a20430e8404` (16.3 GB on disk, 5.33 GB compressed; 2.2 GB of it is the code and the baked seed library) |
+| **the release image** | `ghcr.io/tyatharva/flux-seeds:a9f5e5fb9575-fev5.0.1-pf8af82f6bb5b`, also `:latest`, digest `sha256:181e4db9f24f0c8e3b392f4e37c35ccd43f347e9bc17686b924191bb57496113` (16.4 GB on disk). Built 2026-09-05 from commit `a9f5e5f` of this repository, FastEddy fetched and patched by `fasteddy/fetch.sh` inside the build; the seed library baked in is the one on Hugging Face. Same code as the corpus run, so use this one for new work |
 
-!!! warning "Do not use the moving tags"
-    `:latest` and `:corpus` on GHCR point at other builds (`:corpus` at an image built from
-    an unmerged branch, see [unmerged work](../history/unmerged-producer-consumer.md)). Use
-    the commit-pinned tag or the digest. The commit in the tag belongs to the pre-rewrite
-    history, kept in the author's offline pre-cleanup archive of 2026-09-04.
+!!! note "Tags"
+    `:latest` is the release image above, built from this repository after the 2026-09-04
+    cleanup. The corpus and seed-library images are pinned by digest in the table; their
+    commit ids belong to the pre-rewrite history, kept in the author's offline pre-cleanup
+    archive of 2026-09-04. The `:corpus` tag that once pointed at a build of an unmerged
+    branch ([unmerged work](../history/unmerged-producer-consumer.md)) is retired. For a
+    rental, pull by digest.
 
 The GHCR package must be **public** for Vast to pull it anonymously (an anonymous manifest
 fetch returns 403 while it is private). GitHub exposes package visibility only through the

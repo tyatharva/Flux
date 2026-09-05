@@ -19,6 +19,7 @@
 # runs corpus cases, which do read it.
 .git
 .gitignore
+.codegraph
 **/__pycache__
 **/*.pyc
 
