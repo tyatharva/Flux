@@ -130,7 +130,7 @@ inflation, and that the retired closure had inflated the convective array share 
 points, not the "2–4%" estimated here. The sub-grid fraction at the receptor was 96.5% neutral
 and 90.7–91.4% convective; reaching 40% would have needed `dx ≈ 3 m`.
 
-Removed from the tree on 2026-09-04 (at the `pre-cleanup-2026-09-04` tag): `runs/g16_*`,
+Removed from the tree on 2026-09-04 (in the offline pre-cleanup archive of 2026-09-04): `runs/g16_*`,
 `results/g16_*`, `bin/run_pass5.sh`, `bin/run_campaign.sh`, `bin/regression_flat.sh`,
 `bin/phase2*.sh`, `bin/phase3.sh`, `bin/phaseB_b5b6.sh`, `bin/b6_convective.sh`,
 `bin/spin_cbl.sh`, `bin/run_directions.sh`, `bin/pick_tback.py`, `bin/upwind_transect.py`,

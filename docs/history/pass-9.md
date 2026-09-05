@@ -153,7 +153,7 @@ Consecutive windows cannot share a boundary dump through the ring (traps §21b);
 shell is not stopping the LES (§21c); and `bin/seed_accept.sh` is an LES, not a CPU analysis,
 so backgrounding it raced the case into the one-FastEddy-at-a-time refusal.
 
-Removed from the tree on 2026-09-04 (at the `pre-cleanup-2026-09-04` tag): `bin/run_pass9.sh`,
+Removed from the tree on 2026-09-04 (in the offline pre-cleanup archive of 2026-09-04): `bin/run_pass9.sh`,
 `bin/pass9_accept.sh`, `bin/pass9_flat.sh`, `bin/handoff_accept.py`. Kept: `results/pass9/`,
 `results/pass10/`, `results/streaming*.txt`, `results/lpdmonline_acceptance.txt`,
 `results/kljun_adapter.json`, `results/kljun_parity.json`, `validation_pairs_30m/` (the two

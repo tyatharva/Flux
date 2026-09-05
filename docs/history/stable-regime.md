@@ -111,5 +111,5 @@ hour before the collapse. A regime a gate has never run in is unknown, not fine.
 
 Artifacts kept: `results/ozmidov_regimes.txt`, `results/stable_fraction.txt`, `results/time_selection.txt`,
 `bin/ozmidov.py`, `bin/stable_fraction.py`, `docker/turb_alive.py`. Removed on 2026-09-04 (at the
-`pre-cleanup-2026-09-04` tag): `results/retired_sbl_gabls1/`, `results/retired_sbl_weak/`,
+offline pre-cleanup archive of 2026-09-04): `results/retired_sbl_gabls1/`, `results/retired_sbl_weak/`,
 `results/sbl_seed_report.txt`, `results/sblweak_seed_report.txt`, `bin/sbl_diagnose.py`.

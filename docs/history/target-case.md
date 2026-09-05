@@ -105,5 +105,5 @@ profile whose wave layer out-energised the boundary layer (traps §22).
 
 The record itself (`case_2023031014`) was a 16 m, 10 m-receptor pair and was retired with that
 configuration; `validation_pairs_retired/` was removed from the tree on 2026-09-04 and remains
-at the `pre-cleanup-2026-09-04` tag. `bin/test_floor_health.py` still reads its footprint JSON
+in the offline pre-cleanup archive of 2026-09-04. `bin/test_floor_health.py` still reads its footprint JSON
 from the gitignored `results/corpus/` as the live instance of the defect it detects.

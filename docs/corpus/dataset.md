@@ -148,7 +148,7 @@ preference at all.
 |---|---|
 | image | `ghcr.io/tyatharva/flux-seeds:7de9dee2a01d-fe0ce48d5dff06` |
 | image digest | `sha256:3f58d049d895178e9a9035e9317d6a11582f9002dc801be3e2dd7a20430e8404` |
-| code | the tag names a commit of the pre-cleanup history (`7de9dee`); the same tree is commit `7cdd65e` of the pre-rewrite `main`, and the whole pre-cleanup tree is tagged `pre-cleanup-2026-09-04` |
+| code | the tag names a commit of the pre-cleanup history (`7de9dee`); the same tree is commit `7cdd65e` of the pre-rewrite `main`, kept in the author's offline pre-cleanup archive of 2026-09-04 |
 | FastEddy | `flux.fasteddy.revision = 0ce48d5dff06`, which is upstream v5.0.1 plus `fasteddy/patches/` |
 
 The 30-seed library is baked into that image. The hour draw is seeded from the date, so

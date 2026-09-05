@@ -29,7 +29,7 @@ made it after the box is gone.
     `:latest` and `:corpus` on GHCR point at other builds (`:corpus` at an image built from
     an unmerged branch, see [unmerged work](../history/unmerged-producer-consumer.md)). Use
     the commit-pinned tag or the digest. The commit in the tag belongs to the pre-rewrite
-    history; the same tree is tagged `pre-cleanup-2026-09-04` in this repository.
+    history, kept in the author's offline pre-cleanup archive of 2026-09-04.
 
 The GHCR package must be **public** for Vast to pull it anonymously (an anonymous manifest
 fetch returns 403 while it is private). GitHub exposes package visibility only through the

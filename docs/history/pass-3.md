@@ -126,5 +126,5 @@ not enough over terrain (half-vs-half overlap 27–43% against 53.6% flat). Ekma
 be compensated or the achieved direction used as the label; the runs report what they
 achieved.
 
-Removed from the tree on 2026-09-04 (at the `pre-cleanup-2026-09-04` tag): `runs/g24_*`,
+Removed from the tree on 2026-09-04 (in the offline pre-cleanup archive of 2026-09-04): `runs/g24_*`,
 `results/g24_*`, `bin/g24_bringup.sh`, `bin/fp16_test.py`'s outputs.

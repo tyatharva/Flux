@@ -83,5 +83,5 @@ over the last quarter domain, marginally at the 2% bar, with an integral 1.050×
 explained by mean subsidence at the receptor rather than by truncation.
 
 `bin/containment_gate.py` and `results/containment_24m.txt` were removed from the tree on
-2026-09-04 (at the `pre-cleanup-2026-09-04` tag); the gate's logic lives in
+2026-09-04 (in the offline pre-cleanup archive of 2026-09-04); the gate's logic lives in
 `bin/stage5_footprint.py --max-disp` and the by-displacement ladder it reports.

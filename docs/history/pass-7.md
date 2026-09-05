@@ -118,6 +118,6 @@ the seed mismatch was large and the adjustment widened A's direction gap from 23
 New traps: §19 (a grid constant that is really a grid property, five instances), §19b–d
 ([FastEddy traps](../reference/fasteddy-traps.md)).
 
-Removed from the tree on 2026-09-04 (at the `pre-cleanup-2026-09-04` tag): `runs/g24_*`
+Removed from the tree on 2026-09-04 (in the offline pre-cleanup archive of 2026-09-04): `runs/g24_*`
 except the base templates and the two directories tests name, `results/g24_*`,
 `bin/run_pass7.sh`, `bin/seed_budget.py`'s outputs, `jobs24/`.

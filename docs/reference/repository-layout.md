@@ -45,8 +45,8 @@ flux-kegonsa/
 ## What was removed on 2026-09-04, and where its information went
 
 The repository was cut from 2059 tracked files to about 830 for public release. Everything
-removed is one checkout away at the tag `pre-cleanup-2026-09-04`, and the information each item
-carried is in these pages.
+removed is kept in the author's offline pre-cleanup archive of 2026-09-04 (the full working tree with
+its history, 9.1 GB), and the information each item carried is in these pages.
 
 | removed | count | information now in |
 |---|---|---|

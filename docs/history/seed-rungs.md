@@ -87,5 +87,5 @@ Stationarity: all seven INDETERMINATE, none drifting; the immune limits in band 
 The 16 m seeds (`jobs/`), the 24 m seeds (`jobs24/`) and `results/seed_nbl-shallow_a000.txt`,
 `results/nbl_a000_zi_diagnosis.txt`, `results/seed_indeterminate.txt`, `bin/zi_diagnose.py`,
 `bin/seed_indeterminate.py`, `bin/seed_compare.py`, `bin/seed_tke_rescore.py` were removed
-from the tree on 2026-09-04 and remain at the `pre-cleanup-2026-09-04` tag. The production
+from the tree on 2026-09-04 and remain in the offline pre-cleanup archive of 2026-09-04. The production
 library's records are under `seeds/` and `results/seed_library/`.

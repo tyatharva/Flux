@@ -138,7 +138,7 @@ The receptor was inside the roughness sublayer over the array; the first model l
 1.997 m above the raised surface; `z/Δ = 0.99`; tree cells have `ln(z_first/z0) = 0.69`. These
 are what the [seventh pass](pass-7.md) retired the 10 m receptor over.
 
-Removed from the tree on 2026-09-04 (at the `pre-cleanup-2026-09-04` tag): `bin/run_pass6*.sh`,
+Removed from the tree on 2026-09-04 (in the offline pre-cleanup archive of 2026-09-04): `bin/run_pass6*.sh`,
 `bin/floor_bias.py`, `bin/compaction_check.py`, `bin/window_stationarity.py`,
 `bin/pass6_tables.py`, `results/g16p6*`, `results/g16r_*`, `results/pass6_*`. Kept:
 `lpdm/sgs_floor.py`, `bin/test_sgs_floor.py`, `bin/test_parallel_lpdm.py`, `bin/stage4_wellmixed.py`,

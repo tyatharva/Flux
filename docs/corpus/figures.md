@@ -94,4 +94,4 @@ every absolute number; their inputs under `runs/*/window/` had already gone in t
 cleanup, so they could not be regenerated. The passes they illustrated are written up in
 [Development history](../history/overview.md). The scripts that drew them (`make_figures.py`,
 `fig_static.py`, `fig_gate6.py`, `fig_closure.py`) were removed with the retired record on
-2026-09-04 and remain at the `pre-cleanup-2026-09-04` tag.
+2026-09-04 and remain in the offline pre-cleanup archive of 2026-09-04.

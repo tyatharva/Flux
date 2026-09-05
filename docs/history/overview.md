@@ -53,4 +53,4 @@ The current configuration is in [configuration](../les/configuration.md), the cu
 limitations in [limitations](../limitations-and-future-work.md), and the lessons in the
 [standing rules](../reference/standing-rules.md) and [FastEddy traps](../reference/fasteddy-traps.md).
 The retired scripts, runs and results named at the foot of each history page were removed from
-the tree on 2026-09-04 and are one checkout away at the `pre-cleanup-2026-09-04` tag.
+the tree on 2026-09-04 and are kept in the author's offline pre-cleanup archive of 2026-09-04.

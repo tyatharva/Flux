@@ -18,6 +18,8 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; cd "$ROOT"
 NAME="${IMAGE_NAME:-flux-seeds}"
+PUSH_TO=""
+if [ "${1:-}" = "--push" ]; then PUSH_TO="${2:?--push needs a registry prefix, e.g. ghcr.io/tyatharva}"; shift 2; fi
 
 dirty(){ [ -n "$(git -C "$1" status --porcelain 2>/dev/null)" ] && echo "-dirty" || echo ""; }
 SHA="$(git -C "$ROOT" rev-parse --short=12 HEAD)$(dirty "$ROOT")"
@@ -64,6 +66,14 @@ echo "=== built ${TAG} ==="
 docker run --rm --entrypoint cat "${TAG}" /flux/IMAGE_PROVENANCE.txt | sed 's/^/  /'
 echo
 docker images --format '  {{.Repository}}:{{.Tag}}  {{.Size}}' | grep "^  ${NAME}:" || true
+if [ -n "$PUSH_TO" ]; then
+  echo; echo "=== pushing to ${PUSH_TO} ==="
+  for t in "${SHA}-fe${FESHA}" latest; do
+    docker tag "${NAME}:${t}" "${PUSH_TO}/${NAME}:${t}"
+    docker push "${PUSH_TO}/${NAME}:${t}"
+  done
+  docker inspect --format='  digest {{index .RepoDigests 0}}' "${PUSH_TO}/${NAME}:latest" || true
+fi
 cat <<EOF
 
 RUN IT

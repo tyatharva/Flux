@@ -109,6 +109,6 @@ Gate D1 through the ring in both directions and both regimes; a footprint from a
 than a replayed window; the containment acceptance; the deciding test re-run at this grid; rung
 re-spacing; `zCeiling`. All but the last two were closed by the [ninth pass](pass-9.md).
 
-Removed from the tree on 2026-09-04 (at the `pre-cleanup-2026-09-04` tag): `bin/run_pass8.sh`,
+Removed from the tree on 2026-09-04 (in the offline pre-cleanup archive of 2026-09-04): `bin/run_pass8.sh`,
 `bin/subgrid_apriori.py`, `results/pass8_deciding_test.txt`, `results/subgrid_apriori_30m.txt`
 (kept: `results/g30_bringup.txt`, the `runs/s30_cfl*` ladder, `results/g30_flat*`).

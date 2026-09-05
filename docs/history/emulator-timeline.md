@@ -80,5 +80,5 @@ exploration round.
 
 The full per-run records behind this page (`results/ml/phase1/*/run.json`, `results/ml/phase2/trials/`,
 `results/ml/haze/*/run.json`, `results/ml_cfm/TIMELINE.md`) were condensed here on 2026-09-04
-and remain at the `pre-cleanup-2026-09-04` tag; the summaries (`results/ml/phase1/summary.*`,
+and remain in the offline pre-cleanup archive of 2026-09-04; the summaries (`results/ml/phase1/summary.*`,
 `results/ml/phase2/trials.tsv`, `results/ml/haze/summary.*`, `results/ml_cfm/*/summary.*`) are kept.

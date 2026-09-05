@@ -180,7 +180,7 @@ the receptor to 30 m on a 24 m grid; the eighth settled on 122³ at 30 m with th
 30 m, three levels up. Every one of those is a chapter of this history.
 
 Scripts and runs of these stages were removed from the tree on 2026-09-04 and remain at the
-`pre-cleanup-2026-09-04` tag: `runs/stage0a_smoke_*`, `runs/stage1_*`, `runs/stage2_*`,
+offline pre-cleanup archive of 2026-09-04: `runs/stage0a_smoke_*`, `runs/stage1_*`, `runs/stage2_*`,
 `runs/s30_*` (except the 30 m CFL ladder, which is kept), `bin/run_pipeline.sh`,
 `bin/stage6_compare.py`, `bin/stage6_predict.py`, `bin/ensemble_convergence.py`,
 `results/stage4.txt`, `results/stage5*.{txt,npz}`, `results/stage6*`, `results/fv_*`.
